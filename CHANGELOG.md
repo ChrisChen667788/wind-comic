@@ -18,8 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `cwTier`: `matched-locked` (uses the per-character `cw`)
   - `services/hybrid-orchestrator.ts`: new `setLockedCharacters()`, threaded into `renderSingleShot`'s `progressiveRefs` chain
   - `tests/locked-characters-routing.test.ts` — 13 unit tests covering name normalization, single/multi match, false-positive guard (single-char locked names rejected), priority over `primaryCharacterRefLocked`, per-character cw, `extraCrefs` ordering, cw clamping
-- Phase 3 (per-character Cameo retry scoring — score each matched locked face independently and trigger regen on the lowest score) tracked in [ROADMAP](ROADMAP.md).
+- **Multi-character face lock — Phase 3** — `services/cameo-retry.ts` now scores each matched locked character independently (parallel `Promise.all`) and gates retry on the **min** score (the weakest character). Backward-compat: when `additionalReferences` is empty/undefined the single-character path is byte-identical to v2.12.0 (existing 17 cameo-retry tests unchanged).
+  - `CameoRetryInput` gains `additionalReferences?: Array<{url, name?}>` — each gets its own vision call
+  - `CameoRetryOutcome` gains `perCharacterScores?: Array<{name?, score, reasoning}>` — exposes per-character breakdown for future dashboard work; only present in multi-char shots
+  - `finalScore` and `firstScore` now report the **min** across all characters in multi-char shots — so "主角 90 / 配角 60" still triggers retry instead of averaging to 75 and silently passing
+  - Rollback logic also uses min-comparison: regen rolls back if any character's score drops below the original min
+  - Partial vision-null tolerance: if some characters' vision calls fail, the gate uses the min of valid scores (only when ALL fail does it skip retry)
+  - Orchestrator wires `refsPick.extraCrefs` into `additionalReferences` with names looked up from `lockedCharacters`
+  - `tests/cameo-retry-multi.test.ts` — 8 new tests: backward-compat (empty additionalReferences omits perCharacterScores), all-pass / partial-fail / regen-rollback / partial-vision-null / all-vision-null / threshold-boundary
 - **Hailuo-2.3-Fast video fallback** (`MinimaxService.generateVideoFast()`) — wired into the orchestrator's Pass-B T2V chain. New chain order: `Veo-T2V → Hailuo-2.3 → Hailuo-Fast → Kling-T2V → Ken Burns animatic`. Hailuo Fast has its own daily quota independent of standard Hailuo-2.3; placed **before Kling** so the same-account fallback (more predictable cost / response / failure mode) is tried first, with Kling kept as the final real-video attempt before falling through to a still-frame composite. Model name overridable via `MINIMAX_FAST_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3-Fast`).
+- **Hailuo-2.3-Fast video fallback** (`MinimaxService.generateVideoFast()`) — wired into the orchestrator's Pass-B T2V chain. New chain order: `Veo-T2V → Hailuo-2.3 → Hailuo-Fast → Kling-T2V → Ken Burns animatic`. Hailuo Fast has its own daily quota independent of standard Hailuo-2.3; placed **before Kling** so the same-account fallback (more predictable cost / response / failure mode) is tried first, with Kling kept as the final real-video attempt before falling through to a still-frame composite. Model name overridable via `MINIMAX_FAST_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3-Fast`).
+
+### Tests
+- `364/364` vitest passing · `tsc --noEmit` 0 errors
 
 ---
 

@@ -59,6 +59,14 @@ export interface CameoRetryInput {
   shotNumber?: number;
   /** 可选: 自定义阈值 (测试用), 默认 CAMEO_RETRY_THRESHOLD */
   threshold?: number;
+  /**
+   * v2.12 Phase 3: 同一镜头里出现的其他锁定角色 (除 referenceImageUrl 这个 primary 外)。
+   * 每个会独立跑一次 vision scoring,综合分数取 **min**(防"主角好,配角崩")。
+   * 留空 → 退化为 Phase 1/2 的单角色评分,行为完全不变(backward compat)。
+   *
+   * 来源:`pickConsistencyRefs(...).extraCrefs` 拼上对应 lockedCharacter.name。
+   */
+  additionalReferences?: Array<{ url: string; name?: string }>;
 }
 
 export interface CameoRetryOutcome {
@@ -68,19 +76,29 @@ export interface CameoRetryOutcome {
   attempts: number;
   /** 最终采用的图 URL */
   finalImageUrl: string;
-  /** 最终对应的 vision 分数 (0-100). 如果两次 vision 都失败则 null */
+  /**
+   * 最终对应的 vision 分数 (0-100). 如果两次 vision 都失败则 null。
+   *
+   * Phase 3:多角色场景下这里返回 **min** 分数 (反映最弱一环);
+   * `perCharacterScores` 拿到细分。
+   */
   finalScore: number | null;
-  /** 第一次评估的分数 (用于日志/分析) */
+  /** 第一次评估的分数 (用于日志/分析). Phase 3 多角色 → min */
   firstScore: number | null;
   /** 重生时实际用的 cw (== originalCw 表示没动 / 已封顶) */
   finalCw: number;
-  /** Vision LLM 给的解释, 给 UI tooltip 用 */
+  /** Vision LLM 给的解释, 给 UI tooltip 用 (取 min 分对应那条) */
   reasoning: string;
   /**
    * 跳过原因 (没有 ref / vision 失败 / 已经达标), 仅日志用。
    * 'ok' 表示进了流程, 'no-ref' 表示连判都没判。
    */
   skipReason: 'ok' | 'no-ref' | 'vision-null' | 'above-threshold';
+  /**
+   * v2.12 Phase 3: 多角色镜头每个角色的独立分数 (按 [primary, ...additional] 顺序)。
+   * 单角色镜头 (additionalReferences 为空) 时省略此字段以保持 outcome 体积。
+   */
+  perCharacterScores?: Array<{ name?: string; score: number | null; reasoning: string }>;
 }
 
 /**
@@ -100,28 +118,55 @@ export async function evaluateAndRetry(input: CameoRetryInput): Promise<CameoRet
     return baseOutcome(input, 'no-ref', null);
   }
 
-  // 第一次评分
-  const first = await scoreShotConsistency(
-    input.shotImageUrl,
-    input.referenceImageUrl,
-    input.characterName,
+  // ── v2.12 Phase 3: 多角色 refs 聚合 ─────────────────────────────
+  // 单角色镜头 → allRefs.length === 1, 一切退化为原 single-ref 行为(完全 backward-compat)。
+  // 多角色镜头 → 每个 ref 独立跑 vision scoring, 综合分数取 min(最弱一环决定是否重生)。
+  const allRefs: Array<{ url: string; name?: string }> = [
+    { url: input.referenceImageUrl, name: input.characterName },
+    ...(input.additionalReferences || []).filter(r => r && r.url),
+  ];
+  const isMulti = allRefs.length > 1;
+
+  // 第一次评分 — 并行,避免多角色把延迟拉成 N 倍
+  const firstResults = await Promise.all(
+    allRefs.map(ref => scoreShotConsistency(input.shotImageUrl, ref.url, ref.name)),
   );
-  if (!first) {
-    console.log(`${tag} vision-null on first eval, skip retry`);
-    return baseOutcome(input, 'vision-null', null);
+  const firstPerChar = allRefs.map((ref, i) => ({
+    name: ref.name,
+    score: firstResults[i]?.score ?? null,
+    reasoning: firstResults[i]?.reasoning || '',
+  }));
+
+  // 全部 vision 都挂 — 没数据不冒险, 跳过
+  const validFirst = firstResults
+    .map((r, i) => (r ? { result: r, name: allRefs[i].name } : null))
+    .filter((x): x is { result: ShotConsistencyResult; name: string | undefined } => x !== null);
+  if (validFirst.length === 0) {
+    console.log(`${tag} vision-null on first eval (all ${allRefs.length} ref(s)), skip retry`);
+    const out = baseOutcome(input, 'vision-null', null);
+    if (isMulti) out.perCharacterScores = firstPerChar;
+    return out;
   }
 
-  // 已达标 — 直接返回
-  if (first.score >= threshold) {
-    console.log(`${tag} ${first.score} ≥ ${threshold}, no retry`);
-    return baseOutcome(input, 'above-threshold', first);
+  // 取 min 角色作为门控 (反映最弱一环) — 用 Math.min 后 find 对应条目,绕开 reduce 的 TS 推导
+  const firstMinScoreVal = Math.min(...validFirst.map(x => x.result.score));
+  const firstWorst = validFirst.find(x => x.result.score === firstMinScoreVal) || validFirst[0]!;
+  const firstMinScore = firstWorst.result.score;
+  const firstMinReasoning = firstWorst.result.reasoning;
+
+  // 已达标 — 全部角色都 ≥ 阈值才放行 (使用 min 即可)
+  if (firstMinScore >= threshold) {
+    console.log(`${tag} min ${firstMinScore} ≥ ${threshold}${isMulti ? ` (across ${allRefs.length} chars)` : ''}, no retry`);
+    const out = baseOutcome(input, 'above-threshold', firstWorst.result);
+    if (isMulti) out.perCharacterScores = firstPerChar;
+    return out;
   }
 
   // ── 触发重生 ────────────────────────────────────────────────
   const boostedCw = Math.min(CAMEO_CW_MAX, input.originalCw + CAMEO_RETRY_CW_BOOST);
   const extraRefs = (input.sameCharacterRecentShots || []).slice(-2);
   console.log(
-    `${tag} ${first.score} < ${threshold}, retry with cw ${input.originalCw}→${boostedCw}, +${extraRefs.length} ref(s). reason: ${first.reasoning || '(no reason)'}`,
+    `${tag} min ${firstMinScore} < ${threshold}${isMulti ? ` (worst: ${firstWorst.name || '?'})` : ''}, retry with cw ${input.originalCw}→${boostedCw}, +${extraRefs.length} ref(s). reason: ${firstMinReasoning || '(no reason)'}`,
   );
 
   let regenUrl: string;
@@ -134,56 +179,75 @@ export async function evaluateAndRetry(input: CameoRetryInput): Promise<CameoRet
       retried: true,
       attempts: 2,
       finalImageUrl: input.shotImageUrl,
-      finalScore: first.score,
-      firstScore: first.score,
+      finalScore: firstMinScore,
+      firstScore: firstMinScore,
       finalCw: input.originalCw,
-      reasoning: first.reasoning,
+      reasoning: firstMinReasoning,
       skipReason: 'ok',
+      ...(isMulti ? { perCharacterScores: firstPerChar } : {}),
     };
   }
 
-  // 第二次评分
-  const second = await scoreShotConsistency(regenUrl, input.referenceImageUrl, input.characterName);
-  if (!second) {
-    // 第二次 vision 挂了 — 信任新图 (因为我们花钱重生了, 大概率比原图好)
+  // 第二次评分 — 同样并行所有角色
+  const secondResults = await Promise.all(
+    allRefs.map(ref => scoreShotConsistency(regenUrl, ref.url, ref.name)),
+  );
+  const secondPerChar = allRefs.map((ref, i) => ({
+    name: ref.name,
+    score: secondResults[i]?.score ?? null,
+    reasoning: secondResults[i]?.reasoning || '',
+  }));
+  const validSecond = secondResults
+    .map((r, i) => (r ? { result: r, name: allRefs[i].name } : null))
+    .filter((x): x is { result: ShotConsistencyResult; name: string | undefined } => x !== null);
+
+  if (validSecond.length === 0) {
+    // 第二次全 vision 挂 — 信任新图 (花了钱, 默认它更好)
     console.log(`${tag} second vision-null, trust regen image`);
     return {
       retried: true,
       attempts: 2,
       finalImageUrl: regenUrl,
       finalScore: null,
-      firstScore: first.score,
+      firstScore: firstMinScore,
       finalCw: boostedCw,
-      reasoning: first.reasoning,
+      reasoning: firstMinReasoning,
       skipReason: 'ok',
+      ...(isMulti ? { perCharacterScores: secondPerChar } : {}),
     };
   }
 
-  // 重生后分数反而更低 → 回滚到原图 (LLM 抖动保护)
-  if (second.score < first.score) {
-    console.log(`${tag} regen ${second.score} < first ${first.score}, ROLLBACK to original`);
+  // 同上 — Math.min + find 收敛到具体条目
+  const secondMinScore = Math.min(...validSecond.map(x => x.result.score));
+  const secondWorst = validSecond.find(x => x.result.score === secondMinScore) || validSecond[0]!;
+
+  // 重生后 min 分数反而更低 → 回滚到原图 (LLM 抖动保护)
+  if (secondMinScore < firstMinScore) {
+    console.log(`${tag} regen min ${secondMinScore} < first min ${firstMinScore}, ROLLBACK to original`);
     return {
       retried: true,
       attempts: 2,
       finalImageUrl: input.shotImageUrl,
-      finalScore: first.score,
-      firstScore: first.score,
+      finalScore: firstMinScore,
+      firstScore: firstMinScore,
       finalCw: input.originalCw,
-      reasoning: `重生后反而更差 (${first.score}→${second.score}), 已回滚`,
+      reasoning: `重生后反而更差 (${firstMinScore}→${secondMinScore}), 已回滚`,
       skipReason: 'ok',
+      ...(isMulti ? { perCharacterScores: firstPerChar } : {}),
     };
   }
 
-  console.log(`${tag} regen ${first.score}→${second.score} ✓ (cw ${input.originalCw}→${boostedCw})`);
+  console.log(`${tag} regen min ${firstMinScore}→${secondMinScore} ✓ (cw ${input.originalCw}→${boostedCw})${isMulti ? ` worst-char: ${secondWorst.name || '?'}` : ''}`);
   return {
     retried: true,
     attempts: 2,
     finalImageUrl: regenUrl,
-    finalScore: second.score,
-    firstScore: first.score,
+    finalScore: secondMinScore,
+    firstScore: firstMinScore,
     finalCw: boostedCw,
-    reasoning: second.reasoning || first.reasoning,
+    reasoning: secondWorst.result.reasoning || firstMinReasoning,
     skipReason: 'ok',
+    ...(isMulti ? { perCharacterScores: secondPerChar } : {}),
   };
 }
 

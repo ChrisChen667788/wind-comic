@@ -103,10 +103,15 @@
 - [x] 编排器:`setLockedCharacters()` 方法 + `renderSingleShot` 把 `extraCrefs` 链进 `progressiveRefs`
 - [x] `tests/locked-characters-routing.test.ts`(13 条):exact/normalized/substring/no-match/优先级/per-char cw/extraCrefs/clamp
 
-#### Phase 3 (待) — Cameo retry 多角色独立评分
-- [ ] `services/cameo-retry.ts` 接 `lockedCharacters[]`,每个匹配的角色都跑一次 vision scoring
-- [ ] 任一角色 < 75 触发重生;重生时把所有 lockedCharacters refs 都带上
-- [ ] 多角色镜头分数取**最低分**而非平均(防"主角好,配角崩")
+#### Phase 3 ✅ 2026-04-26 — Cameo retry 多角色独立评分
+- [x] `services/cameo-retry.ts` 接 `additionalReferences[]`,每个角色独立 `scoreShotConsistency` 并行打分
+- [x] 综合分数取 **min**(防"主角好,配角崩"),min < 75 即触发重生
+- [x] 重生时所有 lockedCharacters refs 自动带上(orchestrator 的 `progressiveRefs` 已含 extraCrefs)
+- [x] Rollback 也用 min 比较:重生后 min 反而更低 → 回滚到原图
+- [x] 局部 vision-null 容错:部分角色 vision 挂时,用其他角色的 min 决策;全挂才跳过重生
+- [x] Outcome 新增 `perCharacterScores?: Array<{name?, score, reasoning}>` — 给未来 A.4 仪表盘 per-char 显示用
+- [x] Backward-compat:`additionalReferences` 为空时,行为字节级等同单角色路径(原 17 条 cameo-retry 测试零修改通过)
+- [x] `tests/cameo-retry-multi.test.ts`(8 条):backward-compat / all-pass / partial-fail / regen-rollback / partial-vision-null / all-vision-null / threshold-boundary
 
 ### A.1 Cameo Vision Auto-Retry(< 75 触发重生) ✅ 2026-04-25
 - [x] **新增 `lib/cameo-vision.ts` 的 `scoreShotConsistency(shotImage, refImage, name)`** — 真正"两图比对"的 vision call, 与原有 `scoreCameoImage` (单图评分) 解耦, prompt 互不污染

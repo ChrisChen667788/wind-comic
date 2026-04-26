@@ -2028,13 +2028,21 @@ ${shots.map((s, i) => {
           const { evaluateAndRetry } = await import('@/services/cameo-retry');
           // 取同角色最近 2 张已成功的分镜图作为额外 sref —— 强化一致性链
           const sameCharRecent = this.renderedStoryboardUrls.slice(-2).filter((u) => u !== imageUrl);
+          // v2.12 Phase 3: 多角色独立评分 — 把 refsPick.extraCrefs 配上 lockedCharacters 名字
+          // 喂给 evaluateAndRetry, 每个角色独立 vision scoring, 综合分数取 min(防"主角好,配角崩")
+          const additionalRefs: Array<{ url: string; name?: string }> = (refsPick.extraCrefs || [])
+            .map(url => {
+              const lc = this.lockedCharacters.find(c => c.imageUrl === url);
+              return lc ? { url, name: lc.name } : { url };
+            });
           cameoOutcome = await evaluateAndRetry({
             shotImageUrl: imageUrl,
             referenceImageUrl: crefUrl,
-            characterName: shotCharacters[0],
+            characterName: refsPick.reason.matchedLockedName || shotCharacters[0],
             originalCw: refsPick.cw,
             sameCharacterRecentShots: sameCharRecent,
             shotNumber: sb.shotNumber,
+            additionalReferences: additionalRefs.length > 0 ? additionalRefs : undefined,
             regenerate: async (boostedCw, extraRefs) => {
               const reinforcedPrompt = `${renderPrompt}, IDENTICAL face structure to reference, same character identity, ${shotCharacters[0] || 'same protagonist'}`;
               const reinforcedRefs = [...progressiveRefs, ...extraRefs].filter(
