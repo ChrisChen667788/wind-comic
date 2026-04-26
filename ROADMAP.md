@@ -139,13 +139,15 @@
 - [ ] 新增 `app/api/characters/bible/[name]/route.ts` 查询 endpoint
 - **验收**:同一角色名跨 3 个项目, 视觉一致性肉眼无差异
 
-### A.4 Cameo 仪表盘嵌入"分镜" tab(决策 #2)
-- [ ] 修改 `app/projects/[id]/page.tsx` 的"分镜"tab 渲染
-  - 每个分镜卡右上角加 Cameo score 徽章(红 <70 / 黄 70-84 / 绿 ≥85)
-  - 点徽章弹 popover 显示该镜每个角色的具体分数 + 重生历史
-- [ ] 列表上方加汇总条:`本项目 N 镜 · 平均 86 · ⚠️ 2 镜需重生`
-- [ ] 加"批量重生低分镜"按钮 → 触发 A.1 retry 流程
-- **验收**:看仪表盘能在 5 秒内判断"哪些镜要重画"
+### A.4 Cameo 仪表盘嵌入"分镜" tab(决策 #2) ✅ 2026-04-26
+- [x] 每个分镜卡右上角 Cameo score 徽章(红 <70 / 黄 70-84 / 绿 ≥85)+ aria-label
+- [x] 点徽章弹 popover:总分 / vision 给的 reasoning quote / 重生次数 / 最终 cw
+- [x] **多角色镜头 popover 多一段 per-character bar chart**(消费 Phase 3 的 `perCharacterScores`,2+ 角色时渲染,每个角色一条 `名字 ▕▇▇▇░░ 60` 横条,颜色档位独立)
+- [x] 顶部汇总条:`本项目 N 镜 · 平均 86 · ⚠️ 2 镜需重生 · 已自动重生 X 镜`
+- [x] "批量重生低分镜 (N)" 按钮 → POST `/api/projects/[id]/cameo-retry-storyboard`
+- [x] `Storyboard.cameoPerCharacterScores` 类型 + orchestrator writeback
+- [x] `tests/cameo-storyboard-widgets.test.tsx`(16 条):色档 / popover 各分支 / 多角色 / 汇总统计 / 批量按钮
+- **验收**:✅ 看仪表盘能在 5 秒内判断"哪些镜要重画" + 多角色时能精确看到"是 A 还是 B 拖了后腿"
 
 ### Sprint A 总验收
 - ✅ 同一角色跨 10 镜头 Cameo 平均 ≥85

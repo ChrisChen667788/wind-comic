@@ -26,6 +26,8 @@ interface CameoData {
   cameoAttempts?: number;
   cameoFinalCw?: number;
   cameoReason?: string;
+  /** v2.12 Phase 3 → A.4: 多角色锁脸独立评分,2+ 角色镜头才有。null score = 该角色 vision 失败 */
+  cameoPerCharacterScores?: Array<{ name?: string; score: number | null; reasoning?: string }>;
 }
 
 /** 把 0-100 分映射成 red / amber / green 三档配色, 与 readinessLevel 对齐 */
@@ -60,6 +62,7 @@ export function CameoBadge({ data }: { data: CameoData }) {
       <button
         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowPopover((v) => !v); }}
         className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border backdrop-blur-sm shadow-sm hover:scale-105 transition-transform ${p.bg} ${p.text} ${p.border}`}
+        aria-label={`Cameo 一致性: ${data.cameoScore ?? '—'}/100`}
         title={`Cameo 一致性: ${data.cameoScore ?? '—'}/100`}
       >
         <Activity className="w-2.5 h-2.5" />
@@ -94,6 +97,38 @@ export function CameoBadge({ data }: { data: CameoData }) {
               </span>
               <span className="text-[10px] text-white/40 mb-0.5">/ 100</span>
             </div>
+
+            {/* v2.12 Phase 3: 多角色独立评分条 — 仅当 cameoPerCharacterScores 有 2+ 条时显示 */}
+            {data.cameoPerCharacterScores && data.cameoPerCharacterScores.length >= 2 ? (
+              <div className="mb-2 pb-2 border-b border-white/10">
+                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-1.5">
+                  per-character ({data.cameoPerCharacterScores.length})
+                </div>
+                <ul className="space-y-1.5">
+                  {data.cameoPerCharacterScores.map((c, i) => {
+                    const lvl = classify(c.score == null ? undefined : c.score);
+                    const cp = PALETTE[lvl];
+                    const widthPct = c.score == null ? 0 : Math.max(2, Math.min(100, c.score));
+                    return (
+                      <li key={i} className="flex items-center gap-2">
+                        <span className="text-[10.5px] text-white/65 truncate flex-shrink-0 max-w-[80px]" title={c.name || `角色 ${i + 1}`}>
+                          {c.name || `#${i + 1}`}
+                        </span>
+                        <div className="flex-1 h-1.5 rounded-full bg-white/8 overflow-hidden">
+                          <div
+                            className={`h-full ${cp.dot} transition-all`}
+                            style={{ width: `${widthPct}%`, opacity: c.score == null ? 0.2 : 1 }}
+                          />
+                        </div>
+                        <span className={`text-[10.5px] font-semibold tabular-nums ${cp.text} flex-shrink-0 w-8 text-right`}>
+                          {c.score == null ? '—' : c.score}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
 
             {data.cameoReason ? (
               <p className="text-[11px] text-white/70 leading-relaxed mb-2 italic">"{data.cameoReason}"</p>

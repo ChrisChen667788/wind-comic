@@ -139,11 +139,21 @@ export interface Storyboard {
    * UI (A.4 仪表盘) 直接消费这两个字段, 在分镜卡上绘红/黄/绿徽章。
    * 字段缺失代表"未评分", 不算坏 — 旧数据兼容。
    */
-  cameoScore?: number;          // 0-100, vision 比对生成图与参考图的一致性分数
+  cameoScore?: number;          // 0-100, vision 比对生成图与参考图的一致性分数 (多角色 = min 分)
   cameoRetried?: boolean;       // 是否触发了重生 (一次重生上限)
   cameoAttempts?: number;       // 实际跑了几次生成 (1 = 首次成功, 2 = 重生过 1 次)
   cameoFinalCw?: number;        // 重生时实际使用的 cw, 调试用
   cameoReason?: string;         // 一句话说明 vision 给低分的理由 (来自 LLM)
+  /**
+   * v2.12 Phase 3: 多角色锁脸独立评分。
+   * 单角色镜头此字段缺省;多角色镜头(2-3 角色锁脸命中)按 [primary, ...additional] 顺序展开。
+   * A.4 仪表盘的 popover 用这个字段画 per-character 分数条。
+   */
+  cameoPerCharacterScores?: Array<{
+    name?: string;
+    score: number | null;     // null = 该角色 vision 失败
+    reasoning?: string;
+  }>;
 }
 
 // 视频片段

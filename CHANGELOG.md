@@ -29,8 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hailuo-2.3-Fast video fallback** (`MinimaxService.generateVideoFast()`) — wired into the orchestrator's Pass-B T2V chain. New chain order: `Veo-T2V → Hailuo-2.3 → Hailuo-Fast → Kling-T2V → Ken Burns animatic`. Hailuo Fast has its own daily quota independent of standard Hailuo-2.3; placed **before Kling** so the same-account fallback (more predictable cost / response / failure mode) is tried first, with Kling kept as the final real-video attempt before falling through to a still-frame composite. Model name overridable via `MINIMAX_FAST_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3-Fast`).
 - **Hailuo-2.3-Fast video fallback** (`MinimaxService.generateVideoFast()`) — wired into the orchestrator's Pass-B T2V chain. New chain order: `Veo-T2V → Hailuo-2.3 → Hailuo-Fast → Kling-T2V → Ken Burns animatic`. Hailuo Fast has its own daily quota independent of standard Hailuo-2.3; placed **before Kling** so the same-account fallback (more predictable cost / response / failure mode) is tried first, with Kling kept as the final real-video attempt before falling through to a still-frame composite. Model name overridable via `MINIMAX_FAST_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3-Fast`).
 
+- **Sprint A.4 — Cameo dashboard per-character viz** — the storyboard-tab widgets now consume Phase 3's `perCharacterScores`. Each badge popover, when there are 2+ matched characters in the shot, renders an inline horizontal bar chart: `角色名 ▕▇▇▇▇▇░░░ 60`, with the same red/amber/green palette per row. Single-character shots are byte-identical to the v2.12.0 layout (graceful fallback when `cameoPerCharacterScores` is absent or has only 1 entry). Adds `aria-label` to the badge button so the dashboard is accessible.
+  - `Storyboard.cameoPerCharacterScores?: Array<{name?, score, reasoning?}>` exposed on the wire; orchestrator pipes `cameoOutcome.perCharacterScores` straight through to the storyboard JSON
+  - `tests/cameo-storyboard-widgets.test.tsx` — 16 tests: score → color band (green/amber/red), popover open + reasoning quote + retry summary + final cw, multi-char per-character bars (3 chars / vision-null dash / unnamed fallback), `CameoSummary` stats (avg / lowCount / retried), batch retry button click + disabled-while-retrying
+
 ### Tests
-- `364/364` vitest passing · `tsc --noEmit` 0 errors
+- `380/380` vitest passing · `tsc --noEmit` 0 errors
 
 ---
 

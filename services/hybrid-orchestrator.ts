@@ -2091,6 +2091,14 @@ ${shots.map((s, i) => {
         }
         out.cameoAttempts = cameoOutcome.attempts;
         if (cameoOutcome.reasoning) out.cameoReason = cameoOutcome.reasoning;
+        // v2.12 Phase 3 → A.4: 多角色独立评分透传到 storyboard,前端 popover 画 per-char 分数条
+        if (cameoOutcome.perCharacterScores && cameoOutcome.perCharacterScores.length > 0) {
+          out.cameoPerCharacterScores = cameoOutcome.perCharacterScores.map(p => ({
+            name: p.name,
+            score: p.score,
+            reasoning: p.reasoning || undefined,
+          }));
+        }
       }
       return out;
     };
