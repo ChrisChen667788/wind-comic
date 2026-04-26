@@ -47,12 +47,56 @@ It works because it doesn't try to be one giant model. It's a **honest multi-age
 
 ---
 
-## 🎬 Demo
+## 🎬 Screenshots
 
-> _Demo gif and full sample drama coming soon — see the [v2.12.0 release](https://github.com/ChrisChen667788/wind-comic/releases/tag/v2.12.0) for sample outputs._
+A real walk-through of the v2.12.0 build — every panel below is the actual app, not a mockup.
+
+### Workspace overview
+
+The 创作总览 dashboard: project counter, system-status panel (live LLM / image / video providers in use), recent activity feed.
 
 <p align="center">
-  <img src="assets/demo-storyboard.png" alt="Wind Comic storyboard view" width="80%" />
+  <img src="assets/screenshot-dashboard.png" alt="Wind Comic dashboard — workspace overview" width="100%" />
+</p>
+
+### Creation pipeline
+
+The 创作工坊 page — paste a one-line idea, pick a style template + duration, hit a single button, and the multi-agent pipeline takes over. Live preview on the right shows what's being assembled in real time.
+
+<p align="center">
+  <img src="assets/screenshot-create.png" alt="Wind Comic creation pipeline — paste idea, pick style, generate" width="100%" />
+</p>
+
+### Polish Studio Pro
+
+剧本润色 — Basic vs Pro tier, McKee + Field + Seger framework, multi-dimensional industry audit (打钩 = passed; 数字 = score), before/after diff panel.
+
+<p align="center">
+  <img src="assets/screenshot-polish.png" alt="Wind Comic Polish Studio Pro — McKee/Field/Seger framework" width="100%" />
+</p>
+
+### Asset library (素材库)
+
+Every character / scene / shot / video / music asset auto-deposits here. Filterable by type, searchable, reusable across projects.
+
+<p align="center">
+  <img src="assets/screenshot-assets.png" alt="Wind Comic asset library — characters, scenes, shots, audio" width="100%" />
+</p>
+
+### Project library
+
+我的项目 — every short film you've created, with auto-generated cinematic covers and AIGC-ready badges.
+
+<p align="center">
+  <img src="assets/screenshot-projects.png" alt="Wind Comic projects view — short films with auto cinematic covers" width="100%" />
+</p>
+
+### Per-project storyboard view
+
+The heart of the pipeline — every shot's script, character lock state, scene anchor, and Cameo retry status all visible in a single timeline.
+
+<p align="center">
+  <img src="assets/screenshot-storyboard.png" alt="Wind Comic per-project storyboard timeline" width="100%" />
 </p>
 
 ---
