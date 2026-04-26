@@ -212,11 +212,13 @@
 > **预期周期**:2-3 周(并行 A/B 都行, 不强依赖)
 > **决策**:Stripe 接 **4 档全部**(free / pro / studio / enterprise — 决策 #4)
 
-### C.1 U2V 参考图驱动(§3.2 V3 残)
-- [ ] 新增 `app/dashboard/u2v/page.tsx` — 上传一张静帧 + 文本提示 → Minimax I2V-01
-- [ ] 新增 `app/api/u2v/route.ts` — 走 `services/minimax.service.ts` I2V
-- [ ] sidebar 加入口
-- **验收**:5 张图各跑一次, 成片率 ≥80%
+### C.1 U2V 参考图驱动(§3.2 V3 残)✅ 2026-04-26
+- [x] `POST /api/u2v` — 入参 `{imageUrl, prompt, duration?: 5|6}`, 复用 MinimaxService.generateVideo I2V 链路
+- [x] 协议白名单挡 `file://` / `javascript:`,prompt 上限 500 字
+- [x] data: URI 自动 persistAsset → 内部 URL,minimax 不接 data 直传
+- [x] `app/dashboard/u2v/page.tsx` — 双栏布局(输入图/描述/时长 + 结果预览),自动播放循环 + 一键下载 MP4
+- [x] sidebar 加入口("单图变视频",Film 图标,放在剧本润色和素材库之间)
+- [x] tests/u2v-validation.test.ts(7 条):缺字段 / 协议白名单 / prompt 超长 / API key 缺 / 成功路径 / duration clamp
 
 ### C.2 Stripe 订阅 4 档接入(决策 #4)
 - [ ] 复用现有 `lib/pricing.ts` 4 档(free / pro / studio / enterprise)

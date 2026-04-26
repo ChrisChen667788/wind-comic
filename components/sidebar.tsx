@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import {
   LayoutDashboard, FolderKanban, Sparkles, BookOpen, User,
-  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2,
+  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -15,6 +15,8 @@ const navItems = [
   { href: '/dashboard/create', label: '创作工坊', icon: Sparkles },
   // v2.11: 独立剧本润色工具 — 不走完整 Agent 管线, 纯文本润色
   { href: '/dashboard/polish', label: '剧本润色', icon: Wand2 },
+  // v2.12 Sprint C.1: 单图变视频(I2V)独立工具
+  { href: '/dashboard/u2v', label: '单图变视频', icon: Film },
   { href: '/dashboard/assets', label: '素材库', icon: Package },
   { href: '/dashboard/characters', label: '角色库', icon: Users },
   { href: '/dashboard/cases', label: '灵感库', icon: BookOpen },
