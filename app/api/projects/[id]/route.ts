@@ -43,6 +43,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // v2.9: 把 style_id / primary_character_ref 吐给前端,UI 能按项目锁死风格与主角脸
     styleId: row.style_id || null,
     primaryCharacterRef: row.primary_character_ref || null,
+    // v2.12 Phase 1: 多角色锁脸 — 1-3 个角色的脸图 + 名字 + 定位 + cw
+    // shape: Array<{ name: string, role: 'lead'|'antagonist'|'supporting'|'cameo', cw: number, imageUrl: string }>
+    lockedCharacters: (() => {
+      try { return JSON.parse(row.locked_characters || '[]'); } catch { return []; }
+    })(),
     scriptData: row.script_data ? JSON.parse(row.script_data) : null,
     directorNotes: row.director_notes ? JSON.parse(row.director_notes) : null,
     assets: parsedAssets,

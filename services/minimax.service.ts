@@ -219,6 +219,76 @@ export class MinimaxService {
 
   /**
    * ═══════════════════════════════════════════════════════
+   * v2.12: Hailuo-2.3-Fast (768P) 兜底
+   *
+   * Hailuo-2.3-Fast 是 Minimax 的低质快速版,**额度独立计算**(与 Hailuo-2.3
+   * 标准版不共享日额度)。当 Hailuo-2.3 / Veo / Kling 等主用引擎额度耗尽时,
+   * orchestrator 会拿这个当 Pass-B 的最后一站,保证至少能产出可看的视频
+   * 而不是直接降级到 Ken Burns 静帧。
+   *
+   * 模型名通过 MINIMAX_FAST_VIDEO_MODEL env 可改;不设默认走
+   * 'MiniMax-Hailuo-2.3-Fast'(纯文生,不支持 first_frame)。
+   * ═══════════════════════════════════════════════════════
+   */
+  async generateVideoFast(prompt: string, options?: { duration?: number; _retryCount?: number }): Promise<string> {
+    if (!this.videoEndpointAvailable) {
+      throw new Error(
+        `Minimax video endpoint unavailable on baseURL "${this.baseURL}" — ` +
+        `Fast model (Hailuo-2.3-Fast) skipped`
+      );
+    }
+
+    const retryCount = options?._retryCount ?? 0;
+    const effectivePrompt = retryCount === 0 ? prompt : sanitizePromptForMinimax(prompt);
+    const model = process.env.MINIMAX_FAST_VIDEO_MODEL || 'MiniMax-Hailuo-2.3-Fast';
+
+    try {
+      console.log(`[Minimax-Fast] T2V ${model} (separate daily quota)`);
+      console.log(`[Minimax-Fast] Prompt: ${effectivePrompt.slice(0, 100)}...`);
+
+      const response = await fetchWithTimeout(`${this.baseURL}/v1/video_generation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          prompt: effectivePrompt,
+          prompt_optimizer: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`Minimax-Fast API error (${response.status}): ${JSON.stringify(data).slice(0, 200)}`);
+      }
+      if (data.base_resp?.status_code && data.base_resp.status_code !== 0) {
+        const code = data.base_resp.status_code;
+        const msg = data.base_resp.status_msg || 'unknown';
+        // 1026 敏感词 — 自动重试一次净化版
+        if (code === 1026 && retryCount === 0) {
+          console.warn('[Minimax-Fast] 1026 sensitive content — retrying sanitized');
+          return await this.generateVideoFast(prompt, { ...options, _retryCount: 1 });
+        }
+        // 1008 余额不足 — 直接抛,让 orchestrator 进 Ken Burns 兜底
+        throw new Error(`Minimax-Fast error (${code}): ${msg}`);
+      }
+      const taskId = data.task_id;
+      if (!taskId) throw new Error(`Minimax-Fast: no task_id`);
+      console.log(`[Minimax-Fast] Task created: ${taskId}`);
+      return await this.pollResult(taskId);
+    } catch (error) {
+      if (isSensitiveContentError(error) && retryCount === 0) {
+        return await this.generateVideoFast(prompt, { ...options, _retryCount: 1 });
+      }
+      console.error('[Minimax-Fast] generation error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════
    * S2V-01 角色一致性视频生成（Subject-to-Video）
    *
    * 业界最佳实践："首帧锚定 + 角色参考" 双保险模式

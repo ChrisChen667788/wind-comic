@@ -233,6 +233,12 @@ addColumnIfMissing('project_assets', 'persistent_url', 'TEXT');
 // 视频每个 shot 的 subject_reference 第一条都锁这张,彻底解决跨镜跳脸。
 addColumnIfMissing('projects', 'primary_character_ref', 'TEXT');
 
+// v2.12 (2026-04-26): 多角色锁脸 (Phase 1) —— 创作工坊前置 1-3 个主要角色
+// JSON shape: Array<{ name: string, role: string, cw: number, imageUrl: string }>
+// 沿用 primary_character_ref 兜底:Phase 1 把 lockedCharacters[0] 同步进 primary_character_ref,
+// 保证现有单角色编排链路无感知;Phase 2 再做 per-shot 角色路由。
+addColumnIfMissing('projects', 'locked_characters', "TEXT NOT NULL DEFAULT '[]'");
+
 // v2.11 #4 (2026-04-21): Writer-Editor 闭环 —— 成片后让 Editor 用 vision LLM
 // 对最终视频打 3 维分(连贯度/光影/脸相似),存进 project_quality_scores。
 // 下一次 Writer 生成台词时会读最近一次评分,对"分<70 的维度"注入针对性 cue

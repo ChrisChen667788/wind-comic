@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export const activeOrchestrators: Map<string, HybridOrchestrator> = new Map();
 
 export async function POST(request: NextRequest) {
-  const { idea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef } = await request.json();
+  const { idea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters } = await request.json();
 
   if (!idea || !idea.trim()) {
     return new Response(JSON.stringify({ error: '请提供故事创意' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -63,9 +63,28 @@ export async function POST(request: NextRequest) {
         }
 
         // ── v2.9 P0 Cameo: 注入项目级主角脸参考图(锁死全片 IP)──
-        // 优先级: 请求体 > projects.primary_character_ref
+        // 优先级: primaryCharacterRef > lockedCharacters[0] > projects.primary_character_ref
         // 必须在 runCharacterDesigner 之前锁,否则会被自动首帧覆盖
+        //
+        // v2.12 Phase 1 多角色锁脸:
+        //   如果请求体带了 lockedCharacters[],把第一个有 imageUrl 的角色当作 primary
+        //   (兜底现有单角色编排链路;Phase 2 会做 per-shot 角色路由,根据
+        //    Writer 标的角色名匹配对应 cref)
         let effectiveCameoRef = primaryCharacterRef || '';
+        const sanitizedLocked = Array.isArray(lockedCharacters)
+          ? lockedCharacters
+              .filter((c: any) => c && typeof c.imageUrl === 'string' && c.imageUrl && typeof c.name === 'string' && c.name.trim())
+              .slice(0, 3) // 硬上限 3 个,与前端 UI 一致
+              .map((c: any) => ({
+                name: String(c.name).trim().slice(0, 40),
+                role: ['lead', 'antagonist', 'supporting', 'cameo'].includes(c.role) ? c.role : 'lead',
+                cw: Number.isFinite(c.cw) ? Math.max(25, Math.min(125, Math.round(c.cw))) : 100,
+                imageUrl: String(c.imageUrl),
+              }))
+          : [];
+        if (!effectiveCameoRef && sanitizedLocked.length > 0) {
+          effectiveCameoRef = sanitizedLocked[0].imageUrl;
+        }
         if (!effectiveCameoRef && clientProjectId) {
           try {
             const row = db.prepare('SELECT primary_character_ref FROM projects WHERE id = ?').get(clientProjectId) as { primary_character_ref?: string } | undefined;
@@ -96,23 +115,28 @@ export async function POST(request: NextRequest) {
           }
 
           const existing = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+          // v2.12 Phase 1: 把 lockedCharacters[] 持久化到 projects.locked_characters
+          // (单一角色仍同步进 primary_character_ref,见上方 effectiveCameoRef 逻辑)
+          const lockedJson = sanitizedLocked.length > 0 ? JSON.stringify(sanitizedLocked) : '[]';
           if (!existing) {
             // v2.9: 把用户选择的 style 持久化到 projects.style_id
-            // 以后加载此项目时 orchestrator 能自动拿到,不再依赖调用方传参
-            db.prepare(`INSERT INTO projects (id, user_id, title, description, cover_urls, status, style_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-              .run(projectId, userId, idea.slice(0, 30), idea, '[]', 'active', style || null, ts, ts);
-            console.log(`[DB] Project created: ${projectId}${style ? ` (style=${style})` : ''}`);
+            // v2.12: + 持久化 locked_characters + primary_character_ref(兜底)
+            db.prepare(`INSERT INTO projects (id, user_id, title, description, cover_urls, status, style_id, primary_character_ref, locked_characters, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+              .run(projectId, userId, idea.slice(0, 30), idea, '[]', 'active', style || null, effectiveCameoRef || null, lockedJson, ts, ts);
+            console.log(`[DB] Project created: ${projectId}${style ? ` (style=${style})` : ''}${sanitizedLocked.length ? ` lockedChars=${sanitizedLocked.length}` : ''}`);
           } else {
             // 已存在就 UPDATE —— 用户可能在同一个 projectId 下换了风格重跑
-            if (style) {
-              try {
-                db.prepare('UPDATE projects SET style_id = ?, updated_at = ? WHERE id = ?')
-                  .run(style, ts, projectId);
-              } catch (e) {
-                console.warn(`[DB] style_id update failed for ${projectId}:`, e);
+            try {
+              db.prepare('UPDATE projects SET style_id = COALESCE(?, style_id), locked_characters = ?, updated_at = ? WHERE id = ?')
+                .run(style || null, lockedJson, ts, projectId);
+              if (effectiveCameoRef) {
+                db.prepare('UPDATE projects SET primary_character_ref = ? WHERE id = ?')
+                  .run(effectiveCameoRef, projectId);
               }
+            } catch (e) {
+              console.warn(`[DB] style/locked_characters update failed for ${projectId}:`, e);
             }
-            console.log(`[DB] Project exists: ${projectId}${style ? ` (style updated=${style})` : ''}`);
+            console.log(`[DB] Project exists: ${projectId}${style ? ` (style updated=${style})` : ''}${sanitizedLocked.length ? ` lockedChars=${sanitizedLocked.length}` : ''}`);
           }
         } catch (e) {
           console.error('[DB] Project creation failed:', e);

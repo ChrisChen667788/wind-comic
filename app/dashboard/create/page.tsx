@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/toast-provider';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { buildInitialNodes, initialEdges } from '@/components/pipeline-canvas';
 import { storyTemplates, type StoryTemplate } from '@/lib/story-templates';
+import { CharacterLockSection, type LockedCharacter } from '@/components/create/character-lock-section';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -62,6 +63,8 @@ export default function DashboardCreatePage() {
   }, [searchParams]);
   const [duration, setDuration] = useState(durationOptions[1]); // 默认5秒
   const [aspect, setAspect] = useState(aspectOptions[0]);
+  // v2.12 Phase 1: 多角色锁脸 (1-3 人,前置在创作管线里)
+  const [lockedCharacters, setLockedCharacters] = useState<LockedCharacter[]>([]);
   const [workspaceProject, setWorkspaceProject] = useState<Project | null>(null);
   const { showToast } = useToast();
 
@@ -118,7 +121,13 @@ export default function DashboardCreatePage() {
       const response = await fetch('/api/create-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea: sanitizedIdea, videoProvider, style, duration, aspect, projectId, templateId: selectedTemplate?.id }),
+        body: JSON.stringify({
+          idea: sanitizedIdea, videoProvider, style, duration, aspect, projectId,
+          templateId: selectedTemplate?.id,
+          // v2.12 Phase 1: 携带 1-3 角色锁脸;create-stream 会持久化到 projects.locked_characters,
+          // 并把第一个角色 imageUrl 同步到 projects.primary_character_ref(兜底现有单角色编排链路)
+          lockedCharacters: lockedCharacters.length > 0 ? lockedCharacters : undefined,
+        }),
       });
       if (!response.ok) throw new Error('创作失败');
 
@@ -558,6 +567,12 @@ export default function DashboardCreatePage() {
               ))}
             </div>
           </div>
+
+          {/* v2.12 Phase 1 — 角色锁脸前置(1-3 人) */}
+          <CharacterLockSection
+            value={lockedCharacters}
+            onChange={setLockedCharacters}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

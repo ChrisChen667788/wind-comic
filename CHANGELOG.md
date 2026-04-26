@@ -5,6 +5,17 @@ All notable changes to Wind Comic are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Multi-character face lock — Phase 1** (`/dashboard/create`) — upload 1-3 main character faces (主角 A / B / C) at creation time with name + role preset (lead 125 / antagonist 125 / supporting 100 / cameo 80) → cw. Files via local upload **or** image URL. Persisted in new `projects.locked_characters` JSON column; first character is also synced into the existing `primary_character_ref` for backward-compat with the v2.9 single-face orchestrator path. Project page shows a colored badge with all locked characters.
+  - New endpoint: `POST /api/upload/character-face` (multipart **or** `{imageUrl}` JSON; size cap 10 MB; protocol whitelist `http(s):` / `data:`)
+  - New component: `components/create/character-lock-section.tsx`
+  - Phase 2 (per-shot character routing where Writer tags each shot with character labels) and Phase 3 (per-character Cameo retry scoring) tracked in [ROADMAP](ROADMAP.md).
+- **Hailuo-2.3-Fast video fallback** (`MinimaxService.generateVideoFast()`) — wired into the orchestrator's Pass-B T2V chain as the **last engine before Ken Burns animatic**. Hailuo Fast has its own daily quota separate from regular Hailuo-2.3, so it kicks in when Veo / Hailuo-2.3 / Kling are all exhausted, salvaging a 6-second viewable cut instead of falling all the way through to a still-frame composite. Model name overridable via `MINIMAX_FAST_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3-Fast`).
+
+---
+
 ## [2.12.0] — 2026-04-26 — Initial public release
 
 First open-source release of Wind Comic. Wraps a year of internal development on a multi-agent AI pipeline that turns a one-line idea into a finished short-form drama.

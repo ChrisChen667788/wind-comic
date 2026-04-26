@@ -2650,6 +2650,13 @@ ${shots.map((s, i) => {
               name: 'Kling-T2V',
               gen: () => this.klingService!.generateVideo('', t2vPrompt, { duration: 5 }),
             });
+            // v2.12: Hailuo-2.3-Fast 是 Minimax 的低质快速版,日额度独立计算 —
+            // 放在所有标准引擎之后作为最后一站,标准额度耗尽时仍能保住一个 6s
+            // 可看视频,而不是直接掉到 Ken Burns 静帧 animatic。
+            if (this.minimaxService?.isVideoAvailable()) passBEngines.push({
+              name: 'Minimax-Hailuo-Fast',
+              gen: () => this.minimaxService!.generateVideoFast(t2vPrompt, { duration: 5 }),
+            });
 
             for (const engine of passBEngines) {
               try {

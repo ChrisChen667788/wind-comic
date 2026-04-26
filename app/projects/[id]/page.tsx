@@ -217,7 +217,31 @@ export default function ProjectDetailPage() {
           <LatestPolishBanner entry={scriptAsset.data.latestPolish} projectId={id} />
         ) : null}
 
-        {/* v2.10 A: Cameo 主角脸锁定闭环 */}
+        {/* v2.12 Phase 1: 多角色锁脸预览 — 创作工坊上传的 1-3 个角色全部展示 */}
+        {Array.isArray(project.lockedCharacters) && project.lockedCharacters.length > 0 && (
+          <div className="mb-4 p-4 rounded-2xl border border-[#E8C547]/30 bg-gradient-to-r from-[#E8C547]/8 to-transparent">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-semibold text-[#E8C547]">🔒 已锁定 {project.lockedCharacters.length} 个主要角色</span>
+              <span className="text-[10px] text-gray-500">·  创作时上传 ·  全片这些角色脸保持一致</span>
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              {project.lockedCharacters.map((c: any, idx: number) => {
+                const roleLabel = ({ lead: '主角', antagonist: '对手', supporting: '配角', cameo: '客串' } as Record<string, string>)[c.role] || c.role || '角色';
+                return (
+                  <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-black/30 border border-white/8">
+                    <img src={c.imageUrl} alt={c.name} className="w-9 h-9 rounded-lg object-cover" loading="lazy" />
+                    <div className="text-xs leading-tight">
+                      <div className="font-medium text-white">{c.name}</div>
+                      <div className="text-[10px] text-gray-400">{roleLabel} · cw={c.cw}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* v2.10 A: Cameo 主角脸锁定闭环 (单角色 — 兜底入口,Phase 1 先与多角色并存) */}
         <CameoPanel
           projectId={id}
           initialUrl={project.primaryCharacterRef}

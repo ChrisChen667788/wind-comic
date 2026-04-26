@@ -85,6 +85,17 @@
 > **预期周期**:1-2 周
 > **决策**:重生阈值定 **75 分**(决策 #1)· Cameo 仪表盘**嵌入"分镜" tab 列**(决策 #2)
 
+### A.1+ 多角色锁脸 — Phase 1 ✅ 2026-04-26
+> 把单角色 Cameo 锁脸升级为多角色,前置到创作工坊管线里。
+- [x] 创作工坊新增"角色锁脸"区块,支持 1-3 个主要角色(主角 A / B / C)
+- [x] 单卡:角色名(自定义) + 定位预设(lead 125 / antagonist 125 / supporting 100 / cameo 80) + 上传文件 OR 直接贴 URL
+- [x] 新 endpoint `POST /api/upload/character-face`(项目无关,创建项目前就能上传)
+- [x] DB:新列 `projects.locked_characters`(JSON,无 schema 破坏性 migration)
+- [x] 编排器兜底:`lockedCharacters[0]` 自动同步进 `primary_character_ref`,沿用现有单角色 Cameo 链路
+- [x] 项目页:展示已锁角色徽章(头像 + 名字 + 定位 + cw)
+- **Phase 2 (待):** Writer 给每个 shot 打角色标 → orchestrator per-shot cref 路由
+- **Phase 3 (待):** Cameo retry 多角色独立评分 + 重生
+
 ### A.1 Cameo Vision Auto-Retry(< 75 触发重生) ✅ 2026-04-25
 - [x] **新增 `lib/cameo-vision.ts` 的 `scoreShotConsistency(shotImage, refImage, name)`** — 真正"两图比对"的 vision call, 与原有 `scoreCameoImage` (单图评分) 解耦, prompt 互不污染
 - [x] **新增 `services/cameo-retry.ts`** — `evaluateAndRetry()` + 决策常量 `CAMEO_RETRY_THRESHOLD=75` / `CAMEO_RETRY_CW_BOOST=25` / `CAMEO_CW_MAX=125` / `CAMEO_RETRY_MAX_ATTEMPTS=1`
