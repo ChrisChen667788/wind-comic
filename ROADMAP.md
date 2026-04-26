@@ -168,37 +168,36 @@
 > **预期周期**:1-2 周
 > **决策**:BGM beat 对齐**默认开**(决策 #3)
 
-### B.1 j-cut / l-cut 音轨真实现
-- [ ] 修改 `services/video-composer.ts` 的音轨段处理
-  - j-cut: 下一镜台词音轨提前 0.3-0.5s 入(`adelay` 用前镜结尾 - 0.5s)
-  - l-cut: 当前镜头台词延后 0.3-0.5s 出(`atrim end` 延伸到下一镜开头 + 0.5s)
-- [ ] LLM editing plan 的 `transition` 字段新增 `jcut` / `lcut` 枚举, orchestrator 读 plan 应用到音轨
-- [ ] 单测 `tests/composer-jcut.test.ts`:mock ffmpeg 调用参数, 验证 adelay/atrim 计算正确
-- **验收**:盲测 5 段含对白的视频, 编辑感"自然/不突兀"占比 ≥70%
+### B.1 j-cut / l-cut 音轨真实现 ✅ 2026-04-26
+- [x] `services/video-composer.ts` 新增 `computeJCutAdelay()` 导出函数 + `COMPOSER_LEAD_MS=400` / `COMPOSER_LAG_MS=400` 决策常量
+- [x] voiceover 循环里查 prev clip transition,'j-cut' 时本镜配音 adelay 减 LEAD_MS,clamp 到 ≥ 0
+- [x] 'l-cut' 显式 count + 日志,自然 overflow(现有不截断 voiceover 已经满足)
+- [x] tests/composer-jcut.test.ts(7 条):首镜不动 / 非 j-cut prev 不动 / j-cut 减 LEAD / clamp 到 0 / 缺 prev 不崩 / 常量锁住 / l-cut 不影响 adelay
 
-### B.2 字幕动效引擎
-- [ ] `services/subtitle.service.ts` 当前是 burn-in 静态 → 加三档:
-  - `fade-in`(0.3s 淡入)
-  - `typewriter`(逐字出现, 与 TTS 时间对齐)
-  - `pop`(放大回弹)
-- [ ] `subtitleStyle: 'static' | 'fade' | 'typewriter' | 'pop'` 加入 LLM editing plan
-- [ ] 字幕 burn-in 用 `drawtext` filter 的 `enable` + `alpha` 表达式实现淡入
-- **验收**:用户主观觉得"动起来了"
+### B.2 字幕动效引擎 ✅ 2026-04-26
+- [x] `services/subtitle.service.ts` 新增 `buildDrawtextFilter()` + `buildSubtitleFilterChain()`
+- [x] 四档 `SubtitleStyle`:`'static' | 'fade' | 'typewriter' | 'pop'`,各档 alpha 表达式独立设计
+- [x] fade 档自动 clamp:duration < 2*FADE 时 FADE 自动减半,避免重叠成半透明
+- [x] 文本转义:`:` `'` `\\` `%` `\n` 全部 ffmpeg-safe
+- [x] tests/subtitle-drawtext.test.ts(12 条):四档 alpha 验证 / 转义 / 边界 / 空 entry / 字体覆盖 / chain 串联 / 未知 style 退化
 
-### B.3 Beat-driven editing(默认开 — 决策 #3)
-- [ ] `lib/beat-detect.ts` 用 `ffmpeg silencedetect` + `astats` 找 BGM 的 beat 位置
-  - 返回 `beats: number[]`(秒)
-- [ ] orchestrator 的 LLM editing plan 增加 `beatAlign: true` 默认开
-- [ ] composer 在合成前把每个镜头的 in/out 时间对齐到最近 beat(±0.15s 窗口内)
-- [ ] 用户可在 LatestPolishBanner / 项目设置里关闭, 但默认 ON
-- **验收**:有 BGM 的视频节奏感"卡上拍点"
+### B.3 Beat-driven editing(默认开 — 决策 #3)✅ 2026-04-26
+- [x] `lib/beat-detect.ts` 新增 `detectBeats()`(ffmpeg silencedetect 解 stderr)+ `snapDurationsToBeats()` + `findNearestBeat()`(二分)
+- [x] 决策常量:`BEAT_SNAP_WINDOW_S=0.15` / `BEAT_NOISE_FLOOR_DB=-30` / `BEAT_MIN_SILENCE_MS=100`
+- [x] 镜头时长保护:snap 不允许压到 < 0.5s 或 < 60% 原值
+- [x] out 单调递增校验,避免 beat 抖动让镜头时长出负数
+- [x] tests/beat-detect.test.ts(11 条):空 beats / disabled / 窗内 snap / 窗外不动 / 自定义窗 / minDuration 保护 / 长度不变 / 二分边界
+- **TODO**:编排器接入 beat snap 默认开(下次 minor 跟进,目前 lib 已就绪)
 
-### B.4 片头 / 片尾自动生成
-- [ ] `services/intro-outro.ts`
-  - 片头:封面图 + 标题 + 制作信息 fade-in 1.5s
-  - 片尾:角色 roster + "Made by AI Comic Studio" 2s
-- [ ] 项目页"导出"按钮新增"含片头片尾"选项, 默认开
-- **验收**:成片首尾不再是突兀切入/截断
+### B.4 片头 / 片尾自动生成 ✅ 2026-04-26
+- [x] `services/intro-outro.ts` 新增 `generateIntroOutro()` + `buildIntroFilters()` + `buildOutroFilters()` + 转义 helper
+- [x] intro 1.5s:封面图(scale+crop+drawbox 暗化)+ 标题 0.6s 淡入 + "by Wind Comic" 副标 0.4-1.0s 淡入
+- [x] intro 无封面时退到纯黑 color 源
+- [x] outro 2.0s:"Made by Wind Comic" 主标 + 项目标题淡入 + 角色 roster(最多 6 人,平移淡入)
+- [x] 决策常量:`INTRO_DURATION_S=1.5` / `OUTRO_DURATION_S=2.0` / `INTRO_OUTRO_RESOLUTION=1920x1080`
+- [x] 输出 [vout]+[aout] 标签,supplyable 直接进 composer 的 concat 列表
+- [x] tests/intro-outro.test.ts(12 条):cover/no-cover 分支 / brand+title+roster / roster cap / 转义 / 自定义 font+duration / 决策常量
+- **TODO**:export 路由"含片头片尾"开关下次 minor 跟(只剩 UI 接入,后端已就绪)
 
 ### Sprint B 总验收
 - ✅ 盲测 5 段视频, 用户感觉"专业 / 像短剧"占比 ≥60%

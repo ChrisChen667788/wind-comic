@@ -278,6 +278,37 @@ function getVideoDuration(filePath: string): Promise<number> {
 }
 
 /**
+ * v2.12 Sprint B.1 — j-cut/l-cut 音轨偏移决策
+ *
+ * 设计:
+ *   - clip[i].transition 字段描述的是 clip[i] → clip[i+1] 的转场
+ *   - 'j-cut' 在转场上意味着"声音先入":下一镜的对白要在画面切前 LEAD_MS 出来
+ *   - 'l-cut' 反之意味着"画面先切但声音延续":本镜对白超出本镜视长不被截断
+ *
+ * 实现:
+ *   - j-cut: 当 prev clip 的 transition='j-cut' 时,本镜配音 adelay 减 LEAD_MS,clamp 不能 < 0
+ *   - l-cut: 现有 adelay 链路本来就不截断 voiceover(audio 自然播完),无需特殊参数,
+ *           但我们在调用方做计数 + 日志,显式记录设计意图,避免被未来误改
+ *
+ * 这两个常数和 computeJCutAdelay 都从模块导出, 给 tests/composer-jcut.test.ts 单测锁住决策值。
+ */
+export const COMPOSER_LEAD_MS = 400;
+export const COMPOSER_LAG_MS = 400;
+
+export function computeJCutAdelay(input: {
+  clips: Array<{ transition?: string }>;
+  shotIndex: number;
+  baseStartMs: number;
+}): number {
+  const { clips, shotIndex, baseStartMs } = input;
+  if (shotIndex <= 0) return baseStartMs; // 第一个镜头永远没 prev,不可能 j-cut
+  const prev = clips[shotIndex - 1];
+  if (!prev || prev.transition !== 'j-cut') return baseStartMs;
+  // 提前 LEAD_MS,但 clamp 到 >= 0 避免负 adelay 让 ffmpeg 报错
+  return Math.max(0, baseStartMs - COMPOSER_LEAD_MS);
+}
+
+/**
  * FFmpeg xfade 转场类型映射 (v2.11 #6 扩展)
  *
  * 设计:
@@ -613,18 +644,37 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
 
       const voSubInputs: string[] = [];
       let voCount = 0;
+      let jCutCount = 0;
+      let lCutCount = 0;
       for (const [shotNumber, voPath] of localVoiceovers.entries()) {
         const startMs = shotStartMs.get(shotNumber);
         if (startMs === undefined) continue; // 找不到对应 shot,跳过
+
+        // ── v2.12 Sprint B.1 · j-cut/l-cut 真音轨偏移 ──
+        // j-cut: 上一镜 transition='j-cut' → 本镜配音提前 LEAD_MS 入,声音先到画面后切
+        // l-cut: 本镜 transition='l-cut'   → 本镜配音不截断,自然延续到下一镜起始
+        //         (现有代码不截断 voiceover,这里只算计数显式记日志)
+        const myIdx = validClips.findIndex(c => c.shotNumber === shotNumber);
+        const adjustedStartMs = computeJCutAdelay({
+          clips: validClips,
+          shotIndex: myIdx,
+          baseStartMs: startMs,
+        });
+        if (adjustedStartMs < startMs) jCutCount++;
+        if (myIdx >= 0 && validClips[myIdx]?.transition === 'l-cut') lCutCount++;
+
         cmd.input(voPath);
         const voIdx = nextInputIdx;
         nextInputIdx++;
         // adelay 需要每声道的 ms,立体声用 `startMs|startMs`
-        const delay = `${startMs}|${startMs}`;
+        const delay = `${adjustedStartMs}|${adjustedStartMs}`;
         const lbl = `vo${voCount}`;
         filters.push(`[${voIdx}:a]adelay=${delay},volume=${voiceoverVolume}[${lbl}]`);
         voSubInputs.push(`[${lbl}]`);
         voCount++;
+      }
+      if (jCutCount > 0 || lCutCount > 0) {
+        console.log(`[Composer] B.1 audio offsets applied: j-cut=${jCutCount}, l-cut=${lCutCount}`);
       }
 
       if (voCount > 0) {
