@@ -2646,16 +2646,17 @@ ${shots.map((s, i) => {
               name: 'Minimax-T2V',
               gen: () => this.minimaxService!.generateVideo('', t2vPrompt, {}), // 空首帧 → Hailuo-2.3 纯文生
             });
-            if (this.klingService) passBEngines.push({
-              name: 'Kling-T2V',
-              gen: () => this.klingService!.generateVideo('', t2vPrompt, { duration: 5 }),
-            });
-            // v2.12: Hailuo-2.3-Fast 是 Minimax 的低质快速版,日额度独立计算 —
-            // 放在所有标准引擎之后作为最后一站,标准额度耗尽时仍能保住一个 6s
-            // 可看视频,而不是直接掉到 Ken Burns 静帧 animatic。
+            // v2.12: Hailuo-2.3-Fast 是 Minimax 的低质快速版,日额度独立于标准 Hailuo-2.3。
+            // 排在 Kling 之前 —— Fast 通常仍比 Kling 跑得动且与 Hailuo-2.3 共账户管理,
+            // 标准 Hailuo 用满后用同一家的 Fast 比换 Kling 更可控(成本/响应/失败率)。
+            // 仍排在 Ken Burns 静帧之前,保证只在所有真视频引擎都失败时才掉到 animatic。
             if (this.minimaxService?.isVideoAvailable()) passBEngines.push({
               name: 'Minimax-Hailuo-Fast',
               gen: () => this.minimaxService!.generateVideoFast(t2vPrompt, { duration: 5 }),
+            });
+            if (this.klingService) passBEngines.push({
+              name: 'Kling-T2V',
+              gen: () => this.klingService!.generateVideo('', t2vPrompt, { duration: 5 }),
             });
 
             for (const engine of passBEngines) {

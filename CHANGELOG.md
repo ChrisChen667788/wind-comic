@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New endpoint: `POST /api/upload/character-face` (multipart **or** `{imageUrl}` JSON; size cap 10 MB; protocol whitelist `http(s):` / `data:`)
   - New component: `components/create/character-lock-section.tsx`
   - Phase 2 (per-shot character routing where Writer tags each shot with character labels) and Phase 3 (per-character Cameo retry scoring) tracked in [ROADMAP](ROADMAP.md).
-- **Hailuo-2.3-Fast video fallback** (`MinimaxService.generateVideoFast()`) — wired into the orchestrator's Pass-B T2V chain as the **last engine before Ken Burns animatic**. Hailuo Fast has its own daily quota separate from regular Hailuo-2.3, so it kicks in when Veo / Hailuo-2.3 / Kling are all exhausted, salvaging a 6-second viewable cut instead of falling all the way through to a still-frame composite. Model name overridable via `MINIMAX_FAST_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3-Fast`).
+- **Hailuo-2.3-Fast video fallback** (`MinimaxService.generateVideoFast()`) — wired into the orchestrator's Pass-B T2V chain. New chain order: `Veo-T2V → Hailuo-2.3 → Hailuo-Fast → Kling-T2V → Ken Burns animatic`. Hailuo Fast has its own daily quota independent of standard Hailuo-2.3; placed **before Kling** so the same-account fallback (more predictable cost / response / failure mode) is tried first, with Kling kept as the final real-video attempt before falling through to a still-frame composite. Model name overridable via `MINIMAX_FAST_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3-Fast`).
 
 ---
 
