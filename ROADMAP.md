@@ -85,16 +85,28 @@
 > **预期周期**:1-2 周
 > **决策**:重生阈值定 **75 分**(决策 #1)· Cameo 仪表盘**嵌入"分镜" tab 列**(决策 #2)
 
-### A.1+ 多角色锁脸 — Phase 1 ✅ 2026-04-26
-> 把单角色 Cameo 锁脸升级为多角色,前置到创作工坊管线里。
+### A.1+ 多角色锁脸 ✅ 2026-04-26
+> 把单角色 Cameo 锁脸升级为多角色,前置到创作工坊管线里,逐 Phase 推进。
+
+#### Phase 1 ✅ 2026-04-26 — UX 上线
 - [x] 创作工坊新增"角色锁脸"区块,支持 1-3 个主要角色(主角 A / B / C)
 - [x] 单卡:角色名(自定义) + 定位预设(lead 125 / antagonist 125 / supporting 100 / cameo 80) + 上传文件 OR 直接贴 URL
 - [x] 新 endpoint `POST /api/upload/character-face`(项目无关,创建项目前就能上传)
 - [x] DB:新列 `projects.locked_characters`(JSON,无 schema 破坏性 migration)
 - [x] 编排器兜底:`lockedCharacters[0]` 自动同步进 `primary_character_ref`,沿用现有单角色 Cameo 链路
 - [x] 项目页:展示已锁角色徽章(头像 + 名字 + 定位 + cw)
-- **Phase 2 (待):** Writer 给每个 shot 打角色标 → orchestrator per-shot cref 路由
-- **Phase 3 (待):** Cameo retry 多角色独立评分 + 重生
+
+#### Phase 2 ✅ 2026-04-26 — Per-shot 角色路由真正生效
+- [x] `lib/consistency-policy.ts` 新增 `LockedCharacter` 类型 + `matchLockedCharactersInShot()` 匹配函数(exact normalized + substring,2 字符以上才模糊匹配防"安"误中)
+- [x] `pickConsistencyRefs` 优先级:**matched-locked > user-locked > character-sheet > first-character**;命中即用该角色 imageUrl + per-character cw(不再统一 125)
+- [x] `ConsistencyPick.extraCrefs` — 一镜头同框多角色时,首匹配作 cref,其余进 `referenceImages` 让 MJ/Minimax 看到所有要锁的脸
+- [x] 编排器:`setLockedCharacters()` 方法 + `renderSingleShot` 把 `extraCrefs` 链进 `progressiveRefs`
+- [x] `tests/locked-characters-routing.test.ts`(13 条):exact/normalized/substring/no-match/优先级/per-char cw/extraCrefs/clamp
+
+#### Phase 3 (待) — Cameo retry 多角色独立评分
+- [ ] `services/cameo-retry.ts` 接 `lockedCharacters[]`,每个匹配的角色都跑一次 vision scoring
+- [ ] 任一角色 < 75 触发重生;重生时把所有 lockedCharacters refs 都带上
+- [ ] 多角色镜头分数取**最低分**而非平均(防"主角好,配角崩")
 
 ### A.1 Cameo Vision Auto-Retry(< 75 触发重生) ✅ 2026-04-25
 - [x] **新增 `lib/cameo-vision.ts` 的 `scoreShotConsistency(shotImage, refImage, name)`** — 真正"两图比对"的 vision call, 与原有 `scoreCameoImage` (单图评分) 解耦, prompt 互不污染

@@ -11,7 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multi-character face lock — Phase 1** (`/dashboard/create`) — upload 1-3 main character faces (主角 A / B / C) at creation time with name + role preset (lead 125 / antagonist 125 / supporting 100 / cameo 80) → cw. Files via local upload **or** image URL. Persisted in new `projects.locked_characters` JSON column; first character is also synced into the existing `primary_character_ref` for backward-compat with the v2.9 single-face orchestrator path. Project page shows a colored badge with all locked characters.
   - New endpoint: `POST /api/upload/character-face` (multipart **or** `{imageUrl}` JSON; size cap 10 MB; protocol whitelist `http(s):` / `data:`)
   - New component: `components/create/character-lock-section.tsx`
-  - Phase 2 (per-shot character routing where Writer tags each shot with character labels) and Phase 3 (per-character Cameo retry scoring) tracked in [ROADMAP](ROADMAP.md).
+- **Multi-character face lock — Phase 2** — per-shot character routing now actually works: `pickConsistencyRefs` matches `shot.characters` against `lockedCharacters[].name` (exact normalized + safe-substring fuzzy) and uses the matched character's own `imageUrl` + per-character `cw` instead of always defaulting to the first locked face. When two or three locked characters appear in the same shot, the first match becomes the `--cref` and the rest are passed as `referenceImages` so MJ/Minimax can see all the faces it needs to lock.
+  - New `LockedCharacter` type + `matchLockedCharactersInShot()` helper (exported from `lib/consistency-policy.ts`)
+  - `ConsistencyPick` extended with `extraCrefs?: string[]` and `reason.matchedLockedName`
+  - New cref priority: `matched-locked > user-locked > character-sheet > first-character`
+  - New `cwTier`: `matched-locked` (uses the per-character `cw`)
+  - `services/hybrid-orchestrator.ts`: new `setLockedCharacters()`, threaded into `renderSingleShot`'s `progressiveRefs` chain
+  - `tests/locked-characters-routing.test.ts` — 13 unit tests covering name normalization, single/multi match, false-positive guard (single-char locked names rejected), priority over `primaryCharacterRefLocked`, per-character cw, `extraCrefs` ordering, cw clamping
+- Phase 3 (per-character Cameo retry scoring — score each matched locked face independently and trigger regen on the lowest score) tracked in [ROADMAP](ROADMAP.md).
 - **Hailuo-2.3-Fast video fallback** (`MinimaxService.generateVideoFast()`) — wired into the orchestrator's Pass-B T2V chain. New chain order: `Veo-T2V → Hailuo-2.3 → Hailuo-Fast → Kling-T2V → Ken Burns animatic`. Hailuo Fast has its own daily quota independent of standard Hailuo-2.3; placed **before Kling** so the same-account fallback (more predictable cost / response / failure mode) is tried first, with Kling kept as the final real-video attempt before falling through to a still-frame composite. Model name overridable via `MINIMAX_FAST_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3-Fast`).
 
 ---

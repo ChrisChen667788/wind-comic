@@ -95,6 +95,12 @@ export async function POST(request: NextRequest) {
           orchestrator.setPrimaryCharacterRef(effectiveCameoRef);
         }
 
+        // v2.12 Phase 2: 把 sanitizedLocked 注入 orchestrator,启用 per-shot 角色路由。
+        // 必须在 runDirector / runCharacterDesigner 之前调用。
+        if (sanitizedLocked.length > 0) {
+          orchestrator.setLockedCharacters(sanitizedLocked);
+        }
+
         // v2.11 #4 Writer-Editor 闭环: 把 projectId 注入 orchestrator,
         // 让 runWriter 能查历史评分、runEditor 完成后能写回评分。
         orchestrator.setProjectId(projectId);

@@ -266,6 +266,10 @@ export class HybridOrchestrator {
   // v2.9 P0 Cameo: 用户上传的主角脸参考图(锁死全片 IP,优先级高于 Character Designer 自动生成)
   // 一旦 lock=true,后续 Character Designer 不能覆盖它 —— 这是 Cameo 功能的核心语义
   private primaryCharacterRefLocked: boolean = false;
+  // v2.12 Phase 2: 多角色锁脸 — 1-3 个角色,每个有自己的 name + role + cw + imageUrl。
+  // pickConsistencyRefs 会按 shot.characters 匹配进来,命中即用该角色的 imageUrl 当 cref、
+  // 用其 cw 当 --cw。比 primaryCharacterRef 优先级高(per-shot 路由 > 全局兜底)。
+  private lockedCharacters: import('@/lib/consistency-policy').LockedCharacter[] = [];
 
   // v2.9 P1 Keyframes: 每个已生成 shot 的末帧持久化 URL(key = shotNumber)
   // 下一个 shot 会把 shotLastFrames.get(shotNumber - 1) 塞到 referenceImages
@@ -324,6 +328,32 @@ export class HybridOrchestrator {
     this.primaryCharacterRef = url;
     this.primaryCharacterRefLocked = true;
     console.log(`[Cameo] Primary character face locked from user: ${url.slice(0, 60)}...`);
+  }
+
+  /**
+   * v2.12 Phase 2: 注入用户在创作工坊预先锁定的 1-3 个角色。
+   * 必须在 runCharacterDesigner 之前调用 — pickConsistencyRefs 会优先按
+   * shot.characters 匹配名字,命中就用该角色自己的 imageUrl + cw,不再统一用
+   * primaryCharacterRef(那是单角色 Phase 1 的兜底)。
+   *
+   * Phase 2 行为:per-shot 路由,每个镜头根据出场角色名匹配独立 cref。
+   * Phase 3 (待):Cameo retry 也按命中角色独立评分,而非统一用 primary。
+   */
+  setLockedCharacters(arr: Array<{ name: string; role: string; cw: number; imageUrl: string }>) {
+    if (!Array.isArray(arr)) return;
+    const allowed: Array<'lead' | 'antagonist' | 'supporting' | 'cameo'> = ['lead', 'antagonist', 'supporting', 'cameo'];
+    this.lockedCharacters = arr
+      .filter(c => c && typeof c.name === 'string' && c.name.trim() && typeof c.imageUrl === 'string' && c.imageUrl)
+      .slice(0, 3)
+      .map(c => ({
+        name: c.name.trim().slice(0, 40),
+        role: (allowed as string[]).includes(c.role) ? (c.role as 'lead' | 'antagonist' | 'supporting' | 'cameo') : 'lead',
+        cw: Number.isFinite(c.cw) ? Math.max(25, Math.min(125, Math.round(c.cw))) : 100,
+        imageUrl: c.imageUrl,
+      }));
+    if (this.lockedCharacters.length > 0) {
+      console.log(`[Cameo] ${this.lockedCharacters.length} locked character(s) registered: ${this.lockedCharacters.map(c => `${c.name}(${c.role}/cw=${c.cw})`).join(', ')}`);
+    }
   }
 
   /**
@@ -1906,10 +1936,14 @@ ${shots.map((s, i) => {
         shotSceneDescription: sceneDesc,
         fallbackSceneRef: scenes && scenes[0]?.imageUrl && !scenes[0].imageUrl.startsWith('data:') ? scenes[0].imageUrl : undefined,
         isProtagonistShot,
+        // v2.12 Phase 2: per-shot 角色路由 — pickConsistencyRefs 会按 shot.characters
+        // 匹配 lockedCharacters[].name,命中就用该角色独立的 imageUrl 与 cw
+        lockedCharacters: this.lockedCharacters,
       });
       const crefUrl = refsPick.cref;
       const srefUrl = refsPick.sref;
-      console.log(`[Renderer] Shot ${sb.shotNumber} consistency policy: cref=${refsPick.reason.crefSource} sref=${refsPick.reason.srefSource} cw=${refsPick.cw}(${refsPick.reason.cwTier})`);
+      const matched = refsPick.reason.matchedLockedName ? ` matched=${refsPick.reason.matchedLockedName}` : '';
+      console.log(`[Renderer] Shot ${sb.shotNumber} consistency policy: cref=${refsPick.reason.crefSource}${matched} sref=${refsPick.reason.srefSource} cw=${refsPick.cw}(${refsPick.reason.cwTier})${refsPick.extraCrefs?.length ? ` +${refsPick.extraCrefs.length} extra cref(s)` : ''}`);
 
       // 使用统一渲染提示词
       let renderPrompt = getUnifiedStoryboardRenderPrompt(
@@ -1951,6 +1985,11 @@ ${shots.map((s, i) => {
       // P4: 渐进式一致性链（并发安全 — 读取当前已完成的分镜图）
       const progressiveRefs: string[] = [];
       if (crefUrl) progressiveRefs.push(crefUrl);
+      // v2.12 Phase 2: 同一镜头里其他匹配上的 lockedCharacters 的脸图也塞 referenceImages,
+      // 让 MJ/Minimax 同时看到 A 和 B 的脸,避免多角色同框时把 B 也画成 A
+      if (refsPick.extraCrefs?.length) {
+        for (const u of refsPick.extraCrefs) if (u && !progressiveRefs.includes(u)) progressiveRefs.push(u);
+      }
       if (srefUrl) progressiveRefs.push(srefUrl);
       const recentRendered = this.renderedStoryboardUrls.slice(-2);
       for (const url of recentRendered) {
