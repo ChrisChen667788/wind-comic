@@ -137,6 +137,60 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
   const [urlDraft, setUrlDraft] = useState('');
   const { showToast } = useToast();
 
+  // v2.12 Sprint A.3: Bible 跨项目复用查询(debounced)
+  const [bibleHit, setBibleHit] = useState<{
+    bible: {
+      role: LockedCharacter['role'];
+      cw: number;
+      imageUrl: string;
+      traits?: CharacterTraits | null;
+      sampleFaces?: string[];
+    };
+    usedInProjectsCount: number;
+  } | null>(null);
+  const [bibleDismissed, setBibleDismissed] = useState(false);
+
+  useEffect(() => {
+    // 已经有头像或者用户已经 dismiss 过 → 不再 lookup
+    if (slot.imageUrl || bibleDismissed) {
+      setBibleHit(null);
+      return;
+    }
+    const trimmed = slot.name.trim();
+    if (trimmed.length < 2) {
+      setBibleHit(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/characters/bible/${encodeURIComponent(trimmed)}`, {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json && json.found) {
+          setBibleHit({ bible: json.bible, usedInProjectsCount: json.usedInProjectsCount });
+        } else {
+          setBibleHit(null);
+        }
+      } catch { /* abort/network — silent */ }
+    }, 600);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [slot.name, slot.imageUrl, bibleDismissed]);
+
+  const reuseBible = () => {
+    if (!bibleHit) return;
+    onUpdate({
+      role: bibleHit.bible.role,
+      cw: bibleHit.bible.cw,
+      imageUrl: bibleHit.bible.imageUrl,
+      traits: bibleHit.bible.traits ?? undefined,
+    });
+    setBibleHit(null);
+    showToast({ title: `已复用「${slot.name}」的历史档案`, type: 'success' });
+  };
+
   /**
    * v2.12 Sprint A.2: 上传成功后 fire-and-forget 调 GPT-4o Vision,
    * 反向抽 6-8 维档案,展示成 chips。失败静默(不打断主流程,只是没 chips)。
@@ -233,6 +287,40 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
       <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-[#E8C547] text-black text-[11px] font-bold flex items-center justify-center shadow">
         {slotLabel}
       </div>
+
+      {/* v2.12 Sprint A.3: 历史 Bible 命中提示 */}
+      {bibleHit && !hasImage && (
+        <div className="mb-2 px-2 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-[10.5px]">
+          <img
+            src={bibleHit.bible.imageUrl}
+            alt=""
+            className="w-7 h-7 rounded-md object-cover flex-shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-emerald-200 font-semibold truncate">
+              📚 已找到「{slot.name.trim()}」
+            </div>
+            <div className="text-emerald-200/60 text-[9.5px]">
+              {bibleHit.usedInProjectsCount} 个历史项目用过
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={reuseBible}
+            className="px-2 py-0.5 rounded bg-emerald-500/25 hover:bg-emerald-500/40 text-emerald-100 text-[10px] font-medium flex-shrink-0"
+          >
+            一键复用
+          </button>
+          <button
+            type="button"
+            onClick={() => setBibleDismissed(true)}
+            className="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-white flex-shrink-0"
+            aria-label="dismiss"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       {/* 图片预览 / 上传区 */}
       <div className="flex items-start gap-3">

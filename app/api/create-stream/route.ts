@@ -142,7 +142,10 @@ export async function POST(request: NextRequest) {
           const existing = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
           // v2.12 Phase 1: 把 lockedCharacters[] 持久化到 projects.locked_characters
           // (单一角色仍同步进 primary_character_ref,见上方 effectiveCameoRef 逻辑)
+          // v2.12 Sprint A.3: 同步 upsert 到 global_assets,跨项目复用 Character Bible
           const lockedJson = sanitizedLocked.length > 0 ? JSON.stringify(sanitizedLocked) : '[]';
+          // 推迟到 INSERT/UPDATE 后再 upsert bible(需要 projectId 已存在)
+          const bibleUpsertList: Array<{ name: string; role: 'lead' | 'antagonist' | 'supporting' | 'cameo'; cw: number; imageUrl: string; traits?: any }> = sanitizedLocked;
           if (!existing) {
             // v2.9: 把用户选择的 style 持久化到 projects.style_id
             // v2.12: + 持久化 locked_characters + primary_character_ref(兜底)
@@ -162,6 +165,35 @@ export async function POST(request: NextRequest) {
               console.warn(`[DB] style/locked_characters update failed for ${projectId}:`, e);
             }
             console.log(`[DB] Project exists: ${projectId}${style ? ` (style updated=${style})` : ''}${sanitizedLocked.length ? ` lockedChars=${sanitizedLocked.length}` : ''}`);
+          }
+
+          // v2.12 Sprint A.3: 项目落库后,把每个 lockedCharacter upsert 到 global_assets(Character Bible)
+          // 失败不阻塞主流程 — 这只是跨项目记忆增强,即使写不进库,本项目仍能正常生成
+          if (bibleUpsertList.length > 0) {
+            try {
+              const { upsertCharacterBible } = await import('@/lib/global-assets');
+              for (const c of bibleUpsertList) {
+                try {
+                  upsertCharacterBible({
+                    userId,
+                    projectId,
+                    name: c.name,
+                    bible: {
+                      role: c.role,
+                      cw: c.cw,
+                      imageUrl: c.imageUrl,
+                      traits: c.traits ?? null,
+                      sampleFaces: [c.imageUrl],
+                    },
+                  });
+                } catch (e) {
+                  console.warn(`[Bible] upsert failed for ${c.name}:`, e instanceof Error ? e.message : e);
+                }
+              }
+              console.log(`[Bible] upserted ${bibleUpsertList.length} character bible(s) for project ${projectId}`);
+            } catch (e) {
+              console.warn('[Bible] module import failed:', e instanceof Error ? e.message : e);
+            }
           }
         } catch (e) {
           console.error('[DB] Project creation failed:', e);

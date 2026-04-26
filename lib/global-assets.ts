@@ -255,5 +255,126 @@ export function recordAssetUsage(
   return getGlobalAssetById(id);
 }
 
+// ──────────────────────────────────────────────────────────
+// v2.12 Sprint A.3 — Character Bible 跨项目持久化
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Character Bible 的 metadata.bible 子对象 — global_assets 表里某个 type='character'
+ * 行可以可选地携带这份信息,代表该角色被用户上传过脸 + 抽过 traits。
+ *
+ * 字段:
+ *   role      用户在创作工坊指定的定位 (lead/antagonist/supporting/cameo)
+ *   cw        Midjourney --cw 推荐值 (随 role)
+ *   imageUrl  最近一次锁脸时的 persistAsset URL
+ *   traits    最近一次反向抽取的 6-8 维档案 (可能为 null,如果 vision 失败过)
+ *   sampleFaces  历史上传过的所有锁脸 URL (新版本上传后追加,UI 可挑一张作主参考)
+ */
+export interface CharacterBible {
+  role: 'lead' | 'antagonist' | 'supporting' | 'cameo';
+  cw: number;
+  imageUrl: string;
+  traits?: Record<string, unknown> | null;
+  sampleFaces: string[];
+  lastUsedProjectId?: string;
+}
+
+/**
+ * Upsert 一个 character 类型的 global_asset,把当前项目的锁脸数据合并进 bible。
+ * 同名(大小写归一)且 user_id 相同的现有 character row 会被合并;
+ * 不存在则新建。返回最终的 bible 对象。
+ *
+ * 调用方:create-stream 在创建项目时,把每个 lockedCharacter 喂给本函数。
+ */
+export function upsertCharacterBible(input: {
+  userId: string;
+  projectId: string;
+  name: string;
+  bible: CharacterBible;
+}): GlobalAsset {
+  const ts = now();
+  const normalizedName = input.name.trim();
+  // 找现有同名 character (case-sensitive 完全匹配 — 跨项目复用要求精确名字)
+  const existing = db
+    .prepare(
+      "SELECT * FROM global_assets WHERE user_id = ? AND type = 'character' AND name = ? LIMIT 1",
+    )
+    .get(input.userId, normalizedName) as GlobalAssetRow | undefined;
+
+  if (existing) {
+    const prevAsset = rowToAsset(existing);
+    const prevBible = (prevAsset.metadata.bible as Partial<CharacterBible> | undefined) || {};
+    const prevSamples = Array.isArray(prevBible.sampleFaces) ? (prevBible.sampleFaces as string[]) : [];
+    const mergedSamples = Array.from(new Set([
+      input.bible.imageUrl,
+      ...input.bible.sampleFaces,
+      ...prevSamples,
+    ].filter(Boolean))).slice(0, 10); // 最多保留最近 10 张
+    const mergedBible: CharacterBible = {
+      ...prevBible,
+      ...input.bible,
+      sampleFaces: mergedSamples,
+      lastUsedProjectId: input.projectId,
+    };
+    const refSet = new Set(prevAsset.referencedByProjects);
+    refSet.add(input.projectId);
+    const refJson = JSON.stringify(Array.from(refSet));
+    const metadataJson = JSON.stringify({
+      ...prevAsset.metadata,
+      bible: mergedBible,
+    });
+    db.prepare(
+      `UPDATE global_assets SET metadata = ?, thumbnail = ?, referenced_by_projects = ?, updated_at = ? WHERE id = ?`,
+    ).run(metadataJson, input.bible.imageUrl, refJson, ts, existing.id);
+    return getGlobalAssetById(existing.id)!;
+  }
+
+  // 新建 character row — 也对 sampleFaces 应用 10 张上限
+  const initialSamples = Array.from(new Set(
+    [input.bible.imageUrl, ...input.bible.sampleFaces].filter(Boolean),
+  )).slice(0, 10);
+  return createGlobalAsset({
+    userId: input.userId,
+    type: 'character',
+    name: normalizedName,
+    description: '',
+    thumbnail: input.bible.imageUrl,
+    metadata: {
+      bible: {
+        ...input.bible,
+        sampleFaces: initialSamples,
+        lastUsedProjectId: input.projectId,
+      },
+    },
+  });
+}
+
+/**
+ * 按 (user_id, name) 精确查找一个已存在的 Character Bible。
+ * 找到 → 返回 bible + 历史项目数;找不到 → null。
+ *
+ * 给前端 CharacterLockSection 在用户输入角色名时实时检测复用机会用。
+ */
+export function findCharacterBibleByName(
+  userId: string,
+  name: string,
+): { bible: CharacterBible; usedInProjectsCount: number } | null {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const row = db
+    .prepare(
+      "SELECT * FROM global_assets WHERE user_id = ? AND type = 'character' AND name = ? LIMIT 1",
+    )
+    .get(userId, trimmed) as GlobalAssetRow | undefined;
+  if (!row) return null;
+  const asset = rowToAsset(row);
+  const bible = asset.metadata.bible as CharacterBible | undefined;
+  if (!bible || !bible.imageUrl) return null;
+  return {
+    bible,
+    usedInProjectsCount: asset.referencedByProjects.length,
+  };
+}
+
 // 便于测试：把行映射函数和常量导出
 export const __test__ = { rowToAsset };

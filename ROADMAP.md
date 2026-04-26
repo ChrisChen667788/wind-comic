@@ -133,12 +133,16 @@
 - [x] orchestrator 在 renderSingleShot 命中 lockedCharacter 且 traits.confident 时注入 `traitsToDescription(traits)` 到 MJ/Minimax prompt
 - [x] tests/character-traits-from-face.test.ts(已有,覆盖核心 API)
 
-### A.3 Character Bible 跨项目持久化
-- [ ] `global_assets.metadata` 加 `bible: { traits, visual, sampleFaces[] }` 字段(无 schema 变化, 现有 metadata 是 JSON)
-- [ ] 新项目创建时, 用户输入相同角色名 → 自动检测 → 提示"是否复用 Bible"
-- [ ] 复用时把 Bible 注入 character description + cref/sref
-- [ ] 新增 `app/api/characters/bible/[name]/route.ts` 查询 endpoint
-- **验收**:同一角色名跨 3 个项目, 视觉一致性肉眼无差异
+### A.3 Character Bible 跨项目持久化 ✅ 2026-04-26
+- [x] `global_assets.metadata.bible` JSON 子对象(无 schema 变化,沿用现有 metadata 列)
+- [x] `lib/global-assets.ts` 新增 `upsertCharacterBible()` + `findCharacterBibleByName()`
+- [x] `GET /api/characters/bible/[name]` 端点(精确名匹配,case-sensitive,跨用户隔离)
+- [x] create-stream 项目落库后 fire-and-forget upsert 每个 lockedCharacter 进 Bible
+- [x] CharacterLockSection name 输入框 600ms debounce 查询,命中显示"📚 已找到「X」(N 个项目用过)— 一键复用"banner
+- [x] 复用时填回 `imageUrl + traits + role + cw`,可 dismiss(整个槽位都不再 lookup)
+- [x] sampleFaces 累积去重,封顶 10 张
+- [x] referencedByProjects 跨项目累积(同项目幂等)
+- [x] tests/character-bible.test.ts(10 条):新建 / 合并 / sample 累积 / FK 隔离 / 用户隔离 / 边界
 
 ### A.4 Cameo 仪表盘嵌入"分镜" tab(决策 #2) ✅ 2026-04-26
 - [x] 每个分镜卡右上角 Cameo score 徽章(红 <70 / 黄 70-84 / 绿 ≥85)+ aria-label
