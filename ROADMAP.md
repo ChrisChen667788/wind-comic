@@ -125,12 +125,13 @@
 - [x] **`tests/cameo-retry.test.ts`(17 条)** — 早退路径 5 / 重生路径 8 / 决策值锁 4
 - **验收**(待实测):同一角色跨 10 镜头, Cameo 平均 ≥85, 标准差 <8, 重生率 <30%
 
-### A.2 用户脸 → 6 维档案反向抽取
-- [ ] `lib/character-traits.ts` 新增 `traitsFromFace(imageUrl): Promise<CharacterTraits>`
-  - 走 GPT-4o Vision: "请从这张人脸图抽取性别/年龄段/肤色/发型/眼型/气质 6 维, 返回 JSON"
-- [ ] character manager UI 上传脸时自动跑反向抽取, 出 6 维卡片让用户确认/编辑
-- [ ] 抽出来的 traits 合并到 `character.visual + character.bible`, 后续 prompt 自动带
-- **验收**:上传 5 张不同脸, 6 维输出准确率 ≥80%(人工评估)
+### A.2 用户脸 → 6 维档案反向抽取 ✅ 2026-04-26
+- [x] `lib/character-traits.ts` 的 `traitsFromFace(imageUrl, opts)` — GPT-4o Vision 抽 8 维(gender/ageGroup/build/skinTone/appearance/costume/personality/signature)+ confident 标记
+- [x] `POST /api/character-traits/from-face` 端点(白名单 imageUrl,422 当 vision 失败)
+- [x] CharacterLockSection UI 上传后 fire-and-forget 自动调反向抽取,显示 chips(性别/年龄/肤色/外貌/服饰/气质 6 chips,置信度低时 amber 提示)
+- [x] create-stream 严格白名单 sanitizer 透传 traits 到 projects.locked_characters JSON
+- [x] orchestrator 在 renderSingleShot 命中 lockedCharacter 且 traits.confident 时注入 `traitsToDescription(traits)` 到 MJ/Minimax prompt
+- [x] tests/character-traits-from-face.test.ts(已有,覆盖核心 API)
 
 ### A.3 Character Bible 跨项目持久化
 - [ ] `global_assets.metadata` 加 `bible: { traits, visual, sampleFaces[] }` 字段(无 schema 变化, 现有 metadata 是 JSON)

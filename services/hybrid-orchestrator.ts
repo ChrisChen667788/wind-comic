@@ -339,7 +339,7 @@ export class HybridOrchestrator {
    * Phase 2 行为:per-shot 路由,每个镜头根据出场角色名匹配独立 cref。
    * Phase 3 (待):Cameo retry 也按命中角色独立评分,而非统一用 primary。
    */
-  setLockedCharacters(arr: Array<{ name: string; role: string; cw: number; imageUrl: string }>) {
+  setLockedCharacters(arr: Array<{ name: string; role: string; cw: number; imageUrl: string; traits?: unknown }>) {
     if (!Array.isArray(arr)) return;
     const allowed: Array<'lead' | 'antagonist' | 'supporting' | 'cameo'> = ['lead', 'antagonist', 'supporting', 'cameo'];
     this.lockedCharacters = arr
@@ -350,9 +350,12 @@ export class HybridOrchestrator {
         role: (allowed as string[]).includes(c.role) ? (c.role as 'lead' | 'antagonist' | 'supporting' | 'cameo') : 'lead',
         cw: Number.isFinite(c.cw) ? Math.max(25, Math.min(125, Math.round(c.cw))) : 100,
         imageUrl: c.imageUrl,
+        // v2.12 Sprint A.2: 透传 traits;sanitizer 已在 create-stream 做白名单校验
+        ...(c.traits ? { traits: c.traits } : {}),
       }));
     if (this.lockedCharacters.length > 0) {
-      console.log(`[Cameo] ${this.lockedCharacters.length} locked character(s) registered: ${this.lockedCharacters.map(c => `${c.name}(${c.role}/cw=${c.cw})`).join(', ')}`);
+      const withTraits = this.lockedCharacters.filter(c => c.traits).length;
+      console.log(`[Cameo] ${this.lockedCharacters.length} locked character(s) registered: ${this.lockedCharacters.map(c => `${c.name}(${c.role}/cw=${c.cw})`).join(', ')}${withTraits ? ` · ${withTraits} with AI-extracted traits` : ''}`);
     }
   }
 
@@ -1968,6 +1971,20 @@ ${shots.map((s, i) => {
       const anchorPrompt = buildCharacterAnchorPrompt(this.characterAnchors, shotCharacters);
       if (anchorPrompt) {
         renderPrompt = `${renderPrompt}. ${anchorPrompt}`;
+      }
+
+      // v2.12 Sprint A.2: 把命中 lockedCharacter 的 6 维档案合进 prompt,
+      // 让 MJ/Minimax 看到的不光是参考图,还有自然语言描述,提升角色辨识度。
+      if (refsPick.reason.matchedLockedName) {
+        const matched = this.lockedCharacters.find(c => c.name === refsPick.reason.matchedLockedName);
+        const matchedTraits = matched?.traits as { confident?: boolean } | undefined;
+        if (matched && matchedTraits && matchedTraits.confident) {
+          try {
+            const { traitsToDescription } = await import('@/lib/character-traits');
+            const desc = traitsToDescription(matched.traits as any);
+            if (desc) renderPrompt = `${renderPrompt}, ${matched.name}: ${desc}`;
+          } catch { /* 模块加载失败也不阻塞,traits 只是增强项 */ }
+        }
       }
 
       // P1: 主角色参考图回退已在 pickConsistencyRefs 里完成 (crefSource=first-character),

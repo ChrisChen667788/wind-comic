@@ -35,6 +35,14 @@ export interface LockedCharacter {
   cw: number;
   /** persistAsset 后的稳定 URL */
   imageUrl: string;
+  /**
+   * v2.12 Sprint A.2: 上传脸瞬间用 GPT-4o Vision 反向抽到的 6 维档案
+   * (性别/年龄段/肤色/体型/外貌/服饰/气质/特殊标记)。
+   * 这里用 unknown 类型保持 consistency-policy 与 character-traits 解耦
+   * (lib/character-traits.ts 导出的 CharacterTraits 才是真实 shape, 上层用 cast 即可)。
+   * 缺省 = 用户没启用反向抽取, 编排器回退到不带 traits 的旧行为。
+   */
+  traits?: unknown;
 }
 
 export interface ConsistencyContext {

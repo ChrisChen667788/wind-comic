@@ -18,8 +18,9 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Upload, Link as LinkIcon, X, Loader2, UserCircle2 } from 'lucide-react';
+import { Upload, Link as LinkIcon, X, Loader2, UserCircle2, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/toast-provider';
+import type { CharacterTraits } from '@/lib/character-traits';
 
 export interface LockedCharacter {
   /** 角色名 — 必填(空字符串视为该槽位未启用) */
@@ -30,6 +31,12 @@ export interface LockedCharacter {
   cw: number;
   /** persistAsset 后的稳定 URL */
   imageUrl: string;
+  /**
+   * v2.12 Sprint A.2: 上传脸后自动调 /api/character-traits/from-face 反向抽到的 6-8 维档案。
+   * confident=false 时前端给提示让用户检查;数据透传给 create-stream → orchestrator,
+   * 编排器拼 prompt 时把这些维度合进 Character Bible,提升角色识别度与一致性。
+   */
+  traits?: CharacterTraits;
 }
 
 interface Props {
@@ -125,9 +132,36 @@ interface CardProps {
 function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
   const { showToast } = useToast();
+
+  /**
+   * v2.12 Sprint A.2: 上传成功后 fire-and-forget 调 GPT-4o Vision,
+   * 反向抽 6-8 维档案,展示成 chips。失败静默(不打断主流程,只是没 chips)。
+   */
+  const extractTraits = async (imageUrl: string) => {
+    setExtracting(true);
+    try {
+      const res = await fetch('/api/character-traits/from-face', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl, defaultName: slot.name || undefined }),
+      });
+      if (res.ok) {
+        const traits: CharacterTraits = await res.json();
+        onUpdate({ traits });
+        if (traits.confident === false) {
+          showToast({ title: '自动识别置信度低,可手动调整', type: 'info' });
+        }
+      }
+    } catch {
+      /* 静默 — 即使 vision 挂了用户仍然能继续创作,只是没自动 6 维档案 */
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -149,6 +183,7 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
         return;
       }
       onUpdate({ imageUrl: body.url });
+      extractTraits(body.url);
     } catch (e) {
       showToast({ title: e instanceof Error ? e.message : '上传失败', type: 'error' });
     } finally {
@@ -178,6 +213,7 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
       onUpdate({ imageUrl: body.url });
       setShowUrlInput(false);
       setUrlDraft('');
+      extractTraits(body.url);
     } catch (e) {
       showToast({ title: e instanceof Error ? e.message : 'URL 抓取失败', type: 'error' });
     } finally {
@@ -304,6 +340,75 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
           </button>
         </div>
       )}
+
+      {/* v2.12 Sprint A.2: 自动抽到的 6 维档案 chips */}
+      {hasImage && (extracting || slot.traits) && (
+        <TraitChips traits={slot.traits} extracting={extracting} />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// TraitChips — 反向抽取出的 6-8 维档案 chips
+// ─────────────────────────────────────────────────────────────────────
+
+function TraitChips({
+  traits,
+  extracting,
+}: {
+  traits?: CharacterTraits;
+  extracting: boolean;
+}) {
+  if (extracting) {
+    return (
+      <div className="mt-2.5 pt-2 border-t border-white/8 flex items-center gap-1.5 text-[10.5px] text-violet-300/80">
+        <Sparkles className="w-3 h-3 animate-pulse" />
+        <span>AI 正在从这张脸抽取角色档案...</span>
+      </div>
+    );
+  }
+
+  if (!traits) return null;
+
+  // gender 映射成中文,只显示有真实信息的维度
+  const genderText = traits.gender === 'male' ? '男' : traits.gender === 'female' ? '女' : null;
+  const chips: Array<{ label: string; full?: string }> = [];
+  if (genderText) chips.push({ label: genderText });
+  if (traits.ageGroup && traits.ageGroup !== '未明示') chips.push({ label: traits.ageGroup });
+  if (traits.skinTone && traits.skinTone !== '未明示') chips.push({ label: traits.skinTone });
+  if (traits.appearance && traits.appearance !== '未明示') {
+    chips.push({ label: traits.appearance.length > 8 ? traits.appearance.slice(0, 8) + '…' : traits.appearance, full: traits.appearance });
+  }
+  if (traits.costume && traits.costume !== '未明示') {
+    chips.push({ label: traits.costume.length > 8 ? traits.costume.slice(0, 8) + '…' : traits.costume, full: traits.costume });
+  }
+  if (traits.personality && traits.personality !== '未明示') {
+    chips.push({ label: traits.personality.length > 8 ? traits.personality.slice(0, 8) + '…' : traits.personality, full: traits.personality });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="mt-2.5 pt-2 border-t border-white/8">
+      <div className="flex items-center gap-1 text-[9.5px] uppercase tracking-widest text-violet-300/70 mb-1.5">
+        <Sparkles className="w-2.5 h-2.5" />
+        <span>AI 抽取档案</span>
+        {traits.confident === false && (
+          <span className="ml-1 px-1 rounded bg-amber-500/15 text-amber-300 normal-case tracking-normal text-[9px]">置信度低</span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {chips.map((c, i) => (
+          <span
+            key={i}
+            title={c.full}
+            className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-200/85 text-[10.5px] border border-violet-500/20"
+          >
+            {c.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
