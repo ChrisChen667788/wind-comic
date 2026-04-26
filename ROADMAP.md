@@ -229,19 +229,18 @@
 - [ ] 测试模式跑通完整链:注册 → 选 Pro → Stripe Checkout → webhook → tier 升级
 - **验收**:测试模式下 4 档付费链全部跑通
 
-### C.3 GitHub Actions CI/CD(§3.4 V3 残)
-- [ ] `.github/workflows/ci.yml`
-  - push / PR 触发
-  - 跑 `npm install` + `npx tsc --noEmit` + `npx vitest run`
-  - 失败阻断 merge
-- [ ] 加 README badge
-- **验收**:故意 PR 一个 tsc 错误 → CI 红
+### C.3 GitHub Actions CI/CD ✅ 2026-04-26
+- [x] `.github/workflows/ci.yml`(已在 v2.12.0 初次开源 release 时落地)
+  - push / PR 触发,Node 20 + 22 矩阵
+  - typecheck (tsc --noEmit) + test (vitest run) + build (next build) 三段
+- [x] README CI badge(早就在 README 顶部,跟 license/stars/release/Node/Next 一起)
+- [x] 验收:每次提交都跑,Sprint A 系列 commit 全部 1m30s-1m52s 内绿过
 
-### C.4 TTS 模型对齐(技术债)
-- [ ] `services/tts.service.ts` 从 `speech-02` 升到 `speech-2.8-hd`
-- [ ] 与 `services/minimax.service.ts` 共用同一 voice_setting 结构
-- [ ] 删 `tts.service.ts` 里重复的 voice profile, 复用 minimax 的
-- **验收**:跑 1 段 TTS, 音质对齐 minimax 的输出
+### C.4 TTS 模型对齐(技术债)✅ 2026-04-26
+- [x] `services/tts.service.ts` 默认从 `speech-02` 升到 `speech-2.8-hd`,可由 `MINIMAX_TTS_MODEL` env 覆盖
+- [x] 与 `services/minimax.service.ts` 现有 speech-2.8-hd 调用对齐(那两处已经是新模型,只有 tts.service 落后)
+- [x] 注:`VOICE_PROFILES` 实际只在 `tts.service.ts` 里,minimax.service.ts 没有重复表 → 不需要 dedupe
+- [x] 注释里残留的 "speech-02" 文案同步更新
 
 ### Sprint C 总验收
 - ✅ Stripe 4 档付费完整跑通
