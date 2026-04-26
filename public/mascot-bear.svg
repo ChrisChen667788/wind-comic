@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <!-- Background -->
+  <rect width="120" height="120" rx="16" fill="#c5d86d" stroke="#1a1a1a" stroke-width="3"/>
+
+  <!-- Ears -->
+  <ellipse cx="30" cy="28" rx="14" ry="14" fill="#6b4c2a" stroke="#1a1a1a" stroke-width="2.5"/>
+  <ellipse cx="30" cy="28" rx="8" ry="8" fill="#8b6a42"/>
+  <ellipse cx="90" cy="28" rx="14" ry="14" fill="#6b4c2a" stroke="#1a1a1a" stroke-width="2.5"/>
+  <ellipse cx="90" cy="28" rx="8" ry="8" fill="#8b6a42"/>
+
+  <!-- Head/Body -->
+  <ellipse cx="60" cy="72" rx="48" ry="46" fill="#6b4c2a" stroke="#1a1a1a" stroke-width="2.5"/>
+
+  <!-- Body fur spots -->
+  <circle cx="35" cy="60" r="3" fill="#5a3d20" opacity="0.5"/>
+  <circle cx="48" cy="75" r="2.5" fill="#5a3d20" opacity="0.5"/>
+  <circle cx="72" cy="68" r="3" fill="#5a3d20" opacity="0.5"/>
+  <circle cx="85" cy="78" r="2.5" fill="#5a3d20" opacity="0.5"/>
+  <circle cx="42" cy="88" r="2" fill="#5a3d20" opacity="0.5"/>
+  <circle cx="78" cy="90" r="2" fill="#5a3d20" opacity="0.5"/>
+  <circle cx="55" cy="95" r="2.5" fill="#5a3d20" opacity="0.5"/>
+  <circle cx="65" cy="55" r="2" fill="#5a3d20" opacity="0.5"/>
+
+  <!-- Eyebrows (thick, grumpy) -->
+  <path d="M32 44 L50 40" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M88 44 L70 40" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Eyes (half-lidded, deadpan) -->
+  <ellipse cx="42" cy="52" rx="8" ry="6" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <ellipse cx="78" cy="52" rx="8" ry="6" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Eyelids (half-closed) -->
+  <path d="M34 48 Q42 44 50 48 L50 52 Q42 48 34 52 Z" fill="#6b4c2a" stroke="#1a1a1a" stroke-width="1"/>
+  <path d="M70 48 Q78 44 86 48 L86 52 Q78 48 70 52 Z" fill="#6b4c2a" stroke="#1a1a1a" stroke-width="1"/>
+  <!-- Pupils -->
+  <circle cx="44" cy="53" r="3.5" fill="#1a1a1a"/>
+  <circle cx="80" cy="53" r="3.5" fill="#1a1a1a"/>
+
+  <!-- Blush (pink cheeks) -->
+  <ellipse cx="30" cy="62" rx="8" ry="6" fill="#e8a0a0" opacity="0.7"/>
+  <ellipse cx="90" cy="62" rx="8" ry="6" fill="#e8a0a0" opacity="0.7"/>
+
+  <!-- Muzzle (snout area) -->
+  <ellipse cx="60" cy="70" rx="16" ry="13" fill="#d4b896" stroke="#1a1a1a" stroke-width="2"/>
+
+  <!-- Nose -->
+  <ellipse cx="60" cy="66" rx="6" ry="4.5" fill="#5a3520" stroke="#1a1a1a" stroke-width="1.5"/>
+
+  <!-- Nose highlight -->
+  <ellipse cx="58" cy="64.5" rx="2" ry="1.5" fill="#8b5a3a" opacity="0.5"/>
+
+  <!-- Nose line -->
+  <line x1="60" y1="70" x2="60" y2="75" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Mouth (grumpy/neutral) -->
+  <path d="M52 76 Q56 78 60 76 Q64 78 68 76" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Chin/neck lines -->
+  <path d="M38 90 Q42 95 46 92" stroke="#1a1a1a" stroke-width="1.5" fill="none" opacity="0.4"/>
+  <path d="M74 92 Q78 95 82 90" stroke="#1a1a1a" stroke-width="1.5" fill="none" opacity="0.4"/>
+</svg>

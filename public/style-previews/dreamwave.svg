@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="350" viewBox="0 0 280 350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1A0533"/>
+      <stop offset="40%" stop-color="#2D1B69"/>
+      <stop offset="70%" stop-color="#1B3A5C"/>
+      <stop offset="100%" stop-color="#0D2137"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="30%" cy="40%"><stop offset="0%" stop-color="#E040FB" stop-opacity="0.3"/><stop offset="100%" stop-color="#E040FB" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glow2" cx="70%" cy="60%"><stop offset="0%" stop-color="#00BCD4" stop-opacity="0.25"/><stop offset="100%" stop-color="#00BCD4" stop-opacity="0"/></radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+  <rect width="280" height="350" fill="url(#bg)"/>
+  <rect width="280" height="350" fill="url(#glow1)"/>
+  <rect width="280" height="350" fill="url(#glow2)"/>
+  <!-- Stars -->
+  <circle cx="40" cy="30" r="1" fill="#fff" opacity="0.7"/>
+  <circle cx="120" cy="50" r="0.8" fill="#fff" opacity="0.5"/>
+  <circle cx="200" cy="25" r="1.2" fill="#fff" opacity="0.6"/>
+  <circle cx="250" cy="70" r="0.7" fill="#fff" opacity="0.4"/>
+  <circle cx="80" cy="90" r="0.9" fill="#E0B0FF" opacity="0.5"/>
+  <circle cx="170" cy="80" r="0.6" fill="#80DEEA" opacity="0.4"/>
+  <circle cx="60" cy="150" r="1" fill="#fff" opacity="0.3"/>
+  <circle cx="220" cy="140" r="0.8" fill="#CE93D8" opacity="0.4"/>
+  <!-- Jellyfish 1 -->
+  <ellipse cx="80" cy="180" rx="20" ry="12" fill="#E040FB" opacity="0.15" filter="url(#blur)"/>
+  <path d="M65 188 Q68 210 60 230" stroke="#E040FB" stroke-width="0.8" fill="none" opacity="0.3"/>
+  <path d="M75 190 Q77 215 72 235" stroke="#CE93D8" stroke-width="0.6" fill="none" opacity="0.25"/>
+  <path d="M85 190 Q88 218 82 240" stroke="#E040FB" stroke-width="0.7" fill="none" opacity="0.2"/>
+  <path d="M95 188 Q97 212 92 228" stroke="#CE93D8" stroke-width="0.6" fill="none" opacity="0.25"/>
+  <!-- Jellyfish 2 -->
+  <ellipse cx="200" cy="220" rx="16" ry="10" fill="#00BCD4" opacity="0.15" filter="url(#blur)"/>
+  <path d="M188 227 Q190 250 185 265" stroke="#00BCD4" stroke-width="0.7" fill="none" opacity="0.25"/>
+  <path d="M197 229 Q199 255 195 272" stroke="#80DEEA" stroke-width="0.5" fill="none" opacity="0.2"/>
+  <path d="M206 229 Q208 252 204 268" stroke="#00BCD4" stroke-width="0.6" fill="none" opacity="0.2"/>
+  <!-- Floating figure -->
+  <ellipse cx="140" cy="165" rx="6" ry="18" fill="#D1C4E9" opacity="0.3"/>
+  <circle cx="140" cy="145" r="5" fill="#D1C4E9" opacity="0.3"/>
+  <!-- Hair flowing -->
+  <path d="M140 142 Q155 130 165 140 Q155 135 145 145" fill="#E1BEE7" opacity="0.2"/>
+</svg>

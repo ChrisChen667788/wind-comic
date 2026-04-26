@@ -1,0 +1,93 @@
+{
+  "name": "wind-comic",
+  "version": "2.12.0",
+  "description": "Wind Comic — multi-agent AI pipeline that turns a one-line idea into a finished short-form drama: script → cinematic storyboards → video, with built-in character consistency, beat-aligned editing, and an open agent ensemble.",
+  "main": "index.js",
+  "homepage": "https://github.com/ChrisChen667788/wind-comic",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ChrisChen667788/wind-comic.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ChrisChen667788/wind-comic/issues"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "generate:hero": "node scripts/generate-hero-cover.mjs",
+    "generate:assets": "node scripts/generate-marketing-assets.mjs",
+    "release": "bash scripts/release.sh"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "video-generation",
+    "midjourney",
+    "minimax",
+    "veo",
+    "sora",
+    "comic",
+    "storyboard",
+    "screenwriter",
+    "nextjs",
+    "openai",
+    "claude"
+  ],
+  "author": "ChrisChen667788 <chenhaorui667788@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-avatar": "^1.1.11",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-progress": "^1.1.8",
+    "@radix-ui/react-select": "^2.2.6",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@xyflow/react": "^12.10.1",
+    "autoprefixer": "^10.4.27",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.8.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "ffmpeg-static": "^5.3.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "framer-motion": "^12.38.0",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.577.0",
+    "nanoid": "^5.1.7",
+    "next": "^16.2.1",
+    "openai": "^6.32.0",
+    "postcss": "^8.5.8",
+    "react": "^19.2.4",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-dom": "^19.2.4",
+    "react-hotkeys-hook": "^5.2.4",
+    "react-window": "^2.2.7",
+    "swr": "^2.4.1",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^5.9.3",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/fluent-ffmpeg": "^2.1.28",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^29.0.1",
+    "vitest": "^4.1.0"
+  }
+}

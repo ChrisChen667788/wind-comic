@@ -1,0 +1,533 @@
+@import "tailwindcss";
+
+:root {
+  /* ═══ 暖墨黑 × 金色主调 (Premium v2) ═══
+   * 灵感来源: 漫画印刷质感 × 金箔封面 × 手工匠人感
+   * 基调: 暖墨黑底 + 金色主色 + 漫画红点缀
+   */
+  --background: #0A0A0B;
+  --background-elevated: #121214;
+  --foreground: #1A1A1C;
+  --surface: rgba(255, 248, 235, 0.028);
+  --surface-strong: rgba(255, 248, 235, 0.055);
+  --surface-hover: rgba(255, 248, 235, 0.08);
+  --primary: #E8C547;
+  --primary-hover: #F2D05A;
+  --primary-muted: rgba(232, 197, 71, 0.10);
+  --primary-glow: rgba(232, 197, 71, 0.20);
+  --secondary: #C8432A;
+  --accent: #5A8FCC;
+  --accent-green: #22D3A5;
+  --text: #F5F1EA;
+  --muted: #7A7672;
+  --soft: #4A4744;
+  --border: #242220;
+  --border-hover: #3A3735;
+  --shadow: 0 12px 48px rgba(0, 0, 0, 0.65);
+  --radius: 10px;
+  --radius-sm: 8px;
+  --radius-lg: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background: var(--background);
+  font-family: 'Inter', 'SF Pro Display', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.015em;
+  line-height: 1.6;
+}
+
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; display: block; }
+
+/* ═══════════════════════════════════════
+   SCROLLBAR (暖色调纤细滚动条)
+   ═══════════════════════════════════════ */
+.custom-scrollbar::-webkit-scrollbar { width: 3px; height: 3px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(232,197,71,0.12); border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(232,197,71,0.25); }
+
+/* ═══════════════════════════════════════
+   GLASS CARDS (暖墨磨砂)
+   ═══════════════════════════════════════ */
+.glass-card {
+  background: linear-gradient(160deg, rgba(255,248,235,0.035) 0%, rgba(255,248,235,0.012) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  backdrop-filter: blur(48px) saturate(1.3);
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(160deg, rgba(232,197,71,0.08) 0%, transparent 40%, transparent 60%, rgba(232,197,71,0.04) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.glass-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(232,197,71,0.06);
+}
+.glass-card:hover::before {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════
+   BUTTONS (金色主调 + 漫画质感)
+   ═══════════════════════════════════════ */
+.btn-primary {
+  background: linear-gradient(135deg, #E8C547 0%, #D4A830 100%);
+  border: none;
+  color: #0A0A0B;
+  padding: 11px 28px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 2px 16px rgba(232, 197, 71, 0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+  letter-spacing: 0.02em;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #F2D05A 0%, #E0B83E 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(232, 197, 71, 0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.btn-primary:hover::after {
+  transform: translateX(100%);
+}
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+.btn-ghost {
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-ghost:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-icon:hover {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* ═══════════════════════════════════════
+   GRADIENT TEXT (金色渐变)
+   ═══════════════════════════════════════ */
+.brand-gradient {
+  background-image: linear-gradient(135deg, #F5F0E8 0%, #E8C547 60%, #D4A830 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.gradient-text-pink {
+  background-image: linear-gradient(135deg, #E8C547, #C8432A, #E8C547);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ═══════════════════════════════════════
+   STAT CARDS / PILLS / CHIPS
+   ═══════════════════════════════════════ */
+.stat-pill {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 110px;
+  border: 1.5px solid var(--border);
+  transition: all 0.3s ease;
+}
+.stat-pill:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-strong);
+}
+
+.chip {
+  border-radius: 999px;
+  padding: 6px 16px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.chip:hover {
+  color: var(--text);
+  background: var(--surface-strong);
+  transform: translateY(-1px);
+}
+.chip.active {
+  background: rgba(232, 197, 71, 0.12);
+  border-color: rgba(232, 197, 71, 0.35);
+  color: #E8C547;
+  box-shadow: 0 0 12px rgba(232, 197, 71, 0.1);
+}
+
+/* ═══════════════════════════════════════
+   BADGES (暖色调)
+   ═══════════════════════════════════════ */
+.badge-completed {
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.badge-active {
+  background: var(--primary-muted);
+  color: #E8C547;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.badge-draft {
+  background: rgba(255, 245, 230, 0.04);
+  color: var(--soft);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+/* ═══════════════════════════════════════
+   SIDEBAR (漫画工坊风格)
+   ═══════════════════════════════════════ */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--muted);
+  transition: all 0.2s ease;
+  position: relative;
+}
+.sidebar-nav-item:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.sidebar-nav-item.active {
+  color: var(--text);
+  background: rgba(232, 197, 71, 0.06);
+  font-weight: 500;
+}
+.sidebar-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 18px;
+  border-radius: 0 3px 3px 0;
+  background: #E8C547;
+}
+
+/* ═══════════════════════════════════════
+   PROJECT CARDS (漫画面板风格 — 1.5px边框)
+   ═══════════════════════════════════════ */
+.project-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  cursor: pointer;
+}
+.project-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(232, 197, 71, 0.1);
+}
+.project-card .cover {
+  position: relative;
+  overflow: hidden;
+}
+.project-card .cover img {
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.project-card:hover .cover img {
+  transform: scale(1.04);
+}
+
+/* ═══════════════════════════════════════
+   ANIMATIONS (克制、流畅)
+   ═══════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 6px var(--primary-glow); }
+  50% { box-shadow: 0 0 18px var(--primary-glow); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes subtlePulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.animate-fade-up { animation: fadeUp 0.5s ease both; }
+.animate-fade-in { animation: fadeIn 0.35s ease both; }
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-float-delay-1 { animation: float 6s ease-in-out 0.8s infinite; }
+.animate-float-delay-2 { animation: float 6s ease-in-out 1.6s infinite; }
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,245,230,0.04) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
+}
+.animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 5s ease infinite;
+}
+
+/* ═══════════════════════════════════════
+   PAGE AMBIENT (暖金色光晕)
+   ═══════════════════════════════════════ */
+.page-glow {
+  position: fixed;
+  top: -300px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 500px;
+  background: radial-gradient(ellipse, rgba(232, 197, 71, 0.025) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(40px);
+}
+
+/* ═══════════════════════════════════════
+   COSMIC BACKGROUND (暖墨质感氛围)
+   ═══════════════════════════════════════ */
+@keyframes ambientDrift {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+.cosmic-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.cosmic-bg::before,
+.cosmic-bg::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  animation: ambientDrift 8s ease-in-out infinite;
+}
+.cosmic-bg::before {
+  width: 800px; height: 800px;
+  top: -300px; right: -200px;
+  background: radial-gradient(ellipse, rgba(232, 197, 71, 0.02), transparent 60%);
+  filter: blur(60px);
+}
+.cosmic-bg::after {
+  width: 600px; height: 600px;
+  bottom: -200px; left: -150px;
+  background: radial-gradient(ellipse, rgba(200, 67, 42, 0.015), transparent 60%);
+  animation-delay: 4s;
+  filter: blur(60px);
+}
+
+/* 噪点纹理叠加（印刷质感 — 比之前更强） */
+.cosmic-bg .noise-overlay {
+  position: absolute;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px;
+}
+
+/* ═══════════════════════════════════════
+   ART SHELF SCROLLBAR (金色调)
+   ═══════════════════════════════════════ */
+.art-shelf::-webkit-scrollbar { height: 2px; }
+.art-shelf::-webkit-scrollbar-track { background: transparent; }
+.art-shelf::-webkit-scrollbar-thumb { background: rgba(232,197,71,0.15); border-radius: 4px; }
+
+/* ═══════════════════════════════════════
+   STORY TIMELINE (暖色调时间线)
+   ═══════════════════════════════════════ */
+.story-timeline-shot {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.story-timeline-shot:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.story-timeline-shot.active {
+  border-color: rgba(232, 197, 71, 0.5) !important;
+  box-shadow: 0 0 12px rgba(232, 197, 71, 0.15);
+}
+
+/* ═══════════════════════════════════════
+   NODE SHELL (暖墨面板)
+   ═══════════════════════════════════════ */
+.node-shell {
+  backdrop-filter: blur(24px) saturate(1.3);
+  transition: all 0.3s ease;
+}
+
+/* ═══════════════════════════════════════
+   REACT FLOW 节点全局优化
+   ═══════════════════════════════════════ */
+.react-flow__node {
+  transition: filter 0.3s ease, box-shadow 0.3s ease;
+}
+.react-flow__node:hover {
+  filter: brightness(1.03);
+}
+.react-flow__node.selected {
+  filter: brightness(1.06);
+}
+
+/* ═══════════════════════════════════════
+   PREMIUM UTILITIES (v2)
+   ═══════════════════════════════════════ */
+
+/* Skeleton loading shimmer */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-strong) 50%, var(--surface) 75%);
+  background-size: 400% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Glow ring for focused elements */
+.focus-ring {
+  transition: box-shadow 0.2s ease;
+}
+.focus-ring:focus-within {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px rgba(232, 197, 71, 0.3);
+}
+
+/* Better scrollbar for content areas */
+.scroll-area::-webkit-scrollbar { width: 4px; height: 4px; }
+.scroll-area::-webkit-scrollbar-track { background: transparent; margin: 4px; }
+.scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(232,197,71,0.10);
+  border-radius: 4px;
+}
+.scroll-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(232,197,71,0.20);
+}
+
+/* Smooth text gradient */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #F5F0E8 0%, #E8C547 50%, #D4A830 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Ambient glow effect for hero sections */
+.ambient-glow {
+  position: relative;
+}
+.ambient-glow::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 80%;
+  background: radial-gradient(ellipse, rgba(232, 197, 71, 0.04) 0%, transparent 70%);
+  pointer-events: none;
+  filter: blur(40px);
+}
+
+/* Selection highlighting */
+::selection {
+  background: rgba(232, 197, 71, 0.25);
+  color: var(--text);
+}

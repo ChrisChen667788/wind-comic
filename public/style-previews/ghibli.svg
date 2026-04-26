@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="350" viewBox="0 0 280 350">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#81D4FA"/>
+      <stop offset="60%" stop-color="#B3E5FC"/>
+      <stop offset="100%" stop-color="#E1F5FE"/>
+    </linearGradient>
+    <radialGradient id="sunlight" cx="60%" cy="30%"><stop offset="0%" stop-color="#FFF9C4" stop-opacity="0.4"/><stop offset="100%" stop-color="#FFF9C4" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="280" height="350" fill="url(#sky)"/>
+  <rect width="280" height="350" fill="url(#sunlight)"/>
+  <!-- Clouds -->
+  <ellipse cx="60" cy="60" rx="40" ry="15" fill="#fff" opacity="0.7"/>
+  <ellipse cx="75" cy="55" rx="25" ry="12" fill="#fff" opacity="0.8"/>
+  <ellipse cx="220" cy="80" rx="35" ry="12" fill="#fff" opacity="0.6"/>
+  <!-- Hills -->
+  <path d="M0 220 Q40 180 80 200 Q140 170 200 195 Q240 175 280 200 L280 350 L0 350Z" fill="#66BB6A"/>
+  <path d="M0 250 Q60 220 120 240 Q180 215 240 235 Q260 225 280 240 L280 350 L0 350Z" fill="#4CAF50"/>
+  <path d="M0 280 Q50 265 100 275 Q160 260 220 270 Q260 262 280 275 L280 350 L0 350Z" fill="#388E3C"/>
+  <!-- Stone path -->
+  <path d="M120 350 Q125 320 130 300 Q135 280 140 265" stroke="#8D6E63" stroke-width="8" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M120 350 Q125 320 130 300 Q135 280 140 265" stroke="#A1887F" stroke-width="4" fill="none" opacity="0.2" stroke-linecap="round" stroke-dasharray="6 4"/>
+  <!-- Cottage -->
+  <rect x="155" y="195" width="50" height="35" rx="2" fill="#FFCC80"/>
+  <path d="M148 198 L180 175 L212 198Z" fill="#C62828" opacity="0.7"/>
+  <!-- Window -->
+  <rect x="165" y="205" width="10" height="10" rx="1" fill="#FFF9C4" opacity="0.7"/>
+  <rect x="182" y="205" width="10" height="10" rx="1" fill="#FFF9C4" opacity="0.7"/>
+  <!-- Door -->
+  <rect x="174" y="218" width="8" height="12" rx="1" fill="#8D6E63"/>
+  <!-- Chimney -->
+  <rect x="190" y="178" width="6" height="17" fill="#8D6E63"/>
+  <!-- Wildflowers -->
+  <circle cx="80" cy="260" r="2" fill="#FF7043" opacity="0.7"/>
+  <circle cx="90" cy="265" r="2" fill="#FFCA28" opacity="0.7"/>
+  <circle cx="70" cy="268" r="1.5" fill="#EC407A" opacity="0.6"/>
+  <circle cx="100" cy="258" r="2" fill="#AB47BC" opacity="0.6"/>
+  <circle cx="115" cy="263" r="1.5" fill="#FF7043" opacity="0.6"/>
+  <circle cx="60" cy="275" r="2" fill="#FFCA28" opacity="0.5"/>
+  <circle cx="130" cy="270" r="1.5" fill="#EC407A" opacity="0.5"/>
+  <!-- Trees -->
+  <ellipse cx="240" cy="210" rx="18" ry="25" fill="#2E7D32" opacity="0.7"/>
+  <rect x="237" y="230" width="6" height="15" fill="#5D4037" opacity="0.5"/>
+  <ellipse cx="30" cy="230" rx="15" ry="22" fill="#388E3C" opacity="0.6"/>
+  <rect x="27" y="248" width="6" height="12" fill="#5D4037" opacity="0.5"/>
+</svg>

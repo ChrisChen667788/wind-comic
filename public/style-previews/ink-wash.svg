@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="350" viewBox="0 0 280 350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F5F0E6"/>
+      <stop offset="100%" stop-color="#E8E0D0"/>
+    </linearGradient>
+    <filter id="ink"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <rect width="280" height="350" fill="url(#bg)"/>
+  <!-- Distant mountains -->
+  <path d="M0 160 Q40 100 80 130 Q120 80 160 120 Q200 70 240 110 Q260 95 280 115 L280 200 L0 200Z" fill="#8A8A7A" opacity="0.2" filter="url(#ink)"/>
+  <!-- Mid mountains -->
+  <path d="M0 200 Q60 140 100 170 Q140 130 180 165 Q230 120 280 160 L280 250 L0 250Z" fill="#5A5A4A" opacity="0.35" filter="url(#ink)"/>
+  <!-- Bamboo stalks -->
+  <line x1="30" y1="80" x2="30" y2="280" stroke="#2A2A1A" stroke-width="2" opacity="0.5"/>
+  <line x1="50" y1="60" x2="50" y2="290" stroke="#3A3A2A" stroke-width="1.5" opacity="0.4"/>
+  <line x1="245" y1="90" x2="245" y2="300" stroke="#2A2A1A" stroke-width="2" opacity="0.45"/>
+  <!-- Bamboo leaves -->
+  <path d="M30 100 Q20 95 15 100 Q22 98 30 100Z" fill="#3A4A2A" opacity="0.5"/>
+  <path d="M30 100 Q40 92 45 97 Q38 96 30 100Z" fill="#3A4A2A" opacity="0.5"/>
+  <path d="M50 80 Q40 72 35 77 Q42 76 50 80Z" fill="#3A4A2A" opacity="0.4"/>
+  <path d="M50 80 Q60 73 65 78 Q58 77 50 80Z" fill="#3A4A2A" opacity="0.4"/>
+  <path d="M245 110 Q255 104 260 109 Q253 108 245 110Z" fill="#3A4A2A" opacity="0.45"/>
+  <!-- Bridge -->
+  <path d="M100 270 Q140 250 180 270" fill="none" stroke="#3A3A2A" stroke-width="2" opacity="0.5"/>
+  <!-- Water -->
+  <path d="M0 290 Q70 285 140 290 Q210 285 280 290 L280 350 L0 350Z" fill="#8A9A9E" opacity="0.15"/>
+  <!-- Lone figure on bridge -->
+  <ellipse cx="140" cy="258" rx="2" ry="8" fill="#2A2A1A" opacity="0.5"/>
+  <circle cx="140" cy="249" r="2" fill="#2A2A1A" opacity="0.5"/>
+  <!-- Seal stamp -->
+  <rect x="220" y="20" width="30" height="30" rx="2" fill="#C84432" opacity="0.6"/>
+</svg>

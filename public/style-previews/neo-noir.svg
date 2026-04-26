@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="350" viewBox="0 0 280 350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0A0A12"/>
+      <stop offset="100%" stop-color="#1A1A2E"/>
+    </linearGradient>
+    <linearGradient id="neon1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF1744"/>
+      <stop offset="100%" stop-color="#D50000"/>
+    </linearGradient>
+    <linearGradient id="neon2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00E5FF"/>
+      <stop offset="100%" stop-color="#0091EA"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="280" height="350" fill="url(#bg)"/>
+  <!-- Buildings -->
+  <rect x="20" y="40" width="40" height="310" fill="#12121E" stroke="#1A1A30" stroke-width="0.5"/>
+  <rect x="70" y="80" width="35" height="270" fill="#0E0E1A" stroke="#1A1A30" stroke-width="0.5"/>
+  <rect x="175" y="50" width="45" height="300" fill="#10101C" stroke="#1A1A30" stroke-width="0.5"/>
+  <rect x="230" y="90" width="35" height="260" fill="#0C0C18" stroke="#1A1A30" stroke-width="0.5"/>
+  <!-- Neon signs -->
+  <rect x="25" y="120" width="30" height="6" rx="1" fill="url(#neon1)" filter="url(#glow)" opacity="0.9"/>
+  <rect x="180" y="160" width="35" height="5" rx="1" fill="url(#neon2)" filter="url(#glow)" opacity="0.8"/>
+  <rect x="235" y="200" width="25" height="4" rx="1" fill="#FF1744" filter="url(#glow)" opacity="0.6"/>
+  <!-- Rain streaks -->
+  <line x1="120" y1="0" x2="115" y2="40" stroke="#4A4A6E" stroke-width="0.5" opacity="0.3"/>
+  <line x1="150" y1="20" x2="145" y2="60" stroke="#4A4A6E" stroke-width="0.5" opacity="0.3"/>
+  <line x1="130" y1="80" x2="125" y2="120" stroke="#4A4A6E" stroke-width="0.5" opacity="0.3"/>
+  <line x1="160" y1="140" x2="155" y2="180" stroke="#4A4A6E" stroke-width="0.5" opacity="0.3"/>
+  <!-- Wet ground reflection -->
+  <rect x="0" y="310" width="280" height="40" fill="#0A0A14" opacity="0.8"/>
+  <rect x="25" y="320" width="30" height="2" rx="1" fill="#FF1744" opacity="0.15"/>
+  <rect x="180" y="325" width="35" height="2" rx="1" fill="#00E5FF" opacity="0.12"/>
+  <!-- Figure -->
+  <ellipse cx="140" cy="275" rx="5" ry="20" fill="#0A0A14"/>
+  <circle cx="140" cy="252" r="4" fill="#0E0E18"/>
+</svg>

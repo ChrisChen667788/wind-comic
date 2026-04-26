@@ -1,0 +1,68 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please fill in as much as you can — the more we know, the faster we can fix it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. What did you expect, what did you get?
+      placeholder: |
+        I tried to generate a 5-shot storyboard for a fantasy script. The first 3 shots came back fine, then shot 4 timed out after 90s and the orchestrator did not retry.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start dev server with `npm run dev`
+        2. Create new project, paste script (attached)
+        3. Click "Generate storyboard"
+        4. Wait ~90s
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Wind Comic version
+      placeholder: "v2.12.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: providers
+    attributes:
+      label: Which AI provider were you using?
+      multiple: true
+      options:
+        - OpenAI / Claude (via OPENAI_API_KEY)
+        - Midjourney (via MJ_API_KEY)
+        - Minimax (image / video / TTS)
+        - Veo / Sora (via qingyuntop)
+        - fal.ai (FLUX Kontext)
+        - Local ComfyUI
+        - XVERSE (self-hosted)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Output from the orchestrator console, or browser devtools. Please redact any API keys.
+      render: shell
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "macOS 14.5 / Node 22.4 / Chrome 130"

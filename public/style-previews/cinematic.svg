@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="350" viewBox="0 0 280 350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF8F00"/>
+      <stop offset="30%" stop-color="#E65100"/>
+      <stop offset="60%" stop-color="#4E342E"/>
+      <stop offset="100%" stop-color="#1A1210"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="70%" cy="25%"><stop offset="0%" stop-color="#FFCC02" stop-opacity="0.5"/><stop offset="50%" stop-color="#FF8F00" stop-opacity="0.15"/><stop offset="100%" stop-color="#FF8F00" stop-opacity="0"/></radialGradient>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" result="noise"/><feColorMatrix type="saturate" values="0" in="noise" result="mono"/><feBlend in="SourceGraphic" in2="mono" mode="multiply"/></filter>
+  </defs>
+  <rect width="280" height="350" fill="url(#bg)"/>
+  <rect width="280" height="350" fill="url(#sun)"/>
+  <!-- Canyon layers -->
+  <path d="M0 180 L30 150 L60 170 L80 140 L100 165 L110 145 L0 145Z" fill="#5D4037" opacity="0.7"/>
+  <path d="M280 180 L250 145 L220 160 L200 135 L180 155 L170 140 L280 140Z" fill="#4E342E" opacity="0.7"/>
+  <!-- Canyon depth -->
+  <path d="M0 350 L0 180 Q70 220 140 200 Q210 220 280 180 L280 350Z" fill="#2E1A10" opacity="0.6"/>
+  <!-- Desert floor -->
+  <path d="M0 280 Q70 270 140 275 Q210 270 280 280 L280 350 L0 350Z" fill="#3E2723"/>
+  <!-- Sand dunes -->
+  <path d="M0 300 Q40 290 80 295 Q120 288 160 293 Q200 286 240 292 Q260 290 280 295 L280 350 L0 350Z" fill="#4E342E" opacity="0.5"/>
+  <!-- Explorer figure -->
+  <ellipse cx="140" cy="262" rx="4" ry="14" fill="#1A1210" opacity="0.7"/>
+  <circle cx="140" cy="246" r="4" fill="#1A1210" opacity="0.7"/>
+  <!-- Hat -->
+  <ellipse cx="140" cy="242" rx="7" ry="2" fill="#1A1210" opacity="0.6"/>
+  <!-- Lens flare -->
+  <circle cx="200" cy="80" r="15" fill="#FFCC02" opacity="0.08"/>
+  <circle cx="200" cy="80" r="4" fill="#FFF" opacity="0.1"/>
+  <!-- Film grain overlay hint -->
+  <rect width="280" height="350" fill="#1A1210" opacity="0.05"/>
+</svg>

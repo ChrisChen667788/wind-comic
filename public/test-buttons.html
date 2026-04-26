@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Button Test</title>
+    <style>
+        body { font-family: system-ui; padding: 40px; background: #0b0c10; color: white; }
+        .test-section { margin: 30px 0; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 10px; }
+        button, a { margin: 10px; padding: 12px 24px; border-radius: 8px; cursor: pointer; }
+        .btn-primary { background: linear-gradient(135deg, #ef319f, #4de0c2); border: none; color: white; }
+        .result { margin-top: 20px; padding: 15px; background: rgba(0,255,0,0.1); border-radius: 8px; }
+        .error { background: rgba(255,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <h1>漫剧项目按钮测试</h1>
+    
+    <div class="test-section">
+        <h2>测试 1: 登录 API</h2>
+        <button class="btn-primary" onclick="testLogin()">测试登录</button>
+        <div id="login-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>测试 2: 页面跳转</h2>
+        <a href="/auth" class="btn-primary" style="text-decoration: none; display: inline-block;">跳转到登录页</a>
+        <a href="/dashboard/create" class="btn-primary" style="text-decoration: none; display: inline-block;">跳转到创作页</a>
+    </div>
+
+    <div class="test-section">
+        <h2>测试 3: 检查 localStorage</h2>
+        <button class="btn-primary" onclick="checkStorage()">检查存储</button>
+        <div id="storage-result"></div>
+    </div>
+
+    <script>
+        async function testLogin() {
+            const resultEl = document.getElementById('login-result');
+            resultEl.innerHTML = '测试中...';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'demo@qfmanju.ai',
+                        password: 'Qfmanju123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.token) {
+                    localStorage.setItem('qfmj-token', data.token);
+                    localStorage.setItem('qfmj-user', JSON.stringify(data.user));
+                    resultEl.className = 'result';
+                    resultEl.innerHTML = `
+                        <strong>✅ 登录成功!</strong><br>
+                        用户: ${data.user.name}<br>
+                        Token: ${data.token.substring(0, 30)}...<br>
+                        <button class="btn-primary" onclick="window.location.href='/dashboard'">进入工作台</button>
+                    `;
+                } else {
+                    throw new Error('No token received');
+                }
+            } catch (err) {
+                resultEl.className = 'result error';
+                resultEl.innerHTML = `<strong>❌ 错误:</strong> ${err.message}`;
+            }
+        }
+
+        function checkStorage() {
+            const resultEl = document.getElementById('storage-result');
+            const token = localStorage.getItem('qfmj-token');
+            const user = localStorage.getItem('qfmj-user');
+            
+            resultEl.className = 'result';
+            resultEl.innerHTML = `
+                <strong>LocalStorage 状态:</strong><br>
+                Token: ${token ? '✅ 已存储 (' + token.substring(0, 20) + '...)' : '❌ 未找到'}<br>
+                User: ${user ? '✅ 已存储' : '❌ 未找到'}<br>
+                ${user ? '<br>用户信息: ' + user : ''}
+            `;
+        }
+
+        // 页面加载时自动检查
+        window.addEventListener('load', () => {
+            console.log('测试页面已加载');
+            checkStorage();
+        });
+    </script>
+</body>
+</html>

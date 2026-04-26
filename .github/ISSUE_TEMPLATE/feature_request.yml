@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest a new capability or improvement
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Got an idea? Awesome. Tell us what you'd like to build and why it matters.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      placeholder: |
+        When generating a multi-character scene, character A's clothing changes between shots even though they don't change in the script.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: |
+        Add a "wardrobe lock" toggle on the character card. When on, the wardrobe description is pinned into every prompt and not allowed to be paraphrased by the LLM.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Other approaches you thought about and rejected.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Which area does this touch?
+      options:
+        - Screenwriter / Polish Studio
+        - Storyboard / image generation
+        - Cameo / character consistency
+        - Video pipeline / orchestrator
+        - Editor / composition / TTS
+        - UI / dashboard
+        - Open agent ensemble
+        - Documentation
+        - Other
+    validations:
+      required: true

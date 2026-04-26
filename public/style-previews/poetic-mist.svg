@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="350" viewBox="0 0 280 350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8DDD0"/>
+      <stop offset="50%" stop-color="#C5B8A8"/>
+      <stop offset="100%" stop-color="#8A9A8E"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="3"/></filter>
+    <radialGradient id="mist" cx="50%" cy="60%"><stop offset="0%" stop-color="#fff" stop-opacity="0.4"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="280" height="350" fill="url(#bg)"/>
+  <!-- Mountains -->
+  <path d="M0 220 Q70 150 140 180 Q210 160 280 200 L280 350 L0 350Z" fill="#7A8A7E" opacity="0.5" filter="url(#blur)"/>
+  <path d="M0 260 Q50 200 120 230 Q200 190 280 240 L280 350 L0 350Z" fill="#5A6A5E" opacity="0.6"/>
+  <path d="M0 300 Q90 250 180 280 Q230 260 280 290 L280 350 L0 350Z" fill="#3A4A3E" opacity="0.7"/>
+  <!-- Mist -->
+  <rect width="280" height="350" fill="url(#mist)"/>
+  <!-- Figure silhouette -->
+  <ellipse cx="140" cy="255" rx="3" ry="15" fill="#4A3A2A" opacity="0.6"/>
+  <circle cx="140" cy="238" r="3" fill="#4A3A2A" opacity="0.6"/>
+</svg>
