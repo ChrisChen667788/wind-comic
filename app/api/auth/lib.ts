@@ -28,7 +28,11 @@ export function getUserFromRequest(request: Request): JWTPayload | null {
 }
 
 export function getUserById(id: string) {
-  const user = db.prepare('SELECT id, email, name, role, avatar_url, locale FROM users WHERE id = ?').get(id) as any;
+  const user = db
+    .prepare(
+      'SELECT id, email, name, role, avatar_url, locale, subscription_tier, subscription_status FROM users WHERE id = ?',
+    )
+    .get(id) as any;
   if (!user) return null;
   return {
     id: user.id,
@@ -37,5 +41,8 @@ export function getUserById(id: string) {
     role: user.role,
     avatarUrl: user.avatar_url,
     locale: user.locale,
+    // v2.12 Sprint C.2: 把订阅 tier/status 透传给前端,billing 页面 + 功能 gate 用
+    subscriptionTier: user.subscription_tier || 'free',
+    subscriptionStatus: user.subscription_status || null,
   };
 }

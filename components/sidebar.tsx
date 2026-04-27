@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import {
   LayoutDashboard, FolderKanban, Sparkles, BookOpen, User,
-  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film,
+  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -21,6 +21,8 @@ const navItems = [
   { href: '/dashboard/characters', label: '角色库', icon: Users },
   { href: '/dashboard/cases', label: '灵感库', icon: BookOpen },
   { href: '/dashboard/profile', label: '账户', icon: User },
+  // v2.12 Sprint C.2: Stripe 4 档订阅管理
+  { href: '/dashboard/billing', label: '订阅 / 计费', icon: CreditCard },
 ];
 
 export function Sidebar() {

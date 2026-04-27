@@ -239,6 +239,15 @@ addColumnIfMissing('projects', 'primary_character_ref', 'TEXT');
 // 保证现有单角色编排链路无感知;Phase 2 再做 per-shot 角色路由。
 addColumnIfMissing('projects', 'locked_characters', "TEXT NOT NULL DEFAULT '[]'");
 
+// v2.12 Sprint C.2 (2026-04-26): Stripe 4 档订阅
+// subscription_tier: 'free' | 'creator' | 'pro' | 'enterprise', 默认 free
+// subscription_status: 'active' | 'past_due' | 'canceled' | 'incomplete' | null, null = 没订阅
+// stripe_customer_id: 用户的 Stripe Customer 对象 ID, 第一次 checkout 时 webhook 写入
+// 三列都 nullable, 沿用现有 users 表, 旧用户读出来等同 free / 无 stripe 关联
+addColumnIfMissing('users', 'subscription_tier', "TEXT NOT NULL DEFAULT 'free'");
+addColumnIfMissing('users', 'subscription_status', 'TEXT');
+addColumnIfMissing('users', 'stripe_customer_id', 'TEXT');
+
 // v2.11 #4 (2026-04-21): Writer-Editor 闭环 —— 成片后让 Editor 用 vision LLM
 // 对最终视频打 3 维分(连贯度/光影/脸相似),存进 project_quality_scores。
 // 下一次 Writer 生成台词时会读最近一次评分,对"分<70 的维度"注入针对性 cue

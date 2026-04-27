@@ -73,6 +73,7 @@
     "react-dom": "^19.2.4",
     "react-hotkeys-hook": "^5.2.4",
     "react-window": "^2.2.7",
+    "stripe": "^22.1.0",
     "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",

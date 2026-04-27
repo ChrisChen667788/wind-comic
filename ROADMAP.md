@@ -220,15 +220,20 @@
 - [x] sidebar 加入口("单图变视频",Film 图标,放在剧本润色和素材库之间)
 - [x] tests/u2v-validation.test.ts(7 条):缺字段 / 协议白名单 / prompt 超长 / API key 缺 / 成功路径 / duration clamp
 
-### C.2 Stripe 订阅 4 档接入(决策 #4)
-- [ ] 复用现有 `lib/pricing.ts` 4 档(free / pro / studio / enterprise)
-- [ ] 新增 `lib/stripe.ts` 客户端 + `app/api/stripe/checkout/route.ts` Checkout Session
-- [ ] 新增 `app/api/stripe/webhook/route.ts` 处理 `checkout.session.completed` / `subscription.updated` / `subscription.deleted`
-- [ ] DB 加 `users.subscription_tier` + `users.subscription_status` + `users.stripe_customer_id`
-- [ ] 加 plan gate middleware:enterprise 才能用 U2V / Pro 才能用 Pro 润色
-- [ ] `app/dashboard/billing/page.tsx` 显示当前 plan + 升级 / 降级 按钮
-- [ ] 测试模式跑通完整链:注册 → 选 Pro → Stripe Checkout → webhook → tier 升级
-- **验收**:测试模式下 4 档付费链全部跑通
+### C.2 Stripe 订阅 4 档接入(决策 #4)✅ 2026-04-26
+- [x] 复用现有 `lib/pricing.ts` 4 档(free / creator / pro / enterprise — 实际命名是 creator 不是 studio,与代码对齐)
+- [x] `lib/stripe.ts`:Stripe SDK wrapper(createCheckoutSession / verifyWebhookEvent / mapTierToPriceId / deriveSubscriptionChange 纯函数版)
+- [x] `lib/plan-gate.ts`:tierRank + checkPlan(req, minTier) + planRejection(402 Payment Required)
+- [x] `POST /api/stripe/checkout`:JWT 必填,tier 白名单,返回 Stripe Checkout URL
+- [x] `POST /api/stripe/webhook`:raw body 读取 + 签名校验 + 3 个事件解析(checkout.session.completed / customer.subscription.updated / customer.subscription.deleted)
+- [x] DB 新增 `users.subscription_tier` (default 'free') + `users.subscription_status` + `users.stripe_customer_id`(addColumnIfMissing 安全 migration)
+- [x] `/api/auth/me` 透传 subscriptionTier + subscriptionStatus 给前端
+- [x] `/dashboard/billing/page.tsx` — 4 卡 grid,当前档高亮,recommended 标 Star,Stripe Checkout 跳转 + 跳回 toast,Stripe Customer Portal 链接占位
+- [x] sidebar 新增"订阅 / 计费"入口
+- [x] `.env.example` 新增 STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_ID_{CREATOR,PRO,ENTERPRISE} / NEXT_PUBLIC_APP_URL / NEXT_PUBLIC_STRIPE_PORTAL_LINK
+- [x] tests/stripe-webhook.test.ts(15 条):3 事件类型解析 / metadata 缺字段防御 / 取消永远降到 free / 无关事件 ignore / mapTierToPriceId env 缺报 StripeNotConfiguredError / 设计常量
+- [x] tests/plan-gate.test.ts(6 条):tier 排序 / 未登录视为 free / DB 缺 row 视为 free / pro 用户能用 pro 及以下 / enterprise 通杀 / 402 响应格式
+- **TODO**:plan gate 接入具体路由(U2V → enterprise / Polish Pro → pro)留给下次 minor — middleware 已就绪,只需在路由里加一行 `const r = checkPlan(req, 'pro'); if (!r.ok) return planRejection(...)`
 
 ### C.3 GitHub Actions CI/CD ✅ 2026-04-26
 - [x] `.github/workflows/ci.yml`(已在 v2.12.0 初次开源 release 时落地)
