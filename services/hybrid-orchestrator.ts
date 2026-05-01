@@ -763,9 +763,21 @@ export class HybridOrchestrator {
     // ── P3: 检测是否为完整剧本输入 ──
     const isScript = isFullScriptInput(idea);
     if (isScript) {
-      this.parsedScript = parseScript(idea);
-      console.log(`[Director] 检测到完整剧本输入！${this.parsedScript.stats.sceneCount}个场景, ${this.parsedScript.stats.characterCount}个角色, ${this.parsedScript.stats.dialogueCount}句台词`);
-      this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `检测到完整剧本！${this.parsedScript.stats.sceneCount}个场景、${this.parsedScript.stats.characterCount}个角色，正在深度解析...📖` });
+      const parsed = parseScript(idea);
+      // v2.12 fix: parseScript self-validate. 即使 isFullScriptInput 误判通过,
+      // parseScript 没解析出任何角色 + 没有真实场景(全 location='未标注'),
+      // 就降级到普通创意路径,不要让"[1-1未标注]"垃圾流入 fallback。
+      const allLocationsUnknown = parsed.scenes.length === 0 ||
+        parsed.scenes.every(s => !s.location || s.location === '未标注');
+      const isUselessParse = parsed.stats.characterCount === 0 || allLocationsUnknown;
+      if (isUselessParse) {
+        console.log(`[Director] parseScript 命中但产出退化(${parsed.stats.characterCount} 角色, ${parsed.scenes.length} 场景, allUnknown=${allLocationsUnknown}),按普通创意处理`);
+        this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: '让我看看这个创意...🤔' });
+      } else {
+        this.parsedScript = parsed;
+        console.log(`[Director] 检测到完整剧本输入！${this.parsedScript.stats.sceneCount}个场景, ${this.parsedScript.stats.characterCount}个角色, ${this.parsedScript.stats.dialogueCount}句台词`);
+        this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `检测到完整剧本！${this.parsedScript.stats.sceneCount}个场景、${this.parsedScript.stats.characterCount}个角色，正在深度解析...📖` });
+      }
     } else {
       this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: '让我看看这个创意...🤔' });
     }
@@ -846,12 +858,22 @@ export class HybridOrchestrator {
             }
           }
         }
-      } catch {
-        console.error('[Director] JSON parse failed, using fallback');
+      } catch (e) {
+        // v2.12 fix: 旧版静默 fallback 让用户看不出是 LLM 失败。
+        // 显式 emit 错误 + 用户友好提示,让用户知道是上游 API 出问题(quota / 网络),
+        // 而不是把 idea.slice(0,20) 当角色名包装成"角色设计"。
+        const errMsg = e instanceof Error ? e.message : String(e);
+        console.error('[Director] LLM call failed, using fallback:', errMsg);
+        const isQuota = /quota|insufficient|余额|user quota is not enough|429|insufficient_quota/i.test(errMsg);
+        const friendly = isQuota
+          ? `⚠️ LLM 余额/quota 不足,无法生成完整剧本。请去 vectorengine 后台充值后重试,或换 OPENAI_API_KEY。当前先按基础模板继续,角色/场景为占位内容。`
+          : `⚠️ LLM 调用失败(${errMsg.slice(0, 80)}),按基础模板继续,角色/场景为占位内容。建议检查 OPENAI_API_KEY / OPENAI_BASE_URL 后重试。`;
+        this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: friendly });
         plan = this.fallbackDirectorPlan(idea);
       }
     } else {
       await sleep(1500);
+      this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: '⚠️ 未配置 OPENAI_API_KEY,使用基础模板生成。请在 .env.local 配置 LLM 后重试。' });
       plan = this.fallbackDirectorPlan(idea);
     }
 

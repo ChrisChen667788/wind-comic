@@ -92,21 +92,15 @@ export function isFullScriptInput(text: string): boolean {
   const hasAction = /△|画面[：:]/.test(text);
   const hasOSMark = /[（(]\s*OS\s*[）)]/.test(text);
 
-  // 长度信号：超过 500 字且有对白 = 大概率是剧本
-  const isLongWithDialogue = text.length > 500 && hasDialogue;
+  // 强信号:出现明确剧本结构标记之一 → 一票通过
+  if (hasChapterMark || hasSceneMark || hasSceneMarkAlt || hasSceneMarkIntExt) return true;
+  if (hasAction || hasOSMark) return true;
 
-  // 计算信号得分
-  let score = 0;
-  if (hasChapterMark) score += 1;
-  if (hasSceneMark || hasSceneMarkAlt || hasSceneMarkIntExt) score += 1;
-  if (hasDialogue) score += 1;
-  if (hasMultipleDialogues) score += 1;  // 3句以上对白额外加分
-  if (hasAction) score += 1;
-  if (hasOSMark) score += 1;
-  if (isLongWithDialogue) score += 1;
+  // 弱信号组合:仅当"多对白行(≥4) + 长文本(≥800)"才算剧本
+  // 单纯 hasDialogue 不够,防止"小说+引述"误判
+  if (hasMultipleDialogues && text.length > 800) return true;
 
-  // 只需要 2 分即可判定为剧本（降低门槛）
-  return score >= 2;
+  return false;
 }
 
 /**

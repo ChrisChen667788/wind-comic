@@ -147,17 +147,43 @@ export function VideoModal({ open, onOpenChange, src, title }: Props) {
             onError={handleVideoError}
           />
         ) : isVideo && videoError ? (
-          <div className="w-full aspect-video bg-black flex flex-col items-center justify-center gap-3">
+          <div className="w-full aspect-video bg-black flex flex-col items-center justify-center gap-3 px-8 text-center">
             <AlertCircle className="w-8 h-8 text-yellow-500/60" />
-            <p className="text-xs text-gray-400">视频加载失败</p>
-            <a
-              href={src}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-400 hover:text-blue-300 underline"
-            >
-              在新窗口中打开视频
-            </a>
+            <p className="text-sm text-gray-300 font-medium">视频加载失败</p>
+            {/* v2.12 fix: 给具体可操作的指引,不要只甩个失败 */}
+            <div className="text-xs text-gray-400 leading-relaxed max-w-md">
+              {src.startsWith('/api/serve-file?path=') ? (
+                <>
+                  本地合成视频文件已失效(/tmp 临时目录被清理 或 dev server 重启)。
+                  <br />
+                  <span className="text-yellow-300/70">解决方案:点项目页"重新生成"重跑剪辑环节。</span>
+                </>
+              ) : src.includes('minimax') || src.includes('aliyuncs') ? (
+                <>
+                  上游 CDN URL 已过期(Minimax 视频通常 24h 后失效)。
+                  <br />
+                  <span className="text-yellow-300/70">解决方案:点项目页"重新生成此镜"重跑视频环节。</span>
+                </>
+              ) : !src ? (
+                <>
+                  成片地址为空 — 上游视频 API 全部失败(可能是 quota 不足或网络异常)。
+                  <br />
+                  <span className="text-yellow-300/70">解决方案:去 /dashboard/billing 检查 Minimax / Veo / Kling 余额,补充后重跑。</span>
+                </>
+              ) : (
+                <>视频源不可访问。可能是 CORS / 文件不存在 / 网络异常。</>
+              )}
+            </div>
+            {src && (
+              <a
+                href={src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 underline"
+              >
+                在新窗口中打开视频
+              </a>
+            )}
           </div>
         ) : (
           <img src={src} alt={title || ''} className="w-full aspect-video object-contain bg-black" />
