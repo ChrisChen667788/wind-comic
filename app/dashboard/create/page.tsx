@@ -511,36 +511,42 @@ export default function DashboardCreatePage() {
             />
           </label>
 
-          {/* Story Template shelf */}
+          {/* Story Template shelf — cinema redesign */}
           <div>
-            <span className="text-[13px] text-[var(--soft)] mb-2 block">故事模板</span>
-            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar -mx-1 px-1">
-              {storyTemplates.map((template) => {
+            <div className="flex items-center justify-between mb-2">
+              <Eyebrow>Genre · 故事模板</Eyebrow>
+              <span className="cinema-mono text-[10px] opacity-50">{storyTemplates.length} presets</span>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-2 custom-scrollbar -mx-1 px-1">
+              {storyTemplates.map((template, idx) => {
                 const isSelected = selectedTemplate?.id === template.id;
                 const isExpanded = expandedTemplate === template.id;
                 return (
                   <div key={template.id} className="shrink-0 flex flex-col">
                     <button
                       onClick={() => handleSelectTemplate(template)}
-                      className={`w-[90px] rounded-xl overflow-hidden border-2 transition-all duration-200 text-left
-                        ${isSelected
-                          ? 'border-[#E8C547] shadow-[0_0_10px_rgba(232,197,71,0.2)] scale-[1.02]'
-                          : 'border-transparent hover:border-white/12'}`}
+                      className={`w-[96px] overflow-hidden border text-left transition-colors ${
+                        isSelected
+                          ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]'
+                          : 'border-[var(--cinema-border)] bg-[var(--cinema-surface)] hover:border-[var(--cinema-amber-deep)]'
+                      }`}
+                      style={{ borderRadius: 4 }}
                     >
-                      <div className="h-[54px] bg-[rgba(255,255,255,0.06)] flex items-center justify-center text-2xl">
+                      <div className="h-[58px] flex items-center justify-center text-2xl border-b border-[var(--cinema-border)]">
                         {template.icon}
                       </div>
-                      <div className="px-1.5 py-1.5 bg-white/[0.04] text-center">
-                        <div className="text-[10px] font-medium text-white truncate">{template.name}</div>
-                        <div className="text-[8px] text-gray-500 truncate">{template.description}</div>
+                      <div className="px-2 py-1.5 text-center">
+                        <div className="cinema-mono text-[8px] opacity-50 mb-0.5 tracking-widest">{String(idx + 1).padStart(2, '0')}</div>
+                        <div className="cinema-headline text-[11px] truncate">{template.name}</div>
+                        <div className="cinema-mono text-[8px] opacity-50 truncate mt-0.5">{template.nameEn}</div>
                       </div>
                     </button>
                     <button
                       onClick={() => setExpandedTemplate(isExpanded ? null : template.id)}
-                      className="mt-0.5 mx-auto text-[8px] text-[var(--soft)] hover:text-white transition-colors flex items-center gap-0.5"
+                      className="cinema-eyebrow mt-1 mx-auto hover:text-[var(--cinema-amber)] transition-colors flex items-center gap-0.5"
                     >
                       {isExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                      详情
+                      DETAIL
                     </button>
                   </div>
                 );
@@ -551,51 +557,71 @@ export default function DashboardCreatePage() {
               const t = storyTemplates.find(x => x.id === expandedTemplate);
               if (!t) return null;
               return (
-                <div className="mt-2 p-3 bg-[rgba(255,255,255,0.04)] border border-[var(--border)] rounded-xl text-xs text-[var(--soft)] space-y-2">
+                <div className="cinema-card-hi mt-2 p-3 space-y-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-base">{t.icon}</span>
-                    <span className="text-white font-medium">{t.name}</span>
-                    <span className="text-[10px] opacity-60">/ {t.nameEn}</span>
+                    <span className="cinema-headline text-sm">{t.name}</span>
+                    <span className="cinema-mono text-[10px] opacity-60">· {t.nameEn}</span>
                   </div>
-                  <p className="leading-relaxed text-[11px]">{t.structureHint}</p>
+                  <p className="cinema-subhead text-[11px] leading-relaxed opacity-85">{t.structureHint}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {t.keyElements.map((el) => (
-                      <span key={el} className="px-1.5 py-0.5 bg-[rgba(232,197,71,0.1)] border border-[rgba(232,197,71,0.3)] rounded text-[9px] text-[#E8C547]">{el}</span>
+                      <span key={el} className="cinema-chip cinema-chip-amber">{el}</span>
                     ))}
                   </div>
-                  <div className="text-[10px] opacity-60">情绪曲线：{t.emotionCurve}</div>
+                  <div className="cinema-mono text-[10px] opacity-60">EMOTION CURVE · {t.emotionCurve}</div>
                 </div>
               );
             })()}
           </div>
 
-          {/* Pika-style art preset shelf */}
+          {/* Style preset shelf — cinema redesign */}
           <div>
-            <span className="text-[13px] text-[var(--soft)] mb-2 block">画风预设</span>
-            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar -mx-1 px-1">
-              {stylePresets.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => setStyle(preset.en)}
-                  className={`shrink-0 min-w-[140px] rounded-xl overflow-hidden border-2 transition-all duration-300 group
-                    ${style === preset.en
-                      ? 'border-[#E8C547] shadow-[0_0_16px_rgba(232,197,71,0.25)] scale-[1.03]'
-                      : 'border-transparent hover:border-white/15 hover:shadow-lg'}`}
-                >
-                  <div className={`h-[90px] bg-gradient-to-br ${preset.color} flex items-center justify-center text-xl relative overflow-hidden`}>
-                    {stylePreviews[preset.id] ? (
-                      <img src={stylePreviews[preset.id]} alt={preset.label} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    ) : (
-                      <span className="text-3xl transition-transform duration-300 group-hover:scale-110">{preset.icon}</span>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  </div>
-                  <div className="px-2 py-2 bg-white/[0.04] text-center">
-                    <div className="text-[11px] font-medium text-white truncate">{preset.label}</div>
-                    <div className="text-[9px] text-gray-500 mt-0.5">{preset.desc}</div>
-                  </div>
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <Eyebrow>Look · 画风预设</Eyebrow>
+              <span className="cinema-mono text-[10px] opacity-50">{stylePresets.length} looks</span>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-2 custom-scrollbar -mx-1 px-1">
+              {stylePresets.map((preset, idx) => {
+                const isActive = style === preset.en;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => setStyle(preset.en)}
+                    className={`shrink-0 min-w-[150px] overflow-hidden border text-left transition-colors group ${
+                      isActive
+                        ? 'border-[var(--cinema-amber)]'
+                        : 'border-[var(--cinema-border)] hover:border-[var(--cinema-amber-deep)]'
+                    }`}
+                    style={{ borderRadius: 4 }}
+                  >
+                    <div className="h-[96px] relative overflow-hidden">
+                      {stylePreviews[preset.id] ? (
+                        <img src={stylePreviews[preset.id]} alt={preset.label} className="absolute inset-0 w-full h-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-3xl bg-[var(--cinema-surface-2)]">
+                          {preset.icon}
+                        </div>
+                      )}
+                      {/* 顶部胶片孔暗化 */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+                      {/* 选中态:左上 LOOK NN */}
+                      <div className="absolute top-1.5 left-1.5 cinema-mono text-[8px] tracking-widest opacity-90 text-white/90 bg-black/40 px-1 rounded">
+                        LOOK {String(idx + 1).padStart(2, '0')}
+                      </div>
+                      {isActive && (
+                        <div className="absolute top-1.5 right-1.5 cinema-mono text-[8px] tracking-widest font-bold bg-[var(--cinema-amber)] text-black px-1 rounded">
+                          ACTIVE
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-2 py-1.5 bg-[var(--cinema-surface)]">
+                      <div className="cinema-headline text-[11px] truncate">{preset.label}</div>
+                      <div className="cinema-mono text-[9px] opacity-55 truncate mt-0.5">{preset.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

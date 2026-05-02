@@ -208,54 +208,72 @@ export function CameoSummary({
   const ap = PALETTE[avgLvl];
 
   return (
-    <div className="mb-3 flex items-center gap-3 flex-wrap px-3 py-2.5 rounded-lg bg-gradient-to-r from-violet-500/8 to-rose-500/5 border border-violet-500/20">
+    <div className="mb-3 flex items-center gap-3 flex-wrap px-3 py-2.5 rounded-lg bg-gradient-to-r from-violet-500/8 to-rose-500/5 border border-violet-500/20 [.cinema-page_&]:rounded-none [.cinema-page_&]:bg-[var(--cinema-surface-2)] [.cinema-page_&]:border-[var(--cinema-border-hi)] [.cinema-page_&]:bg-none [.cinema-page_&]:border" style={{ borderRadius: undefined }}>
       <div className="flex items-center gap-1.5">
-        <Activity className="w-3.5 h-3.5 text-violet-300" />
-        <span className="text-[11px] text-violet-200 tracking-widest uppercase">Cameo 一致性</span>
+        <Activity className="w-3.5 h-3.5 text-violet-300 [.cinema-page_&]:text-[var(--cinema-amber)]" />
+        <span className="text-[11px] text-violet-200 tracking-widest uppercase [.cinema-page_&]:cinema-eyebrow [.cinema-page_&]:text-[var(--cinema-amber)] [.cinema-page_&]:opacity-90">
+          <span className="[.cinema-page_&]:hidden">Cameo 一致性</span>
+          <span className="hidden [.cinema-page_&]:inline">CAMEO · 一致性仪表</span>
+        </span>
       </div>
-      <div className="text-[12px] text-white/85">
-        本项目 <span className="font-semibold tabular-nums">{stats.total}</span> 镜
+      <div className="text-[12px] text-white/85 [.cinema-page_&]:cinema-mono [.cinema-page_&]:text-[var(--cinema-text-2)]">
+        <span className="[.cinema-page_&]:opacity-50 [.cinema-page_&]:tracking-widest [.cinema-page_&]:text-[10px] [.cinema-page_&]:mr-1">SHOTS</span>
+        <span className="font-semibold tabular-nums [.cinema-page_&]:text-[var(--cinema-text)]">{stats.total}</span>
+        <span className="[.cinema-page_&]:hidden"> 镜</span>
       </div>
       <div className="flex items-center gap-1 text-[12px]">
-        <span className="text-white/50">平均</span>
-        <span className={`font-bold tabular-nums ${ap.text}`}>{stats.avg}</span>
-        <span className="text-white/30 text-[10px]">/100</span>
+        <span className="text-white/50 [.cinema-page_&]:cinema-eyebrow [.cinema-page_&]:tracking-widest">
+          <span className="[.cinema-page_&]:hidden">平均</span>
+          <span className="hidden [.cinema-page_&]:inline">AVG</span>
+        </span>
+        <span className={`font-bold tabular-nums ${ap.text} [.cinema-page_&]:cinema-mono`}>{stats.avg}</span>
+        <span className="text-white/30 text-[10px] [.cinema-page_&]:cinema-mono [.cinema-page_&]:opacity-40">/100</span>
       </div>
       {stats.lowCount > 0 ? (
-        <div className="flex items-center gap-1 text-[12px] text-rose-300">
+        <div className="flex items-center gap-1 text-[12px] text-rose-300 [.cinema-page_&]:text-[var(--cinema-red)]">
           <AlertTriangle className="w-3.5 h-3.5" />
           <span>
-            <span className="font-semibold tabular-nums">{stats.lowCount}</span> 镜需重生
+            <span className="font-semibold tabular-nums [.cinema-page_&]:cinema-mono">{stats.lowCount}</span>
+            <span className="[.cinema-page_&]:hidden"> 镜需重生</span>
+            <span className="hidden [.cinema-page_&]:inline opacity-75 ml-1 cinema-mono text-[10px] tracking-wider">BELOW THRESHOLD</span>
           </span>
         </div>
       ) : null}
       {stats.retriedCount > 0 ? (
-        <div className="flex items-center gap-1 text-[11px] text-violet-200/70">
+        <div className="flex items-center gap-1 text-[11px] text-violet-200/70 [.cinema-page_&]:text-[var(--cinema-text-2)] [.cinema-page_&]:cinema-mono">
           <Repeat className="w-3 h-3" />
-          <span>本次已自动重生 {stats.retriedCount} 镜</span>
+          <span>
+            <span className="[.cinema-page_&]:hidden">本次已自动重生 {stats.retriedCount} 镜</span>
+            <span className="hidden [.cinema-page_&]:inline">RETRIED · {stats.retriedCount}</span>
+          </span>
         </div>
       ) : null}
       {stats.lowCount > 0 ? (
         <button
           onClick={() => onBatchRetry(stats.lowShotNumbers)}
           disabled={batchRetrying}
-          className="ml-auto px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-[11.5px] text-violet-100 border border-violet-500/35 transition-colors flex items-center gap-1.5"
+          className="ml-auto px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-[11.5px] text-violet-100 border border-violet-500/35 transition-colors flex items-center gap-1.5 [.cinema-page_&]:rounded-none [.cinema-page_&]:bg-[var(--cinema-amber)] [.cinema-page_&]:hover:bg-[#D6B270] [.cinema-page_&]:text-black [.cinema-page_&]:border-[var(--cinema-amber)] [.cinema-page_&]:font-semibold"
           title={`触发 cameo 自动重生流程, 加强 cw 重画这 ${stats.lowCount} 镜`}
         >
           {batchRetrying ? (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              重生中…
+              <span className="[.cinema-page_&]:hidden">重生中…</span>
+              <span className="hidden [.cinema-page_&]:inline cinema-mono tracking-wider">RETRYING…</span>
             </>
           ) : (
             <>
               <Repeat className="w-3.5 h-3.5" />
-              批量重生 ({stats.lowCount})
+              <span className="[.cinema-page_&]:hidden">批量重生 ({stats.lowCount})</span>
+              <span className="hidden [.cinema-page_&]:inline cinema-mono tracking-wider">▶ BATCH RETRY · {stats.lowCount}</span>
             </>
           )}
         </button>
       ) : (
-        <span className="ml-auto text-[10.5px] text-emerald-300/70">✓ 所有镜头已达标</span>
+        <span className="ml-auto text-[10.5px] text-emerald-300/70 [.cinema-page_&]:text-[var(--cinema-green)] [.cinema-page_&]:cinema-mono [.cinema-page_&]:tracking-wider">
+          <span className="[.cinema-page_&]:hidden">✓ 所有镜头已达标</span>
+          <span className="hidden [.cinema-page_&]:inline">✓ ALL SHOTS PASS</span>
+        </span>
       )}
     </div>
   );

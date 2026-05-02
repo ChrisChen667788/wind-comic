@@ -12,6 +12,7 @@ import { CameoPanel } from '@/components/CameoPanel';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
 import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-sidebar';
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
+import { Eyebrow, TimecodeChip, FilmStripDivider } from '@/components/cinema/primitives';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -181,25 +182,34 @@ export default function ProjectDetailPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-white">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)]">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard/projects" className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+    <div className="cinema-page min-h-screen text-white">
+      {/* Nav — 影院风:左侧返回 + 项目"场记板"标题 + 右侧综合评分仪表 */}
+      <nav className="sticky top-0 z-50 bg-[var(--cinema-surface)]/85 backdrop-blur-xl border-b border-[var(--cinema-border)]">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/dashboard/projects" className="cinema-btn-ghost cinema-btn !p-2">
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <div>
-              <h1 className="text-lg font-semibold">{project.title}</h1>
-              <p className="text-xs text-gray-400">{project.status === 'completed' ? '已完成' : '创作中'}</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="cinema-eyebrow">PROJECT</span>
+                <span className="cinema-mono text-[10px] opacity-50">· {project.id?.slice(-8) || '——'}</span>
+              </div>
+              <h1 className="cinema-headline text-lg truncate">{project.title}</h1>
             </div>
           </div>
-          {review && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
-              <Star className="w-4 h-4 text-orange-400" />
-              <span className="text-sm font-medium">{review.overallScore}/100</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`cinema-chip ${project.status === 'completed' ? 'cinema-chip-green' : 'cinema-chip-amber'}`}>
+              <span className="cinema-statusbar-dot" style={{ background: project.status === 'completed' ? 'var(--cinema-green)' : 'var(--cinema-amber)' }} />
+              {project.status === 'completed' ? 'COMPLETED' : 'IN PRODUCTION'}
+            </span>
+            {review && (
+              <div className="cinema-chip cinema-chip-amber">
+                <Star className="w-3 h-3" />
+                <span className="cinema-mono">{review.overallScore}<span className="opacity-50">/100</span></span>
+              </div>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -217,22 +227,23 @@ export default function ProjectDetailPage() {
           <LatestPolishBanner entry={scriptAsset.data.latestPolish} projectId={id} />
         ) : null}
 
-        {/* v2.12 Phase 1: 多角色锁脸预览 — 创作工坊上传的 1-3 个角色全部展示 */}
+        {/* v2.12 Phase 1: 多角色锁脸预览 — cinema redesign */}
         {Array.isArray(project.lockedCharacters) && project.lockedCharacters.length > 0 && (
-          <div className="mb-4 p-4 rounded-2xl border border-[#E8C547]/30 bg-gradient-to-r from-[#E8C547]/8 to-transparent">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold text-[#E8C547]">🔒 已锁定 {project.lockedCharacters.length} 个主要角色</span>
-              <span className="text-[10px] text-gray-500">·  创作时上传 ·  全片这些角色脸保持一致</span>
+          <div className="cinema-card-hi p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <Eyebrow>Cast Lock · 已锁定 {project.lockedCharacters.length} 角色</Eyebrow>
+              <span className="cinema-mono text-[10px] opacity-50">全片脸部一致性</span>
             </div>
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
               {project.lockedCharacters.map((c: any, idx: number) => {
-                const roleLabel = ({ lead: '主角', antagonist: '对手', supporting: '配角', cameo: '客串' } as Record<string, string>)[c.role] || c.role || '角色';
+                const roleLabel = ({ lead: 'LEAD', antagonist: 'ANTAGONIST', supporting: 'SUPPORTING', cameo: 'CAMEO' } as Record<string, string>)[c.role] || c.role || 'CAST';
                 return (
-                  <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-black/30 border border-white/8">
-                    <img src={c.imageUrl} alt={c.name} className="w-9 h-9 rounded-lg object-cover" loading="lazy" />
+                  <div key={idx} className="flex items-center gap-2 px-2 py-1.5 cinema-card border border-[var(--cinema-border-hi)]">
+                    <span className="cinema-mono text-[10px] opacity-60 w-5 text-center">{String.fromCharCode(65 + idx)}</span>
+                    <img src={c.imageUrl} alt={c.name} className="w-9 h-9 object-cover" style={{ borderRadius: 3 }} loading="lazy" />
                     <div className="text-xs leading-tight">
-                      <div className="font-medium text-white">{c.name}</div>
-                      <div className="text-[10px] text-gray-400">{roleLabel} · cw={c.cw}</div>
+                      <div className="cinema-headline text-[12px]">{c.name}</div>
+                      <div className="cinema-mono text-[9px] opacity-60">{roleLabel} · cw={c.cw}</div>
                     </div>
                   </div>
                 );
@@ -248,16 +259,22 @@ export default function ProjectDetailPage() {
           onChange={(nextUrl) => setProject((prev: any) => ({ ...prev, primaryCharacterRef: nextUrl }))}
         />
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-white/5 p-1 rounded-xl w-fit overflow-x-auto">
+        {/* Tabs — cinema clipboard 切换条 */}
+        <div className="flex items-center gap-0.5 mb-6 cinema-card overflow-x-auto p-1 w-fit">
           {tabs.map(t => (
-            <button key={t.key} onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-all ${
-                activeTab === t.key ? 'bg-gradient-to-r from-[#E8C547] to-[#D4A830] text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}>
-              <t.icon className="w-3.5 h-3.5" />
-              {t.label}
-              {t.count > 0 && <span className="text-[10px] opacity-70">({t.count})</span>}
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs whitespace-nowrap transition-colors ${
+                activeTab === t.key
+                  ? 'bg-[var(--cinema-amber)] text-black font-semibold'
+                  : 'text-[var(--cinema-text-2)] hover:text-[var(--cinema-text)] hover:bg-[var(--cinema-surface-2)]'
+              }`}
+              style={{ borderRadius: 3 }}
+            >
+              <t.icon className="w-3 h-3" />
+              <span>{t.label}</span>
+              {t.count > 0 && <span className="cinema-mono text-[9px] opacity-70 tabular-nums">{String(t.count).padStart(2, '0')}</span>}
             </button>
           ))}
         </div>
@@ -455,25 +472,40 @@ export default function ProjectDetailPage() {
                 }}
               />
               {batchRetryMsg ? (
-                <div className="mb-3 px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/25 text-[12px] text-violet-100">
-                  {batchRetryMsg}
+                <div className="cinema-card-hi mb-3 px-3 py-2 cinema-mono text-[11px] tracking-wide" style={{ borderColor: 'var(--cinema-amber-deep)' }}>
+                  <span className="opacity-60">[BATCH RETRY] </span>{batchRetryMsg}
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {storyboards.map((sb: any) => (
-                  <div key={sb.id} className="relative bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-                    {/* Sprint A.4 · 右上角 Cameo 徽章 (没分数时不渲染) */}
-                    <CameoBadge data={sb.data || {}} />
-                    {sb.mediaUrls?.[0] && (
-                      <img src={sb.mediaUrls[0]} alt={sb.name} className="w-full aspect-video object-cover" />
-                    )}
-                    <div className="px-3 py-2">
-                      <span className="text-[10px] text-cyan-400 font-medium">镜头 {sb.shotNumber}</span>
-                      <p className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{sb.data?.description?.slice(0, 60)}</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {storyboards.map((sb: any) => {
+                  const dur = (sb.data?.duration as number) || 5;
+                  return (
+                    <div
+                      key={sb.id}
+                      className="cinema-card relative overflow-hidden hover:border-[var(--cinema-amber-deep)] transition-colors"
+                    >
+                      {/* Sprint A.4 · 右上角 Cameo 徽章 (没分数时不渲染) */}
+                      <CameoBadge data={sb.data || {}} />
+                      {sb.mediaUrls?.[0] ? (
+                        <img src={sb.mediaUrls[0]} alt={sb.name} className="w-full aspect-video object-cover" />
+                      ) : (
+                        <div className="w-full aspect-video flex items-center justify-center bg-[var(--cinema-surface-2)] cinema-mono text-[10px] opacity-40">
+                          NO RENDER
+                        </div>
+                      )}
+                      <div className="px-2.5 py-1.5">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="cinema-mono text-[9px] tracking-widest opacity-60">SHOT {String(sb.shotNumber).padStart(2, '0')}</span>
+                          <TimecodeChip seconds={dur} />
+                        </div>
+                        <p className="cinema-subhead text-[11px] line-clamp-2 opacity-85 leading-snug">
+                          {sb.data?.description?.slice(0, 60) || '——'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

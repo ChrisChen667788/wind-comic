@@ -98,11 +98,16 @@ export function CharacterLockSection({ value, onChange }: Props) {
     <div className="space-y-3">
       <div className="flex items-baseline justify-between">
         <div className="flex items-center gap-2">
-          <UserCircle2 className="w-4 h-4 text-[#E8C547]" />
-          <h3 className="text-sm font-semibold">角色锁脸 <span className="text-xs text-gray-500">(可选 · 最多 3 人)</span></h3>
+          <UserCircle2 className="w-3.5 h-3.5 text-[#E8C547] cinema-page:text-[var(--cinema-amber)]" />
+          {/* 同时兼容旧/新主题: cinema-page 内显示 mono eyebrow, 否则显示原 h3 */}
+          <span className="cinema-eyebrow tracking-widest hidden [.cinema-page_&]:inline">CAMEO LOCK · 角色锁脸</span>
+          <h3 className="text-sm font-semibold [.cinema-page_&]:hidden">
+            角色锁脸 <span className="text-xs text-gray-500">(可选 · 最多 3 人)</span>
+          </h3>
         </div>
-        <span className="text-[11px] text-gray-500">
-          🔒 上传后,该角色在全片所有镜头里脸都会锁定
+        <span className="text-[11px] text-gray-500 [.cinema-page_&]:cinema-mono [.cinema-page_&]:tracking-wider">
+          <span className="[.cinema-page_&]:hidden">🔒 上传后,该角色在全片所有镜头里脸都会锁定</span>
+          <span className="hidden [.cinema-page_&]:inline opacity-60">UP TO 3 · 全片锁脸</span>
         </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
