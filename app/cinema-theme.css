@@ -1,0 +1,335 @@
+/**
+ * Wind Comic — Cinema Theme (v2.13)
+ *
+ * 作为 globals.css 之上的可选层, 打 `cinema-page` className 才生效。
+ * 设计目标:
+ *   - 区分于 oiioii 的"粉色 + 卡通 blob + 点阵画布"签名
+ *   - 综合 "影院仪表盘" + "Logic Pro 工作室密度" 两条线
+ *
+ * 关键差异化:
+ *   - 主色:深琥珀 (#C9A35E) 不是亮金, 不是粉
+ *   - 字体:衬线标题 (Source Han Serif / Songti) + 等宽技术读数 (JetBrains Mono)
+ *   - 装饰:胶片孔洞分隔线 / 时码 chip / 光圈温度计 — 影院专属 primitive
+ *   - 信息密度:三栏 (tools rail / canvas / inspector) + 底部 status bar
+ */
+
+.cinema-page {
+  /* 调色板 — 全部覆盖, 不影响其他页 */
+  --cinema-bg:           #0A0908;
+  --cinema-surface:      #13110F;
+  --cinema-surface-2:    #1A1715;
+  --cinema-surface-hi:   #221E1B;
+  --cinema-text:         #F5F1EA;
+  --cinema-text-2:       #B8AC9E;
+  --cinema-text-3:       #7A6F62;
+  --cinema-amber:        #C9A35E;
+  --cinema-amber-deep:   #8A6E3F;
+  --cinema-amber-glow:   rgba(201, 163, 94, 0.18);
+  --cinema-red:          #B85450;
+  --cinema-green:        #5C8C70;
+  --cinema-blue:         #5A7A8A;
+  --cinema-border:       rgba(245, 241, 234, 0.08);
+  --cinema-border-hi:    rgba(245, 241, 234, 0.16);
+  --cinema-shadow:       0 1px 0 rgba(245, 241, 234, 0.04) inset, 0 8px 32px rgba(0, 0, 0, 0.55);
+
+  background:
+    linear-gradient(to bottom, #11100E 0%, #0A0908 60%, #0A0908 100%);
+  color: var(--cinema-text);
+  min-height: 100vh;
+  font-feature-settings: "ss01" 1, "ss02" 1;
+}
+
+/* ──────────────────────────────────────── */
+/* 排版 — 衬线标题 + 等宽技术读数         */
+/* ──────────────────────────────────────── */
+
+.cinema-headline {
+  font-family: 'Source Han Serif SC', 'Songti SC', 'Songti TC', 'Noto Serif SC', Georgia, 'Times New Roman', serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--cinema-text);
+}
+
+.cinema-subhead {
+  font-family: 'Source Han Serif SC', 'Songti SC', 'Songti TC', 'Noto Serif SC', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--cinema-text-2);
+}
+
+.cinema-mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  letter-spacing: 0.01em;
+}
+
+.cinema-eyebrow {
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cinema-text-3);
+}
+
+/* ──────────────────────────────────────── */
+/* 卡片 / 表面                              */
+/* ──────────────────────────────────────── */
+
+.cinema-card {
+  background: var(--cinema-surface);
+  border: 1px solid var(--cinema-border);
+  border-radius: 4px;       /* 影院软件不要太圆,4-6px 即可 */
+  box-shadow: var(--cinema-shadow);
+}
+
+.cinema-card-hi {
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border-hi);
+  border-radius: 4px;
+}
+
+.cinema-divider {
+  height: 1px;
+  background: var(--cinema-border);
+  width: 100%;
+}
+
+/* 胶片孔洞分隔线 — 装饰性 */
+.cinema-filmstrip {
+  height: 12px;
+  position: relative;
+  overflow: hidden;
+  --strip-color: rgba(245, 241, 234, 0.08);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 8px,
+      var(--strip-color) 8px,
+      var(--strip-color) 12px,
+      transparent 12px,
+      transparent 24px
+    );
+  border-top: 1px solid var(--cinema-border);
+  border-bottom: 1px solid var(--cinema-border);
+}
+
+/* ──────────────────────────────────────── */
+/* 按钮                                    */
+/* ──────────────────────────────────────── */
+
+.cinema-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--cinema-border-hi);
+  background: var(--cinema-surface-2);
+  color: var(--cinema-text);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.cinema-btn:hover {
+  background: var(--cinema-surface-hi);
+  border-color: var(--cinema-amber-deep);
+}
+.cinema-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cinema-btn-primary {
+  background: var(--cinema-amber);
+  color: #0A0908;
+  border-color: var(--cinema-amber);
+  font-weight: 600;
+}
+.cinema-btn-primary:hover {
+  background: #D6B270;
+  border-color: #D6B270;
+}
+
+.cinema-btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--cinema-text-2);
+}
+.cinema-btn-ghost:hover {
+  background: var(--cinema-surface-2);
+  color: var(--cinema-text);
+}
+
+/* ──────────────────────────────────────── */
+/* Chip / Tag — 时码 / 比例 / 帧率         */
+/* ──────────────────────────────────────── */
+
+.cinema-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border);
+  color: var(--cinema-text-2);
+  border-radius: 3px;
+}
+.cinema-chip-amber {
+  background: rgba(201, 163, 94, 0.10);
+  border-color: rgba(201, 163, 94, 0.30);
+  color: var(--cinema-amber);
+}
+.cinema-chip-red {
+  background: rgba(184, 84, 80, 0.10);
+  border-color: rgba(184, 84, 80, 0.30);
+  color: var(--cinema-red);
+}
+.cinema-chip-green {
+  background: rgba(92, 140, 112, 0.10);
+  border-color: rgba(92, 140, 112, 0.30);
+  color: var(--cinema-green);
+}
+
+/* ──────────────────────────────────────── */
+/* 输入                                     */
+/* ──────────────────────────────────────── */
+
+.cinema-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--cinema-surface);
+  border: 1px solid var(--cinema-border);
+  color: var(--cinema-text);
+  font-size: 13px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+.cinema-input:focus {
+  border-color: var(--cinema-amber-deep);
+  background: var(--cinema-surface-2);
+}
+.cinema-input::placeholder {
+  color: var(--cinema-text-3);
+}
+
+.cinema-textarea {
+  width: 100%;
+  padding: 12px;
+  background: var(--cinema-surface);
+  border: 1px solid var(--cinema-border);
+  color: var(--cinema-text);
+  font-size: 13px;
+  line-height: 1.6;
+  border-radius: 4px;
+  outline: none;
+  resize: vertical;
+  font-family: 'Source Han Serif SC', 'Songti SC', Georgia, serif;
+  transition: border-color 120ms ease;
+}
+.cinema-textarea:focus {
+  border-color: var(--cinema-amber-deep);
+  background: var(--cinema-surface-2);
+}
+.cinema-textarea::placeholder {
+  color: var(--cinema-text-3);
+  font-style: italic;
+}
+
+/* ──────────────────────────────────────── */
+/* Status bar (Logic Pro 风格底栏)         */
+/* ──────────────────────────────────────── */
+
+.cinema-statusbar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 14px;
+  background: var(--cinema-surface);
+  border-top: 1px solid var(--cinema-border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--cinema-text-3);
+  letter-spacing: 0.03em;
+}
+.cinema-statusbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.cinema-statusbar-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+/* ──────────────────────────────────────── */
+/* 数据可视化 — 仪表样式                    */
+/* ──────────────────────────────────────── */
+
+.cinema-meter {
+  position: relative;
+  height: 4px;
+  background: var(--cinema-surface);
+  border: 1px solid var(--cinema-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.cinema-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, var(--cinema-amber-deep) 0%, var(--cinema-amber) 100%);
+}
+.cinema-meter-fill-red {
+  background: linear-gradient(90deg, #6E2F2C 0%, var(--cinema-red) 100%);
+}
+
+/* 类似 Notion code 的 inline 标签 */
+.cinema-inline-code {
+  display: inline-block;
+  padding: 0 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border);
+  border-radius: 3px;
+  color: var(--cinema-amber);
+}
+
+/* ──────────────────────────────────────── */
+/* 选择高亮(影院红光)                    */
+/* ──────────────────────────────────────── */
+.cinema-page ::selection {
+  background: rgba(201, 163, 94, 0.30);
+  color: var(--cinema-text);
+}
+
+/* ──────────────────────────────────────── */
+/* 滚动条                                  */
+/* ──────────────────────────────────────── */
+.cinema-page ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.cinema-page ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cinema-page ::-webkit-scrollbar-thumb {
+  background: var(--cinema-border-hi);
+  border-radius: 4px;
+}
+.cinema-page ::-webkit-scrollbar-thumb:hover {
+  background: var(--cinema-amber-deep);
+}

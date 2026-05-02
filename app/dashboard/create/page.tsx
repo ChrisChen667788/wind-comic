@@ -12,6 +12,16 @@ import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { buildInitialNodes, initialEdges } from '@/components/pipeline-canvas';
 import { storyTemplates, type StoryTemplate } from '@/lib/story-templates';
 import { CharacterLockSection, type LockedCharacter } from '@/components/create/character-lock-section';
+// v2.13 cinema redesign — opt-in primitives, 不影响其他页
+import {
+  SlateCard,
+  AspectChip,
+  TimecodeChip,
+  FilmStripDivider,
+  StatusBar,
+  Eyebrow,
+  TechReadout,
+} from '@/components/cinema/primitives';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -455,29 +465,50 @@ export default function DashboardCreatePage() {
     return <CreationWorkspace project={workspaceProject} />;
   }
 
-  // ── 创意输入入口 ──
+  // ── 创意输入入口 (v2.13 cinema redesign) ──
+  // 影院仪表盘 + 工作室软件密度 — 不抄 oiioii 的粉色 / blob mascot / 点阵画布
+  const ideaCharCount = idea.trim().length;
+  const isReady = ideaCharCount >= 10;
+  const totalDurationSec = parseFloat(duration.replace(/[^\d.]/g, '')) * 6; // 估 6 镜
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold">创作/生成</h2>
-          <p className="text-sm text-[var(--muted)] mt-1">设定文本、镜头、风格与节奏</p>
-        </div>
+    <div className="cinema-page -mx-[5vw] -my-6 px-[5vw] py-6">
+      {/* ── 顶部:场记板 (Slate) 形式标题 + Action — 替代单调 h2 ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start mb-6">
+        <SlateCard
+          title="创作工坊"
+          scene="01"
+          take={ideaCharCount > 0 ? String(Math.floor(ideaCharCount / 50) + 1).padStart(2, '0') : '—'}
+          director="ChrisChen667788"
+          notes="从一句创意到完整短剧 — 设定文本 · 角色 · 风格 · 时长后开机"
+        />
         <button
           onClick={handleStartCreation}
-          className={`btn-primary px-5 py-2.5 rounded-xl text-sm transition-opacity ${idea.trim().length < 10 ? 'opacity-60' : ''}`}
-          title={idea.trim().length < 10 ? '请先在左侧输入至少 10 个字符的故事创意' : '点击进入创作工坊'}
+          disabled={!isReady}
+          className="cinema-btn cinema-btn-primary !px-6 !py-3 !text-[13px] whitespace-nowrap"
+          title={isReady ? '进入创作工坊' : '至少输入 10 个字符'}
         >
-          进入创作模式
+          {isReady ? '▶  开机 · ROLL' : '✎  待输入创意'}
         </button>
       </div>
 
+      <FilmStripDivider label="ACT 1 · 创意 + 设定" />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[rgba(255,255,255,0.06)] border border-[var(--border)] rounded-[20px] p-5 flex flex-col gap-5">
-          <label className="text-[13px] text-[var(--soft)]">
-            故事创意 / 完整剧本
-            <textarea value={idea} onChange={(e) => setIdea(e.target.value)} rows={10} placeholder={"支持两种输入：\n1. 简短创意：暮色城市中的旅人，霓虹雨夜...\n2. 完整剧本：直接粘贴含场景、角色对白、△画面描述的剧本文本"}
-              className="mt-2 w-full bg-[rgba(255,255,255,0.06)] border border-[var(--border)] rounded-xl p-3 text-white resize-y text-sm" />
+        <div className="cinema-card p-5 flex flex-col gap-5">
+          <label className="block">
+            <div className="flex items-center justify-between mb-2">
+              <Eyebrow>Script · 创意 / 剧本</Eyebrow>
+              <span className="cinema-mono text-[10px] opacity-60 tabular-nums">
+                {ideaCharCount} chars
+              </span>
+            </div>
+            <textarea
+              value={idea}
+              onChange={(e) => setIdea(e.target.value)}
+              rows={10}
+              placeholder={"支持两种输入:\n1. 简短创意:暮色城市中的旅人,霓虹雨夜...\n2. 完整剧本:直接粘贴含场景、角色对白、△画面描述的剧本文本"}
+              className="cinema-textarea"
+            />
           </label>
 
           {/* Story Template shelf */}
@@ -574,75 +605,140 @@ export default function DashboardCreatePage() {
             onChange={setLockedCharacters}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FilmStripDivider label="ACT 2 · 镜头规格" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <span className="text-[13px] text-[var(--soft)]">时长</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {durationOptions.map((d) => (<button key={d} onClick={() => setDuration(d)} className={`chip ${duration === d ? 'active' : ''}`}>{d}</button>))}
+              <Eyebrow>Duration · 单镜时长</Eyebrow>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {durationOptions.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDuration(d)}
+                    className={`cinema-btn !px-3 !py-1 cinema-mono !text-[11px] ${duration === d ? 'cinema-btn-primary' : ''}`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Eyebrow>Aspect · 画幅</Eyebrow>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {aspectOptions.map((a) => (
+                  <button
+                    key={a}
+                    onClick={() => setAspect(a)}
+                    className={`cinema-btn !px-3 !py-1 cinema-mono !text-[11px] ${aspect === a ? 'cinema-btn-primary' : ''}`}
+                  >
+                    {a}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
           <div>
-            <span className="text-[13px] text-[var(--soft)]">画幅</span>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {aspectOptions.map((a) => (<button key={a} onClick={() => setAspect(a)} className={`chip ${aspect === a ? 'active' : ''}`}>{a}</button>))}
-            </div>
-          </div>
-
-          <div>
-            <span className="text-[13px] text-[var(--soft)]">视频引擎</span>
-            <div className="grid grid-cols-3 gap-3 mt-2">
+            <Eyebrow>Engine · 视频引擎</Eyebrow>
+            <div className="grid grid-cols-3 gap-2 mt-2">
               {[
-                { id: 'veo', label: 'Veo 3.1', sub: '画质顶级', Icon: Sparkles, color: 'rose' },
-                { id: 'minimax', label: 'Minimax', sub: '速度快', Icon: Zap, color: 'amber' },
-                { id: 'keling', label: '可灵 AI', sub: '中文好', Icon: Lightbulb, color: 'teal' },
+                { id: 'veo', label: 'Veo 3.1', sub: 'cinematic · slow' },
+                { id: 'minimax', label: 'Minimax', sub: 'balanced · fast' },
+                { id: 'keling', label: '可灵 AI', sub: 'cn voice · ok' },
               ].map((v) => (
-                <button key={v.id} onClick={() => setVideoProvider(v.id)}
-                  className={`p-3 rounded-xl border-2 transition-all text-center ${videoProvider === v.id ? `border-${v.color}-500 bg-${v.color}-500/10` : 'border-[var(--border)] bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.2)]'}`}>
-                  <v.Icon className={`w-5 h-5 mx-auto mb-1 ${videoProvider === v.id ? `text-${v.color}-400` : 'text-[var(--soft)]'}`} />
-                  <div className="text-sm font-semibold">{v.label}</div>
-                  <div className="text-[11px] text-[var(--soft)]">{v.sub}</div>
+                <button
+                  key={v.id}
+                  onClick={() => setVideoProvider(v.id)}
+                  className={`cinema-card-hi p-3 transition-all text-left ${
+                    videoProvider === v.id
+                      ? 'border-[var(--cinema-amber-deep)] bg-[var(--cinema-amber-glow)]'
+                      : 'hover:border-[var(--cinema-border-hi)]'
+                  }`}
+                  style={videoProvider === v.id ? { borderColor: 'var(--cinema-amber)' } : undefined}
+                >
+                  <div className="cinema-mono text-[10px] opacity-50 mb-0.5 tracking-wider">{v.id.toUpperCase()}</div>
+                  <div className="cinema-headline text-sm">{v.label}</div>
+                  <div className="cinema-mono text-[9px] mt-0.5 opacity-60">{v.sub}</div>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="border border-dashed border-[rgba(255,255,255,0.2)] rounded-2xl p-5 text-center text-[var(--soft)] bg-[rgba(255,255,255,0.03)]">
-            <div>参考图 / 音频 / 文本脚本</div>
-            <div className="text-xs mt-1">拖拽或点击上传</div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-xs text-[var(--soft)]">
-            <div>输出格式 <strong className="block text-white mt-1">MP4 / 24fps</strong></div>
-            <div>渲染队列 <strong className="block text-white mt-1">实时优先</strong></div>
+          {/* 技术读数面板 — 当前选择的实时反馈 */}
+          <div className="cinema-card-hi p-3">
+            <Eyebrow>Readout · 设定预览</Eyebrow>
+            <div className="mt-2">
+              <TechReadout pairs={[
+                ['fps', '24'],
+                ['format', 'MP4'],
+                ['shot', duration],
+                ['aspect', aspect],
+                ['engine', videoProvider],
+                ['est_total', `~${(totalDurationSec).toFixed(0)}s`],
+              ]} />
+            </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-5">
-          <div className="relative rounded-[20px] overflow-hidden border border-[var(--border)] bg-[var(--foreground)]">
-            <img src={IMG_PREVIEW_DEFAULT} alt="preview" className="w-full h-[260px] object-cover" />
-            <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[rgba(0,0,0,0.6)] text-xs">Live Preview</div>
+          {/* 预览区:Eyebrow + 比例 chip + 时码 chip — 仪表盘信息密度 */}
+          <div className="cinema-card-hi p-3">
+            <div className="flex items-center justify-between mb-2">
+              <Eyebrow>Live Preview · 实时预览</Eyebrow>
+              <div className="flex items-center gap-1">
+                <AspectChip ratio={aspect} />
+                <TimecodeChip seconds={parseFloat(duration.replace(/[^\d.]/g, ''))} variant="amber" />
+              </div>
+            </div>
+            <div className="relative rounded-[2px] overflow-hidden border border-[var(--cinema-border)] bg-black">
+              <img src={IMG_PREVIEW_DEFAULT} alt="preview" className="w-full h-[260px] object-cover opacity-90" />
+              {/* 安全区裁切线 — 影院软件常见 */}
+              <div className="absolute inset-[10%] border border-dashed border-[rgba(245,241,234,0.18)] pointer-events-none" />
+            </div>
           </div>
 
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center gap-2 text-sm text-[var(--soft)]">
-              <Lightbulb className="w-4 h-4" /><span>试试这些创意灵感</span>
+          <FilmStripDivider label="ACT 3 · 灵感库" />
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Eyebrow>Inspiration · 灵感库</Eyebrow>
+              <span className="cinema-mono text-[10px] opacity-50">{exampleIdeas.length} cues</span>
             </div>
-            {exampleIdeas.map((ex) => (
-              <button key={ex.title} onClick={() => setIdea(ex.content)}
-                className="group flex items-start gap-3 p-3 bg-[rgba(255,255,255,0.04)] border border-[var(--border)] rounded-xl hover:border-[rgba(239,49,159,0.4)] hover:bg-[rgba(255,255,255,0.06)] transition-all text-left">
-                <div className="w-9 h-9 bg-[rgba(239,49,159,0.15)] rounded-lg grid place-items-center shrink-0">
-                  <ex.icon className="w-4 h-4 text-[var(--primary)]" />
+            {exampleIdeas.map((ex, i) => (
+              <button
+                key={ex.title}
+                onClick={() => setIdea(ex.content)}
+                className="cinema-card-hi p-3 group flex items-start gap-3 hover:border-[var(--cinema-amber-deep)] transition-colors text-left"
+              >
+                <div className="cinema-mono text-[10px] opacity-50 w-6 pt-0.5 tabular-nums">
+                  {String(i + 1).padStart(2, '0')}
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium group-hover:text-[var(--primary)] transition-colors">{ex.title}</div>
-                  <div className="text-xs text-[var(--soft)] line-clamp-2 mt-0.5">{ex.content}</div>
+                <ex.icon className="w-4 h-4 text-[var(--cinema-amber)] mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="cinema-subhead text-sm leading-tight">{ex.title}</div>
+                  <div className="text-[11px] opacity-60 line-clamp-2 mt-1 leading-relaxed">{ex.content}</div>
                 </div>
               </button>
             ))}
           </div>
         </div>
+      </div>
+
+      {/* ── 底部 Logic Pro 风状态栏 ── */}
+      <div className="sticky bottom-0 mt-8 -mx-[5vw]">
+        <StatusBar
+          items={[
+            { label: 'STATUS', value: isReady ? 'READY' : 'AWAITING IDEA', status: isReady ? 'green' : 'amber' },
+            { label: 'CHARS', value: <span className="cinema-mono">{ideaCharCount}</span> },
+            { label: 'TEMPLATE', value: selectedTemplate?.name || '—' },
+            { label: 'STYLE', value: style },
+            { label: 'SHOT', value: <span className="cinema-mono">{duration}</span> },
+            { label: 'ASPECT', value: <span className="cinema-mono">{aspect}</span> },
+            { label: 'ENGINE', value: videoProvider.toUpperCase() },
+            { label: 'LOCKED', value: <span className="cinema-mono">{lockedCharacters.length}/3</span>, status: lockedCharacters.length > 0 ? 'green' : 'neutral' },
+          ]}
+        />
       </div>
     </div>
   );
