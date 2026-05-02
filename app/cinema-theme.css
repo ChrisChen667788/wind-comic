@@ -82,12 +82,32 @@
   border: 1px solid var(--cinema-border);
   border-radius: 4px;       /* 影院软件不要太圆,4-6px 即可 */
   box-shadow: var(--cinema-shadow);
+  transition: border-color 160ms ease, box-shadow 220ms ease, transform 240ms cubic-bezier(.2,.8,.2,1);
+}
+/* hover 时:亚麻琥珀晕,微微抬起,边框点亮 */
+.cinema-card:hover,
+a.cinema-card:hover,
+button.cinema-card:hover {
+  border-color: var(--cinema-amber-deep);
+  box-shadow:
+    0 1px 0 rgba(245, 241, 234, 0.05) inset,
+    0 0 0 1px rgba(201, 163, 94, 0.10),
+    0 16px 36px -16px rgba(201, 163, 94, 0.18),
+    0 8px 24px rgba(0, 0, 0, 0.55);
+  transform: translateY(-1px);
 }
 
 .cinema-card-hi {
   background: var(--cinema-surface-2);
   border: 1px solid var(--cinema-border-hi);
   border-radius: 4px;
+  transition: border-color 160ms ease, box-shadow 220ms ease;
+}
+.cinema-card-hi:hover {
+  border-color: var(--cinema-amber-deep);
+  box-shadow:
+    0 0 0 1px rgba(201, 163, 94, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.55);
 }
 
 .cinema-divider {
@@ -133,11 +153,20 @@
   letter-spacing: 0.02em;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 120ms ease;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 120ms ease, box-shadow 200ms ease;
+  position: relative;
+  overflow: hidden;
 }
 .cinema-btn:hover {
   background: var(--cinema-surface-hi);
   border-color: var(--cinema-amber-deep);
+}
+.cinema-btn:active {
+  transform: translateY(1px);
+}
+.cinema-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--cinema-bg), 0 0 0 4px var(--cinema-amber-deep);
 }
 .cinema-btn:disabled {
   opacity: 0.4;
@@ -145,14 +174,16 @@
 }
 
 .cinema-btn-primary {
-  background: var(--cinema-amber);
+  background: linear-gradient(180deg, #D6B270 0%, var(--cinema-amber) 100%);
   color: #0A0908;
   border-color: var(--cinema-amber);
   font-weight: 600;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset, 0 6px 18px -8px rgba(201, 163, 94, 0.55);
 }
 .cinema-btn-primary:hover {
-  background: #D6B270;
+  background: linear-gradient(180deg, #DEBD7E 0%, #D6B270 100%);
   border-color: #D6B270;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 8px 22px -8px rgba(201, 163, 94, 0.65);
 }
 
 .cinema-btn-ghost {
@@ -212,11 +243,15 @@
   font-size: 13px;
   border-radius: 4px;
   outline: none;
-  transition: border-color 120ms ease;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 200ms ease;
+}
+.cinema-input:hover {
+  border-color: var(--cinema-border-hi);
 }
 .cinema-input:focus {
   border-color: var(--cinema-amber-deep);
   background: var(--cinema-surface-2);
+  box-shadow: 0 0 0 3px rgba(201, 163, 94, 0.10);
 }
 .cinema-input::placeholder {
   color: var(--cinema-text-3);
@@ -224,25 +259,30 @@
 
 .cinema-textarea {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   background: var(--cinema-surface);
   border: 1px solid var(--cinema-border);
   color: var(--cinema-text);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 13.5px;
+  line-height: 1.7;
   border-radius: 4px;
   outline: none;
   resize: vertical;
   font-family: 'Source Han Serif SC', 'Songti SC', Georgia, serif;
-  transition: border-color 120ms ease;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 200ms ease;
+}
+.cinema-textarea:hover {
+  border-color: var(--cinema-border-hi);
 }
 .cinema-textarea:focus {
   border-color: var(--cinema-amber-deep);
   background: var(--cinema-surface-2);
+  box-shadow: 0 0 0 3px rgba(201, 163, 94, 0.10);
 }
 .cinema-textarea::placeholder {
   color: var(--cinema-text-3);
   font-style: italic;
+  opacity: 0.7;
 }
 
 /* ──────────────────────────────────────── */
@@ -332,4 +372,43 @@
 }
 .cinema-page ::-webkit-scrollbar-thumb:hover {
   background: var(--cinema-amber-deep);
+}
+
+/* ──────────────────────────────────────── */
+/* 微动画 — 入场柔和 + amber 焦点光晕       */
+/* ──────────────────────────────────────── */
+@keyframes cinema-fade-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cinema-page .animate-fade-up,
+.cinema-fade-up {
+  animation: cinema-fade-rise 320ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+/* "amber spotlight" 光晕 — 用于强调当前活跃节点(场记板/重要 CTA) */
+.cinema-spotlight {
+  position: relative;
+  overflow: hidden;
+}
+.cinema-spotlight::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 40% at 50% 0%, rgba(201, 163, 94, 0.10) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 280ms ease;
+}
+.cinema-spotlight:hover::after,
+.cinema-spotlight:focus-within::after {
+  opacity: 1;
+}
+
+/* a 标签包卡片时,把下划线/默认色继承掉 */
+.cinema-page a.project-card,
+.cinema-page a.cinema-card {
+  text-decoration: none;
+  color: inherit;
 }

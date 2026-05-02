@@ -142,17 +142,18 @@ export function CameoPanel({ projectId, initialUrl = null, onChange }: Props) {
   // 空态:未上传
   if (!url) {
     return (
-      <div className="mb-6 p-5 bg-white/5 border border-dashed border-white/15 rounded-2xl">
+      <div className="mb-6 p-5 bg-white/5 border border-dashed border-white/15 rounded-2xl [.cinema-page_&]:bg-[var(--cinema-surface)] [.cinema-page_&]:border [.cinema-page_&]:border-dashed [.cinema-page_&]:border-[var(--cinema-border-hi)] [.cinema-page_&]:rounded-none">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#E8C547]/10 flex items-center justify-center flex-shrink-0">
-            <UserCircle2 className="w-6 h-6 text-[#E8C547]" />
+          <div className="w-12 h-12 rounded-xl bg-[#E8C547]/10 flex items-center justify-center flex-shrink-0 [.cinema-page_&]:rounded-sm [.cinema-page_&]:bg-[var(--cinema-amber-glow)]">
+            <UserCircle2 className="w-6 h-6 text-[#E8C547] [.cinema-page_&]:text-[var(--cinema-amber)]" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-sm">主角脸未锁定</h3>
-              <span className="px-1.5 py-0.5 bg-[#E8C547]/15 text-[#E8C547] text-[10px] rounded">Cameo</span>
+              <h3 className="font-semibold text-sm [.cinema-page_&]:hidden">主角脸未锁定</h3>
+              <span className="hidden [.cinema-page_&]:inline cinema-eyebrow tracking-widest">CAMEO · 主角脸未锁定</span>
+              <span className="px-1.5 py-0.5 bg-[#E8C547]/15 text-[#E8C547] text-[10px] rounded [.cinema-page_&]:hidden">Cameo</span>
             </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
+            <p className="text-xs text-gray-400 leading-relaxed [.cinema-page_&]:cinema-subhead [.cinema-page_&]:opacity-80">
               上传一张主角照片，全片所有镜头都会锁定同一张脸 —— 告别"每句台词换张脸"的跳脸问题。
             </p>
             <input
@@ -170,10 +171,11 @@ export function CameoPanel({ projectId, initialUrl = null, onChange }: Props) {
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={busy !== 'idle'}
-              className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#E8C547]/10 hover:bg-[#E8C547]/20 text-[#E8C547] text-xs font-medium transition disabled:opacity-50"
+              className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#E8C547]/10 hover:bg-[#E8C547]/20 text-[#E8C547] text-xs font-medium transition disabled:opacity-50 [.cinema-page_&]:rounded-sm [.cinema-page_&]:bg-[var(--cinema-amber)] [.cinema-page_&]:text-black [.cinema-page_&]:font-semibold [.cinema-page_&]:hover:bg-[#D6B270]"
             >
               {busy === 'upload' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-              上传主角脸
+              <span className="[.cinema-page_&]:hidden">上传主角脸</span>
+              <span className="hidden [.cinema-page_&]:inline cinema-mono tracking-wider text-[11px]">▲ UPLOAD CAMEO</span>
             </button>
           </div>
         </div>
@@ -183,25 +185,26 @@ export function CameoPanel({ projectId, initialUrl = null, onChange }: Props) {
 
   // 已锁定态
   return (
-    <div className="mb-6 p-5 bg-gradient-to-r from-[#E8C547]/5 to-transparent border border-[#E8C547]/20 rounded-2xl">
+    <div className="mb-6 p-5 bg-gradient-to-r from-[#E8C547]/5 to-transparent border border-[#E8C547]/20 rounded-2xl [.cinema-page_&]:bg-none [.cinema-page_&]:bg-[var(--cinema-surface-2)] [.cinema-page_&]:border [.cinema-page_&]:border-[var(--cinema-amber-deep)] [.cinema-page_&]:rounded-none">
       <div className="flex items-start gap-4">
         <div className="relative flex-shrink-0">
           <img
             src={url}
             alt="已锁定主角脸"
-            className="w-20 h-20 rounded-xl object-cover border-2 border-[#E8C547]/40"
+            className="w-20 h-20 rounded-xl object-cover border-2 border-[#E8C547]/40 [.cinema-page_&]:rounded-sm [.cinema-page_&]:border-[var(--cinema-amber)]"
             loading="lazy"
           />
-          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#E8C547] flex items-center justify-center border-2 border-[var(--background)]">
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#E8C547] flex items-center justify-center border-2 border-[var(--background)] [.cinema-page_&]:rounded-sm [.cinema-page_&]:bg-[var(--cinema-amber)] [.cinema-page_&]:border-[var(--cinema-bg)]">
             <Lock className="w-3 h-3 text-black" />
           </div>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <CheckCircle2 className="w-4 h-4 text-[#E8C547]" />
-            <h3 className="font-semibold text-sm text-[#E8C547]">主角脸已锁定</h3>
+            <CheckCircle2 className="w-4 h-4 text-[#E8C547] [.cinema-page_&]:text-[var(--cinema-amber)]" />
+            <h3 className="font-semibold text-sm text-[#E8C547] [.cinema-page_&]:hidden">主角脸已锁定</h3>
+            <span className="hidden [.cinema-page_&]:inline cinema-eyebrow tracking-widest text-[var(--cinema-amber)] opacity-90">CAMEO · 主角脸已锁定</span>
           </div>
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-xs text-gray-400 leading-relaxed [.cinema-page_&]:cinema-subhead [.cinema-page_&]:opacity-80">
             全片所有镜头都会用这张脸作主角参考；重新生成任意镜头都会继续锁定。
           </p>
           <div className="flex items-center gap-2 mt-3">

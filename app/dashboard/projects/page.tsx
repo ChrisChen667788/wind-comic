@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
 import { FolderKanban, Clock, CheckCircle2, Play, Film, Plus, Sparkles, Search, Wand2, Activity } from 'lucide-react';
+import { FilmStripDivider } from '@/components/cinema/primitives';
 import { readinessLevel } from '@/lib/polish-prompts';
 
 export default function ProjectsPage() {
@@ -36,35 +37,44 @@ export default function ProjectsPage() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-6 animate-fade-up">
-        <div>
-          <h1 className="text-2xl font-bold text-white">我的项目</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">管理和追踪你的 AI 漫剧创作</p>
+    <div className="cinema-page max-w-6xl mx-auto -mx-[5vw] -my-6 px-[5vw] py-6">
+      {/* Header — 影院仪表盘风格 */}
+      <div className="flex justify-between items-end mb-6 animate-fade-up gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="cinema-eyebrow tracking-widest">FILMOGRAPHY · 项目库</span>
+            <span className="cinema-mono text-[10px] opacity-50">{projects.length} titles</span>
+          </div>
+          <h1 className="cinema-headline text-3xl">我的项目</h1>
+          <p className="cinema-subhead text-sm mt-1 opacity-70">管理和追踪你的 AI 漫剧创作</p>
         </div>
-        <Link href="/dashboard/create" className="btn-primary flex items-center gap-2 text-sm">
+        <Link href="/dashboard/create" className="cinema-btn cinema-btn-primary !px-5 !py-2.5 !text-[12px] whitespace-nowrap">
           <Plus className="w-4 h-4" />
-          新建创作
+          ▶  新建创作
         </Link>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex items-center gap-2 mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }}>
-        {filterOptions.map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key as any)}
-            className={`chip ${filter === f.key ? 'active' : ''}`}
-          >
-            {f.label}
-            {f.key !== 'all' && (
-              <span className="ml-1 opacity-60">
-                {projects.filter(p => f.key === 'all' || p.status === f.key).length}
+      <FilmStripDivider />
+
+      {/* Filter Bar — cinema chip 风 */}
+      <div className="flex items-center gap-1.5 mb-6 mt-4 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+        <span className="cinema-eyebrow mr-2">FILTER</span>
+        {filterOptions.map(f => {
+          const count = projects.filter(p => f.key === 'all' || p.status === f.key).length;
+          const active = filter === f.key;
+          return (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key as any)}
+              className={`cinema-btn !px-3 !py-1 !text-[11px] ${active ? 'cinema-btn-primary' : ''}`}
+            >
+              <span>{f.label}</span>
+              <span className={`cinema-mono text-[10px] ml-1 tabular-nums ${active ? 'opacity-90' : 'opacity-50'}`}>
+                {String(count).padStart(2, '0')}
               </span>
-            )}
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
@@ -81,15 +91,14 @@ export default function ProjectsPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 animate-fade-up">
-          <div className="w-16 h-16 rounded-2xl bg-[var(--surface)] grid place-items-center mx-auto mb-4">
-            <FolderKanban className="w-8 h-8 text-[var(--soft)]" />
-          </div>
-          <p className="text-[var(--muted)] text-sm mb-1">{filter === 'all' ? '还没有创作项目' : '没有符合条件的项目'}</p>
-          <p className="text-[var(--soft)] text-xs mb-5">输入你的创意，AI 团队将自动为你完成从剧本到成片的全流程创作</p>
-          <Link href="/dashboard/create" className="btn-primary inline-flex items-center gap-2 text-sm">
+        <div className="cinema-card-hi text-center py-16 animate-fade-up px-6">
+          <FolderKanban className="w-10 h-10 text-[var(--cinema-amber)] opacity-60 mx-auto mb-4" />
+          <div className="cinema-eyebrow tracking-widest mb-2">EMPTY ROSTER</div>
+          <p className="cinema-headline text-base mb-1">{filter === 'all' ? '还没有创作项目' : '没有符合条件的项目'}</p>
+          <p className="cinema-subhead text-xs mb-5 opacity-65 max-w-md mx-auto">输入你的创意，AI 团队将自动为你完成从剧本到成片的全流程创作</p>
+          <Link href="/dashboard/create" className="cinema-btn cinema-btn-primary !text-[12px]">
             <Sparkles className="w-4 h-4" />
-            开始创作
+            ▶  开始创作
           </Link>
         </div>
       ) : (
@@ -148,19 +157,25 @@ export default function ProjectsPage() {
                   ) : null}
                 </div>
 
-                {/* Info */}
-                <div className="p-4">
-                  <h3 className="font-semibold text-white text-[15px] mb-1 truncate group-hover:text-[#E8C547] transition-colors">{p.title}</h3>
-                  <p className="text-xs text-[var(--muted)] line-clamp-2 mb-3 leading-relaxed">{p.description}</p>
-                  <div className="flex items-center justify-between text-[10px] text-[var(--soft)]">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {new Date(p.createdAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                {/* Info — cinema readout */}
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="cinema-mono text-[9px] opacity-50 tracking-widest">
+                      № {String(i + 1).padStart(3, '0')}
                     </span>
-                    {p.directorNotes?.overallScore && (
-                      <span className="text-amber-400 font-medium">{p.directorNotes.overallScore}/100</span>
-                    )}
+                    <span className="cinema-mono text-[9px] opacity-50">
+                      {new Date(p.createdAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '·')}
+                    </span>
                   </div>
+                  <h3 className="cinema-headline text-[14px] mb-1 truncate group-hover:text-[var(--cinema-amber)] transition-colors">{p.title}</h3>
+                  <p className="cinema-subhead text-[11px] line-clamp-2 mb-2 leading-relaxed opacity-70">{p.description}</p>
+                  {p.directorNotes?.overallScore && (
+                    <div className="cinema-mono text-[10px] opacity-80 flex items-center justify-end gap-1">
+                      <span className="opacity-50">SCORE</span>
+                      <span className="text-[var(--cinema-amber)] font-semibold">{p.directorNotes.overallScore}</span>
+                      <span className="opacity-40">/100</span>
+                    </div>
+                  )}
                 </div>
               </Link>
             );

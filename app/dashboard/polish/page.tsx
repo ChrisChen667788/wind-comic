@@ -631,8 +631,8 @@ export default function PolishPage() {
 
       {/* 对比面板 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* 左:原文 */}
-        <div className="flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--border)] overflow-hidden min-h-[520px]">
+        {/* 左:原文 — 同样修 scroll */}
+        <div className="flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--border)] overflow-hidden h-[calc(100vh-220px)] min-h-[520px] max-h-[calc(100vh-220px)]">
           <div className="px-4 py-3 border-b border-[var(--border)] bg-black/20 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-purple-300" />
@@ -697,8 +697,8 @@ export default function PolishPage() {
           </div>
         </div>
 
-        {/* 右:结果 */}
-        <div className="flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--border)] overflow-hidden min-h-[520px]">
+        {/* 右:结果 — v2.13.2 fix: 用 max-h 让内层 overflow-y-auto 真正触发 */}
+        <div className="flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--border)] overflow-hidden h-[calc(100vh-220px)] min-h-[520px] max-h-[calc(100vh-220px)]">
           <div className="px-4 py-3 border-b border-[var(--border)] bg-black/20 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#E8C547]" />
