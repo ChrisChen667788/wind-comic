@@ -6,6 +6,7 @@ import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
 import { FolderKanban, Clock, CheckCircle2, Play, Film, Plus, Sparkles, Search, Wand2, Activity } from 'lucide-react';
 import { FilmStripDivider } from '@/components/cinema/primitives';
+import { NumberTicker, AnimatedShinyText } from '@/components/cinema/effects';
 import { readinessLevel } from '@/lib/polish-prompts';
 
 export default function ProjectsPage() {
@@ -42,8 +43,10 @@ export default function ProjectsPage() {
       <div className="flex justify-between items-end mb-6 animate-fade-up gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="cinema-eyebrow tracking-widest">FILMOGRAPHY · 项目库</span>
-            <span className="cinema-mono text-[10px] opacity-50">{projects.length} titles</span>
+            <AnimatedShinyText className="cinema-eyebrow tracking-widest">FILMOGRAPHY · 项目库</AnimatedShinyText>
+            <span className="cinema-mono text-[10px] opacity-50">
+              <NumberTicker value={projects.length} /> titles
+            </span>
           </div>
           <h1 className="cinema-headline text-3xl">我的项目</h1>
           <p className="cinema-subhead text-sm mt-1 opacity-70">管理和追踪你的 AI 漫剧创作</p>

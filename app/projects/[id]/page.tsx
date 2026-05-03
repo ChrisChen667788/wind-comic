@@ -483,7 +483,8 @@ export default function ProjectDetailPage() {
                   return (
                     <div
                       key={sb.id}
-                      className="cinema-card relative overflow-hidden hover:border-[var(--cinema-amber-deep)] transition-colors"
+                      data-shot={sb.shotNumber}
+                      className="cinema-card relative overflow-hidden hover:border-[var(--cinema-amber-deep)] transition-colors scroll-mt-24"
                     >
                       {/* Sprint A.4 · 右上角 Cameo 徽章 (没分数时不渲染) */}
                       <CameoBadge data={sb.data || {}} />

@@ -12,6 +12,7 @@
  */
 
 import type { ReactNode } from 'react';
+import { BorderBeam } from './effects';
 
 // ──────────────────────────────────────────────────────────
 // TimecodeChip — 影院时码 00:00:05:12 (帧级别)
@@ -112,15 +113,19 @@ export function SlateCard({
   take,
   director,
   notes,
+  beam = true,
 }: {
   title: string;
   scene?: string;
   take?: string;
   director?: string;
   notes?: string;
+  /** v2.13.3: 是否在卡片边缘加 amber 旋转光束 (Aceternity 风, 默认开) */
+  beam?: boolean;
 }) {
   return (
-    <div className="cinema-card-hi p-5 relative overflow-hidden">
+    <div className="cinema-card-hi p-5 relative overflow-hidden cinema-spotlight">
+      {beam && <BorderBeam size={220} duration={9} colorTo="rgba(201, 163, 94, 0.55)" />}
       {/* 顶部斜纹装饰 — 模拟黑白场记板 */}
       <div
         className="absolute top-0 left-0 right-0 h-2 opacity-30"

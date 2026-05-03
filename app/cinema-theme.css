@@ -412,3 +412,15 @@ button.cinema-card:hover {
   text-decoration: none;
   color: inherit;
 }
+
+/* ──────────────────────────────────────── */
+/* Aceternity 风微动效 keyframes             */
+/* ──────────────────────────────────────── */
+@keyframes cinema-beam-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cinema-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}

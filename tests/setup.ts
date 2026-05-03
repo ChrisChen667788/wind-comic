@@ -42,3 +42,31 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 });
+
+// v2.13.3: Polyfill IntersectionObserver (jsdom 没有, framer-motion useInView 依赖它)
+class IntersectionObserverPolyfill {
+  constructor(_cb: any, _opts?: any) {}
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+  takeRecords = vi.fn(() => []);
+  root = null;
+  rootMargin = '';
+  thresholds = [];
+}
+(global as any).IntersectionObserver = IntersectionObserverPolyfill;
+if (typeof window !== 'undefined') {
+  (window as any).IntersectionObserver = IntersectionObserverPolyfill;
+}
+
+// ResizeObserver 也顺手 polyfill (有些 framer-motion 路径用)
+class ResizeObserverPolyfill {
+  constructor(_cb: any) {}
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+(global as any).ResizeObserver = ResizeObserverPolyfill;
+if (typeof window !== 'undefined') {
+  (window as any).ResizeObserver = ResizeObserverPolyfill;
+}

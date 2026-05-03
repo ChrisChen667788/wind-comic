@@ -19,6 +19,8 @@
 
 import { useState, useMemo } from 'react';
 import { Activity, Repeat, AlertTriangle, Loader2, CheckCircle2, X } from 'lucide-react';
+import { CameoBarList, CameoDonut } from '@/components/cinema/dataviz';
+import { NumberTicker } from '@/components/cinema/effects';
 
 interface CameoData {
   cameoScore?: number;
@@ -208,6 +210,7 @@ export function CameoSummary({
   const ap = PALETTE[avgLvl];
 
   return (
+    <>
     <div className="mb-3 flex items-center gap-3 flex-wrap px-3 py-2.5 rounded-lg bg-gradient-to-r from-violet-500/8 to-rose-500/5 border border-violet-500/20 [.cinema-page_&]:rounded-none [.cinema-page_&]:bg-[var(--cinema-surface-2)] [.cinema-page_&]:border-[var(--cinema-border-hi)] [.cinema-page_&]:bg-none [.cinema-page_&]:border" style={{ borderRadius: undefined }}>
       <div className="flex items-center gap-1.5">
         <Activity className="w-3.5 h-3.5 text-violet-300 [.cinema-page_&]:text-[var(--cinema-amber)]" />
@@ -275,6 +278,98 @@ export function CameoSummary({
           <span className="hidden [.cinema-page_&]:inline">✓ ALL SHOTS PASS</span>
         </span>
       )}
+    </div>
+    {/* v2.13.3 — 仅 cinema 模式下额外渲染 donut + per-shot bar list */}
+    <CameoDashboard storyboards={storyboards} stats={stats} />
+    </>
+  );
+}
+
+// ────────────────────────────────────────────────
+// CameoDashboard — donut + per-shot bar list (cinema only)
+// ────────────────────────────────────────────────
+function CameoDashboard({
+  storyboards,
+  stats,
+}: {
+  storyboards: Array<{ data?: CameoData; shotNumber?: number }>;
+  stats: { evaluated: number; avg: number | null; lowCount: number; retriedCount: number };
+}) {
+  // 准备 BarList 数据
+  const items = useMemo(() => {
+    return storyboards
+      .filter((sb) => typeof sb.shotNumber === 'number')
+      .map((sb) => ({
+        shotNumber: sb.shotNumber!,
+        score: typeof sb.data?.cameoScore === 'number' ? sb.data!.cameoScore! : null,
+        retried: !!sb.data?.cameoRetried,
+      }));
+  }, [storyboards]);
+
+  // donut 三段统计 (≥85 pass / 70-84 warn / <70 fail / null na)
+  const seg = useMemo(() => {
+    let pass = 0, warn = 0, fail = 0, na = 0;
+    for (const it of items) {
+      if (it.score == null) na++;
+      else if (it.score >= 85) pass++;
+      else if (it.score >= 70) warn++;
+      else fail++;
+    }
+    return { pass, warn, fail, na };
+  }, [items]);
+
+  if (stats.evaluated === 0) return null;
+  const scrollToShot = (n: number) => {
+    const el = document.querySelector(`[data-shot="${n}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  return (
+    <div className="hidden [.cinema-page_&]:grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5 mb-4 cinema-card-hi p-4">
+      {/* 左:donut + 三档统计 */}
+      <div className="flex items-center gap-4">
+        <CameoDonut
+          pass={seg.pass}
+          warn={seg.warn}
+          fail={seg.fail}
+          na={seg.na}
+          centerLabel={stats.avg != null ? <NumberTicker value={stats.avg} /> : '—'}
+          centerSub="AVG · 100"
+          size={104}
+        />
+        <div className="space-y-1.5 text-[10.5px] cinema-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--cinema-green)' }} />
+            <span className="opacity-60 tracking-wider">PASS ≥ 85</span>
+            <span className="ml-auto tabular-nums" style={{ color: 'var(--cinema-green)' }}><NumberTicker value={seg.pass} /></span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--cinema-amber)' }} />
+            <span className="opacity-60 tracking-wider">WARN 70-84</span>
+            <span className="ml-auto tabular-nums" style={{ color: 'var(--cinema-amber)' }}><NumberTicker value={seg.warn} /></span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--cinema-red)' }} />
+            <span className="opacity-60 tracking-wider">FAIL &lt; 70</span>
+            <span className="ml-auto tabular-nums" style={{ color: 'var(--cinema-red)' }}><NumberTicker value={seg.fail} /></span>
+          </div>
+          {seg.na > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--cinema-text-3)' }} />
+              <span className="opacity-60 tracking-wider">NO SCORE</span>
+              <span className="ml-auto tabular-nums opacity-70"><NumberTicker value={seg.na} /></span>
+            </div>
+          )}
+        </div>
+      </div>
+      {/* 右:per-shot bar list */}
+      <div className="min-w-0">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="cinema-eyebrow tracking-widest">PER-SHOT · 最弱镜头优先</span>
+          <span className="cinema-mono text-[10px] opacity-50">click → jump</span>
+        </div>
+        <CameoBarList items={items} threshold={75} onClickShot={scrollToShot} maxRows={12} />
+      </div>
     </div>
   );
 }
