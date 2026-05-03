@@ -1,19 +1,22 @@
 'use client';
 
 /**
- * Cinema 微动效组件 (v2.13.3, Aceternity 风格)
+ * Cinema 微动效组件 (v2.13.3 / v2.13.4, Aceternity 风格)
  *
  * 全用 framer-motion(已是项目依赖)+ 纯 CSS,无需新装包。
  *
  * 包含:
- *   <NumberTicker>      — 数字滚动到指定值(项目计数 / 评分等)
- *   <BorderBeam>        — 旋转的 amber 渐变边框光束(签名效果,用于 Slate / 主 CTA)
- *   <AnimatedShinyText> — 文字上的 amber 光波扫过(灵感库 / 提示)
- *   <Marquee>           — 横向无限滚动(灵感卡 / 案例库)
+ *   <NumberTicker>        — 数字滚动到指定值(项目计数 / 评分等)
+ *   <BorderBeam>          — 旋转的 amber 渐变边框光束(用于 Slate / 主 CTA)
+ *   <AnimatedShinyText>   — 文字上的 amber 光波扫过(灵感库 / 提示)
+ *   <Marquee>             — 横向无限滚动(灵感卡 / 案例库)
+ *   <MovingBorderButton>  — v2.13.4 · 沿元素四周跑的 amber 高光,主 CTA 用
+ *   <TextGenerateEffect>  — v2.13.4 · 词级别 stagger 显现,Slate 副标题用
+ *   <Spotlight>           — v2.13.4 · SVG 锥光,Slate 顶部装饰
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { motion, useMotionValue, useSpring, useInView } from 'framer-motion';
+import { useEffect, useRef, useState, useMemo, type ReactNode, type ButtonHTMLAttributes } from 'react';
+import { motion, useMotionValue, useSpring, useInView, useMotionTemplate, useAnimationFrame } from 'framer-motion';
 
 // ────────────────────────────────────────────────
 // NumberTicker — 滚到目标值
@@ -173,5 +176,229 @@ export function Marquee({
         {children}
       </motion.div>
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────
+// MovingBorderButton — Aceternity-style 主 CTA
+//
+// 沿四周跑的 amber 高光带 + 内置 button,用于"开机 / ROLL / 润色 / 生成视频"
+// 这种"用户主路径终点"按钮。SVG <rect> 沿 stroke 路径取点,放一个发光球。
+// ────────────────────────────────────────────────
+export function MovingBorderButton({
+  children,
+  duration = 3500,
+  borderRadius = 6,
+  containerClassName = '',
+  borderClassName = '',
+  className = '',
+  disabled,
+  ...rest
+}: {
+  children: ReactNode;
+  /** 高光绕一圈的毫秒数 */
+  duration?: number;
+  borderRadius?: number;
+  containerClassName?: string;
+  borderClassName?: string;
+  className?: string;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>) {
+  // 高光的位置, framer 动画驱动
+  const pathRef = useRef<SVGRectElement | null>(null);
+  const progress = useMotionValue(0);
+
+  useAnimationFrame((time) => {
+    if (disabled) return;
+    const length = pathRef.current?.getTotalLength?.() ?? 0;
+    if (length === 0) return;
+    const pxPerMs = length / duration;
+    const distance = (time * pxPerMs) % length;
+    progress.set(distance);
+  });
+
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  useEffect(() => {
+    return progress.on('change', (v) => {
+      const point = pathRef.current?.getPointAtLength?.(v);
+      if (point) {
+        x.set(point.x);
+        y.set(point.y);
+      }
+    });
+  }, [progress, x, y]);
+
+  const transform = useMotionTemplate`translateX(${x}px) translateY(${y}px) translateX(-50%) translateY(-50%)`;
+
+  return (
+    <button
+      disabled={disabled}
+      className={`relative overflow-hidden rounded-md p-[1.5px] ${containerClassName}`}
+      style={{ borderRadius }}
+      {...rest}
+    >
+      {/* SVG 取点路径 (隐藏) */}
+      <div className="absolute inset-0 pointer-events-none">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+          className="absolute h-full w-full"
+          width="100%"
+          height="100%"
+          aria-hidden="true"
+        >
+          <rect
+            ref={pathRef}
+            fill="none"
+            width="100%"
+            height="100%"
+            rx={borderRadius}
+            ry={borderRadius}
+          />
+        </svg>
+        {!disabled && (
+          <motion.div
+            className={`absolute top-0 left-0 h-12 w-12 ${borderClassName}`}
+            style={{
+              transform,
+              background:
+                'radial-gradient(rgba(201, 163, 94, 0.85) 0%, rgba(201, 163, 94, 0) 70%)',
+            }}
+          />
+        )}
+      </div>
+
+      {/* 内层真正的按钮 surface */}
+      <span
+        className={`relative flex h-full w-full items-center justify-center ${className}`}
+        style={{ borderRadius: borderRadius - 1 }}
+      >
+        {children}
+      </span>
+    </button>
+  );
+}
+
+// ────────────────────────────────────────────────
+// TextGenerateEffect — 词级别 stagger 显现
+//
+// 把一段文本拆成词, in-view 后逐词淡入(类似 ChatGPT 流式打字感)。
+// 不调 LLM, 纯前端动画, 适合 Slate notes / 引导文案。
+// ────────────────────────────────────────────────
+export function TextGenerateEffect({
+  text,
+  className = '',
+  /** 单词淡入间隔 ms */
+  stagger = 60,
+  /** 单词显现时长 ms */
+  duration = 320,
+}: {
+  text: string;
+  className?: string;
+  stagger?: number;
+  duration?: number;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-10% 0px' });
+  // 中文按字符切, 英文按空格切
+  const words = useMemo(() => splitForReveal(text), [text]);
+
+  return (
+    <span ref={ref} className={className} aria-label={text}>
+      {words.map((w, i) => (
+        <motion.span
+          key={`${i}-${w}`}
+          initial={{ opacity: 0, filter: 'blur(6px)', y: 4 }}
+          animate={
+            inView
+              ? { opacity: 1, filter: 'blur(0px)', y: 0 }
+              : { opacity: 0, filter: 'blur(6px)', y: 4 }
+          }
+          transition={{
+            duration: duration / 1000,
+            delay: (i * stagger) / 1000,
+            ease: [0.2, 0.8, 0.2, 1],
+          }}
+          aria-hidden="true"
+          style={{ display: 'inline-block', whiteSpace: 'pre' }}
+        >
+          {w}
+        </motion.span>
+      ))}
+    </span>
+  );
+}
+
+/** 中英文混合 stagger 切分:中文逐字, 英文按空格段, 标点跟在前面词后 */
+function splitForReveal(text: string): string[] {
+  const out: string[] = [];
+  let buf = '';
+  const flush = () => {
+    if (buf) {
+      out.push(buf);
+      buf = '';
+    }
+  };
+  for (const ch of text) {
+    // 中文 / 日韩字符 — 逐字 (CJK Unified + Halfwidth/Fullwidth Forms + 中文标点)
+    if (/[　-鿿＀-￯]/.test(ch)) {
+      flush();
+      out.push(ch);
+    } else if (ch === ' ') {
+      flush();
+      out.push(' ');
+    } else {
+      buf += ch;
+    }
+  }
+  flush();
+  return out;
+}
+
+// ────────────────────────────────────────────────
+// Spotlight — Aceternity 风格的 SVG 锥光
+//
+// 用作 hero / Slate 卡片的背景装饰(右上 / 左上 默认右上)。
+// 不影响布局, pointer-events:none, 父容器 relative + overflow-hidden。
+// ────────────────────────────────────────────────
+export function Spotlight({
+  className = '',
+  fill = 'rgba(201, 163, 94, 0.45)',
+  position = 'top-right',
+}: {
+  className?: string;
+  fill?: string;
+  position?: 'top-right' | 'top-left' | 'top-center';
+}) {
+  // 椭圆中心的位置百分比
+  const cx = position === 'top-left' ? 18 : position === 'top-center' ? 50 : 82;
+
+  return (
+    <svg
+      className={`pointer-events-none absolute -top-12 z-0 h-[120%] w-full opacity-90 ${className}`}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <radialGradient
+          id={`cinema-spot-${position}`}
+          cx={`${cx}%`}
+          cy="0%"
+          r="55%"
+          fx={`${cx}%`}
+          fy="0%"
+        >
+          <stop offset="0%" stopColor={fill} />
+          <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+        </radialGradient>
+      </defs>
+      <rect
+        width="100"
+        height="100"
+        fill={`url(#cinema-spot-${position})`}
+      />
+    </svg>
   );
 }

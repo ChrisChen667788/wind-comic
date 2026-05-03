@@ -22,6 +22,7 @@ import {
   Eyebrow,
   TechReadout,
 } from '@/components/cinema/primitives';
+import { MovingBorderButton } from '@/components/cinema/effects';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -481,14 +482,22 @@ export default function DashboardCreatePage() {
           director="ChrisChen667788"
           notes="从一句创意到完整短剧 — 设定文本 · 角色 · 风格 · 时长后开机"
         />
-        <button
+        <MovingBorderButton
           onClick={handleStartCreation}
           disabled={!isReady}
-          className="cinema-btn cinema-btn-primary !px-6 !py-3 !text-[13px] whitespace-nowrap"
+          duration={3000}
+          containerClassName={`whitespace-nowrap ${
+            isReady
+              ? 'shadow-[0_6px_18px_-8px_rgba(201,163,94,0.55)]'
+              : 'opacity-40 cursor-not-allowed'
+          }`}
+          className={`cinema-btn cinema-btn-primary !px-6 !py-3 !text-[13px] whitespace-nowrap ${
+            !isReady ? 'opacity-100' : ''
+          }`}
           title={isReady ? '进入创作工坊' : '至少输入 10 个字符'}
         >
           {isReady ? '▶  开机 · ROLL' : '✎  待输入创意'}
-        </button>
+        </MovingBorderButton>
       </div>
 
       <FilmStripDivider label="ACT 1 · 创意 + 设定" />

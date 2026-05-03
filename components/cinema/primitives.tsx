@@ -12,7 +12,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { BorderBeam } from './effects';
+import { BorderBeam, Spotlight, TextGenerateEffect } from './effects';
 
 // ──────────────────────────────────────────────────────────
 // TimecodeChip — 影院时码 00:00:05:12 (帧级别)
@@ -114,6 +114,8 @@ export function SlateCard({
   director,
   notes,
   beam = true,
+  spotlight = true,
+  animateNotes = true,
 }: {
   title: string;
   scene?: string;
@@ -122,9 +124,14 @@ export function SlateCard({
   notes?: string;
   /** v2.13.3: 是否在卡片边缘加 amber 旋转光束 (Aceternity 风, 默认开) */
   beam?: boolean;
+  /** v2.13.4: 是否加 Aceternity Spotlight SVG 锥光(默认开) */
+  spotlight?: boolean;
+  /** v2.13.4: notes 是否用词级别 stagger 动画显现(默认开;短文/无中文时也安全) */
+  animateNotes?: boolean;
 }) {
   return (
     <div className="cinema-card-hi p-5 relative overflow-hidden cinema-spotlight">
+      {spotlight && <Spotlight position="top-right" fill="rgba(201, 163, 94, 0.18)" />}
       {beam && <BorderBeam size={220} duration={9} colorTo="rgba(201, 163, 94, 0.55)" />}
       {/* 顶部斜纹装饰 — 模拟黑白场记板 */}
       <div
@@ -134,20 +141,26 @@ export function SlateCard({
             'repeating-linear-gradient(45deg, var(--cinema-text), var(--cinema-text) 8px, var(--cinema-bg) 8px, var(--cinema-bg) 16px)',
         }}
       />
-      <div className="pt-3 grid grid-cols-[auto_1fr_auto_auto] gap-x-6 gap-y-2 items-baseline">
+      <div className="pt-3 grid grid-cols-[auto_1fr_auto_auto] gap-x-6 gap-y-2 items-baseline relative">
         <Eyebrow>SCENE</Eyebrow>
         <span className="cinema-mono text-sm">{scene || '—'}</span>
         <Eyebrow>TAKE</Eyebrow>
         <span className="cinema-mono text-sm">{take || '—'}</span>
       </div>
-      <h1 className="cinema-headline text-3xl mt-3 mb-1">{title}</h1>
+      <h1 className="cinema-headline text-3xl mt-3 mb-1 relative">{title}</h1>
       {director && (
-        <div className="cinema-mono text-[11px] opacity-60">
+        <div className="cinema-mono text-[11px] opacity-60 relative">
           DIR · {director}
         </div>
       )}
       {notes && (
-        <p className="cinema-subhead text-sm mt-2 opacity-75">{notes}</p>
+        animateNotes ? (
+          <p className="cinema-subhead text-sm mt-2 opacity-75 relative">
+            <TextGenerateEffect text={notes} stagger={35} duration={280} />
+          </p>
+        ) : (
+          <p className="cinema-subhead text-sm mt-2 opacity-75 relative">{notes}</p>
+        )
       )}
     </div>
   );
