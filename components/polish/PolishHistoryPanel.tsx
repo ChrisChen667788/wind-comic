@@ -17,10 +17,11 @@
 
 import { useMemo } from 'react';
 import {
-  X, History, Stethoscope, Gauge, ArrowRightLeft, Eye, Activity, FileText,
+  X, History, Stethoscope, Gauge, ArrowRightLeft, Eye, Activity, FileText, TrendingUp, TrendingDown, Minus,
 } from 'lucide-react';
 import type { PolishAudit } from './IndustryAuditCard';
 import { readinessLevel } from '@/lib/polish-prompts';
+import { Sparkline } from '@/components/cinema/dataviz';
 
 export interface PolishHistoryEntry {
   at?: string;
@@ -57,6 +58,22 @@ export default function PolishHistoryPanel({
     });
   }, [history]);
 
+  // v2.13.4: 顶部 sparkline — 提取所有有 score 的版本, 按时间正序 (oldest → newest, 左→右)
+  // 这样视觉上"线条往右上走 = 越来越好"
+  const trend = useMemo(() => {
+    const withScore = sorted
+      .filter((e) => typeof e.audit?.aigcReadiness?.score === 'number')
+      .map((e) => ({
+        score: e.audit!.aigcReadiness!.score!,
+        at: e.at ? new Date(e.at).getTime() : 0,
+      }))
+      .sort((a, b) => a.at - b.at);
+    return withScore;
+  }, [sorted]);
+  const trendValues = trend.map((t) => t.score);
+  const trendDelta =
+    trend.length >= 2 ? trend[trend.length - 1].score - trend[0].score : 0;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
@@ -69,17 +86,48 @@ export default function PolishHistoryPanel({
         onClick={(e) => e.stopPropagation()}
       >
         {/* header */}
-        <div className="px-5 py-3.5 border-b border-[var(--border)] bg-black/30 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-violet-300" />
-            <h3 className="text-sm font-semibold text-white">
+        <div className="px-5 py-3.5 border-b border-[var(--border)] bg-black/30 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <History className="w-4 h-4 text-violet-300 shrink-0" />
+            <h3 className="text-sm font-semibold text-white truncate">
               润色历史 · 最近 {sorted.length} 次
             </h3>
-            <span className="text-[10px] text-white/40">· 最多保留 10 条</span>
+            <span className="text-[10px] text-white/40 hidden sm:inline shrink-0">· 最多保留 10 条</span>
           </div>
+
+          {/* v2.13.4: AIGC 趋势 sparkline — 一眼看分数有没有越润越好 */}
+          {trend.length >= 2 && (
+            <div
+              className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-black/40 border border-white/5 shrink-0"
+              title={`AIGC 就绪度从 ${trend[0].score} → ${trend[trend.length - 1].score} (${trend.length} 次)`}
+            >
+              <span className="text-[9.5px] text-white/45 uppercase tracking-wider hidden sm:inline">TREND</span>
+              <Sparkline values={trendValues} width={70} height={18} domain={[0, 100]} />
+              <span
+                className={`flex items-center gap-0.5 text-[10.5px] font-mono tabular-nums font-semibold ${
+                  trendDelta > 0
+                    ? 'text-emerald-300'
+                    : trendDelta < 0
+                      ? 'text-rose-300'
+                      : 'text-amber-300'
+                }`}
+              >
+                {trendDelta > 0 ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : trendDelta < 0 ? (
+                  <TrendingDown className="w-3 h-3" />
+                ) : (
+                  <Minus className="w-3 h-3" />
+                )}
+                {trendDelta > 0 ? '+' : ''}
+                {trendDelta}
+              </span>
+            </div>
+          )}
+
           <button
             onClick={onClose}
-            className="p-1 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+            className="p-1 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition-colors shrink-0"
             title="关闭"
           >
             <X className="w-4 h-4" />

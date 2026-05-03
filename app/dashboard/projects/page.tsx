@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
-import { FolderKanban, Clock, CheckCircle2, Play, Film, Plus, Sparkles, Search, Wand2, Activity } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Play, Film, Plus, Sparkles, Search, Wand2 } from 'lucide-react';
 import { FilmStripDivider } from '@/components/cinema/primitives';
 import { NumberTicker, AnimatedShinyText } from '@/components/cinema/effects';
+import { ScoreDonut } from '@/components/cinema/dataviz';
 import { readinessLevel } from '@/lib/polish-prompts';
 
 export default function ProjectsPage() {
@@ -203,19 +204,15 @@ function ReadinessBadge({ entry }: { entry: any }) {
   const score = entry?.audit?.aigcReadiness?.score;
   if (typeof score !== 'number') return null;
   const lvl = readinessLevel(score);
-  const palette =
-    lvl.level === 'green'
-      ? 'bg-emerald-500/85 text-emerald-50 border-emerald-300/40'
-      : lvl.level === 'amber'
-        ? 'bg-amber-500/85 text-amber-50 border-amber-300/40'
-        : 'bg-rose-500/85 text-rose-50 border-rose-300/40';
   return (
     <div
-      className={`absolute bottom-3 right-12 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border backdrop-blur-sm shadow-sm ${palette}`}
+      className="absolute bottom-2.5 right-11 flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/10 shadow-sm"
       title={`AIGC 就绪度: ${score}/100 · ${lvl.label}`}
     >
-      <Activity className="w-2.5 h-2.5" />
-      {score}
+      <ScoreDonut score={score} size={26} thickness={2.6} showCenter={false} />
+      <span className="cinema-mono text-[10px] tabular-nums font-semibold text-white/95 leading-none">
+        {score}
+      </span>
     </div>
   );
 }

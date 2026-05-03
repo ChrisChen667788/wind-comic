@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Cinema 数据可视化组件 (v2.13.3)
+ * Cinema 数据可视化组件 (v2.13.3 / v2.13.4)
  *
  * 灵感:Tremor BarList / DonutChart 的信息密度,但用 cinema 调色 + 衬线/等宽混排,
  * 不引第三方依赖(Tremor v3 仅支持 React 18,我们是 19)
@@ -9,7 +9,8 @@
  * 包含:
  *   <CameoBarList>     — per-shot 横向条状图,颜色按 ≥85 / 70-84 / <70 三档
  *   <CameoDonut>       — 三段式环形,中心显示 AVG
- *   <Sparkline>        — 紧凑趋势线 SVG (留给后续 polish 历史趋势用)
+ *   <Sparkline>        — v2.13.4 升级版:渐变面积填充 + 端点高亮 + 自动 trend 配色
+ *   <ScoreDonut>       — v2.13.4 项目卡专用单弧 mini donut (28-44px)
  */
 
 import { useMemo, type ReactNode } from 'react';
@@ -198,37 +199,166 @@ export function CameoDonut({
 }
 
 // ────────────────────────────────────────────────
-// Sparkline — 紧凑趋势线 (留给历史评分用)
+// Sparkline — 紧凑趋势线 (v2.13.4: 渐变面积 + 端点 + auto-trend 配色)
+//
+// 用于 PolishHistoryPanel 顶部 — 一眼看 AIGC 就绪度是否在变好
 // ────────────────────────────────────────────────
 export function Sparkline({
   values,
   width = 80,
   height = 20,
-  color = 'var(--cinema-amber)',
+  color,
+  area = true,
+  endpoints = true,
+  domain,
 }: {
   values: number[];
   width?: number;
   height?: number;
+  /** 默认按 trend 自动:首末值上升=green / 持平=amber / 下降=red */
   color?: string;
+  /** 是否在线下加渐变面积填充 */
+  area?: boolean;
+  /** 是否在首末点画小圆点 */
+  endpoints?: boolean;
+  /** 强制 [min, max] 域 (默认按数据自动); 比如分数总是用 [0, 100] */
+  domain?: [number, number];
 }) {
   if (values.length < 2) return null;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+
+  // auto-trend: 首末比较, 决定线色
+  const first = values[0];
+  const last = values[values.length - 1];
+  const trendColor = color
+    ? color
+    : last > first
+      ? 'var(--cinema-green)'
+      : last < first
+        ? 'var(--cinema-red)'
+        : 'var(--cinema-amber)';
+
+  const [domMin, domMax] = domain ?? [Math.min(...values), Math.max(...values)];
+  const range = domMax - domMin || 1;
   const step = width / (values.length - 1);
-  const points = values
-    .map((v, i) => `${i * step},${height - ((v - min) / range) * height}`)
-    .join(' ');
+
+  const coords = values.map((v, i) => ({
+    x: i * step,
+    y: height - ((v - domMin) / range) * (height - 2) - 1, // 1px padding 上下
+  }));
+
+  const linePoints = coords.map((c) => `${c.x},${c.y}`).join(' ');
+  const areaPath = `M ${coords[0].x},${height} L ${linePoints
+    .split(' ')
+    .join(' L ')} L ${coords[coords.length - 1].x},${height} Z`;
+
+  const gradId = `cinema-spark-grad-${trendColor.replace(/[^a-z]/gi, '')}`;
+
   return (
-    <svg width={width} height={height} className="overflow-visible">
+    <svg width={width} height={height} className="overflow-visible" aria-hidden="true">
+      {area && (
+        <>
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={trendColor} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={trendColor} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={areaPath} fill={`url(#${gradId})`} />
+        </>
+      )}
       <polyline
-        points={points}
+        points={linePoints}
         fill="none"
-        stroke={color}
+        stroke={trendColor}
         strokeWidth="1.5"
         strokeLinejoin="round"
         strokeLinecap="round"
       />
+      {endpoints && (
+        <>
+          <circle cx={coords[0].x} cy={coords[0].y} r="1.8" fill={trendColor} opacity="0.6" />
+          <circle cx={coords[coords.length - 1].x} cy={coords[coords.length - 1].y} r="2.4" fill={trendColor} />
+        </>
+      )}
     </svg>
+  );
+}
+
+// ────────────────────────────────────────────────
+// ScoreDonut — 项目卡专用 mini donut (v2.13.4)
+//
+// 单弧, 颜色按 tier (≥85 绿 / ≥70 琥珀 / <70 红 / N/A 灰), 中心显示分数。
+// 设计为 28-44px 范围, 替代项目卡上原本的"分数小药丸"。
+// ────────────────────────────────────────────────
+export function ScoreDonut({
+  score,
+  size = 36,
+  thickness = 3.5,
+  showCenter = true,
+  centerLabel,
+}: {
+  score: number | null | undefined;
+  /** 直径 px */
+  size?: number;
+  /** 描边粗细 px */
+  thickness?: number;
+  /** 是否在中央渲染分数 */
+  showCenter?: boolean;
+  /** 自定义中心文字 (默认 = score 取整) */
+  centerLabel?: ReactNode;
+}) {
+  const t = tier(score);
+  const color = TIER_COLOR[t];
+  const r = (size - thickness) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circ = 2 * Math.PI * r;
+  const filled = typeof score === 'number' ? Math.max(0, Math.min(100, score)) / 100 : 0;
+  const dash = filled * circ;
+
+  return (
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
+      aria-label={typeof score === 'number' ? `Score ${score}` : 'No score'}
+      role="img"
+    >
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="var(--cinema-surface-2)"
+          strokeWidth={thickness}
+          opacity="0.6"
+        />
+        {typeof score === 'number' && (
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth={thickness}
+            strokeDasharray={`${dash} ${circ}`}
+            strokeLinecap="round"
+            className="transition-[stroke-dasharray] duration-700 ease-out"
+          />
+        )}
+      </svg>
+      {showCenter && (
+        <span
+          className="absolute inset-0 flex items-center justify-center cinema-mono font-semibold tabular-nums"
+          style={{
+            fontSize: Math.max(9, Math.round(size * 0.32)),
+            color: typeof score === 'number' ? color : 'var(--cinema-text-3)',
+            lineHeight: 1,
+          }}
+        >
+          {centerLabel ?? (typeof score === 'number' ? Math.round(score) : '—')}
+        </span>
+      )}
+    </div>
   );
 }
