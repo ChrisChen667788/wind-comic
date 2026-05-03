@@ -40,18 +40,41 @@ export async function POST(request: NextRequest) {
   let body: any = {};
   try { body = await request.json(); } catch {}
 
-  const script = typeof body?.script === 'string' ? body.script.trim() : '';
-  if (!script) {
+  const rawScript = typeof body?.script === 'string' ? body.script.trim() : '';
+  if (!rawScript) {
     return Response.json({ error: '请提供 script 字段(string)' }, { status: 400 });
   }
-  if (script.length > 32000) {
+  if (rawScript.length > 32000) {
     return Response.json({ error: '剧本过长 (>32000 字符), 请分段润色' }, { status: 413 });
   }
+
+  // v2.13.4: 安全闸门 — 剧本本身允许冲突/亲密(影视化叙事),只挡注入 + 真实有害 + PII
+  const { checkAndSanitize } = await import('@/lib/prompt-guardrails');
+  const scriptVerdict = checkAndSanitize(rawScript, { task: 'polish-req' });  // task=polish-req 跳过 out-of-scope 检测
+  if (!scriptVerdict.ok) {
+    console.warn(`[polish-script] guardrail blocked script: ${scriptVerdict.category}/${scriptVerdict.reason}`);
+    return Response.json({ error: scriptVerdict.userMessage, category: scriptVerdict.category }, { status: 400 });
+  }
+  const script = scriptVerdict.sanitized;
 
   const mode: PolishMode = body?.mode === 'pro' ? 'pro' : 'basic';
   const style = typeof body?.style === 'string' ? body.style : undefined;
   const intensity = typeof body?.intensity === 'string' ? body.intensity : 'moderate';
-  const focus = typeof body?.focus === 'string' ? body.focus.slice(0, 300) : undefined;
+
+  // v2.13.4: focus(用户特别要求)也走 guardrail + enhancement
+  const rawFocus = typeof body?.focus === 'string' ? body.focus.slice(0, 300) : '';
+  let focus: string | undefined = undefined;
+  if (rawFocus) {
+    const focusVerdict = checkAndSanitize(rawFocus, { task: 'polish-req', allowEmpty: true });
+    if (!focusVerdict.ok) {
+      console.warn(`[polish-script] guardrail blocked focus: ${focusVerdict.category}/${focusVerdict.reason}`);
+      return Response.json({ error: '"特别要求" 字段:' + focusVerdict.userMessage, category: focusVerdict.category }, { status: 400 });
+    }
+    if (focusVerdict.sanitized) {
+      const { enhancePolishRequirement } = await import('@/lib/prompt-templates');
+      focus = enhancePolishRequirement(focusVerdict.sanitized) || focusVerdict.sanitized;
+    }
+  }
 
   if (!API_CONFIG.openai.apiKey) {
     return Response.json({ error: 'OPENAI_API_KEY 未配置, 润色服务暂不可用' }, { status: 503 });

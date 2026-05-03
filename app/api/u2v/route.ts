@@ -44,18 +44,28 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); } catch { /* swallow */ }
 
   const imageUrl = typeof body?.imageUrl === 'string' ? body.imageUrl.trim() : '';
-  const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
+  const rawPrompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
   const duration = [5, 6].includes(body?.duration) ? body.duration : 5;
 
   if (!imageUrl) return NextResponse.json({ error: '缺 imageUrl' }, { status: 400 });
-  if (!prompt) return NextResponse.json({ error: '缺 prompt' }, { status: 400 });
+  if (!rawPrompt) return NextResponse.json({ error: '缺 prompt' }, { status: 400 });
   // 只允许 http(s) / data: / 内部 serve-file 路径,挡掉 file:// 之类
   if (!/^(https?:|data:|\/api\/serve-file)/i.test(imageUrl)) {
     return NextResponse.json({ error: 'imageUrl 协议非法' }, { status: 400 });
   }
-  if (prompt.length > 500) {
+  if (rawPrompt.length > 500) {
     return NextResponse.json({ error: 'prompt 太长(上限 500 字)' }, { status: 400 });
   }
+
+  // v2.13.4: 安全闸门 + 提示词增强(运动描述加运镜词汇)
+  const { checkAndSanitize } = await import('@/lib/prompt-guardrails');
+  const verdict = checkAndSanitize(rawPrompt, { task: 'u2v-motion' });
+  if (!verdict.ok) {
+    console.warn(`[u2v] guardrail blocked: ${verdict.category}/${verdict.reason}`);
+    return NextResponse.json({ error: verdict.userMessage, category: verdict.category }, { status: 400 });
+  }
+  const { enhanceU2VMotionPrompt } = await import('@/lib/prompt-templates');
+  const prompt = enhanceU2VMotionPrompt(verdict.sanitized);
 
   if (!API_CONFIG.minimax.apiKey) {
     return NextResponse.json(

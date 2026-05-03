@@ -35,11 +35,31 @@ function saveChatMessage(projectId: string, agentRole: string, role: 'user' | 'a
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
-  const { agentRole, message } = await request.json();
+  const { agentRole, message: rawMessage } = await request.json();
 
-  if (!message?.trim()) {
+  if (!rawMessage?.trim()) {
     return new Response(JSON.stringify({ error: '消息不能为空' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
+
+  // v2.13.4: agent chat 也走安全闸门 + 上下文增强(让 LLM 知道这是项目内 chat,不是通用助手)
+  const { checkAndSanitize } = await import('@/lib/prompt-guardrails');
+  const verdict = checkAndSanitize(rawMessage, { task: 'chat' });
+  if (!verdict.ok) {
+    console.warn(`[chat] guardrail blocked: ${verdict.category}/${verdict.reason}`);
+    return new Response(
+      JSON.stringify({ error: verdict.userMessage, category: verdict.category }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+  // 拉项目标题给 prompt 增强
+  let projectTitle: string | undefined = undefined;
+  try {
+    const { db } = await import('@/lib/db');
+    const row = db.prepare('SELECT title FROM projects WHERE id = ?').get(projectId) as { title?: string } | undefined;
+    projectTitle = row?.title || undefined;
+  } catch { /* ignore */ }
+  const { enhanceChatMessage } = await import('@/lib/prompt-templates');
+  const message = enhanceChatMessage(verdict.sanitized, projectTitle);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

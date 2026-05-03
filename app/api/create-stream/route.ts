@@ -16,11 +16,32 @@ export const dynamic = 'force-dynamic';
 export const activeOrchestrators: Map<string, HybridOrchestrator> = new Map();
 
 export async function POST(request: NextRequest) {
-  const { idea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters } = await request.json();
+  const { idea: rawIdea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters } = await request.json();
 
-  if (!idea || !idea.trim()) {
+  if (!rawIdea || !rawIdea.trim()) {
     return new Response(JSON.stringify({ error: '请提供故事创意' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
+
+  // v2.13.4: 安全闸门 — 拒绝注入 / 越界 / 有害,脱敏 PII,长度 cap
+  const { checkAndSanitize } = await import('@/lib/prompt-guardrails');
+  const verdict = checkAndSanitize(rawIdea, { task: 'creation' });
+  if (!verdict.ok) {
+    console.warn(`[create-stream] guardrail blocked: ${verdict.category}/${verdict.reason}`);
+    return new Response(
+      JSON.stringify({
+        error: verdict.userMessage,
+        category: verdict.category,
+        reason: verdict.reason,
+      }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+  // v2.13.4: 增强模糊创意 → 加专业制作要求
+  const { enhanceIdeaForCreation } = await import('@/lib/prompt-templates');
+  const { enhancedIdea, hint } = enhanceIdeaForCreation(verdict.sanitized);
+  if (verdict.warnings.length > 0) console.log(`[create-stream] sanitize warnings: ${verdict.warnings.join(' | ')}`);
+  console.log(`[create-stream] prompt-engineering applied: ${hint}`);
+  const idea = enhancedIdea;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
