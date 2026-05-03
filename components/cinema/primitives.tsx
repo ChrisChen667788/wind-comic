@@ -13,6 +13,12 @@
 
 import type { ReactNode } from 'react';
 import { BorderBeam, Spotlight, TextGenerateEffect } from './effects';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // ──────────────────────────────────────────────────────────
 // TimecodeChip — 影院时码 00:00:05:12 (帧级别)
@@ -141,12 +147,26 @@ export function SlateCard({
             'repeating-linear-gradient(45deg, var(--cinema-text), var(--cinema-text) 8px, var(--cinema-bg) 8px, var(--cinema-bg) 16px)',
         }}
       />
-      <div className="pt-3 grid grid-cols-[auto_1fr_auto_auto] gap-x-6 gap-y-2 items-baseline relative">
-        <Eyebrow>SCENE</Eyebrow>
-        <span className="cinema-mono text-sm">{scene || '—'}</span>
-        <Eyebrow>TAKE</Eyebrow>
-        <span className="cinema-mono text-sm">{take || '—'}</span>
-      </div>
+      {/* v2.13.5: SCENE / TAKE 用 Radix Tooltip 解释 — 替代裸 title="...",
+          accessible + 触摸屏长按才触发, 不污染移动端 */}
+      <TooltipProvider delayDuration={200}>
+        <div className="pt-3 grid grid-cols-[auto_1fr_auto_auto] gap-x-6 gap-y-2 items-baseline relative">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help"><Eyebrow>SCENE</Eyebrow></span>
+            </TooltipTrigger>
+            <TooltipContent side="top">场号 · 当前在剧本里的第几场</TooltipContent>
+          </Tooltip>
+          <span className="cinema-mono text-sm">{scene || '—'}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help"><Eyebrow>TAKE</Eyebrow></span>
+            </TooltipTrigger>
+            <TooltipContent side="top">本场已写第几遍 · 按字数自动递增</TooltipContent>
+          </Tooltip>
+          <span className="cinema-mono text-sm">{take || '—'}</span>
+        </div>
+      </TooltipProvider>
       <h1 className="cinema-headline text-3xl mt-3 mb-1 relative">{title}</h1>
       {director && (
         <div className="cinema-mono text-[11px] opacity-60 relative">
