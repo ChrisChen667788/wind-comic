@@ -75,8 +75,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // data URI 先 persistAsset → http URL,minimax 不接 data URI
+    // v2.13.5: 把任何"非外网绝对 URL"的输入都转成绝对 URL,
+    //   - data: URI → 落盘 → 绝对 URL
+    //   - /api/serve-file?key=xxx 相对路径 → 拼绝对 URL
+    //   - http(s):// 直链 → 原样透传
+    // 之前只处理了 data: 路径, 用户从前一步上传产物里拿到的 /api/serve-file 相对 URL
+    // 直接送进 Minimax 后被静默忽略,导致"参考图变 T2V"问题。
     let resolvedImageUrl = imageUrl;
+    const host = request.headers.get('host') || 'localhost:3000';
+    const proto = request.headers.get('x-forwarded-proto') || 'http';
+    const toAbsolute = (rel: string) =>
+      rel.startsWith('http') ? rel : `${proto}://${host}${rel.startsWith('/') ? '' : '/'}${rel}`;
+
     if (imageUrl.startsWith('data:')) {
       const persisted = await persistAsset(imageUrl);
       if (!persisted) {
@@ -84,10 +94,12 @@ export async function POST(request: NextRequest) {
       }
       // persistAsset 给的是 /api/serve-file?key=xxx 内部 URL — minimax 拿不到外网,需要绝对 URL。
       // 但本端点定位是 demo,生产环境推荐先把图传到外部 CDN 再调本端点。
-      const host = request.headers.get('host') || 'localhost:3000';
-      const proto = request.headers.get('x-forwarded-proto') || 'http';
-      resolvedImageUrl = `${proto}://${host}${persisted.url}`;
+      resolvedImageUrl = toAbsolute(persisted.url);
+    } else if (!imageUrl.startsWith('http')) {
+      // 相对路径(/api/serve-file?key=xxx 等)→ 拼绝对 URL,Minimax 才能 fetch
+      resolvedImageUrl = toAbsolute(imageUrl);
     }
+    console.log(`[U2V] image source resolved: ${imageUrl.slice(0, 60)} → ${resolvedImageUrl.slice(0, 80)}`);
 
     const svc = new MinimaxService();
     const videoUrl = await svc.generateVideo(resolvedImageUrl, prompt, { duration });

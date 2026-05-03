@@ -7,6 +7,7 @@ import { toSsePayload, normalizeError } from '@/lib/pipeline-error';
 import { persistAsset } from '@/lib/asset-storage';
 import { scoreFinalVideo } from '@/lib/editor-score';
 import { insertQualityScore } from '@/lib/quality-scores';
+import { enrichScenesFromWriterScript } from '@/lib/scene-enrich';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,8 @@ export const dynamic = 'force-dynamic';
 // Shared map of active orchestrator instances, keyed by projectId.
 // Exported so the gate route can resolve gates.
 export const activeOrchestrators: Map<string, HybridOrchestrator> = new Map();
+
+// v2.13.5: enrichScenesFromWriterScript 移到 lib/scene-enrich.ts (纯函数, 单测覆盖)
 
 export async function POST(request: NextRequest) {
   const { idea: rawIdea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters } = await request.json();
@@ -246,6 +249,10 @@ export async function POST(request: NextRequest) {
           send('agents', orchestrator.getAllAgents());
           send('script', script);
           saveAsset(projectId, 'script', '剧本', { synopsis: script.synopsis, title: script.title, shots: script.shots, theme: (script as any).theme });
+          // v2.13.5 修复"角色/场景设计与剧本无关"的核心一步:
+          // 把 Writer 产出的真实剧本注入 orchestrator,后续 Character/Scene 设计器
+          // 在 idea-input 路径下也能拿到"真剧情",而不是只有 Director plan 的占位描述。
+          orchestrator.setWriterScript(script);
         } catch (e) {
           console.error('[Stream] Writer failed:', e);
           send('status', { message: '编剧创作出错，继续下一步...' });
@@ -336,7 +343,11 @@ export async function POST(request: NextRequest) {
         // ── 4. Scene Designer ──
         try {
           send('status', { message: 'AI 场景设计师正在设计场景概念图...' });
-          scenes = await orchestrator.runSceneDesigner(plan.scenes);
+          // v2.13.5: 用 Writer 的 shots 把 plan.scenes 的 description 加厚 —
+          // 把每个 Director 场景下 Writer 写出的 action / dialogue / 情绪挑出 1-3 条贴回去,
+          // 让场景图 prompt 不只用 Director 的占位描述, 真按"剧本里这个地方在演什么"出图。
+          const enrichedScenes = enrichScenesFromWriterScript(plan.scenes, script);
+          scenes = await orchestrator.runSceneDesigner(enrichedScenes);
           send('agents', orchestrator.getAllAgents());
           send('scenes', scenes);
           // 保存场景图片到资产库（过滤 mock data URI）

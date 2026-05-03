@@ -148,7 +148,12 @@ export class MinimaxService {
 
     try {
       // 判断是否有有效的图片 URL（非 data URI mock）
-      const hasRealImage = imageUrl && !imageUrl.startsWith('data:') && imageUrl.startsWith('http');
+      // v2.13.5 修复: 之前只接受 startsWith('http') 的绝对 URL,
+      // 但 /api/u2v 端点把本地上传转成的相对 URL "/api/serve-file?key=xxx"
+      // 不满足该条件 → hasRealImage=false → 模型选成 Hailuo-2.3 文生视频,
+      // 用户上传的参考图被静默丢掉。这里改成"非 data:、非空"即认为有图,
+      // 让本地上传也能走 I2V-01 真图生视频。
+      const hasRealImage = !!imageUrl && !imageUrl.startsWith('data:') && imageUrl.length > 0;
 
       // 根据是否有首帧图选择最佳模型：
       //   有首帧 → I2V-01（图生视频，质量最高）

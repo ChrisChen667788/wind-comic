@@ -295,6 +295,13 @@ export class HybridOrchestrator {
   // Parsed script data (when user provides a full script)
   private parsedScript: ParsedScript | null = null;
 
+  // v2.13.5: Writer 产出的 script 缓存到 orchestrator, 让 Character/Scene 设计器能从
+  // 真实剧本(而不只是 Director plan)里抽取角色特征 / 场景细节。
+  // 这是用户反馈"编剧、角色、场景设计环节并没有按照输入剧本生成对应剧情"的修复:
+  // 之前 idea 输入路径下 parsedScript 永远是 null, Character Designer 的 traits 抽取
+  // 永远不触发, 所有角色都走通用兜底描述, 出图当然全部一样。
+  private writerScript: Script | null = null;
+
   // Character appearance map for consistency enforcement
   private characterAppearanceMap: Record<string, string> = {};
 
@@ -366,6 +373,42 @@ export class HybridOrchestrator {
   setProjectId(id: string) {
     if (!id) return;
     this.projectId = id;
+  }
+
+  /**
+   * v2.13.5: 把 Writer 产出的 script 注入 orchestrator,让 Character/Scene 设计器
+   * 在 idea-input 路径(无 parsedScript)下也能拿到真实剧本文本做 trait 抽取 / 场景细节。
+   * 一般在 runWriter 成功后由调用方(create-stream route 或 runFullPipeline)调用。
+   */
+  setWriterScript(script: Script | null) {
+    this.writerScript = script || null;
+  }
+
+  /**
+   * v2.13.5: 把 Writer 的 script.shots / synopsis 拼成一段"伪 raw script"文本,
+   * 给 extractCharacterTraits 用 — 这样 idea 输入路径下角色特征也能从真实剧情抽。
+   * 没有 writerScript 时返回空串。
+   */
+  private synthesizeWriterScriptText(): string {
+    const s = this.writerScript;
+    if (!s) return '';
+    const lines: string[] = [];
+    if (s.title) lines.push(`【标题】${s.title}`);
+    if (s.synopsis) lines.push(`【梗概】${s.synopsis}`);
+    const shots = Array.isArray(s.shots) ? s.shots : [];
+    for (const sh of shots) {
+      const head = `[镜${sh.shotNumber ?? '-'}]`;
+      const scene = sh.sceneDescription ? ` ${sh.sceneDescription}` : '';
+      const action = sh.action ? `\n△画面：${sh.action}` : '';
+      const characters = Array.isArray(sh.characters) && sh.characters.length > 0
+        ? `\n出场：${sh.characters.join('、')}`
+        : '';
+      const dialogue = sh.dialogue ? `\n${sh.characters?.[0] || '角色'}：${sh.dialogue}` : '';
+      const subtext = sh.subtext ? `\n[潜文本] ${sh.subtext}` : '';
+      const emotion = sh.emotion ? `\n[情绪] ${sh.emotion}` : '';
+      lines.push(`${head}${scene}${characters}${action}${dialogue}${subtext}${emotion}`);
+    }
+    return lines.join('\n\n');
   }
 
   getProjectId(): string {
@@ -1459,20 +1502,27 @@ ${raw.slice(0, 2000)}
     this.update(AgentRole.CHARACTER_DESIGNER, { status: 'working', currentTask: `设计 ${characters.length} 个角色三视图`, progress: 0 });
     this.emit('agentTalk', { role: AgentRole.CHARACTER_DESIGNER, text: '开始画角色三视图，正面侧面背面一个不少~ 🎨' });
 
-    // ═══ v2.11 #3: 角色多维特征抽取 ═══
+    // ═══ v2.11 #3 / v2.13.5: 角色多维特征抽取 ═══
     // 用户痛点: fallbackDirectorPlan 走通用前缀 ("古装人物，身着传统汉服/古装服饰，") 后,
     // 所有角色描述完全一样 → MJ 出图也完全一样, 一致性/辨识度无救。
     // 这里在画图前, 先用 LLM 从原剧本里逆向推理每个角色的 6-8 维特征(性别/年龄/体型/肤色/外观/服饰/性格),
     // 把结果塞进 character.visual, 让 getCharacterVisualPrompt 走结构化分支拼出有差异的 prompt。
-    if (this.parsedScript?.rawText && characters.length > 0) {
+    //
+    // v2.13.5 修复: 之前只在 parsedScript 路径下抽取(=用户必须手动粘贴完整剧本),
+    // 而 idea-input 路径(用户敲一句"唐朝长安城...")下 parsedScript=null, 抽取永远不触发,
+    // 所有角色都走通用兜底, 出图全一样。
+    // 现在 fallback 到 Writer 产出的 script — 这样 idea-input 路径也能拿到真实剧情做 traits。
+    const sourceScriptText = this.parsedScript?.rawText || this.synthesizeWriterScriptText();
+    if (sourceScriptText && characters.length > 0) {
       try {
         const { extractCharacterTraits, traitsToVisual, traitsToDescription } = await import('@/lib/character-traits');
+        const sourceLabel = this.parsedScript?.rawText ? '原剧本' : 'Writer产出剧本';
         this.emit('agentTalk', {
           role: AgentRole.CHARACTER_DESIGNER,
-          text: `先做一遍角色档案: 性别/年龄/体型/肤色/服饰/性格逐项抽取... 📋`,
+          text: `先做一遍角色档案(数据源: ${sourceLabel}): 性别/年龄/体型/肤色/服饰/性格逐项抽取... 📋`,
         });
         const traits = await extractCharacterTraits(
-          this.parsedScript.rawText,
+          sourceScriptText,
           characters.map((c) => c.name),
           { timeoutMs: 90_000 },
         );
@@ -3249,10 +3299,39 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
             console.log(`[Editor] Simplified compose succeeded: ${simpleResult.clipCount} clips`);
             this.emit('agentTalk', { role: AgentRole.EDITOR, text: `✅ 简化合成成功！${simpleResult.clipCount}个片段` });
           } catch (e2) {
-            console.error('[Editor] Simplified compose also failed:', e2);
-            // 最终降级到首段视频
-            finalVideoUrl = validVideoClips[0]?.videoUrl || timeline[0]?.videoUrl || '';
-            this.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 合成仍失败，使用首段视频作为临时成片` });
+            const e2Msg = e2 instanceof Error ? e2.message : String(e2);
+            console.error('[Editor] Simplified compose also failed:', e2Msg);
+            this.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 简化合成失败: ${e2Msg.slice(0, 100)}` });
+
+            // ═══ v2.13.5 第 3 级降级:concat demuxer (-c copy, 无重新编码,极少失败) ═══
+            // 之前到这一步直接退化为"用 shots[0] 当成片", 用户体验是
+            // "我有 6 个分镜, 成片只有第 1 个, 而且后面 5 个都没拼上" — 这条修复路径就是用户报的 bug。
+            // concat demuxer 模式: 写一份 list.txt → ffmpeg -f concat -i list.txt -c copy out.mp4。
+            // 不做转场 / 不做变速 / 不混 BGM / 不做配音, 但能把 N 个真视频拼成一个真视频, 比"假成片"靠谱得多。
+            this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🔄 尝试最稳定模式 (concat demuxer, 无任何重编码)...` });
+            try {
+              const { concatVideosSimple } = await import('./video-composer');
+              const concatOut = await concatVideosSimple(
+                validVideoClips.map(t => t.videoUrl),
+                musicUrl || undefined,
+              );
+              finalVideoUrl = `/api/serve-file?path=${encodeURIComponent(concatOut)}`;
+              audioWarnings.push('🎬 已用最稳定 concat 模式合成 (无转场 / 无配音)');
+              this.emit('agentTalk', { role: AgentRole.EDITOR, text: `✅ concat 模式成功:${validVideoClips.length} 段已拼成完整成片(无转场/配音)` });
+            } catch (e3) {
+              const e3Msg = e3 instanceof Error ? e3.message : String(e3);
+              console.error('[Editor] concat demuxer also failed:', e3Msg);
+              // 三级降级全都炸 → 此时再退化到首段, 但要把真实原因明确推给前端
+              finalVideoUrl = validVideoClips[0]?.videoUrl || timeline[0]?.videoUrl || '';
+              audioWarnings.push(
+                `❌ 三级 FFmpeg 合成全部失败 (主链: ${errMsg.slice(0, 80)} / 简化: ${e2Msg.slice(0, 60)} / concat: ${e3Msg.slice(0, 60)}). ` +
+                `临时退化为首段视频 — 请检查服务器 ffmpeg 是否可执行 (which ffmpeg) 并查看片段编码是否一致。`
+              );
+              this.emit('agentTalk', {
+                role: AgentRole.EDITOR,
+                text: `❌ 三级合成全部失败,临时用首段视频替代。可能原因:1) ffmpeg 二进制找不到;2) 片段编码不一致;3) 磁盘空间不足。`,
+              });
+            }
           }
         } else {
           finalVideoUrl = validVideoClips[0]?.videoUrl || timeline[0]?.videoUrl || '';
@@ -3260,7 +3339,11 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
       }
     } else {
       console.warn(`[Editor] No valid video clips for composition! timeline=${timeline.length}, validClips=${validVideoClips.length}`);
-      this.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 没有有效的视频片段可合成` });
+      this.emit('agentTalk', {
+        role: AgentRole.EDITOR,
+        text: `⚠️ 没有有效的视频片段可合成 (timeline=${timeline.length}, valid=0). 请检查是否所有镜头视频生成都失败了。`,
+      });
+      audioWarnings.push(`❌ 0 个有效视频片段, 成片无法合成 (timeline 中 ${timeline.length} 个镜头都未产出可用视频 URL)`);
       finalVideoUrl = timeline[0]?.videoUrl || '';
     }
 
