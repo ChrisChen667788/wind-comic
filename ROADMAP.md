@@ -256,6 +256,45 @@
 
 ---
 
+## 4.5 v2.14 · "已有引擎用满" Sprint(2-3 周, 启动中)
+
+> **背景**: 见 [docs/COMPETITIVE-GAP-2026-05.md](./docs/COMPETITIVE-GAP-2026-05.md) — 我们 4 个引擎 service (seedance/minimax/kling/vidu) 都接进来了, 实际只用了 ~30% 的能力。本 sprint **不引新依赖**, 把已有 API 暴露给用户。
+> **决策**: 全部先做 P0, 等 v2.14 跑通再排 v2.15。
+
+### P0.1 · S2V 主体一致性入口(预估 1 天)
+- [ ] `services/minimax.service.ts:127-144` — S2V-01 路径已经存在,只在显式传 `subjectReferenceUrl` 时触发。在 orchestrator 渲染分镜时,把 `lockedCharacters[0].imageUrl` 自动注入这个参数,让 Cameo 锁脸链路从"猜测 cref"升到"S2V 真主体"。
+- [ ] `app/api/create-stream/route.ts` — body 加 `enableSubjectReference: boolean` flag, 默认 `lockedCharacters.length > 0` 时 true。
+- [ ] `services/hybrid-orchestrator.ts` — `setLockedCharacters` 后存一个 `enableSubjectReferenceForVideo` 开关,renderShotVideo 内透传给 minimax service。
+- [ ] 测试: 单测验证当 enableSubjectReference 开 + lockedCharacters[0] 有 url 时,minimax body 里出现 first_frame_image / subjectReferenceUrl。
+
+### P0.2 · 镜头语言面板(预估 2 天)
+- [ ] `lib/prompt-templates.ts` 加 `CAMERA_LANGUAGE_PRESETS` 常量数组(12 镜头:push-in / pull-out / orbit / dolly-zoom / whip-pan / crash-zoom / handheld / locked-tripod / crane-up / tilt-down / tracking / arc),每条含 `{ id, label, en, prompt, icon }`。
+- [ ] `enhanceU2VMotionPrompt` 加 `cameraPreset?: string` 参数,命中预设时把对应 prompt 拼到 motion 前面;不命中时保留现有自动检测。
+- [ ] 新组件 `components/create/camera-language-picker.tsx` — chip 选择器(单选 + 可清空),复用 cinema-btn 调色。
+- [ ] 同时 wire 到 u2v 页和 create 页(create 页的选中值进 plan.editingPlan.cameraDefault,影响所有镜头默认运镜)。
+- [ ] 测试: enhanceU2VMotionPrompt 6 个 case(预设命中 / 预设未命中 / 用户已写运镜词时不重复添加 / 等)。
+
+### P0.3 · 首尾帧融合(预估 2 天)
+- [ ] 检查 `services/kling.service.ts` 是否有 `generateFirstLastFrame` 方法 — 没有就加(参考 Kling docs 的 first/last frame API)。失败兜底到现有 I2V。
+- [ ] 新路由 `app/api/u2v-flf/route.ts` — body `{ firstFrameUrl, lastFrameUrl, prompt, duration }`,套与 `/api/u2v` 同款 guardrails + 提示词增强。
+- [ ] u2v 页加第二张"尾帧"上传位 + 模式切换 chips(单图 / 首尾帧),选首尾帧时 hit 新端点。
+- [ ] 测试: 路由的 4 个错误分支(缺 first / 缺 last / 协议非法 / Kling 缺配置)+ 一个 happy path mock。
+
+### P0.4 · 长镜头模式 5/6/10/15s(预估 1 天)
+- [ ] u2v 页 + create 页 duration 选项加 10s / 15s。
+- [ ] 路由层根据 duration 选模型: 5/6s 走现有 I2V-01;10s 走 Kling Master(`KlingService.generateVideo` 的 `duration: 10`);15s 走 Vidu Q3 Pro(`ViduService.generateVideo`,16s 模式)。
+- [ ] 客户端只看到统一的 duration 选项,后端透明路由 + 失败降级链。
+- [ ] 测试: 模型路由表单测(duration → model 映射)+ 降级链(Kling 缺 → 退回 I2V 5s)。
+
+### v2.14 总验收
+- ✅ S2V 主体一致性默认在锁脸场景生效
+- ✅ create 页 + u2v 页都有镜头语言 chips
+- ✅ u2v 页可选"单图"或"首尾帧融合"两种模式
+- ✅ duration 选项 5/6/10/15s 各有路由方案
+- ✅ 全套测试通过, tsc 0 错误
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |

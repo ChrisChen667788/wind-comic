@@ -21,12 +21,77 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../auth/lib';
 import { MinimaxService } from '@/services/minimax.service';
+import { KlingService } from '@/services/kling.service';
+import { ViduService } from '@/services/vidu.service';
 import { API_CONFIG } from '@/lib/config';
 import { persistAsset } from '@/lib/asset-storage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 上限 5 分钟,Minimax I2V 通常 1-3 分钟出
+
+/**
+ * v2.14 P0.4: duration → 模型路由表。
+ *   5/6s  → Minimax I2V-01 (现有主力)
+ *   10s   → Kling Master   (kling-v1, mode=professional)
+ *   15s   → Vidu Q3 Pro    (16s 上限内最接近)
+ * 每档若主模型挂掉, 自动降级链: Kling/Vidu → Minimax 5s 兜底, 让用户至少拿到一段视频。
+ */
+async function routeVideoByDuration(
+  imageUrl: string,
+  prompt: string,
+  duration: number,
+): Promise<{ videoUrl: string; model: string }> {
+  // 5/6s → Minimax 主路径
+  if (duration === 5 || duration === 6) {
+    const svc = new MinimaxService();
+    const v = await svc.generateVideo(imageUrl, prompt, { duration });
+    return { videoUrl: v, model: 'Minimax-I2V-01' };
+  }
+  // 10s → Kling Master, 失败回 Minimax 6s
+  if (duration === 10) {
+    if (API_CONFIG.keling.apiKey && !API_CONFIG.keling.apiKey.startsWith('your_')) {
+      try {
+        const k = new KlingService();
+        const v = await k.generateVideo(imageUrl, prompt, { duration: 10, mode: 'professional' });
+        return { videoUrl: v, model: 'Kling-Master-10s' };
+      } catch (e) {
+        console.warn('[U2V] Kling 10s failed, falling back to Minimax 6s:', e instanceof Error ? e.message : e);
+      }
+    }
+    const svc = new MinimaxService();
+    const v = await svc.generateVideo(imageUrl, prompt, { duration: 6 });
+    return { videoUrl: v, model: 'Minimax-I2V-01-fallback-6s' };
+  }
+  // 15s → Vidu Q3 Pro, 失败回 Kling 10s, 再失败回 Minimax 6s
+  if (duration === 15) {
+    if (API_CONFIG.vidu.apiKey && !API_CONFIG.vidu.apiKey.startsWith('your_')) {
+      try {
+        const vd = new ViduService();
+        const v = await vd.generateVideo(imageUrl, prompt, { duration: 15 });
+        return { videoUrl: v, model: 'Vidu-Q3-Pro-15s' };
+      } catch (e) {
+        console.warn('[U2V] Vidu 15s failed, trying Kling 10s:', e instanceof Error ? e.message : e);
+      }
+    }
+    if (API_CONFIG.keling.apiKey && !API_CONFIG.keling.apiKey.startsWith('your_')) {
+      try {
+        const k = new KlingService();
+        const v = await k.generateVideo(imageUrl, prompt, { duration: 10, mode: 'professional' });
+        return { videoUrl: v, model: 'Kling-Master-10s-fallback' };
+      } catch (e) {
+        console.warn('[U2V] Kling 10s also failed, falling back to Minimax 6s:', e instanceof Error ? e.message : e);
+      }
+    }
+    const svc = new MinimaxService();
+    const v = await svc.generateVideo(imageUrl, prompt, { duration: 6 });
+    return { videoUrl: v, model: 'Minimax-I2V-01-fallback-6s' };
+  }
+  // 不在白名单 → 5s 默认
+  const svc = new MinimaxService();
+  const v = await svc.generateVideo(imageUrl, prompt, { duration: 5 });
+  return { videoUrl: v, model: 'Minimax-I2V-01-default-5s' };
+}
 
 function resolveUserId(request: Request): string {
   const payload = getUserFromRequest(request);
@@ -45,7 +110,10 @@ export async function POST(request: NextRequest) {
 
   const imageUrl = typeof body?.imageUrl === 'string' ? body.imageUrl.trim() : '';
   const rawPrompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
-  const duration = [5, 6].includes(body?.duration) ? body.duration : 5;
+  // v2.14 P0.4: 长镜头模式 — 5/6/10/15s, 后端按 duration 选模型 (无效值兜底 5s)
+  const duration = [5, 6, 10, 15].includes(body?.duration) ? body.duration : 5;
+  // v2.14 P0.2: 镜头语言预设 id (来自 CAMERA_LANGUAGE_PRESETS), 可空
+  const cameraPreset = typeof body?.cameraPreset === 'string' ? body.cameraPreset : null;
 
   if (!imageUrl) return NextResponse.json({ error: '缺 imageUrl' }, { status: 400 });
   if (!rawPrompt) return NextResponse.json({ error: '缺 prompt' }, { status: 400 });
@@ -65,7 +133,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: verdict.userMessage, category: verdict.category }, { status: 400 });
   }
   const { enhanceU2VMotionPrompt } = await import('@/lib/prompt-templates');
-  const prompt = enhanceU2VMotionPrompt(verdict.sanitized);
+  const prompt = enhanceU2VMotionPrompt(verdict.sanitized, cameraPreset || undefined);
 
   if (!API_CONFIG.minimax.apiKey) {
     return NextResponse.json(
@@ -101,20 +169,14 @@ export async function POST(request: NextRequest) {
     }
     console.log(`[U2V] image source resolved: ${imageUrl.slice(0, 60)} → ${resolvedImageUrl.slice(0, 80)}`);
 
-    const svc = new MinimaxService();
-    const videoUrl = await svc.generateVideo(resolvedImageUrl, prompt, { duration });
-
+    // v2.14 P0.4: 长镜头模式路由 — 5/6s → Minimax I2V-01, 10s → Kling Master, 15s → Vidu Q3 Pro。
+    // 每档失败时降级到下一档(优先长镜头不可得 → 5s I2V 兜底)。
+    const { videoUrl, model } = await routeVideoByDuration(resolvedImageUrl, prompt, duration);
     if (!videoUrl) {
-      return NextResponse.json({ error: 'Minimax 返回空视频 URL' }, { status: 422 });
+      return NextResponse.json({ error: '所有可用模型都返回空视频 URL' }, { status: 422 });
     }
-
-    console.log(`[U2V] user=${userId} duration=${duration}s ok → ${videoUrl.slice(0, 80)}`);
-
-    return NextResponse.json({
-      videoUrl,
-      duration,
-      model: 'I2V-01',
-    });
+    console.log(`[U2V] user=${userId} duration=${duration}s model=${model} ok → ${videoUrl.slice(0, 80)}`);
+    return NextResponse.json({ videoUrl, duration, model });
   } catch (e) {
     console.error('[U2V] failed:', e);
     return NextResponse.json(

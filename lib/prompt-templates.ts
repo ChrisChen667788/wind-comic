@@ -138,21 +138,83 @@ export function enhancePolishRequirement(rawReq: string): string {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// 镜头语言预设 (v2.14 P0.2)
+//
+// 12 个常用电影运镜的"用户友好 chip → 专业 I2V/V2V prompt 段"映射。
+// 让用户不用学英文术语, 一键就能加专业运镜。
+// ════════════════════════════════════════════════════════════════════
+
+export interface CameraPreset {
+  /** 内部 id, URL/state 用 */
+  id: string;
+  /** 中文标签 */
+  label: string;
+  /** 英文术语 */
+  en: string;
+  /** 一句中文解释 */
+  desc: string;
+  /** 真正拼到 prompt 末尾的"专业指令"段 */
+  prompt: string;
+}
+
+export const CAMERA_LANGUAGE_PRESETS: CameraPreset[] = [
+  { id: 'push-in',       label: '推近',       en: 'push-in',       desc: '镜头慢慢推向主体, 强调情绪',
+    prompt: 'Camera: slow steady push-in toward the main subject (10% zoom over duration), ease-in-out.' },
+  { id: 'pull-out',      label: '拉远',       en: 'pull-out',      desc: '镜头拉远揭示更大场景',
+    prompt: 'Camera: smooth pull-out revealing surrounding environment (10% zoom-out over duration), ease-out.' },
+  { id: 'orbit',         label: '环绕',       en: 'orbit',         desc: '绕主体 90°-180° 弧形移动',
+    prompt: 'Camera: 90-degree orbit around the subject, constant radius, smooth arc.' },
+  { id: 'dolly-zoom',    label: 'Dolly Zoom', en: 'dolly-zoom',    desc: '推近同时拉变焦 (希区柯克眩晕感)',
+    prompt: 'Camera: dolly-zoom (Vertigo effect) — physical push-in while zooming out at the same rate, subject stays same size, background warps.' },
+  { id: 'whip-pan',      label: '甩镜',       en: 'whip-pan',      desc: '极速横摇, 制造转场冲击',
+    prompt: 'Camera: rapid whip-pan to the right, motion blur, ~0.3s.' },
+  { id: 'crash-zoom',    label: '急推',       en: 'crash-zoom',    desc: '0.3s 内极速 zoom-in',
+    prompt: 'Camera: aggressive crash-zoom into subject (40% zoom in 0.4s), startle effect.' },
+  { id: 'handheld',      label: '手持',       en: 'handheld',      desc: '细微抖动 + 不规则运动 (写实 / 紧张)',
+    prompt: 'Camera: handheld with subtle jitter and breath-like sway, documentary feel.' },
+  { id: 'locked-tripod', label: '定机位',     en: 'locked-tripod', desc: '完全静止 (留给主体自己动)',
+    prompt: 'Camera: locked tripod, completely still, subject does all the motion.' },
+  { id: 'crane-up',      label: '升镜',       en: 'crane-up',      desc: '从地面上升揭示全景',
+    prompt: 'Camera: crane-up from ground level rising to reveal the wide scene, smooth vertical lift.' },
+  { id: 'tilt-down',     label: '俯拍',       en: 'tilt-down',     desc: '从天空俯瞰下来到主体',
+    prompt: 'Camera: tilt-down from sky to ground, gradual reveal of the main subject.' },
+  { id: 'tracking',      label: '跟拍',       en: 'tracking',      desc: '与主体并行移动, 同向同速',
+    prompt: 'Camera: lateral tracking shot following the subject, constant distance, smooth dolly track.' },
+  { id: 'arc',           label: '弧线移',     en: 'arc',           desc: '小角度 (30-45°) 弧形推, 比 orbit 微妙',
+    prompt: 'Camera: gentle 30-degree arc move around the subject while slightly pushing in, cinematic.' },
+];
+
+/** 按 id 取预设, 不存在返回 undefined */
+export function getCameraPreset(id: string | undefined | null): CameraPreset | undefined {
+  if (!id) return undefined;
+  return CAMERA_LANGUAGE_PRESETS.find((p) => p.id === id);
+}
+
+// ════════════════════════════════════════════════════════════════════
 // U2V 单图视频运动描述 — /dashboard/u2v
 // ════════════════════════════════════════════════════════════════════
 
 /**
  * 用户写"人物缓缓抬头"  → 专业 I2V 描述加运镜词汇 + 速度提示。
+ *
+ * v2.14 P0.2: 加 cameraPreset 参数 — 用户在 chip picker 选了某个运镜预设时,
+ * 把对应专业 prompt 拼到运动描述前面 (优先级高于自动检测的 push-in 兜底)。
  */
-export function enhanceU2VMotionPrompt(rawPrompt: string): string {
+export function enhanceU2VMotionPrompt(rawPrompt: string, cameraPreset?: string): string {
   const prompt = rawPrompt.trim();
   if (!prompt) return '';
 
+  const preset = getCameraPreset(cameraPreset);
   const additions: string[] = [];
 
-  // 检测是否已有专业运镜词
-  const hasCameraTerm = /push.in|pull.out|pan|tilt|zoom|dolly|crane|tracking|静止|推近|拉远|摇|平移|跟拍/i.test(prompt);
-  if (!hasCameraTerm) {
+  // 检测是否已有专业运镜词 (中英文)
+  const hasCameraTerm = /push.in|pull.out|pan|tilt|zoom|dolly|crane|tracking|orbit|whip|handheld|静止|推近|拉远|摇|平移|跟拍|环绕|甩镜|手持|定机位|升镜|俯拍|弧线/i.test(prompt);
+
+  if (preset) {
+    // 用户主动选了预设 → 用预设的专业 prompt, 覆盖兜底自动 push-in
+    additions.push(preset.prompt);
+  } else if (!hasCameraTerm) {
+    // 既没选预设, 也没在文本里写运镜词 → 加默认轻微推近
     additions.push('Camera: subtle slow push-in (5% zoom over duration).');
   }
 

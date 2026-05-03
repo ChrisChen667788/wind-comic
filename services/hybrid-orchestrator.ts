@@ -385,6 +385,21 @@ export class HybridOrchestrator {
   }
 
   /**
+   * v2.14 P0.1: 把当前 lockedCharacters 转成 Minimax S2V-01 的 subject_reference 数组格式,
+   * 供 fallback 路径(单镜重生 / 兜底渲染)统一传给 generateVideo —— 不再只用 primaryCharacterRef
+   * 单图,而是把所有锁脸主体一起送进, S2V 真锁人。
+   *
+   * 返回 [] 表示用户没锁角色,调用方应继续走旧路径(只有 primaryCharacterRef)。
+   * 上限 3 (S2V-01 API 硬限制)。
+   */
+  getLockedSubjectReferences(): Array<{ type: 'character'; imageUrl: string; name?: string }> {
+    return (this.lockedCharacters || [])
+      .filter((c) => c && typeof c.imageUrl === 'string' && c.imageUrl.length > 0)
+      .slice(0, 3)
+      .map((c) => ({ type: 'character' as const, imageUrl: c.imageUrl, name: c.name }));
+  }
+
+  /**
    * v2.13.5: 把 Writer 的 script.shots / synopsis 拼成一段"伪 raw script"文本,
    * 给 extractCharacterTraits 用 — 这样 idea 输入路径下角色特征也能从真实剧情抽。
    * 没有 writerScript 时返回空串。
@@ -3606,9 +3621,11 @@ ${characterBibleBlock}${producerContext}
         if (this.veoService) {
           videoUrl = await this.veoService.generateVideo(board.imageUrl, board.prompt, { duration: 8 });
         } else if (this.minimaxService) {
-          // 使用角色参考图提升一致性
+          // v2.14 P0.1: 把所有 lockedCharacters 转成 S2V multi-subject, 不再只用 primaryCharacterRef 单图
+          const subjectRefs = this.getLockedSubjectReferences();
           videoUrl = await this.minimaxService.generateVideo(board.imageUrl, board.prompt, {
             subjectReferenceUrl: this.primaryCharacterRef || undefined,
+            subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
           });
         } else {
           videoUrl = board.imageUrl;
@@ -3637,6 +3654,12 @@ ${characterBibleBlock}${producerContext}
     const provider = options?.videoProvider || 'veo';
     const useVeo = (provider === 'veo' || provider === 'veo3.1') && this.veoService;
 
+    // v2.14 P0.1: 单镜重生也吃 lockedCharacters → S2V multi-subject
+    const subjectRefs = this.getLockedSubjectReferences();
+    const minimaxOpts = {
+      subjectReferenceUrl: this.primaryCharacterRef || undefined,
+      subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
+    };
     if (useVeo) {
       try {
         videoUrl = await this.veoService!.generateVideo(storyboard.imageUrl, storyboard.prompt, { duration: options?.duration || 8 });
@@ -3644,14 +3667,14 @@ ${characterBibleBlock}${producerContext}
         console.error(`[Regenerate] Veo failed for shot ${shotNumber}:`, e);
         // Fallback to Minimax
         if (this.minimaxService) {
-          try { videoUrl = await this.minimaxService.generateVideo(storyboard.imageUrl, storyboard.prompt, { subjectReferenceUrl: this.primaryCharacterRef || undefined }); }
+          try { videoUrl = await this.minimaxService.generateVideo(storyboard.imageUrl, storyboard.prompt, minimaxOpts); }
           catch { videoUrl = storyboard.imageUrl; }
         } else {
           videoUrl = storyboard.imageUrl;
         }
       }
     } else if (this.minimaxService) {
-      try { videoUrl = await this.minimaxService.generateVideo(storyboard.imageUrl, storyboard.prompt, { subjectReferenceUrl: this.primaryCharacterRef || undefined }); }
+      try { videoUrl = await this.minimaxService.generateVideo(storyboard.imageUrl, storyboard.prompt, minimaxOpts); }
       catch { videoUrl = storyboard.imageUrl; }
     } else {
       await sleep(2000);

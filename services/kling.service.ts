@@ -93,6 +93,73 @@ export class KlingService {
   }
 
   /**
+   * v2.14 P0.3: 首尾帧融合 — 用户给首帧 + 尾帧, Kling 自动补中间运动。
+   *
+   * Kling API: POST /v1/videos/image2video, body 同 image2video, 但额外加 image_tail。
+   * 失败时调用方 (route 层) 应当退回到普通 I2V (用 firstFrame 单图).
+   */
+  async generateFirstLastFrame(
+    firstFrameUrl: string,
+    lastFrameUrl: string,
+    prompt: string,
+    options?: {
+      duration?: number;
+      mode?: 'standard' | 'professional';
+      onProgress?: ProgressCallback;
+    },
+  ): Promise<string> {
+    if (!this.apiKey || this.apiKey.startsWith('your_')) {
+      throw new Error('KELING_API_KEY is not configured');
+    }
+    if (!firstFrameUrl || !lastFrameUrl) {
+      throw new Error('Kling FLF: 首帧 + 尾帧都必须有');
+    }
+    if (firstFrameUrl.startsWith('data:') || lastFrameUrl.startsWith('data:')) {
+      throw new Error('Kling FLF: 不接受 data URI, 请先落盘成 http URL');
+    }
+
+    console.log('[Kling-FLF] 首尾帧融合视频生成');
+    console.log(`[Kling-FLF] First: ${firstFrameUrl.slice(0, 80)}`);
+    console.log(`[Kling-FLF] Last:  ${lastFrameUrl.slice(0, 80)}`);
+    console.log(`[Kling-FLF] Prompt: ${prompt.slice(0, 100)}...`);
+
+    const body: Record<string, any> = {
+      model_name: 'kling-v1',
+      prompt,
+      mode: options?.mode || 'standard',
+      duration: String(Math.min(options?.duration || 5, 10)),
+      image: firstFrameUrl,
+      image_tail: lastFrameUrl,
+    };
+
+    const response = await fetchWithTimeout(
+      `${this.baseURL}/v1/videos/image2video`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      },
+      30_000,
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Kling FLF API error (${response.status}): ${error.slice(0, 500)}`);
+    }
+
+    const data = await response.json();
+    const taskId = data.data?.task_id || data.task_id || data.id;
+    if (!taskId) {
+      throw new Error(`Kling FLF: no task_id in response: ${JSON.stringify(data).slice(0, 300)}`);
+    }
+    console.log(`[Kling-FLF] Task created: ${taskId}`);
+    return await this.pollResult(taskId, 120, options?.onProgress);
+  }
+
+  /**
    * Generate image from text (可灵图像生成)
    */
   async generateImage(prompt: string, options?: {

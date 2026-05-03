@@ -114,7 +114,8 @@ describe('/api/u2v validation (Sprint C.1)', () => {
     const body = await res.json();
     expect(body.videoUrl).toBe('http://example.com/video.mp4');
     expect(body.duration).toBe(6);
-    expect(body.model).toBe('I2V-01');
+    // v2.14 P0.4 改名: 路由器现在返回更明确的 'Minimax-I2V-01' 等带前缀的 model 名
+    expect(body.model).toBe('Minimax-I2V-01');
   });
 
   it('clamps duration to 5 when invalid value supplied', async () => {

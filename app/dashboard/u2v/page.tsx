@@ -13,20 +13,42 @@
 import { useRef, useState } from 'react';
 import { Upload, Link as LinkIcon, Play, Download, Loader2, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/toast-provider';
+import { CameraLanguagePicker } from '@/components/create/camera-language-picker';
+
+// v2.14 P0.4: 长镜头档位 — 5/6s 走 Minimax I2V-01, 10s 走 Kling Master, 15s 走 Vidu Q3 Pro.
+// 客户端只看到统一选项, 后端 /api/u2v 根据 duration 自动选模型 (见 P0.4 路由).
+type DurationOption = 5 | 6 | 10 | 15;
+const DURATION_OPTIONS: Array<{ value: DurationOption; label: string; engineHint: string }> = [
+  { value: 5,  label: '5s',  engineHint: 'Minimax I2V-01' },
+  { value: 6,  label: '6s',  engineHint: 'Minimax I2V-01' },
+  { value: 10, label: '10s', engineHint: 'Kling Master' },
+  { value: 15, label: '15s', engineHint: 'Vidu Q3 Pro' },
+];
 
 export default function U2VPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const tailFileRef = useRef<HTMLInputElement | null>(null);
   const [imageUrl, setImageUrl] = useState('');
   const [imagePreview, setImagePreview] = useState('');
   const [urlDraft, setUrlDraft] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
+  // v2.14 P0.3: 首尾帧融合 — 当 tailImageUrl 非空时, 路由切到 /api/u2v-flf
+  const [tailImageUrl, setTailImageUrl] = useState('');
+  const [tailImagePreview, setTailImagePreview] = useState('');
   const [prompt, setPrompt] = useState('');
-  const [duration, setDuration] = useState<5 | 6>(5);
+  const [duration, setDuration] = useState<DurationOption>(5);
+  // v2.14 P0.2: 镜头语言预设 id (来自 CAMERA_LANGUAGE_PRESETS)
+  const [cameraPreset, setCameraPreset] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState('');
   const { showToast } = useToast();
+  const isFlfMode = !!tailImageUrl;
 
-  const uploadFile = async (file: File) => {
+  /**
+   * 上传图片到 /api/upload/character-face, 拿到 URL 后塞回对应槽位 (first / tail).
+   * v2.14 P0.3: 加 slot 参数, 区分主图(单图视频或首帧)和尾帧。
+   */
+  const uploadFile = async (file: File, slot: 'first' | 'tail' = 'first') => {
     if (!file.type.startsWith('image/')) {
       showToast({ title: '只能上传图片', type: 'error' });
       return;
@@ -43,8 +65,13 @@ export default function U2VPage() {
       showToast({ title: body.error || '上传失败', type: 'error' });
       return;
     }
-    setImageUrl(body.url);
-    setImagePreview(body.url);
+    if (slot === 'first') {
+      setImageUrl(body.url);
+      setImagePreview(body.url);
+    } else {
+      setTailImageUrl(body.url);
+      setTailImagePreview(body.url);
+    }
   };
 
   const acceptUrl = async () => {
@@ -78,10 +105,22 @@ export default function U2VPage() {
     setGenerating(true);
     setResultUrl('');
     try {
-      const res = await fetch('/api/u2v', {
+      // v2.14 P0.3: 有尾帧 → 走 /api/u2v-flf 首尾帧融合; 否则走单图 /api/u2v
+      const endpoint = isFlfMode ? '/api/u2v-flf' : '/api/u2v';
+      const requestBody = isFlfMode
+        ? {
+            firstFrameUrl: imageUrl,
+            lastFrameUrl: tailImageUrl,
+            prompt,
+            // FLF 路径 Kling 上限 10s
+            duration: duration === 5 || duration === 6 ? 5 : 10,
+            cameraPreset,
+          }
+        : { imageUrl, prompt, duration, cameraPreset };
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl, prompt, duration }),
+        body: JSON.stringify(requestBody),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -89,7 +128,9 @@ export default function U2VPage() {
         return;
       }
       setResultUrl(body.videoUrl);
-      showToast({ title: '生成成功!', type: 'success' });
+      const modelHint = body.model ? ` · ${body.model}` : '';
+      const warnHint = body.warning ? `(${body.warning.slice(0, 60)})` : '';
+      showToast({ title: `生成成功!${modelHint} ${warnHint}`, type: 'success' });
     } catch (e) {
       showToast({ title: e instanceof Error ? e.message : '生成失败', type: 'error' });
     } finally {
@@ -136,7 +177,7 @@ export default function U2VPage() {
               className="hidden"
               onChange={e => {
                 const f = e.target.files?.[0];
-                if (f) uploadFile(f);
+                if (f) uploadFile(f, 'first');
                 if (fileRef.current) fileRef.current.value = '';
               }}
             />
@@ -177,6 +218,54 @@ export default function U2VPage() {
             )}
           </div>
 
+          {/* v2.14 P0.3: 尾帧上传槽位 — 可选, 上传后路由切到 /api/u2v-flf 首尾帧融合 */}
+          {imageUrl && (
+            <div>
+              <label className="text-xs text-[var(--soft)] uppercase tracking-wider flex items-center justify-between">
+                <span>尾帧 (可选 · 启用首尾帧融合)</span>
+                {isFlfMode && (
+                  <button
+                    onClick={() => { setTailImageUrl(''); setTailImagePreview(''); }}
+                    className="text-[10px] text-[#E8C547] hover:underline"
+                  >
+                    清空
+                  </button>
+                )}
+              </label>
+              <div
+                onClick={() => !tailImagePreview && tailFileRef.current?.click()}
+                className={`mt-2 aspect-video rounded-xl overflow-hidden flex items-center justify-center border ${
+                  tailImagePreview ? 'border-[#E8C547]/30 bg-black/20' : 'cursor-pointer border-dashed border-white/10 bg-white/[0.02] hover:bg-white/5'
+                }`}
+              >
+                {tailImagePreview ? (
+                  <img src={tailImagePreview} alt="tail preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center text-[var(--soft)]">
+                    <Upload className="w-5 h-5 mx-auto mb-1 opacity-40" />
+                    <div className="text-[11px]">点击上传尾帧 · Kling 自动补中间运动</div>
+                  </div>
+                )}
+              </div>
+              <input
+                ref={tailFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) uploadFile(f, 'tail');
+                  if (tailFileRef.current) tailFileRef.current.value = '';
+                }}
+              />
+              {isFlfMode && (
+                <div className="mt-1 text-[10px] text-[#E8C547]/80">
+                  ✦ 模式: 首尾帧融合 · 引擎: Kling Master (失败回退 Minimax 单图)
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="text-xs text-[var(--soft)] uppercase tracking-wider">描述如何动</label>
             <textarea
@@ -190,22 +279,30 @@ export default function U2VPage() {
             <div className="text-[10px] text-[var(--soft)] mt-1 text-right">{prompt.length} / 500</div>
           </div>
 
+          {/* v2.14 P0.2: 镜头语言预设 — chip 单选, 不强制 */}
+          <CameraLanguagePicker value={cameraPreset} onChange={setCameraPreset} disabled={generating} />
+
           <div>
             <label className="text-xs text-[var(--soft)] uppercase tracking-wider">时长</label>
             <div className="mt-2 flex gap-2">
-              {([5, 6] as const).map(d => (
+              {DURATION_OPTIONS.map(opt => (
                 <button
-                  key={d}
-                  onClick={() => setDuration(d)}
+                  key={opt.value}
+                  onClick={() => setDuration(opt.value)}
+                  disabled={generating}
+                  title={`${opt.label} · 后端走 ${opt.engineHint}`}
                   className={`flex-1 px-3 py-1.5 rounded-lg text-sm transition ${
-                    duration === d
+                    duration === opt.value
                       ? 'bg-[#E8C547] text-black font-semibold'
                       : 'bg-white/5 hover:bg-white/10 text-white/70'
                   }`}
                 >
-                  {d}s
+                  {opt.label}
                 </button>
               ))}
+            </div>
+            <div className="text-[10px] text-[var(--soft)] mt-1 opacity-60">
+              {DURATION_OPTIONS.find(o => o.value === duration)?.engineHint}
             </div>
           </div>
 
