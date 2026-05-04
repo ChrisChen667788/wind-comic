@@ -293,10 +293,10 @@
 - ✅ duration 5/6/10/15s 路由: 5/6s→Minimax, 10s→Kling Master, 15s→Vidu Q3 Pro, 各档有降级链
 - ✅ 588/588 vitest, tsc --noEmit 0 错误, 0 新依赖
 
-### v2.14 P1 待跟
-- create 页镜头语言面板(本轮只在 u2v 页接入,create 页 SlateCard / FilmStripDivider 区域同款 chip 还没贴上)
-- duration 路由的 BGM/字幕同步逻辑(10s/15s 时长翻倍但 BGM 仍按 6s 算)
-- Kling FLF 真实 API 路径校对(本地无 KELING_API_KEY 跑不了 happy path,得在 staging 真打一次)
+### v2.14 P1 已交付 ✅ 2026-05-04 (commit `537c489`)
+- ✅ create 页镜头语言面板 — Engine 选择器下方加 `<CameraLanguagePicker>`, cameraDefault 透传 orchestrator → shot prompt 末尾(避重复检测), Readout 卡新增 `camera` 行展示当前选择
+- ✅ BGM 长度同步 — composer 的 BGM 输入加 `aloop=-1` 无限循环, `amix=duration=first` 用视频原音作 master length(之前 `duration=shortest` 会把整段视频截到 BGM 长度), orchestrator BGM 生成上限从 60s 提到 120s
+- ✅ Kling FLF integration mock test — 11 个用例覆盖 input validation / engine routing / Kling-throw-Minimax-fallback / 双引擎全失败 / cameraPreset 透传 (本地 happy path 可单测了, staging 真打仍待真 KELING_API_KEY)
 
 ---
 
