@@ -19,7 +19,7 @@ export const activeOrchestrators: Map<string, HybridOrchestrator> = new Map();
 // v2.13.5: enrichScenesFromWriterScript 移到 lib/scene-enrich.ts (纯函数, 单测覆盖)
 
 export async function POST(request: NextRequest) {
-  const { idea: rawIdea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters } = await request.json();
+  const { idea: rawIdea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault } = await request.json();
 
   if (!rawIdea || !rawIdea.trim()) {
     return new Response(JSON.stringify({ error: '请提供故事创意' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -84,6 +84,13 @@ export async function POST(request: NextRequest) {
         // ── 注入用户选定画风（覆盖自动检测）──
         if (style) {
           orchestrator.setUserStyle(style);
+        }
+
+        // v2.14 P1.1: 全局默认镜头语言 — 影响所有镜头的运镜默认值。
+        // 用户在 chip picker 选了某个预设, 透到 orchestrator, runComposeOrders 会
+        // 把对应的专业 prompt 拼进每个 shot 的 cameraMovement / visualPrompt 后段。
+        if (cameraDefault && typeof cameraDefault === 'string') {
+          orchestrator.setCameraDefault(cameraDefault);
         }
 
         // ── v2.9 P0 Cameo: 注入项目级主角脸参考图(锁死全片 IP)──

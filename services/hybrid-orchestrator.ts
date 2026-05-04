@@ -385,6 +385,50 @@ export class HybridOrchestrator {
   }
 
   /**
+   * v2.14 P1.1: 全局默认镜头语言 (CAMERA_LANGUAGE_PRESETS id),
+   * runComposeOrders / shot 渲染时把对应专业 prompt 拼到每个 shot 的视觉 prompt 后段。
+   * 不在白名单里就忽略 (兼容前端传脏值)。
+   */
+  private cameraDefault: string | null = null;
+  setCameraDefault(presetId: string | null) {
+    if (!presetId || typeof presetId !== 'string') {
+      this.cameraDefault = null;
+      return;
+    }
+    // 校验是否在预设白名单, 防止脏数据污染下游 prompt
+    const validIds = new Set([
+      'push-in', 'pull-out', 'orbit', 'dolly-zoom', 'whip-pan', 'crash-zoom',
+      'handheld', 'locked-tripod', 'crane-up', 'tilt-down', 'tracking', 'arc',
+    ]);
+    this.cameraDefault = validIds.has(presetId) ? presetId : null;
+  }
+
+  /**
+   * v2.14 P1.1: 取已设的全局镜头语言 prompt 段, 给 shot 视觉 prompt / I2V 调用用。
+   * 没设返回空串, 调用方就不要追加。
+   */
+  getCameraDefaultPromptFragment(): string {
+    if (!this.cameraDefault) return '';
+    // 复用 prompt-templates 里的预设映射 (避免常量重复)
+    // 同步加载, 避免 await 污染调用方签名
+    const presets: Record<string, string> = {
+      'push-in': 'Camera: slow steady push-in toward the main subject (10% zoom over duration), ease-in-out.',
+      'pull-out': 'Camera: smooth pull-out revealing surrounding environment (10% zoom-out over duration), ease-out.',
+      'orbit': 'Camera: 90-degree orbit around the subject, constant radius, smooth arc.',
+      'dolly-zoom': 'Camera: dolly-zoom (Vertigo effect) — physical push-in while zooming out at the same rate, subject stays same size, background warps.',
+      'whip-pan': 'Camera: rapid whip-pan to the right, motion blur, ~0.3s.',
+      'crash-zoom': 'Camera: aggressive crash-zoom into subject (40% zoom in 0.4s), startle effect.',
+      'handheld': 'Camera: handheld with subtle jitter and breath-like sway, documentary feel.',
+      'locked-tripod': 'Camera: locked tripod, completely still, subject does all the motion.',
+      'crane-up': 'Camera: crane-up from ground level rising to reveal the wide scene, smooth vertical lift.',
+      'tilt-down': 'Camera: tilt-down from sky to ground, gradual reveal of the main subject.',
+      'tracking': 'Camera: lateral tracking shot following the subject, constant distance, smooth dolly track.',
+      'arc': 'Camera: gentle 30-degree arc move around the subject while slightly pushing in, cinematic.',
+    };
+    return presets[this.cameraDefault] || '';
+  }
+
+  /**
    * v2.14 P0.1: 把当前 lockedCharacters 转成 Minimax S2V-01 的 subject_reference 数组格式,
    * 供 fallback 路径(单镜重生 / 兜底渲染)统一传给 generateVideo —— 不再只用 primaryCharacterRef
    * 单图,而是把所有锁脸主体一起送进, S2V 真锁人。
@@ -2465,6 +2509,15 @@ ${shots.map((s, i) => {
       const anchorPrompt = buildCharacterAnchorPrompt(this.characterAnchors, shotCharacters);
       if (anchorPrompt) enhancedPrompt += `. ${anchorPrompt}`;
 
+      // v2.14 P1.1: 全局默认镜头语言 (用户在 create 页 chip picker 选的) — 加到 prompt 末尾。
+      // 仅当 shot 自身没有显式 cameraMovement / cinemaPrefix 已带 camera 词时不重复添加,
+      // 防止"slow push in" 和 "Camera: orbit" 同时出现把模型搞糊涂。
+      const cameraFragment = this.getCameraDefaultPromptFragment();
+      const promptHasCamera = /Camera:|cinematic camera|push.in|pull.out|orbit|dolly|whip.pan|tracking|crane|tilt.down|handheld|locked.tripod/i.test(enhancedPrompt);
+      if (cameraFragment && !promptHasCamera) {
+        enhancedPrompt += `. ${cameraFragment}`;
+      }
+
       // ── 首帧选择策略：分镜渲染图 > 场景图 ──
       const storyboardImage = board.imageUrl && !board.imageUrl.startsWith('data:') && (board.imageUrl.startsWith('http') || board.imageUrl.startsWith('/api/serve-file')) ? board.imageUrl : '';
       const firstFrameUrl = mrBundle.firstFrameUrl || storyboardImage || sceneRefUrl;
@@ -3214,8 +3267,11 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           console.warn('[Editor] Music visual anchor failed:', e instanceof Error ? e.message : e);
         }
 
+        // v2.14 P1.2: BGM 时长上限从 60s 提到 120s (匹配 Minimax music-2.6 API 上限)。
+        // 即便用户挑 15s × 6 镜 = 90s 总长, BGM 也能一次生成够长的, 不再依赖 ffmpeg loop。
+        // 当总时长仍超 120s (极端: 15s × 12 镜 = 180s), composer 的 aloop 会接力补齐, 不会有静音空白。
         musicUrl = await this.minimaxService.generateMusic(musicPrompt, {
-          duration: Math.min(totalDuration, 60),
+          duration: Math.min(totalDuration, 120),
           style: genre,
         });
 

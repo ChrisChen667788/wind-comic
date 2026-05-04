@@ -510,8 +510,11 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       let mixInputs = '[va]';
       let mixCount = 1;
 
+      // v2.14 P1.2: BGM 循环 — Minimax music 上限 ~120s, 但用户挑 10/15s 时长 + 6 镜可能跑到 90s。
+      // 之前没循环, 60s BGM 后剩下时间静音; 而且 amix=shortest 还会把整段视频截短到 BGM 长度。
+      // 修法: aloop=-1 让 BGM 无限循环, amix=duration=first 用第一个输入(视频原音 [va]) 作 master length。
       if (localMusicPath) {
-        filters.push(`[1:a]volume=${musicVolume}[ma]`);
+        filters.push(`[1:a]aloop=loop=-1:size=2e+09,volume=${musicVolume}[ma]`);
         mixInputs += '[ma]';
         mixCount++;
       }
@@ -523,7 +526,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       }
 
       if (mixCount > 1) {
-        filters.push(`${mixInputs}amix=inputs=${mixCount}:duration=shortest:dropout_transition=2[outa]`);
+        filters.push(`${mixInputs}amix=inputs=${mixCount}:duration=first:dropout_transition=2[outa]`);
       } else {
         filters.push(`[va]anull[outa]`);
       }
@@ -625,7 +628,8 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     if (localMusicPath) {
       const musicIdx = nextInputIdx;
       nextInputIdx++;
-      filters.push(`[${musicIdx}:a]volume=${musicVolume}[musicvol]`);
+      // v2.14 P1.2: BGM 必须 aloop, 否则 60s 之后整段视频静音
+      filters.push(`[${musicIdx}:a]aloop=loop=-1:size=2e+09,volume=${musicVolume}[musicvol]`);
       audioMixParts.push('[musicvol]');
       audioMixCount++;
     }
@@ -691,7 +695,9 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     }
 
     if (audioMixCount > 1) {
-      filters.push(`${audioMixParts.join('')}amix=inputs=${audioMixCount}:duration=shortest:dropout_transition=2[outa]`);
+      // v2.14 P1.2: 用 [aconcat] (concat 后的视频原音, 长度 = 总视频长度) 作 master, 而不是 shortest;
+      // 否则 BGM 短于视频时整段视频会被截断 — 这是用户报"成片只到一半"的根因之一
+      filters.push(`${audioMixParts.join('')}amix=inputs=${audioMixCount}:duration=first:dropout_transition=2[outa]`);
     } else {
       filters.push(`[aconcat]anull[outa]`);
     }

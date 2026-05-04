@@ -23,6 +23,7 @@ import {
   TechReadout,
 } from '@/components/cinema/primitives';
 import { MovingBorderButton } from '@/components/cinema/effects';
+import { CameraLanguagePicker } from '@/components/create/camera-language-picker';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -76,6 +77,8 @@ export default function DashboardCreatePage() {
   const [aspect, setAspect] = useState(aspectOptions[0]);
   // v2.12 Phase 1: 多角色锁脸 (1-3 人,前置在创作管线里)
   const [lockedCharacters, setLockedCharacters] = useState<LockedCharacter[]>([]);
+  // v2.14 P1.1: 全局默认镜头语言 — 选了之后所有镜头都默认走这个运镜, 单镜可在分镜调整时覆盖
+  const [cameraDefault, setCameraDefault] = useState<string | null>(null);
   const [workspaceProject, setWorkspaceProject] = useState<Project | null>(null);
   const { showToast } = useToast();
 
@@ -138,6 +141,8 @@ export default function DashboardCreatePage() {
           // v2.12 Phase 1: 携带 1-3 角色锁脸;create-stream 会持久化到 projects.locked_characters,
           // 并把第一个角色 imageUrl 同步到 projects.primary_character_ref(兜底现有单角色编排链路)
           lockedCharacters: lockedCharacters.length > 0 ? lockedCharacters : undefined,
+          // v2.14 P1.1: 全局默认镜头语言 id (CAMERA_LANGUAGE_PRESETS), 影响所有镜头的运镜默认值
+          cameraDefault: cameraDefault || undefined,
         }),
       });
       if (!response.ok) throw new Error('创作失败');
@@ -700,6 +705,9 @@ export default function DashboardCreatePage() {
             </div>
           </div>
 
+          {/* v2.14 P1.1: 全局默认镜头语言 — 让所有镜头都吃这个运镜风格作为默认值 */}
+          <CameraLanguagePicker value={cameraDefault} onChange={setCameraDefault} />
+
           {/* 技术读数面板 — 当前选择的实时反馈 */}
           <div className="cinema-card-hi p-3">
             <Eyebrow>Readout · 设定预览</Eyebrow>
@@ -710,6 +718,7 @@ export default function DashboardCreatePage() {
                 ['shot', duration],
                 ['aspect', aspect],
                 ['engine', videoProvider],
+                ['camera', cameraDefault || 'auto'],
                 ['est_total', `~${(totalDurationSec).toFixed(0)}s`],
               ]} />
             </div>
