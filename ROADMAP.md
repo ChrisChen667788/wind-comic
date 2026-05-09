@@ -305,14 +305,14 @@
 > **背景**: 见 [docs/COMPETITIVE-GAP-2026-05.md](./docs/COMPETITIVE-GAP-2026-05.md) — 这两个直接对标可灵 Master 的批量草稿 + Vidu 的风格定型。
 > **决策**: 本次只动 P0 (G9 + G8), 不引新视频/音频 API; G6 lip-sync / G5 音视频一体推到 v2.16 等 Kling/Vidu key 配齐。
 
-### P0.1 · G9 Script Drafts ✅ 2026-05-04 (commit `<TBD>`)
+### P0.1 · G9 Script Drafts ✅ 2026-05-04 (commit `0997755`)
 - [x] `lib/script-drafts.ts` (新, 纯函数) — 不调 orchestrator, 直接调 OpenAI. 温度阶梯 [0.7, 0.95, 1.2]; Promise.allSettled 让单次失败不阻塞其他; 复用 lib/mckee-skill 的 McKee writer prompt 保证质量
 - [x] `app/api/script-drafts/route.ts` (新) — POST { idea, style, count } → { drafts: ScriptDraft[], stats }. 套 v2.13.4 安全闸门 + 长度 cap
 - [x] create 页加 "Drafts · 草稿对比" toggle (1/2/3); count > 1 时点 ROLL → 弹 `<ScriptDraftsCompare>` modal → N 列对比卡 → "采用此版" 把草稿拼成"准剧本"作为新 idea 走 /api/create-stream (orchestrator isFullScriptInput 自动识别为改编模式)
 - [x] 每个草稿卡显示: 标题 + 一行 synopsis + 镜头数 + 风格标签 + 温度档位 (稳健/中等/激进) + 前 2 个 shot 预览
 - [x] 测试: 14 lib 单测 (count clamp / 温度阶梯 / 部分失败容错 / 输出归一化) + 8 路由单测 (input validation / guardrail / happy path)
 
-### P0.2 · G8 Style LoRA 库 ✅ 2026-05-04 (commit `<TBD>`)
+### P0.2 · G8 Style LoRA 库 ✅ 2026-05-04 (commit `0997755`)
 - [x] **决策: 复用现有 `global_assets` (type='style') 表 + GET/POST/DELETE 路由, 不引新 schema** — 设计已支持, 只缺 UI 入口
 - [x] 新组件 `components/create/style-lora-library.tsx` — 列表 + 保存 popover (用 v2.13.5 加的 shadcn Popover) + 删除确认
 - [x] metadata 形态: `{ stylePreset, cameraDefault }` — 应用时一并写回表单 (style picker + camera language picker)
