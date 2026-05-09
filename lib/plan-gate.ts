@@ -71,3 +71,31 @@ export function planRejection(current: AnyTier, required: AnyTier): Response {
     },
   );
 }
+
+// ════════════════════════════════════════════════════════════════════
+// v2.16 P0.1: 视频生成分档 — duration → 最低 tier
+//
+// 引擎成本档位 (¥/秒):
+//   - Minimax I2V-01:    ~¥0.10  (5/6s)
+//   - Kling Master:      ~¥0.20  (10s)
+//   - Vidu Q3 Pro:       ~¥0.30  (15s)
+//
+// 定价策略: 只把贵 API 锁后端 tier, 让免费用户至少能跑 5/6s 体验。
+// ════════════════════════════════════════════════════════════════════
+
+export type VideoDuration = 5 | 6 | 10 | 15;
+
+/** 视频时长 → 最低 tier 要求 */
+export function requiredTierForVideoDuration(duration: VideoDuration | number): AnyTier {
+  if (duration <= 6) return 'free';
+  if (duration <= 10) return 'creator';
+  return 'pro'; // 15s+
+}
+
+/** 4K 导出分辨率 → 最低 tier 要求 */
+export type ExportResolution = '720p' | '1080p' | '2160p';
+export function requiredTierForResolution(res: ExportResolution): AnyTier {
+  if (res === '720p') return 'free';
+  if (res === '1080p') return 'creator';
+  return 'pro'; // 2160p (4K)
+}

@@ -13,6 +13,7 @@ import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
 import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-sidebar';
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
 import { Eyebrow, TimecodeChip, FilmStripDivider } from '@/components/cinema/primitives';
+import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -209,6 +210,8 @@ export default function ProjectDetailPage() {
                 <span className="cinema-mono">{review.overallScore}<span className="opacity-50">/100</span></span>
               </div>
             )}
+            {/* v2.16 P0.2: 4K 导出 dropdown — 点开选分辨率, plan-gate 在 route 层最终校验 */}
+            <ExportResolutionDropdown projectId={id} />
           </div>
         </div>
       </nav>

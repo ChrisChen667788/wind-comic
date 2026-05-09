@@ -157,12 +157,15 @@ describe('/api/u2v-flf engine routing', () => {
     KLING_BEHAVIOR = 'throw';
     MINIMAX_BEHAVIOR = 'ok';
     const POST = await importPost();
+    // v2.16 P0.1 plan-gate: 10s 需 creator+, 测试 mock user 是 free,
+    // 这里只验 Kling-throw → Minimax fallback 路径, 不验 plan-gate (它在另一个 test 里),
+    // 所以用免费允许的 5s
     const res = await POST(
       mkReq({
         firstFrameUrl: 'http://x/1.png',
         lastFrameUrl: 'http://x/2.png',
         prompt: 'pan right',
-        duration: 10,
+        duration: 5,
       }),
     );
     expect(res.status).toBe(200);
@@ -170,8 +173,7 @@ describe('/api/u2v-flf engine routing', () => {
     expect(body.videoUrl).toBe('http://example.com/minimax-fallback.mp4');
     expect(body.model).toBe('Minimax-I2V-01-fallback');
     expect(body.warning).toContain('Kling FLF 不可用');
-    // duration=10 → fallback 缩到 6s 上限
-    expect(body.duration).toBe(6);
+    expect(body.duration).toBe(5);
   });
 
   it('Minimax fallback used when Kling key missing entirely', async () => {
@@ -198,6 +200,24 @@ describe('/api/u2v-flf engine routing', () => {
       mkReq({ firstFrameUrl: 'http://x/1.png', lastFrameUrl: 'http://x/2.png', prompt: 'p' }),
     );
     expect(res.status).toBe(422);
+  });
+
+  it('v2.16 P0.1: plan-gate blocks free user from 10s FLF (Kling)', async () => {
+    KLING_BEHAVIOR = 'ok';
+    const POST = await importPost();
+    const res = await POST(
+      mkReq({
+        firstFrameUrl: 'http://x/1.png',
+        lastFrameUrl: 'http://x/2.png',
+        prompt: 'pan right',
+        duration: 10,
+      }),
+    );
+    // mock user has no subscription_tier → defaults to 'free'; 10s requires creator+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.error).toBe('plan_required');
+    expect(body.required).toBe('creator');
   });
 
   it('cameraPreset is forwarded into prompt enhancement (smoke check)', async () => {

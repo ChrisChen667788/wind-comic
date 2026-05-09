@@ -25,6 +25,7 @@ import { KlingService } from '@/services/kling.service';
 import { ViduService } from '@/services/vidu.service';
 import { API_CONFIG } from '@/lib/config';
 import { persistAsset } from '@/lib/asset-storage';
+import { checkPlan, planRejection, requiredTierForVideoDuration } from '@/lib/plan-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -123,6 +124,17 @@ export async function POST(request: NextRequest) {
   }
   if (rawPrompt.length > 500) {
     return NextResponse.json({ error: 'prompt 太长(上限 500 字)' }, { status: 400 });
+  }
+
+  // v2.16 P0.1: 计费 gate — 阻止免费用户消费 Kling/Vidu 高单价 API。
+  // 5/6s → free / 10s → creator / 15s → pro (Vidu ¥0.3/秒, 100 次烧 ¥2700+)。
+  const requiredTier = requiredTierForVideoDuration(duration);
+  if (requiredTier !== 'free') {
+    const gate = checkPlan(request, requiredTier);
+    if (!gate.ok) {
+      console.warn(`[u2v] plan-gate blocked: user=${gate.userId} tier=${gate.current} req=${requiredTier} duration=${duration}`);
+      return planRejection(gate.current, gate.required);
+    }
   }
 
   // v2.13.4: 安全闸门 + 提示词增强(运动描述加运镜词汇)

@@ -329,7 +329,37 @@
 - G6 · Lip-sync (Kling) — 待 Kling key + FLF 在 staging 验过再排
 - G5 · 音视频一体 (Vidu Q3) — 待真 Vidu key, 实验性, v2.16
 - BGM 按幕切风格 — TODO #3
-- routeVideoByDuration 计费 gate — TODO #4 ⚠️ 上线前必做
+- routeVideoByDuration 计费 gate — TODO #4 ⚠️ **本 sprint v2.16 P0.1 解决**
+
+---
+
+## 4.7 v2.16 · "成片质量 + 计费" Sprint(2-3 周, 本次启动 P0)
+
+> **背景**: 见 [docs/COMPETITIVE-GAP-2026-05.md](./docs/COMPETITIVE-GAP-2026-05.md) #G10 4K + [docs/TODO-CARRYOVERS.md](./docs/TODO-CARRYOVERS.md) #4 计费 gate。
+> **决策**: P0.1 是上线前**必做**(TODO-CARRYOVERS #4 提前到本 sprint), 不能让免费用户烧 Vidu 真金白银。
+
+### P0.1 · routeVideoByDuration 计费 gate ✅ 2026-05-04 (commit `<TBD>`)
+- [x] `lib/plan-gate.ts` 加 `requiredTierForVideoDuration(duration)` (5/6 → free, 10 → creator, 15+ → pro) + `requiredTierForResolution`
+- [x] `/api/u2v` + `/api/u2v-flf` 路由加 `checkPlan` + `planRejection` 402 响应
+- [x] 测试: 4 档 × 4 duration 矩阵 (16 用例) + FLF route 上的 plan-gate 集成测试
+
+### P0.2 · G10 · 4K 出片 ✅ 2026-05-04 (commit `<TBD>`)
+- [x] `lib/video-transcode.ts` 新建 — `transcodeToResolution()` 用 fluent-ffmpeg + lanczos scale, 缓存到 `data/exports/<basename>-<resolution>.mp4`, 5MB 阈值识别 corrupted partial 转码自动重转
+- [x] `/api/projects/[id]/export?type=mp4&resolution=720p|1080p|2160p` — 不带 resolution 走原行为(向后兼容); 带就 transcode + plan-gate
+- [x] Plan gate: 720p (free) / 1080p (creator+) / 2160p (pro+) — 远端 URL 暂不支持转码 (返 501, 留 P1)
+- [x] UI: `<ExportResolutionDropdown>` 用 v2.13.5 shadcn Popover, wire 到项目页 nav bar 右侧, 显示锁标 + 跳 /dashboard/billing
+- [x] 测试: isValidResolution 白名单 + 缓存命中 + 损坏文件触发重转 + 输入 guard (源缺失 / 非法 resolution)
+
+### v2.16 P0 总验收 ✅ 2026-05-04
+- ✅ 计费 gate 上线: 免费用户挑 10s/15s 直接 402 + 升级跳转, 不再烧 Vidu/Kling 高单价 API
+- ✅ 720p / 1080p / 2160p 三档出片路由参数 + plan-gate 完整, UI dropdown wire 到项目页
+- ✅ 全套测试 660/660 (新增 35 用例: 16 plan-gate 矩阵 + 11 transcode helper + 1 FLF plan-gate + 7 等)
+- ✅ tsc --noEmit 0 错误, 0 新依赖 (复用现有 fluent-ffmpeg + ffmpeg-static + shadcn Popover)
+
+### v2.16 P1 待跟(下次 sprint)
+- 镜头工坊 tab 重构(把 P0.2 的 camera picker / FLF 上传整合进项目页 tab, dashboard/create 只放预设)
+- 真 4K Kling 3.0 Master 重新渲染(本次只是 ffmpeg 上采样;真 4K 需要 per-shot Kling re-gen, 1 周工作量)
+- 完成 staging Kling FLF 真打验证 (TODO-CARRYOVERS #1)
 
 ---
 

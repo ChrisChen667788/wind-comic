@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
+import { isValidResolution, transcodeToResolution } from '@/lib/video-transcode';
+import { checkPlan, planRejection, requiredTierForResolution } from '@/lib/plan-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,7 +11,10 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/projects/:id/export?type=mp4|script|characters
  *
- *  - type=mp4        → 302 → /api/serve-file?path=<最终成片>（带 Content-Disposition=attachment 重定向）
+ *  - type=mp4 [&resolution=720p|1080p|2160p]
+ *      → 默认: 直接送原始成片
+ *      → 带 resolution: ffmpeg 转码到目标分辨率, 缓存到 data/exports/
+ *      → resolution 计费: 720p free / 1080p creator+ / 2160p pro+
  *  - type=script     → 纯文本(txt)下载：标题 + 简介 + 逐镜头剧本
  *  - type=characters → JSON 下载：完整角色表（可外部处理成 xlsx / docx）
  *
@@ -24,6 +29,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 });
 
   if (type === 'mp4') {
+    // v2.16 P0.2: resolution 参数 — 不传则保持原 1080p (向后兼容)
+    const resolutionParam = request.nextUrl.searchParams.get('resolution');
+    const wantTranscode = resolutionParam !== null;
+    if (wantTranscode && !isValidResolution(resolutionParam)) {
+      return NextResponse.json(
+        { error: `unsupported resolution: ${resolutionParam}. allowed: 720p / 1080p / 2160p` },
+        { status: 400 },
+      );
+    }
+
+    // 计费 gate: 720p(free) / 1080p(creator+) / 2160p(pro+)
+    if (wantTranscode && isValidResolution(resolutionParam)) {
+      const requiredTier = requiredTierForResolution(resolutionParam);
+      if (requiredTier !== 'free') {
+        const gate = checkPlan(request, requiredTier);
+        if (!gate.ok) {
+          console.warn(`[export] plan-gate blocked: user=${gate.userId} tier=${gate.current} req=${requiredTier} resolution=${resolutionParam}`);
+          return planRejection(gate.current, gate.required);
+        }
+      }
+    }
+
     // 查 final_video 资产;若无则回退到 video 资产拼接的第一条
     // v2.9: 优先取 persistent_url —— 外链 24h 过期,持久化副本稳
     const row = db.prepare(
@@ -42,13 +69,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const u = new URL(finalUrl, 'http://localhost');
         const localPath = decodeURIComponent(u.searchParams.get('path') || '');
         if (!fs.existsSync(localPath)) return NextResponse.json({ error: 'file missing' }, { status: 404 });
-        const stat = fs.statSync(localPath);
-        const stream = fs.createReadStream(localPath);
+
+        // v2.16 P0.2: 转码分支 — 跑 ffmpeg scale 后送转码出来的文件
+        let pathToServe = localPath;
+        let cacheNote = '';
+        if (wantTranscode && isValidResolution(resolutionParam)) {
+          try {
+            const result = await transcodeToResolution({
+              sourcePath: localPath,
+              resolution: resolutionParam,
+            });
+            pathToServe = result.outputPath;
+            cacheNote = result.cached ? ' [cache]' : ` [transcoded ${result.elapsedMs}ms]`;
+            console.log(`[export] mp4 ${resolutionParam}${cacheNote} → ${result.fileSize} bytes`);
+          } catch (e) {
+            console.error('[export] transcode failed:', e);
+            return NextResponse.json(
+              { error: '转码失败: ' + (e instanceof Error ? e.message : 'unknown') },
+              { status: 500 },
+            );
+          }
+        }
+
+        const stat = fs.statSync(pathToServe);
+        const stream = fs.createReadStream(pathToServe);
+        const filenameSuffix = wantTranscode ? `-${resolutionParam}` : '';
         return new Response(stream as any, {
           headers: {
             'Content-Type': 'video/mp4',
             'Content-Length': String(stat.size),
-            'Content-Disposition': `attachment; filename="${encodeURIComponent(project.title || 'project')}.mp4"`,
+            'Content-Disposition': `attachment; filename="${encodeURIComponent(project.title || 'project')}${filenameSuffix}.mp4"`,
           },
         });
       } catch (e) {
@@ -56,7 +106,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    // 远端 URL：302 让浏览器直接下载
+    // 远端 URL：302 让浏览器直接下载 (转码暂不支持远端 URL — 需先下到本地再转, 留 v2.16 P1)
+    if (wantTranscode) {
+      return NextResponse.json(
+        { error: '远端成片暂不支持转码下载, 请直接 302 跳到原始 URL 后用本地工具转码' },
+        { status: 501 },
+      );
+    }
     return NextResponse.redirect(finalUrl, 302);
   }
 

@@ -23,6 +23,7 @@ import { KlingService } from '@/services/kling.service';
 import { MinimaxService } from '@/services/minimax.service';
 import { API_CONFIG } from '@/lib/config';
 import { persistAsset } from '@/lib/asset-storage';
+import { checkPlan, planRejection, requiredTierForVideoDuration } from '@/lib/plan-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,6 +60,16 @@ export async function POST(request: NextRequest) {
   }
   if (rawPrompt.length > 500) {
     return NextResponse.json({ error: 'prompt 太长(上限 500 字)' }, { status: 400 });
+  }
+
+  // v2.16 P0.1: 计费 gate — FLF 默认 5s 免费; 用户挑 10s FLF (走 Kling 重) 走 creator+
+  const requiredTier = requiredTierForVideoDuration(duration);
+  if (requiredTier !== 'free') {
+    const gate = checkPlan(request, requiredTier);
+    if (!gate.ok) {
+      console.warn(`[u2v-flf] plan-gate blocked: user=${gate.userId} tier=${gate.current} req=${requiredTier} duration=${duration}`);
+      return planRejection(gate.current, gate.required);
+    }
   }
 
   // v2.13.4 安全闸门 + v2.14 P0.2 镜头语言增强
