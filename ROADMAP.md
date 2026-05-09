@@ -338,12 +338,12 @@
 > **背景**: 见 [docs/COMPETITIVE-GAP-2026-05.md](./docs/COMPETITIVE-GAP-2026-05.md) #G10 4K + [docs/TODO-CARRYOVERS.md](./docs/TODO-CARRYOVERS.md) #4 计费 gate。
 > **决策**: P0.1 是上线前**必做**(TODO-CARRYOVERS #4 提前到本 sprint), 不能让免费用户烧 Vidu 真金白银。
 
-### P0.1 · routeVideoByDuration 计费 gate ✅ 2026-05-04 (commit `<TBD>`)
+### P0.1 · routeVideoByDuration 计费 gate ✅ 2026-05-04 (commit `25f7486`)
 - [x] `lib/plan-gate.ts` 加 `requiredTierForVideoDuration(duration)` (5/6 → free, 10 → creator, 15+ → pro) + `requiredTierForResolution`
 - [x] `/api/u2v` + `/api/u2v-flf` 路由加 `checkPlan` + `planRejection` 402 响应
 - [x] 测试: 4 档 × 4 duration 矩阵 (16 用例) + FLF route 上的 plan-gate 集成测试
 
-### P0.2 · G10 · 4K 出片 ✅ 2026-05-04 (commit `<TBD>`)
+### P0.2 · G10 · 4K 出片 ✅ 2026-05-04 (commit `25f7486`)
 - [x] `lib/video-transcode.ts` 新建 — `transcodeToResolution()` 用 fluent-ffmpeg + lanczos scale, 缓存到 `data/exports/<basename>-<resolution>.mp4`, 5MB 阈值识别 corrupted partial 转码自动重转
 - [x] `/api/projects/[id]/export?type=mp4&resolution=720p|1080p|2160p` — 不带 resolution 走原行为(向后兼容); 带就 transcode + plan-gate
 - [x] Plan gate: 720p (free) / 1080p (creator+) / 2160p (pro+) — 远端 URL 暂不支持转码 (返 501, 留 P1)
