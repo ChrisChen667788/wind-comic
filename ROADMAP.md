@@ -296,7 +296,40 @@
 ### v2.14 P1 已交付 ✅ 2026-05-04 (commit `537c489`)
 - ✅ create 页镜头语言面板 — Engine 选择器下方加 `<CameraLanguagePicker>`, cameraDefault 透传 orchestrator → shot prompt 末尾(避重复检测), Readout 卡新增 `camera` 行展示当前选择
 - ✅ BGM 长度同步 — composer 的 BGM 输入加 `aloop=-1` 无限循环, `amix=duration=first` 用视频原音作 master length(之前 `duration=shortest` 会把整段视频截到 BGM 长度), orchestrator BGM 生成上限从 60s 提到 120s
-- ✅ Kling FLF integration mock test — 11 个用例覆盖 input validation / engine routing / Kling-throw-Minimax-fallback / 双引擎全失败 / cameraPreset 透传 (本地 happy path 可单测了, staging 真打仍待真 KELING_API_KEY)
+- ✅ Kling FLF integration mock test — 11 个用例覆盖 input validation / engine routing / Kling-throw-Minimax-fallback / 双引擎全失败 / cameraPreset 透传 (本地 happy path 可单测了, staging 真打仍待真 KELING_API_KEY → 见 [docs/TODO-CARRYOVERS.md](./docs/TODO-CARRYOVERS.md) #1)
+
+---
+
+## 4.6 v2.15 · "音视频一体 + 创作效率" Sprint(3-4 周, 本次启动 G9 + G8)
+
+> **背景**: 见 [docs/COMPETITIVE-GAP-2026-05.md](./docs/COMPETITIVE-GAP-2026-05.md) — 这两个直接对标可灵 Master 的批量草稿 + Vidu 的风格定型。
+> **决策**: 本次只动 P0 (G9 + G8), 不引新视频/音频 API; G6 lip-sync / G5 音视频一体推到 v2.16 等 Kling/Vidu key 配齐。
+
+### P0.1 · G9 Script Drafts ✅ 2026-05-04 (commit `<TBD>`)
+- [x] `lib/script-drafts.ts` (新, 纯函数) — 不调 orchestrator, 直接调 OpenAI. 温度阶梯 [0.7, 0.95, 1.2]; Promise.allSettled 让单次失败不阻塞其他; 复用 lib/mckee-skill 的 McKee writer prompt 保证质量
+- [x] `app/api/script-drafts/route.ts` (新) — POST { idea, style, count } → { drafts: ScriptDraft[], stats }. 套 v2.13.4 安全闸门 + 长度 cap
+- [x] create 页加 "Drafts · 草稿对比" toggle (1/2/3); count > 1 时点 ROLL → 弹 `<ScriptDraftsCompare>` modal → N 列对比卡 → "采用此版" 把草稿拼成"准剧本"作为新 idea 走 /api/create-stream (orchestrator isFullScriptInput 自动识别为改编模式)
+- [x] 每个草稿卡显示: 标题 + 一行 synopsis + 镜头数 + 风格标签 + 温度档位 (稳健/中等/激进) + 前 2 个 shot 预览
+- [x] 测试: 14 lib 单测 (count clamp / 温度阶梯 / 部分失败容错 / 输出归一化) + 8 路由单测 (input validation / guardrail / happy path)
+
+### P0.2 · G8 Style LoRA 库 ✅ 2026-05-04 (commit `<TBD>`)
+- [x] **决策: 复用现有 `global_assets` (type='style') 表 + GET/POST/DELETE 路由, 不引新 schema** — 设计已支持, 只缺 UI 入口
+- [x] 新组件 `components/create/style-lora-library.tsx` — 列表 + 保存 popover (用 v2.13.5 加的 shadcn Popover) + 删除确认
+- [x] metadata 形态: `{ stylePreset, cameraDefault }` — 应用时一并写回表单 (style picker + camera language picker)
+- [x] create 页 ACT 2 区域 CameraLanguagePicker 下方加 `<StyleLoraLibrary>` 横向 chip 流, 含 "+保存当前" 按钮
+- [x] 测试: 现有 global-assets 路由测试已覆盖 CRUD; UI 测试对 React 19 + Radix Popover 在 jsdom 下不稳定, 留 staging 验证
+
+### v2.15 P0 总验收 ✅ 2026-05-04
+- ✅ 一个 idea 能拿到 1-3 个剧本对比卡, 选择后正常走全流程
+- ✅ 用户能存/取/删 自定义风格指纹, 跨项目复用 (复用 global_assets, 不破坏现有 char/scene 共用)
+- ✅ 全套测试通过 626/626, tsc --noEmit 0 错误
+- ✅ 0 新视频/音频 API 依赖 (只动 LLM 调用 + 现有 DB 表)
+
+### v2.15 P1 / P2 待跟(本次不动 — 见 TODO-CARRYOVERS)
+- G6 · Lip-sync (Kling) — 待 Kling key + FLF 在 staging 验过再排
+- G5 · 音视频一体 (Vidu Q3) — 待真 Vidu key, 实验性, v2.16
+- BGM 按幕切风格 — TODO #3
+- routeVideoByDuration 计费 gate — TODO #4 ⚠️ 上线前必做
 
 ---
 

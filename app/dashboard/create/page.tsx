@@ -24,6 +24,9 @@ import {
 } from '@/components/cinema/primitives';
 import { MovingBorderButton } from '@/components/cinema/effects';
 import { CameraLanguagePicker } from '@/components/create/camera-language-picker';
+import { ScriptDraftsCompare } from '@/components/create/script-drafts-compare';
+import { StyleLoraLibrary } from '@/components/create/style-lora-library';
+import type { ScriptDraft } from '@/lib/script-drafts';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -79,6 +82,9 @@ export default function DashboardCreatePage() {
   const [lockedCharacters, setLockedCharacters] = useState<LockedCharacter[]>([]);
   // v2.14 P1.1: 全局默认镜头语言 — 选了之后所有镜头都默认走这个运镜, 单镜可在分镜调整时覆盖
   const [cameraDefault, setCameraDefault] = useState<string | null>(null);
+  // v2.15 G9: 草稿数 (1=直接走 Writer; 2/3=先 hit /api/script-drafts 拿对比卡, 用户选完再走完整流程)
+  const [draftCount, setDraftCount] = useState<1 | 2 | 3>(1);
+  const [showDraftCompare, setShowDraftCompare] = useState(false);
   const [workspaceProject, setWorkspaceProject] = useState<Project | null>(null);
   const { showToast } = useToast();
 
@@ -106,8 +112,44 @@ export default function DashboardCreatePage() {
       showToast({ title: validation.error || '输入无效', type: 'error' });
       return;
     }
-    const sanitizedIdea = sanitizeInput(idea);
 
+    // v2.15 G9: draftCount > 1 → 先弹草稿对比 modal, 用户选完再走完整流程
+    if (draftCount > 1) {
+      setShowDraftCompare(true);
+      return;
+    }
+
+    return runFullPipeline(idea);
+  };
+
+  // v2.15 G9: 用户从对比卡选了一版草稿 → 把草稿的 synopsis + shots 拼成"准剧本",
+  // 作为新 idea 提交给 /api/create-stream — orchestrator 的 isFullScriptInput() 会
+  // 检测到结构化剧本特征, 走 parsedScript 适配模式, 编剧 agent 会基于此版做高质量改编。
+  const handleDraftPicked = (draft: ScriptDraft) => {
+    setShowDraftCompare(false);
+    if (!draft.script) return;
+    const lines: string[] = [];
+    lines.push(`第 1 章 ${draft.script.title || '(草稿)'}`);
+    lines.push('');
+    if (draft.script.synopsis) lines.push(draft.script.synopsis);
+    lines.push('');
+    for (const sh of draft.script.shots || []) {
+      lines.push(`${sh.shotNumber}-1 ${sh.sceneDescription || '场景'} 日`);
+      if (sh.action) lines.push(`△画面：${sh.action}`);
+      if (sh.dialogue && sh.characters?.[0]) {
+        lines.push(`${sh.characters[0]}：${sh.dialogue}`);
+      }
+      lines.push('');
+    }
+    const adapted = lines.join('\n');
+    setIdea(adapted);
+    showToast({ title: `已采用草稿 #${draft.draftId.slice(-4)}, 进入完整创作流程`, type: 'success' });
+    // 立刻提交完整 pipeline (用 adapted 而非 setIdea 的异步值)
+    runFullPipeline(adapted);
+  };
+
+  const runFullPipeline = async (rawIdea: string) => {
+    const sanitizedIdea = sanitizeInput(rawIdea);
     const projectId = `proj-${Date.now()}`;
     const project: Project = {
       id: projectId,
@@ -478,6 +520,17 @@ export default function DashboardCreatePage() {
   const totalDurationSec = parseFloat(duration.replace(/[^\d.]/g, '')) * 6; // 估 6 镜
   return (
     <div className="cinema-page -mx-[5vw] -my-6 px-[5vw] py-6">
+      {/* v2.15 G9: 草稿对比 modal — draftCount > 1 且用户点 ROLL 时弹出 */}
+      {showDraftCompare && (
+        <ScriptDraftsCompare
+          idea={idea}
+          style={style}
+          count={draftCount}
+          onPick={handleDraftPicked}
+          onCancel={() => setShowDraftCompare(false)}
+        />
+      )}
+
       {/* ── 顶部:场记板 (Slate) 形式标题 + Action — 替代单调 h2 ── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start mb-6">
         <SlateCard
@@ -708,6 +761,39 @@ export default function DashboardCreatePage() {
           {/* v2.14 P1.1: 全局默认镜头语言 — 让所有镜头都吃这个运镜风格作为默认值 */}
           <CameraLanguagePicker value={cameraDefault} onChange={setCameraDefault} />
 
+          {/* v2.15 G8: 我的风格库 — 一键存/取/删 (style + cameraDefault) 风格指纹 */}
+          <StyleLoraLibrary
+            currentStyle={style}
+            currentCameraDefault={cameraDefault}
+            onApply={(applied) => {
+              if (applied.stylePreset) setStyle(applied.stylePreset);
+              setCameraDefault(applied.cameraDefault);
+              showToast({ title: `已应用风格: ${applied.stylePreset || ''}`, type: 'success' });
+            }}
+          />
+
+          {/* v2.15 G9: 草稿数 — 1=直跑, 2/3=先弹对比卡 */}
+          <div>
+            <Eyebrow>Drafts · 草稿对比</Eyebrow>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {([1, 2, 3] as const).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setDraftCount(n)}
+                  title={n === 1 ? '直接生成 1 个剧本' : `先生成 ${n} 个版本对比, 选完再走完整流程`}
+                  className={`cinema-btn !px-3 !py-1 cinema-mono !text-[11px] ${draftCount === n ? 'cinema-btn-primary' : ''}`}
+                >
+                  {n === 1 ? '直跑 ×1' : `对比 ×${n}`}
+                </button>
+              ))}
+            </div>
+            {draftCount > 1 && (
+              <div className="cinema-mono text-[10px] opacity-60 mt-1">
+                ↑ 点 ROLL 后会先弹 {draftCount} 个剧本草稿对比, 选完再走完整流程 (额外 +30-60s)
+              </div>
+            )}
+          </div>
+
           {/* 技术读数面板 — 当前选择的实时反馈 */}
           <div className="cinema-card-hi p-3">
             <Eyebrow>Readout · 设定预览</Eyebrow>
@@ -719,6 +805,7 @@ export default function DashboardCreatePage() {
                 ['aspect', aspect],
                 ['engine', videoProvider],
                 ['camera', cameraDefault || 'auto'],
+                ['drafts', String(draftCount)],
                 ['est_total', `~${(totalDurationSec).toFixed(0)}s`],
               ]} />
             </div>
