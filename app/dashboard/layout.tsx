@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { Sidebar } from '@/components/sidebar';
+import { ApiQuotaBanner } from '@/components/dashboard/api-quota-banner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -43,6 +44,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="flex-1 overflow-auto relative">
         {/* 微妙的金色顶部光晕 */}
         <div className="page-glow" />
+        {/* v2.17 P0.3: API 配额告警 banner — 任意上游配额耗尽 / 上游饱和时可见 */}
+        <ApiQuotaBanner />
         <div className="relative z-10 p-5 lg:p-7">
           {children}
         </div>

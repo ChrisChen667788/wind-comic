@@ -64,6 +64,28 @@ function persistHexAudioToFile(hex: string, ext: 'mp3' | 'wav' = 'mp3'): string 
   return `/api/serve-file?path=${encodeURIComponent(fullPath)}`;
 }
 
+// v2.17 P0.2: API 用量追踪 — 失败时落 api_usage_events + 升级 quota alerts
+import { recordApiCall as _trackApiCall } from '@/lib/api-usage-tracker';
+
+/** 私有: 从 Minimax 错误消息里提取业务码 (如 "Minimax video-01 error (1008): xxx") */
+function _extractMinimaxStatusCode(msg: string): number | undefined {
+  const m = msg.match(/\((\d+)\)/);
+  return m ? parseInt(m[1], 10) : undefined;
+}
+
+/** 私有: 落一条失败记录 — 监控用, 失败时不能反过来炸业务 */
+function _trackMinimaxError(error: unknown, model: string, method: string): void {
+  const msg = error instanceof Error ? error.message : String(error);
+  _trackApiCall({
+    provider: 'minimax',
+    model,
+    method,
+    success: false,
+    statusCode: _extractMinimaxStatusCode(msg),
+    errorMessage: msg,
+  });
+}
+
 export class MinimaxService {
   private apiKey: string;
   private baseURL: string;
@@ -218,6 +240,7 @@ export class MinimaxService {
         return await this.generateVideo(imageUrl, prompt, { ...options, _retryCount: 1 });
       }
       console.error('[Minimax] Video generation error:', error);
+      _trackMinimaxError(error, 'video', 'generateVideo');
       throw error;
     }
   }
@@ -288,6 +311,7 @@ export class MinimaxService {
         return await this.generateVideoFast(prompt, { ...options, _retryCount: 1 });
       }
       console.error('[Minimax-Fast] generation error:', error);
+      _trackMinimaxError(error, 'Hailuo-2.3-Fast', 'generateVideoFast');
       throw error;
     }
   }
@@ -568,6 +592,7 @@ export class MinimaxService {
         return await this.generateImage(prompt, { ...options, _retryCount: 1 });
       }
       console.error('[Minimax] Image generation error:', error);
+      _trackMinimaxError(error, 'image-01', 'generateImage');
       throw error;
     }
   }
@@ -689,6 +714,7 @@ export class MinimaxService {
       return await this.pollMusicResult(taskId);
     } catch (error) {
       console.error('[Minimax] Music generation error:', error);
+      _trackMinimaxError(error, 'music-2.6', 'generateMusic');
       // 回退到语音合成模拟
       try {
         return await this.generateSpeechMusic(prompt, options?.duration || 30);
@@ -875,6 +901,7 @@ export class MinimaxService {
       throw new Error(`Minimax TTS: no audio in response: ${JSON.stringify(data).slice(0, 300)}`);
     } catch (error) {
       console.error('[Minimax] TTS error:', error);
+      _trackMinimaxError(error, 'speech-2.8-hd', 'generateSpeech');
       throw error;
     }
   }

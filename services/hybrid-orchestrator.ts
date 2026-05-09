@@ -644,6 +644,18 @@ export class HybridOrchestrator {
       if (!parsed.ok) {
         const errMsg = parsed.error || 'unknown error';
         console.error(`[LLM:${callId}] ❌ ${errMsg} | ${elapsed}s`);
+        // v2.17 P0.2: 用量追踪 — 失败时落表 + 配额错误升级 alert
+        try {
+          const { recordApiCall } = await import('@/lib/api-usage-tracker');
+          recordApiCall({
+            provider: 'openai',
+            model: API_CONFIG.openai.model || 'unknown',
+            method: 'chat.completions',
+            success: false,
+            errorMessage: errMsg.slice(0, 200),
+            projectId: this.projectId,
+          });
+        } catch { /* 监控失败不阻塞业务 */ }
         if (errMsg.includes('insufficient_quota') || errMsg.includes('quota')) {
           this.emit('status', { message: '⚠️ LLM API 余额不足，请充值后重试' });
           this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: '❌ API 余额不足，无法继续创作。' });

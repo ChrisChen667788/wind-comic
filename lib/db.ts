@@ -196,6 +196,41 @@ CREATE TABLE IF NOT EXISTS cost_log (
 CREATE INDEX IF NOT EXISTS idx_cost_log_user ON cost_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_cost_log_project ON cost_log(project_id);
 CREATE INDEX IF NOT EXISTS idx_cost_log_created ON cost_log(created_at);
+
+-- v2.17 P0.1: API 用量追踪 — 每次 API 调用结果 (成功 / 失败 / 错误码), 给监控用
+-- 不写每次调用全部 metadata (避免写放大), 只在失败时 + 错误码 != 0 时记
+CREATE TABLE IF NOT EXISTS api_usage_events (
+  id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL,                       -- 'minimax' | 'midjourney' | 'openai' | 'veo' | 'kling' | 'vidu' | 'fal' | 'comfyui'
+  model TEXT NOT NULL DEFAULT '',               -- 'I2V-01' | 'image-01' | 'gpt-4o' | 'kling-v1' | ...
+  method TEXT NOT NULL DEFAULT '',              -- 'generateImage' | 'generateVideo' | 'chat.completions' | ...
+  success INTEGER NOT NULL,                     -- 0 / 1
+  status_code INTEGER,                          -- HTTP 或 业务码 (如 Minimax 1008)
+  error_message TEXT,                           -- 失败时的精简错误消息 (≤200 字符)
+  duration_ms INTEGER NOT NULL DEFAULT 0,       -- 端到端耗时
+  project_id TEXT,                              -- 关联项目 (如有)
+  user_id TEXT,                                 -- 关联用户 (如有)
+  est_cost_cny REAL DEFAULT 0,                  -- 估算成本 (CNY), 仅供参考
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_api_usage_provider_created ON api_usage_events(provider, created_at);
+CREATE INDEX IF NOT EXISTS idx_api_usage_success ON api_usage_events(success, created_at);
+
+-- v2.17 P0.1: 配额耗尽告警 — 同一 provider 1 小时内多次"配额耗尽"或"上游饱和" → 升级为告警
+-- 用户 / 管理员能从 /api/admin/api-usage 看活跃告警, ack 后清掉
+CREATE TABLE IF NOT EXISTS api_quota_alerts (
+  id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL,                       -- 同 api_usage_events.provider
+  model TEXT DEFAULT '',
+  alert_type TEXT NOT NULL,                     -- 'exhausted' | 'saturated' | 'rate_limited' | 'auth_failed'
+  error_message TEXT,                           -- 最近一次的错误消息 (≤200 字符)
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  occurrence_count INTEGER NOT NULL DEFAULT 1,
+  acknowledged_at TEXT                          -- 用户标 ack 后填
+);
+CREATE INDEX IF NOT EXISTS idx_api_quota_alerts_active ON api_quota_alerts(provider, acknowledged_at);
+CREATE INDEX IF NOT EXISTS idx_api_quota_alerts_recent ON api_quota_alerts(last_seen_at);
 `);
 
 // Safe ALTER TABLE — add columns if missing

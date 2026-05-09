@@ -16,6 +16,25 @@ function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 30_000): P
 // 进度回调
 type MJProgressCallback = (progress: string, status: string) => void;
 
+// v2.17 P0.2: API 用量追踪
+import { recordApiCall as _trackApiCall } from '@/lib/api-usage-tracker';
+function _trackMjError(error: unknown, method: string): void {
+  const msg = error instanceof Error ? error.message : String(error);
+  // MJ 错误格式: "MJ failed: insufficient credits" / "MJ submit failed: ..."
+  // 提 HTTP code (如有) — MJ 用 fetch error: { status: 503 }
+  let statusCode: number | undefined;
+  const httpMatch = msg.match(/error \((\d+)\)/) || msg.match(/MJ.*?(\d{3})/);
+  if (httpMatch) statusCode = parseInt(httpMatch[1], 10);
+  _trackApiCall({
+    provider: 'midjourney',
+    model: 'mj-imagine',
+    method,
+    success: false,
+    statusCode,
+    errorMessage: msg,
+  });
+}
+
 export class MidjourneyService {
   private apiKey: string;
   public onProgress?: MJProgressCallback;
@@ -38,6 +57,23 @@ export class MidjourneyService {
     cw?: number;    // --cw 角色权重 0-100
     upscaleIndex?: 1 | 2 | 3 | 4; // 选择四宫格中的哪一张（默认 U1）
     skipUpscale?: boolean; // 跳过 upscale（仅在不需要单图时使用）
+  }): Promise<string> {
+    try {
+      return await this._generateImage(prompt, options);
+    } catch (error) {
+      _trackMjError(error, 'generateImage');
+      throw error;
+    }
+  }
+
+  private async _generateImage(prompt: string, options?: {
+    aspectRatio?: string;
+    style?: string;
+    cref?: string;
+    sref?: string;
+    cw?: number;
+    upscaleIndex?: 1 | 2 | 3 | 4;
+    skipUpscale?: boolean;
   }): Promise<string> {
     let fullPrompt = prompt;
 

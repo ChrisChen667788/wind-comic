@@ -369,6 +369,34 @@
 
 ---
 
+## 4.8 v2.17 · "API 用量监控 + 现有引擎打磨" Sprint(本次启动 P0)
+
+> **背景**: 用户明确说"可灵和 vidu 的 key 后面再说, 先用目前已有的 api 把功能打磨好(注意每个 api 用量, 耗尽了及时和我说)"。
+> **决策**: 优先做 API 用量追踪 + 配额耗尽告警 — 这样真到耗尽时, 用户在 dashboard 顶部看 banner, 不用 tail 日志。
+
+### P0.1 · API 用量追踪 lib + DB ✅ 2026-05-10 (commit `<TBD>`)
+- [x] DB 加 `api_usage_events` (失败时落) + `api_quota_alerts` (1h 窗口同 provider+type 聚合 occurrence_count)
+- [x] `lib/api-usage-tracker.ts`: `recordApiCall` (写表 + 触发 alert) / `withApiTracking` (wrapper) / `detectQuotaError` (per-provider 模式: Minimax 1008 / OpenAI 429+insufficient_quota / MJ failReason / Veo saturated 等)
+- [x] `acknowledgeQuotaAlert` / `listActiveQuotaAlerts` (admin / 公共 banner 共用)
+
+### P0.2 · 接入主用引擎服务 ✅ 2026-05-10 (commit `<TBD>`)
+- [x] `MinimaxService`: generateImage / generateVideo / generateVideoFast / generateMusic / generateSpeech 5 个公开方法的 catch 块加 `_trackMinimaxError` (从消息提 status_code, 自动配额告警)
+- [x] `MidjourneyService.generateImage` 改成 `_generateImage` 内核 + 外层 try/catch 走 `_trackMjError`
+- [x] orchestrator LLM 路径 (callOpenAI 回调失败处) 直接 import + `recordApiCall` (provider='openai')
+
+### P0.3 · 用户可见告警面 ✅ 2026-05-10 (commit `<TBD>`)
+- [x] `GET /api/api-status` (公开, 给 dashboard banner) — 仅返 provider+alertType+lastSeenAt+count, 不泄 error_message 全文
+- [x] `GET /api/admin/api-usage?hours=N` + `POST /api/admin/api-usage` (admin only) — 拉活跃告警 / failuresByProvider / 最近 50 条原始失败 / ack
+- [x] `<ApiQuotaBanner>` 组件挂在 dashboard layout 顶部, 60s 轮询, 多 provider 同时告警渲染列表, sessionStorage dismiss
+- [x] 测试: 31 用例 (tracker 22 + routes 9), 共 713/713 vitest
+
+### v2.17 P1 待跟(下一轮)
+- 失败重试策略细化 (不同错误码用不同退避: rate_limit→backoff, exhausted→不重试)
+- API 调用成本估算入 cost_log 表 (现在只有 cost_log 但没 wire 到失败 case)
+- 周报 / 日报 cron — 把 7 天 failuresByProvider 邮件给 admin
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |
