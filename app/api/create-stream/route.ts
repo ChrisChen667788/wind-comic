@@ -25,9 +25,17 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ error: '请提供故事创意' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
+  // v2.18: idea 预处理 — 规则清洗 + (信息不足时) LLM 扩写
+  // 这一步在安全闸门之前, 让闸门看到的是已清洗 + 已扩写的版本 (规则更准, 扩写不引入有害词)
+  const { normalizeIdea } = await import('@/lib/idea-normalizer');
+  const normalized = await normalizeIdea(rawIdea, { ruleOnly: false });
+  if (normalized.didLlmExpand) {
+    console.log(`[create-stream] idea LLM-expanded: "${rawIdea.slice(0, 60)}..." → "${normalized.normalized.slice(0, 60)}..."`);
+  }
+
   // v2.13.4: 安全闸门 — 拒绝注入 / 越界 / 有害,脱敏 PII,长度 cap
   const { checkAndSanitize } = await import('@/lib/prompt-guardrails');
-  const verdict = checkAndSanitize(rawIdea, { task: 'creation' });
+  const verdict = checkAndSanitize(normalized.normalized || rawIdea, { task: 'creation' });
   if (!verdict.ok) {
     console.warn(`[create-stream] guardrail blocked: ${verdict.category}/${verdict.reason}`);
     return new Response(
@@ -43,7 +51,7 @@ export async function POST(request: NextRequest) {
   const { enhanceIdeaForCreation } = await import('@/lib/prompt-templates');
   const { enhancedIdea, hint } = enhanceIdeaForCreation(verdict.sanitized);
   if (verdict.warnings.length > 0) console.log(`[create-stream] sanitize warnings: ${verdict.warnings.join(' | ')}`);
-  console.log(`[create-stream] prompt-engineering applied: ${hint}`);
+  console.log(`[create-stream] prompt-engineering applied: ${hint} | normalize-hint: ${normalized.hint}`);
   const idea = enhancedIdea;
 
   const encoder = new TextEncoder();
@@ -276,125 +284,137 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // ── 3. Character Designer ──
-        try {
-          send('status', { message: 'AI 角色设计师正在绘制角色三视图...' });
-          characters = await orchestrator.runCharacterDesigner(plan.characters);
-          send('agents', orchestrator.getAllAgents());
-          send('characters', characters);
-          // 保存角色图片到资产库（直接带上 mediaUrls，不依赖二次 UPDATE）
-          characters.forEach((c: any) => {
-            const mediaUrls = c.imageUrl && !c.imageUrl.startsWith('data:') ? [c.imageUrl] : [];
-            saveAsset(projectId, 'character', c.character || c.name, {
-              description: c.description || c.prompt || '',
-              appearance: c.appearance || '',
-            }, mediaUrls);
-          });
-          // v2.11 #2: 同时写入用户的全局角色库 (global_assets)
-          // 跨项目复用 — 同名角色去重(用户视角更直观), 多个项目用过同一个角色, 累加到 referenced_by_projects
+        // ── 3 + 4. Character Designer 和 Scene Designer 并行 ──
+        // v2.18: 这两步互不依赖, 都只需要 plan + script. 并行可省 30-60s 创作时长。
+        // gates 模式下保持串行 (after-characters gate 语义依赖顺序)。
+        const runCharacterStep = async () => {
           try {
-            const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/global-assets');
-            const existing = listGlobalAssets({ userId, type: 'character', limit: 200, offset: 0 });
-            let saved = 0;
-            for (const c of characters) {
-              const charName = c.character || c.name;
-              if (!charName) continue;
-              const thumbUrl = c.imageUrl && !c.imageUrl.startsWith('data:') ? c.imageUrl : '';
-              const found = existing.find((a: any) => a.name === charName);
-              if (found) {
-                // 同名 — 仅当新有图且旧无图时升级缩略图; 描述若新版更长就覆盖
-                const updates: any = {};
-                if (!found.thumbnail && thumbUrl) updates.thumbnail = thumbUrl;
-                if (c.description && c.description.length > (found.description || '').length) {
-                  updates.description = c.description;
+            send('status', { message: 'AI 角色设计师正在绘制角色三视图...' });
+            const result = await orchestrator.runCharacterDesigner(plan.characters);
+            send('agents', orchestrator.getAllAgents());
+            send('characters', result);
+            // 保存角色图片到资产库（直接带上 mediaUrls，不依赖二次 UPDATE）
+            result.forEach((c: any) => {
+              const mediaUrls = c.imageUrl && !c.imageUrl.startsWith('data:') ? [c.imageUrl] : [];
+              saveAsset(projectId, 'character', c.character || c.name, {
+                description: c.description || c.prompt || '',
+                appearance: c.appearance || '',
+              }, mediaUrls);
+            });
+            // v2.11 #2: 同时写入用户的全局角色库 (global_assets)
+            try {
+              const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/global-assets');
+              const existing = listGlobalAssets({ userId, type: 'character', limit: 200, offset: 0 });
+              let saved = 0;
+              for (const c of result) {
+                const charName = c.character || c.name;
+                if (!charName) continue;
+                const thumbUrl = c.imageUrl && !c.imageUrl.startsWith('data:') ? c.imageUrl : '';
+                const found = existing.find((a: any) => a.name === charName);
+                if (found) {
+                  const updates: any = {};
+                  if (!found.thumbnail && thumbUrl) updates.thumbnail = thumbUrl;
+                  if (c.description && c.description.length > (found.description || '').length) {
+                    updates.description = c.description;
+                  }
+                  if (Object.keys(updates).length > 0) {
+                    updateGlobalAsset(found.id, userId, updates);
+                  }
+                  recordAssetUsage(found.id, userId, projectId);
+                } else {
+                  createGlobalAsset({
+                    userId,
+                    type: 'character',
+                    name: charName,
+                    description: c.description || '',
+                    thumbnail: thumbUrl,
+                    visualAnchors: [c.appearance].filter(Boolean) as string[],
+                    metadata: { firstProjectId: projectId, prompt: c.prompt || '' },
+                    tags: [],
+                  });
+                  saved++;
                 }
-                if (Object.keys(updates).length > 0) {
-                  updateGlobalAsset(found.id, userId, updates);
-                }
-                // 当前项目登记到引用集
-                recordAssetUsage(found.id, userId, projectId);
-              } else {
-                createGlobalAsset({
-                  userId,
-                  type: 'character',
-                  name: charName,
-                  description: c.description || '',
-                  thumbnail: thumbUrl,
-                  visualAnchors: [c.appearance].filter(Boolean) as string[],
-                  metadata: { firstProjectId: projectId, prompt: c.prompt || '' },
-                  tags: [],
-                });
-                saved++;
               }
+              if (saved > 0) {
+                send('status', { message: `已把 ${saved} 个新角色登记到角色库` });
+              }
+            } catch (e) {
+              console.warn('[Stream] global_assets character save failed:', e);
             }
-            if (saved > 0) {
-              send('status', { message: `已把 ${saved} 个新角色登记到角色库` });
-            }
+            return result;
           } catch (e) {
-            console.warn('[Stream] global_assets character save failed:', e);
+            console.error('[Stream] Character Designer failed:', e);
+            send('status', { message: '角色设计出错，继续下一步...' });
+            return [] as any[];
           }
-        } catch (e) {
-          console.error('[Stream] Character Designer failed:', e);
-          send('status', { message: '角色设计出错，继续下一步...' });
-        }
+        };
 
-        // ── Gate: after-characters ──
+        const runSceneStep = async () => {
+          try {
+            send('status', { message: 'AI 场景设计师正在设计场景概念图...' });
+            // v2.13.5: 用 Writer 的 shots 把 plan.scenes 的 description 加厚
+            const enrichedScenes = enrichScenesFromWriterScript(plan.scenes, script);
+            const result = await orchestrator.runSceneDesigner(enrichedScenes);
+            send('agents', orchestrator.getAllAgents());
+            send('scenes', result);
+            // 保存场景图片到资产库（过滤 mock data URI）
+            result.forEach((s: any) => {
+              const mediaUrls = s.imageUrl && !s.imageUrl.startsWith('data:') ? [s.imageUrl] : [];
+              saveAsset(projectId, 'scene', s.name, { description: s.description, location: s.name }, mediaUrls);
+            });
+            // v2.11 #2: 场景同步登记到全局场景库
+            try {
+              const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/global-assets');
+              const existing = listGlobalAssets({ userId, type: 'scene', limit: 300, offset: 0 });
+              for (const s of result) {
+                const sceneName = s.name;
+                if (!sceneName) continue;
+                const thumbUrl = s.imageUrl && !s.imageUrl.startsWith('data:') ? s.imageUrl : '';
+                const found = existing.find((a: any) => a.name === sceneName);
+                if (found) {
+                  const updates: any = {};
+                  if (!found.thumbnail && thumbUrl) updates.thumbnail = thumbUrl;
+                  if (s.description && s.description.length > (found.description || '').length) {
+                    updates.description = s.description;
+                  }
+                  if (Object.keys(updates).length > 0) updateGlobalAsset(found.id, userId, updates);
+                  recordAssetUsage(found.id, userId, projectId);
+                } else {
+                  createGlobalAsset({
+                    userId, type: 'scene', name: sceneName,
+                    description: s.description || '',
+                    thumbnail: thumbUrl,
+                    metadata: { firstProjectId: projectId },
+                    tags: [],
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn('[Stream] global_assets scene save failed:', e);
+            }
+            return result;
+          } catch (e) {
+            console.error('[Stream] Scene Designer failed:', e);
+            send('status', { message: '场景设计出错，继续下一步...' });
+            return [] as any[];
+          }
+        };
+
         if (enableGates) {
+          // gate 模式: 顺序跑, 保留 after-characters gate
+          characters = await runCharacterStep();
           const gateResult = await orchestrator.waitForGate('after-characters', { characters });
           if (gateResult?.action === 'edit' && gateResult.editedData) {
             characters = gateResult.editedData;
             send('characters', characters);
           }
-        }
-
-        // ── 4. Scene Designer ──
-        try {
-          send('status', { message: 'AI 场景设计师正在设计场景概念图...' });
-          // v2.13.5: 用 Writer 的 shots 把 plan.scenes 的 description 加厚 —
-          // 把每个 Director 场景下 Writer 写出的 action / dialogue / 情绪挑出 1-3 条贴回去,
-          // 让场景图 prompt 不只用 Director 的占位描述, 真按"剧本里这个地方在演什么"出图。
-          const enrichedScenes = enrichScenesFromWriterScript(plan.scenes, script);
-          scenes = await orchestrator.runSceneDesigner(enrichedScenes);
-          send('agents', orchestrator.getAllAgents());
-          send('scenes', scenes);
-          // 保存场景图片到资产库（过滤 mock data URI）
-          scenes.forEach((s: any) => {
-            const mediaUrls = s.imageUrl && !s.imageUrl.startsWith('data:') ? [s.imageUrl] : [];
-            saveAsset(projectId, 'scene', s.name, { description: s.description, location: s.name }, mediaUrls);
-          });
-          // v2.11 #2: 场景同步登记到全局场景库 (跨项目复用 — 同地点不同时间可重复用)
-          try {
-            const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/global-assets');
-            const existing = listGlobalAssets({ userId, type: 'scene', limit: 300, offset: 0 });
-            for (const s of scenes) {
-              const sceneName = s.name;
-              if (!sceneName) continue;
-              const thumbUrl = s.imageUrl && !s.imageUrl.startsWith('data:') ? s.imageUrl : '';
-              const found = existing.find((a: any) => a.name === sceneName);
-              if (found) {
-                const updates: any = {};
-                if (!found.thumbnail && thumbUrl) updates.thumbnail = thumbUrl;
-                if (s.description && s.description.length > (found.description || '').length) {
-                  updates.description = s.description;
-                }
-                if (Object.keys(updates).length > 0) updateGlobalAsset(found.id, userId, updates);
-                recordAssetUsage(found.id, userId, projectId);
-              } else {
-                createGlobalAsset({
-                  userId, type: 'scene', name: sceneName,
-                  description: s.description || '',
-                  thumbnail: thumbUrl,
-                  metadata: { firstProjectId: projectId },
-                  tags: [],
-                });
-              }
-            }
-          } catch (e) {
-            console.warn('[Stream] global_assets scene save failed:', e);
-          }
-        } catch (e) {
-          console.error('[Stream] Scene Designer failed:', e);
-          send('status', { message: '场景设计出错，继续下一步...' });
+          scenes = await runSceneStep();
+        } else {
+          // 普通模式: 并行跑, 创作时长省 30-60s
+          send('status', { message: '🚀 角色与场景设计并行启动...' });
+          const [chars, scns] = await Promise.all([runCharacterStep(), runSceneStep()]);
+          characters = chars;
+          scenes = scns;
         }
 
         // ── 5a. Storyboard Planning（纯文本分镜规划）──

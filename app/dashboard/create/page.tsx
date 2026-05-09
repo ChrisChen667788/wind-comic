@@ -103,6 +103,16 @@ export default function DashboardCreatePage() {
       // Set recommended style if it matches one of the presets
       const matchedPreset = stylePresets.find(p => p.label === template.styleRecommendation || p.en === template.styleRecommendation);
       if (matchedPreset) setStyle(matchedPreset.en);
+      // v2.18: 模板带 recommendedDuration / recommendedAspect / recommendedCamera 时自动填表单
+      if (template.recommendedDuration && durationOptions.includes(`${template.recommendedDuration}s` as any)) {
+        setDuration(`${template.recommendedDuration}s` as any);
+      }
+      if (template.recommendedAspect && aspectOptions.includes(template.recommendedAspect as any)) {
+        setAspect(template.recommendedAspect as any);
+      }
+      if (template.recommendedCamera) {
+        setCameraDefault(template.recommendedCamera);
+      }
     }
   };
 

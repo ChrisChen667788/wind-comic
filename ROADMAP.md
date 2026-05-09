@@ -397,6 +397,47 @@
 
 ---
 
+## 4.9 v2.18 · "Prompt 质量 + 创作流程缩短 + 项目模板" Sprint(本次启动 P0)
+
+> **背景**: 用户说"打磨别的方向, 比如 prompt 质量精修 / 创作流程缩短 / 项目模板"。三个方向同时打。
+> **决策**: 不动外部 API 依赖, 都是 lib + 编排层改造。
+
+### P0.1 · 项目模板扩充 ✅ 2026-05-10 (commit `<TBD>`)
+- [x] `lib/story-templates.ts` 6 个新模板 — sci-fi-space / kids-cartoon / historical-biopic / animal-fable / food-vlog / music-video, 共 18 个覆盖 12 大题材
+- [x] `StoryTemplate` 加可选 metadata: `tags[]` (筛选/推荐) + `recommendedDuration` (5/6/10/15) + `recommendedAspect` (16:9/9:16/1:1/2.35:1) + `recommendedCamera` (CAMERA_LANGUAGE_PRESETS id)
+- [x] create page `handleSelectTemplate` — 选了带 recommended* 的模板时自动填 duration / aspect / cameraDefault
+- [x] 测试: 18 模板字段完整性 / id 唯一 / 新模板带 metadata / 推荐值落在合法白名单内 (10 cases)
+
+### P0.2 · Character + Scene 设计并行 ✅ 2026-05-10 (commit `<TBD>`)
+- [x] `app/api/create-stream/route.ts`: 把 runCharacterDesigner / runSceneDesigner 抽成两个独立 IIFE 函数
+- [x] 普通模式 (无 enableGates) 用 `Promise.all` 并行跑 — 创作时长省 30-60s (这两步原本 30-90s 各)
+- [x] gates 模式 (enableGates=true) 保留串行 — after-characters gate 语义依赖顺序
+- [x] SSE 'characters' / 'scenes' / 'agents' 事件按到达顺序流出, UI 正常显示
+
+### P0.3 · idea normalizer (prompt 质量) ✅ 2026-05-10 (commit `<TBD>`)
+- [x] `lib/idea-normalizer.ts` (新) — 两层处理:
+  - **规则层** (确定性, 永不抛): 全角→半角 / 重复标点折叠 / 多空格合一 / trim — 不吃换行 (`[ \t]{2,}` 而非 `\s{2,}`)
+  - **LLM 层** (可选, 失败 fallback): 当 idea < 50 字 OR 缺题材/主角/冲突线索 OR < 120 字时, 用 OpenAI 扩成 100-200 字"创作纲要", 不改原意
+- [x] `ideaIsRich(text)` — 阈值: ≥50 字+有题材+有主角或冲突 OR ≥120 字
+- [x] `detectGenres` 覆盖 12 大类 (古装/科幻/言情/悬疑/职场/校园/惊悚/儿童/美食/音乐/历史)
+- [x] LLM 安全检查: 扩写 < 80% 原文长度 → reject (LLM 误把"扩写"理解成"概括"); > 600 字 → 截到 600
+- [x] wire 到 `app/api/create-stream/route.ts`: 在 guardrail 之前跑 normalize, 让闸门看到的是清洗+扩写后的版本
+- [x] 测试: 20 cases — 规则清洗 9 case + ideaIsRich 4 case + ruleOnly path 2 case + LLM 触发条件 5 case
+
+### v2.18 P0 总验收
+- ✅ 项目模板从 12 个 → 18 个, 新增 metadata + 自动表单填充
+- ✅ Character + Scene 设计并行, 端到端创作时长省 30-60s
+- ✅ 用户敲一句"一个剑客" → idea normalizer 自动扩成"唐朝长安少年剑客 + 复仇主线 + 关键转折", Director/Writer 拿到的 prompt 质量显著提升
+- ✅ 全套 743/743 vitest, tsc 0 错误, 0 新依赖
+
+### v2.18 P1 待跟(下次)
+- 模板"克隆"功能 — 选已有模板基础上微调后另存为新模板
+- 用户保存自己的项目作为个人模板 (复用 global_assets type='style' / type='template' 表)
+- "试拍" 模式 — 1 镜端到端 (15s) 让用户先确认风格再走完整 pipeline
+- 模板检索 / 标签筛选 UI (现在是平铺列表, 18 个开始多了)
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |

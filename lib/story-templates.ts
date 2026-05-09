@@ -12,6 +12,16 @@ export interface StoryTemplate {
   styleRecommendation: string; // Recommended visual style
   shotCount: { min: number; max: number }; // Suggested shot range
   colorPalette: string;   // Suggested color keywords
+  // v2.18: 模板检索 / 自动表单填充用的扩展字段 (旧模板有, 新模板必须)
+  /** 标签 — 给筛选 / 推荐用. 如 ['短剧', '热血', '动漫风'] */
+  tags?: string[];
+  /** 推荐单镜时长 (秒) — 给 create 页 duration 选择器自动填 */
+  recommendedDuration?: 5 | 6 | 10 | 15;
+  /** 推荐画幅 — 给 create 页 aspect 自动填 */
+  recommendedAspect?: '16:9' | '9:16' | '1:1' | '2.35:1';
+  /** 推荐 cameraDefault id (CAMERA_LANGUAGE_PRESETS 之一) — 一键带运镜 */
+  recommendedCamera?: 'push-in' | 'pull-out' | 'orbit' | 'dolly-zoom' | 'whip-pan'
+    | 'crash-zoom' | 'handheld' | 'locked-tripod' | 'crane-up' | 'tilt-down' | 'tracking' | 'arc';
 }
 
 export const storyTemplates: StoryTemplate[] = [
@@ -194,6 +204,121 @@ export const storyTemplates: StoryTemplate[] = [
     styleRecommendation: 'Neo Noir',
     shotCount: { min: 5, max: 8 },
     colorPalette: 'deep shadow black, sickly green, blood red, unsettling darkness',
+  },
+  // ── v2.18: 6 个新增模板, 覆盖此前缺失的题材 ──
+  {
+    id: 'sci-fi-space',
+    name: '科幻太空',
+    nameEn: 'Space Opera',
+    icon: '🚀',
+    category: '科幻太空',
+    description: '星际探索，宇宙史诗',
+    exampleIdea: '一支被流放到银河系边缘的勘探小队意外发现了一个被遗忘的古老文明遗迹,激活的全息信号揭示了全宇宙正面临一场即将到来的"大寂静",而拯救的钥匙握在一位早已消失的女科学家手中',
+    structureHint: '第一幕:展示星际飞船中孤独的日常 + 突然的发现,用宏大太空镜头建立"小人物对宇宙"的张力;第二幕:每个新发现都伴随未知威胁,角色之间因恐惧产生分歧,船员决断的代价不断升级;第三幕:在巨大牺牲下激活遗迹关键,留下"寂静与回响"式开放结局,致敬 2001 太空漫游 / 星际穿越的克制美学。多用大对比镜头(渺小人物 vs 壮观星云)。',
+    emotionCurve: '孤独探索→发现震撼→未知恐惧→关键牺牲→宇宙启示',
+    keyElements: ['星际飞船', '远古遗迹', '团队分歧', '宇宙级威胁', '开放结局'],
+    styleRecommendation: 'Cinematic',
+    shotCount: { min: 6, max: 10 },
+    colorPalette: 'deep space indigo, nebula magenta, sterile white interiors, holographic cyan',
+    tags: ['科幻', '宏大叙事', '团队戏', '硬科幻'],
+    recommendedDuration: 10,
+    recommendedAspect: '2.35:1',
+    recommendedCamera: 'crane-up',
+  },
+  {
+    id: 'kids-cartoon',
+    name: '儿童动画',
+    nameEn: 'Kids Cartoon',
+    icon: '🐰',
+    category: '儿童亲子',
+    description: '温暖友谊,简单快乐',
+    exampleIdea: '森林里害羞的小兔子小棉一直不敢和别人玩,直到遇到了热情的小狐狸阿橙,两个看似不同的小朋友在一次寻找彩虹蘑菇的冒险中,学会了什么是真正的朋友,也帮助森林里的其他动物找回了快乐',
+    structureHint: '第一幕:用明亮温柔色调展示小棉的孤单 + 阿橙的活泼,两个角色第一次相遇要可爱有记忆点;第二幕:冒险中遇到 2-3 个小困难(过小溪/找路/帮助迷路的小松鼠),每个困难都体现"友谊的力量"主题,语言简单情节直接;第三幕:找到彩虹蘑菇但更重要的是分享给所有动物朋友,大团圆收尾,要有一句简单的核心台词("最棒的不是找到蘑菇,是一起寻找的人")。全程禁止暴力 / 死亡 / 阴暗主题, 适合 3-8 岁观众。',
+    emotionCurve: '温暖介绍→可爱相遇→冒险互助→温情高潮→大团圆',
+    keyElements: ['萌系角色', '森林冒险', '友谊主题', '互助情节', '温馨大结局'],
+    styleRecommendation: 'Ghibli',
+    shotCount: { min: 5, max: 7 },
+    colorPalette: 'pastel rainbow, soft mint green, sunny yellow, gentle storybook palette',
+    tags: ['儿童', '亲子', '温馨', '动物', '友谊'],
+    recommendedDuration: 5,
+    recommendedAspect: '16:9',
+    recommendedCamera: 'tracking',
+  },
+  {
+    id: 'historical-biopic',
+    name: '历史人物',
+    nameEn: 'Historical Biopic',
+    icon: '📜',
+    category: '历史传记',
+    description: '一段历史,一个人物',
+    exampleIdea: '北宋年间一位寒门书生,在父亲含冤入狱后毅然弃文从武,历经十年戍边塞外,从一名小卒成长为镇守一方的将军,最终在收复失地的最后一战中,为给父亲洗清污名而亲自冲锋陷阵',
+    structureHint: '第一幕:用风土人情镜头交代时代背景 + 主角原本的安稳生活,父亲蒙冤事件作为激励事件要有足够冲击;第二幕:展现"成长"的多个段落 — 入伍受辱 / 艰苦训练 / 第一次实战 / 升迁挫折,每个转折都要有真实的历史细节(兵器/服饰/话语);第三幕:收复失地的关键战役,主角的私人复仇与家国大义合二为一,结局可以悲壮也可以荣耀,但必须留下时代印记。注意尊重史实,不戏说。',
+    emotionCurve: '安稳→变故→隐忍→成长→悲壮高潮',
+    keyElements: ['时代背景', '蒙冤激励', '从军成长', '历史细节', '家国情怀'],
+    styleRecommendation: 'Cinematic',
+    shotCount: { min: 6, max: 10 },
+    colorPalette: 'aged ink, sepia gold, banner red, weathered earth tones',
+    tags: ['历史', '严肃', '战争戏', '人物弧光'],
+    recommendedDuration: 10,
+    recommendedAspect: '2.35:1',
+    recommendedCamera: 'tracking',
+  },
+  {
+    id: 'animal-fable',
+    name: '动物寓言',
+    nameEn: 'Animal Fable',
+    icon: '🦊',
+    category: '寓言哲思',
+    description: '拟人动物,深刻寓意',
+    exampleIdea: '森林深处的一群动物突然发现山泉的水开始变浑,聪明的狐狸坚持寻找根源却被多数动物嘲笑"没事找事",直到山下村民开始大规模生病,动物们才意识到上游的某座工厂在偷排,这场寻找真相的旅程最终成为了对盲从与勇气的寓言',
+    structureHint: '第一幕:用拟人化镜头展示动物社群的"日常政治",主角(通常是少数派)的不同被强调;第二幕:主角追查被孤立 → 发现初步线索却被否定 → 危机加深证明主角是对的,这个"被嘲笑的清醒者"弧线必须扎实;第三幕:真相揭露往往涉及人类活动的隐喻(环保/官僚/盲从),寓言式结尾留下让观众思考的台词("我们看到了水,却看不到污染"),不要把道理说穿。',
+    emotionCurve: '日常→质疑→孤立→危机→寓意揭示',
+    keyElements: ['拟人动物', '少数派主角', '盲从对照', '环境隐喻', '寓言收束'],
+    styleRecommendation: 'Anime 3D',
+    shotCount: { min: 5, max: 8 },
+    colorPalette: 'forest emerald, fading autumn ochre, polluted gray-green tint',
+    tags: ['寓言', '哲思', '环保', '社会议题', '老少咸宜'],
+    recommendedDuration: 6,
+    recommendedAspect: '16:9',
+    recommendedCamera: 'arc',
+  },
+  {
+    id: 'food-vlog',
+    name: '美食 vlog',
+    nameEn: 'Food Vlog',
+    icon: '🍜',
+    category: '美食生活',
+    description: '一道菜,一段故事',
+    exampleIdea: '一位在大城市工作压力很大的年轻人,周末回到老家的乡下,跟着外婆学做一道她小时候最爱的红烧肉,从买菜 / 切配 / 慢炖 / 上桌的全过程中,慢慢理解了"家的味道"为什么是任何米其林都替代不了的',
+    structureHint: '第一幕:大城市快节奏 / 焦虑的对比镜头 → 决定回乡 → 抵达老家的"慢"瞬间(炊烟/灶台/外婆的笑);第二幕:做菜过程要详细到每一步 — 选肉 / 焯水 / 炒糖色 / 慢炖 / 收汁,每一步穿插一段外婆的回忆或主角小时候的闪回,把菜的工艺与情感绑死;第三幕:全家围坐吃饭,主角第一口的反应,简短的对话或独白点出"家的味道"主题,结尾留一个空盘子的特写。镜头多用近景特写 + 暖光,声音设计很重要(切菜声/油爆声/低语)。',
+    emotionCurve: '都市焦虑→归乡放松→工艺沉浸→情感涌现→温暖余韵',
+    keyElements: ['食材特写', '工艺过程', '回忆闪回', '家人对话', '空盘留白'],
+    styleRecommendation: 'Ghibli',
+    shotCount: { min: 6, max: 8 },
+    colorPalette: 'warm kitchen amber, steam haze, soy-glaze caramel, soft window daylight',
+    tags: ['美食', '治愈', '家庭', '乡村', '慢节奏'],
+    recommendedDuration: 6,
+    recommendedAspect: '16:9',
+    recommendedCamera: 'push-in',
+  },
+  {
+    id: 'music-video',
+    name: '音乐 MV',
+    nameEn: 'Music Video',
+    icon: '🎵',
+    category: '音乐 MV',
+    description: '画面跟着情绪走',
+    exampleIdea: '一首关于"出走"的轻摇滚单曲,画面跟随一个戴耳机的年轻人在夜晚的城市里漫无目的地走 / 跑 / 等地铁,随着歌词从迷茫 → 释怀 → 决断,画面色调与节奏不断变化,最终在天亮的瞬间他看向镜头微笑',
+    structureHint: '第一幕:第一段歌词对应"困住"的画面(密集人群/红绿灯/重复 motif),色调偏冷蓝,节奏切得相对慢;第二幕:副歌进入,画面开始大量运动镜头(奔跑/跳跃/街道流光),色调升温到琥珀,剪辑节奏与鼓点对齐,加入慢动作高光;第三幕:bridge → 末段副歌,画面回归宁静但色调温暖,主角的状态变化必须可见(姿态/眼神),最终镜头与歌词的最后一拍精准对位。MV 的核心是"视听节奏耦合",不强求叙事完整。',
+    emotionCurve: '困住→挣扎→突破→释放→坦然',
+    keyElements: ['节奏剪辑', '色调演进', '运动镜头', '视听对位', '终镜回望'],
+    styleRecommendation: 'Cinematic',
+    shotCount: { min: 8, max: 12 },
+    colorPalette: 'neon city blue, amber street lamp, dawn rose, music video saturated palette',
+    tags: ['音乐', 'MV', '风格化', '城市', '青年'],
+    recommendedDuration: 5,
+    recommendedAspect: '16:9',
+    recommendedCamera: 'whip-pan',
   },
 ];
 
