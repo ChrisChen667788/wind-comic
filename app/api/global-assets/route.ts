@@ -21,7 +21,7 @@ import type { GlobalAssetType } from '@/types/agents';
 
 export const runtime = 'nodejs';
 
-const VALID_TYPES: GlobalAssetType[] = ['character', 'scene', 'style', 'prop'];
+const VALID_TYPES: GlobalAssetType[] = ['character', 'scene', 'style', 'prop', 'template'];
 
 function resolveUserId(request: Request): string {
   const payload = getUserFromRequest(request);

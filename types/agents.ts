@@ -296,7 +296,8 @@ export interface ProjectOutputConfig {
 
 // ========== v2.0 新增：全局资产记忆库 ==========
 
-export type GlobalAssetType = 'character' | 'scene' | 'style' | 'prop';
+// v2.18 P1: 加 'template' — 用户克隆 / 自存的项目模板, 也走 global_assets 表 (跨项目复用)
+export type GlobalAssetType = 'character' | 'scene' | 'style' | 'prop' | 'template';
 
 export interface GlobalAsset {
   id: string;

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { CreationWorkspace } from '@/components/creation-workspace';
 import { useProjectWorkspaceStore } from '@/lib/store';
 import { AgentRole, type Project } from '@/types/agents';
-import { Wand2, Zap, Sparkles, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
+import { Wand2, Zap, Sparkles, Lightbulb } from 'lucide-react';
 import { validateIdea, sanitizeInput } from '@/lib/validation';
 import { useToast } from '@/components/ui/toast-provider';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
@@ -26,6 +26,8 @@ import { MovingBorderButton } from '@/components/cinema/effects';
 import { CameraLanguagePicker } from '@/components/create/camera-language-picker';
 import { ScriptDraftsCompare } from '@/components/create/script-drafts-compare';
 import { StyleLoraLibrary } from '@/components/create/style-lora-library';
+import { TemplateLibraryPicker } from '@/components/create/template-library-picker';
+import { PreviewShotModal } from '@/components/create/preview-shot-modal';
 import type { ScriptDraft } from '@/lib/script-drafts';
 
 // Pika-style art presets with visual indicators and color themes
@@ -67,7 +69,7 @@ export default function DashboardCreatePage() {
   const [videoProvider, setVideoProvider] = useState('veo');
   const [style, setStyle] = useState(stylePresets[0].en);
   const [selectedTemplate, setSelectedTemplate] = useState<StoryTemplate | null>(null);
-  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  // v2.18 P1: 模板展开 / 详情逻辑 已迁移到 <TemplateLibraryPicker> 内, 老 expandedTemplate 状态废弃
 
   // Vidu-style: pre-fill idea from URL query param (from cases page "用这个创作")
   useEffect(() => {
@@ -85,6 +87,8 @@ export default function DashboardCreatePage() {
   // v2.15 G9: 草稿数 (1=直接走 Writer; 2/3=先 hit /api/script-drafts 拿对比卡, 用户选完再走完整流程)
   const [draftCount, setDraftCount] = useState<1 | 2 | 3>(1);
   const [showDraftCompare, setShowDraftCompare] = useState(false);
+  // v2.18 P1.3: 试拍 1 镜端到端 modal
+  const [showPreview, setShowPreview] = useState(false);
   const [workspaceProject, setWorkspaceProject] = useState<Project | null>(null);
   const { showToast } = useToast();
 
@@ -541,6 +545,21 @@ export default function DashboardCreatePage() {
         />
       )}
 
+      {/* v2.18 P1.3: 试拍 modal — 1 镜端到端预览 */}
+      {showPreview && (
+        <PreviewShotModal
+          idea={idea}
+          style={style}
+          aspect={aspect}
+          videoToo={true}
+          onAccept={() => {
+            setShowPreview(false);
+            handleStartCreation();
+          }}
+          onCancel={() => setShowPreview(false)}
+        />
+      )}
+
       {/* ── 顶部:场记板 (Slate) 形式标题 + Action — 替代单调 h2 ── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start mb-6">
         <SlateCard
@@ -550,22 +569,34 @@ export default function DashboardCreatePage() {
           director="ChrisChen667788"
           notes="从一句创意到完整短剧 — 设定文本 · 角色 · 风格 · 时长后开机"
         />
-        <MovingBorderButton
-          onClick={handleStartCreation}
-          disabled={!isReady}
-          duration={3000}
-          containerClassName={`whitespace-nowrap ${
-            isReady
-              ? 'shadow-[0_6px_18px_-8px_rgba(201,163,94,0.55)]'
-              : 'opacity-40 cursor-not-allowed'
-          }`}
-          className={`cinema-btn cinema-btn-primary !px-6 !py-3 !text-[13px] whitespace-nowrap ${
-            !isReady ? 'opacity-100' : ''
-          }`}
-          title={isReady ? '进入创作工坊' : '至少输入 10 个字符'}
-        >
-          {isReady ? '▶  开机 · ROLL' : '✎  待输入创意'}
-        </MovingBorderButton>
+        <div className="flex flex-col gap-2 items-stretch sm:items-end">
+          {/* v2.18 P1.3: 试拍按钮 — 30-60s 出 1 镜让用户先看 vibe 再决定走全流程 */}
+          <button
+            onClick={() => setShowPreview(true)}
+            disabled={!isReady}
+            className="cinema-btn !px-4 !py-2 !text-[12px] inline-flex items-center justify-center gap-1.5 disabled:opacity-40 whitespace-nowrap"
+            title={isReady ? '生成 1 张图 + 5s 视频, 30-60s, 不消耗完整 pipeline 算力' : '至少输入 10 个字符'}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            🎬 试拍 1 镜
+          </button>
+          <MovingBorderButton
+            onClick={handleStartCreation}
+            disabled={!isReady}
+            duration={3000}
+            containerClassName={`whitespace-nowrap ${
+              isReady
+                ? 'shadow-[0_6px_18px_-8px_rgba(201,163,94,0.55)]'
+                : 'opacity-40 cursor-not-allowed'
+            }`}
+            className={`cinema-btn cinema-btn-primary !px-6 !py-3 !text-[13px] whitespace-nowrap ${
+              !isReady ? 'opacity-100' : ''
+            }`}
+            title={isReady ? '进入创作工坊' : '至少输入 10 个字符'}
+          >
+            {isReady ? '▶  开机 · ROLL' : '✎  待输入创意'}
+          </MovingBorderButton>
+        </div>
       </div>
 
       <FilmStripDivider label="ACT 1 · 创意 + 设定" />
@@ -588,69 +619,57 @@ export default function DashboardCreatePage() {
             />
           </label>
 
-          {/* Story Template shelf — cinema redesign */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Eyebrow>Genre · 故事模板</Eyebrow>
-              <span className="cinema-mono text-[10px] opacity-50">{storyTemplates.length} presets</span>
-            </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-2 custom-scrollbar -mx-1 px-1">
-              {storyTemplates.map((template, idx) => {
-                const isSelected = selectedTemplate?.id === template.id;
-                const isExpanded = expandedTemplate === template.id;
-                return (
-                  <div key={template.id} className="shrink-0 flex flex-col">
-                    <button
-                      onClick={() => handleSelectTemplate(template)}
-                      className={`w-[96px] overflow-hidden border text-left transition-colors ${
-                        isSelected
-                          ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]'
-                          : 'border-[var(--cinema-border)] bg-[var(--cinema-surface)] hover:border-[var(--cinema-amber-deep)]'
-                      }`}
-                      style={{ borderRadius: 4 }}
-                    >
-                      <div className="h-[58px] flex items-center justify-center text-2xl border-b border-[var(--cinema-border)]">
-                        {template.icon}
-                      </div>
-                      <div className="px-2 py-1.5 text-center">
-                        <div className="cinema-mono text-[8px] opacity-50 mb-0.5 tracking-widest">{String(idx + 1).padStart(2, '0')}</div>
-                        <div className="cinema-headline text-[11px] truncate">{template.name}</div>
-                        <div className="cinema-mono text-[8px] opacity-50 truncate mt-0.5">{template.nameEn}</div>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setExpandedTemplate(isExpanded ? null : template.id)}
-                      className="cinema-eyebrow mt-1 mx-auto hover:text-[var(--cinema-amber)] transition-colors flex items-center gap-0.5"
-                    >
-                      {isExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                      DETAIL
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Expanded template detail */}
-            {expandedTemplate && (() => {
-              const t = storyTemplates.find(x => x.id === expandedTemplate);
-              if (!t) return null;
-              return (
-                <div className="cinema-card-hi mt-2 p-3 space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">{t.icon}</span>
-                    <span className="cinema-headline text-sm">{t.name}</span>
-                    <span className="cinema-mono text-[10px] opacity-60">· {t.nameEn}</span>
-                  </div>
-                  <p className="cinema-subhead text-[11px] leading-relaxed opacity-85">{t.structureHint}</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {t.keyElements.map((el) => (
-                      <span key={el} className="cinema-chip cinema-chip-amber">{el}</span>
-                    ))}
-                  </div>
-                  <div className="cinema-mono text-[10px] opacity-60">EMOTION CURVE · {t.emotionCurve}</div>
-                </div>
-              );
-            })()}
-          </div>
+          {/* v2.18 P1: 模板库 — 搜索 / tag 筛选 / 个人模板 / 克隆 / 保存当前 集中入口 */}
+          <TemplateLibraryPicker
+            selectedId={selectedTemplate?.id || null}
+            onSelect={(t) => {
+              if (t === null) setSelectedTemplate(null);
+              else handleSelectTemplate(t);
+            }}
+            onSaveCurrentAsTemplate={async () => {
+              const trimmedIdea = idea.trim();
+              if (!trimmedIdea || trimmedIdea.length < 10) {
+                showToast({ title: '至少输入 10 字 idea 后才能存为模板', type: 'error' });
+                return;
+              }
+              const name = window.prompt('给这个模板起个名字 (≤40 字)', '我的模板');
+              if (!name?.trim()) return;
+              try {
+                const res = await fetch('/api/global-assets', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    type: 'template',
+                    name: name.trim().slice(0, 40),
+                    description: `自定义模板 · ${style} · ${duration} · ${aspect}`,
+                    metadata: {
+                      icon: '⭐',
+                      nameEn: 'Custom',
+                      exampleIdea: trimmedIdea,
+                      structureHint: '基于用户当前 idea 的自定义模板, 无预设结构提示, Director/Writer 按 idea 自由发挥',
+                      emotionCurve: '',
+                      keyElements: [],
+                      styleRecommendation: style,
+                      shotCount: { min: 4, max: 8 },
+                      colorPalette: '',
+                      tags: ['个人', style],
+                      recommendedDuration: parseInt(duration.replace(/[^\d]/g, '')) as 5 | 6 | 10 | 15,
+                      recommendedAspect: aspect as any,
+                      recommendedCamera: cameraDefault || undefined,
+                    },
+                  }),
+                });
+                if (!res.ok) {
+                  const body = await res.json().catch(() => ({}));
+                  showToast({ title: '保存失败: ' + (body.error || res.status), type: 'error' });
+                  return;
+                }
+                showToast({ title: `已保存模板「${name.trim()}」, 下次创作直接选`, type: 'success' });
+              } catch (e) {
+                showToast({ title: e instanceof Error ? e.message : '保存失败', type: 'error' });
+              }
+            }}
+          />
 
           {/* Style preset shelf — cinema redesign */}
           <div>

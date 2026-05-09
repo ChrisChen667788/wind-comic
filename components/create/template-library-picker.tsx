@@ -1,0 +1,452 @@
+'use client';
+
+/**
+ * components/create/template-library-picker (v2.18 P1.1 + P1.2)
+ *
+ * 替代 create 页原本的水平滚动模板架, 加:
+ *   - 顶部 tag chip 筛选 (基于所有 templates 的 category + tags 自动收集)
+ *   - 搜索框 (按名/类别/tag 全文匹配)
+ *   - 排序选项 (默认序 / 内置优先 / 个人优先)
+ *   - 个人模板与内置模板统一展示, 个人有 "PERSONAL" 标 + 删除按钮
+ *   - "克隆" 按钮: 把选中模板复制 + 加自定义后缀, 存入个人库 (/api/global-assets type='template')
+ *   - "保存当前为模板" 由父组件 (create page) 提供 (因为依赖当前 form 状态)
+ *
+ * 数据形态 (个人模板存进 global_assets.metadata):
+ *   {
+ *     baseTemplateId?: string,   // 克隆来源 (未来可显示来源链)
+ *     exampleIdea: string,
+ *     structureHint: string,
+ *     keyElements: string[],
+ *     styleRecommendation: string,
+ *     shotCount: { min, max },
+ *     colorPalette: string,
+ *     tags?: string[],
+ *     recommendedDuration?: 5|6|10|15,
+ *     recommendedAspect?: '16:9'|'9:16'|'1:1'|'2.35:1',
+ *     recommendedCamera?: string,
+ *   }
+ */
+
+import { useEffect, useMemo, useState } from 'react';
+import { Search, X, Trash2, Copy, User, Sparkles, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { storyTemplates, type StoryTemplate } from '@/lib/story-templates';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+
+interface PersonalTemplate extends StoryTemplate {
+  /** 由 global_assets.id 透出 — 用来 DELETE */
+  personalAssetId: string;
+  /** 标记 — UI 渲染 PERSONAL badge 用 */
+  isPersonal: true;
+}
+
+type AnyTemplate = StoryTemplate | PersonalTemplate;
+
+function isPersonal(t: AnyTemplate): t is PersonalTemplate {
+  return (t as any).isPersonal === true;
+}
+
+export interface TemplateLibraryPickerProps {
+  /** 当前选中的模板 id (null = 不选) */
+  selectedId: string | null;
+  /** 选模板/取消选 (传 null) — 父组件应该跑 handleSelectTemplate 自动填表单 */
+  onSelect: (template: StoryTemplate | null) => void;
+  /** 顶部右侧的 "保存当前为模板" 按钮渲染 — 由父组件用当前 form state 实现 */
+  onSaveCurrentAsTemplate?: () => Promise<void>;
+}
+
+export function TemplateLibraryPicker({
+  selectedId, onSelect, onSaveCurrentAsTemplate,
+}: TemplateLibraryPickerProps) {
+  const [search, setSearch] = useState('');
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+  const [sortMode, setSortMode] = useState<'default' | 'personal-first' | 'builtin-first'>('default');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [personalList, setPersonalList] = useState<PersonalTemplate[]>([]);
+  const [loadingPersonal, setLoadingPersonal] = useState(false);
+  const [cloneOpenForId, setCloneOpenForId] = useState<string | null>(null);
+  const [cloneName, setCloneName] = useState('');
+  const [savingClone, setSavingClone] = useState(false);
+
+  // 拉个人模板
+  const refreshPersonal = async () => {
+    setLoadingPersonal(true);
+    try {
+      const res = await fetch('/api/global-assets?type=template&limit=100');
+      const body = await res.json();
+      const assets = Array.isArray(body?.assets) ? body.assets : [];
+      setPersonalList(assets.map((a: any): PersonalTemplate => {
+        const m = a.metadata || {};
+        return {
+          id: `personal-${a.id}`,
+          personalAssetId: a.id,
+          isPersonal: true,
+          name: a.name,
+          nameEn: m.nameEn || a.name,
+          icon: m.icon || '⭐',
+          category: '个人模板',
+          description: a.description || '',
+          exampleIdea: m.exampleIdea || '',
+          structureHint: m.structureHint || '',
+          emotionCurve: m.emotionCurve || '',
+          keyElements: m.keyElements || [],
+          styleRecommendation: m.styleRecommendation || '',
+          shotCount: m.shotCount || { min: 4, max: 8 },
+          colorPalette: m.colorPalette || '',
+          tags: m.tags || [],
+          recommendedDuration: m.recommendedDuration,
+          recommendedAspect: m.recommendedAspect,
+          recommendedCamera: m.recommendedCamera,
+        };
+      }));
+    } catch (e) {
+      console.warn('[TemplateLibrary] list personal failed:', e);
+      setPersonalList([]);
+    } finally {
+      setLoadingPersonal(false);
+    }
+  };
+  useEffect(() => { refreshPersonal(); }, []);
+
+  // 把所有模板的 tags + categories 聚合成可筛选 chip
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of storyTemplates) {
+      if (t.category) set.add(t.category);
+      if (t.tags) t.tags.forEach((tag) => set.add(tag));
+    }
+    for (const t of personalList) {
+      if (t.tags) t.tags.forEach((tag) => set.add(tag));
+    }
+    return Array.from(set).sort();
+  }, [personalList]);
+
+  // 全部模板合并 + 筛选
+  const visibleTemplates = useMemo<AnyTemplate[]>(() => {
+    const merged: AnyTemplate[] = [...storyTemplates, ...personalList];
+    const q = search.trim().toLowerCase();
+    return merged
+      .filter((t) => {
+        if (q) {
+          const hay = (
+            t.name + ' ' + t.nameEn + ' ' + t.category + ' ' + (t.tags || []).join(' ') + ' ' + t.description
+          ).toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        if (activeTags.size > 0) {
+          const tHaystack = new Set([t.category, ...(t.tags || [])]);
+          for (const need of activeTags) {
+            if (!tHaystack.has(need)) return false;
+          }
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortMode === 'personal-first') {
+          return Number(isPersonal(b)) - Number(isPersonal(a));
+        }
+        if (sortMode === 'builtin-first') {
+          return Number(isPersonal(a)) - Number(isPersonal(b));
+        }
+        return 0;
+      });
+  }, [personalList, search, activeTags, sortMode]);
+
+  const toggleTag = (tag: string) => {
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
+  const handleClone = async (source: AnyTemplate) => {
+    const name = cloneName.trim() || `${source.name} (副本)`;
+    setSavingClone(true);
+    try {
+      const res = await fetch('/api/global-assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'template',
+          name,
+          description: source.description,
+          metadata: {
+            baseTemplateId: source.id,
+            nameEn: source.nameEn,
+            icon: source.icon,
+            exampleIdea: source.exampleIdea,
+            structureHint: source.structureHint,
+            emotionCurve: source.emotionCurve,
+            keyElements: source.keyElements,
+            styleRecommendation: source.styleRecommendation,
+            shotCount: source.shotCount,
+            colorPalette: source.colorPalette,
+            tags: source.tags,
+            recommendedDuration: source.recommendedDuration,
+            recommendedAspect: source.recommendedAspect,
+            recommendedCamera: source.recommendedCamera,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.warn('[TemplateLibrary] clone failed:', body.error);
+        return;
+      }
+      setCloneOpenForId(null);
+      setCloneName('');
+      await refreshPersonal();
+    } finally {
+      setSavingClone(false);
+    }
+  };
+
+  const handleDeletePersonal = async (t: PersonalTemplate) => {
+    if (!confirm(`删除个人模板 "${t.name}" ?`)) return;
+    try {
+      await fetch(`/api/global-assets/${encodeURIComponent(t.personalAssetId)}`, { method: 'DELETE' });
+      if (selectedId === t.id) onSelect(null);
+      await refreshPersonal();
+    } catch (e) {
+      console.warn('[TemplateLibrary] delete failed:', e);
+    }
+  };
+
+  const expandedTemplate = visibleTemplates.find((t) => t.id === expandedId);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="cinema-eyebrow">Genre · 故事模板库</span>
+        <span className="cinema-mono text-[10px] opacity-50">
+          {storyTemplates.length} 内置 · {personalList.length} 个人 · 当前显示 {visibleTemplates.length}
+        </span>
+      </div>
+
+      {/* 工具条: 搜索 + 标签 popover + 排序 + 保存当前 */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 opacity-50" />
+          <input
+            type="text"
+            placeholder="搜模板名 / 标签 / 类别"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-7 pr-7 py-1.5 cinema-mono text-[11px] bg-[var(--cinema-surface-2)] border border-[var(--cinema-border)] rounded focus:outline-none focus:border-[var(--cinema-amber)]"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={`cinema-btn !px-2.5 !py-1 !text-[11px] inline-flex items-center gap-1 ${
+                activeTags.size > 0 ? 'cinema-btn-primary' : ''
+              }`}
+              title="按标签筛选"
+            >
+              <Filter className="w-3 h-3" />
+              筛选 {activeTags.size > 0 && `(${activeTags.size})`}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72 max-h-80 overflow-y-auto">
+            <div className="cinema-mono text-[10px] tracking-widest opacity-60 mb-2">
+              FILTER · 选 1 个或多个 (AND)
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {allTags.map((tag) => {
+                const active = activeTags.has(tag);
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className={`cinema-btn !px-2 !py-0.5 !text-[10px] ${active ? 'cinema-btn-primary' : ''}`}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+            {activeTags.size > 0 && (
+              <button
+                onClick={() => setActiveTags(new Set())}
+                className="cinema-mono text-[10px] mt-2 opacity-60 hover:opacity-100"
+              >
+                清空筛选
+              </button>
+            )}
+          </PopoverContent>
+        </Popover>
+
+        <select
+          value={sortMode}
+          onChange={(e) => setSortMode(e.target.value as any)}
+          className="cinema-mono text-[10px] bg-[var(--cinema-surface-2)] border border-[var(--cinema-border)] rounded px-2 py-1 focus:outline-none focus:border-[var(--cinema-amber)]"
+          title="排序"
+        >
+          <option value="default">默认顺序</option>
+          <option value="personal-first">个人优先</option>
+          <option value="builtin-first">内置优先</option>
+        </select>
+
+        {onSaveCurrentAsTemplate && (
+          <button
+            type="button"
+            onClick={() => onSaveCurrentAsTemplate()}
+            className="cinema-btn !px-2.5 !py-1 !text-[11px] inline-flex items-center gap-1"
+            title="把当前选定的画风 + idea + 镜头设置存为个人模板"
+          >
+            <Sparkles className="w-3 h-3" />
+            存为模板
+          </button>
+        )}
+      </div>
+
+      {/* 模板网格 */}
+      {visibleTemplates.length === 0 ? (
+        <div className="cinema-mono text-[11px] opacity-50 py-4 text-center">
+          没有匹配的模板。{search && '试着清空搜索'}{activeTags.size > 0 && '/筛选'}。
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 max-h-[280px] overflow-y-auto custom-scrollbar -mx-1 px-1 pb-1">
+          {visibleTemplates.map((template) => {
+            const isSelected = selectedId === template.id;
+            const personal = isPersonal(template);
+            return (
+              <div key={template.id} className="flex flex-col">
+                <button
+                  onClick={() => onSelect(isSelected ? null : (template as StoryTemplate))}
+                  className={`overflow-hidden border text-left transition-colors relative ${
+                    isSelected
+                      ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]'
+                      : 'border-[var(--cinema-border)] bg-[var(--cinema-surface)] hover:border-[var(--cinema-amber-deep)]'
+                  }`}
+                  style={{ borderRadius: 4 }}
+                >
+                  {personal && (
+                    <span className="absolute top-1 right-1 cinema-mono text-[8px] tracking-widest bg-[var(--cinema-amber)] text-black px-1 rounded">
+                      MY
+                    </span>
+                  )}
+                  <div className="h-[52px] flex items-center justify-center text-2xl border-b border-[var(--cinema-border)]">
+                    {template.icon}
+                  </div>
+                  <div className="px-1.5 py-1 text-center">
+                    <div className="cinema-headline text-[11px] truncate">{template.name}</div>
+                    <div className="cinema-mono text-[8px] opacity-50 truncate mt-0.5">{template.nameEn}</div>
+                  </div>
+                </button>
+                <div className="flex items-center justify-center gap-1 mt-1">
+                  <button
+                    onClick={() => setExpandedId(expandedId === template.id ? null : template.id)}
+                    className="cinema-eyebrow hover:text-[var(--cinema-amber)] transition-colors flex items-center gap-0.5"
+                    title="展开详情"
+                  >
+                    {expandedId === template.id ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                    详情
+                  </button>
+                  <Popover open={cloneOpenForId === template.id} onOpenChange={(o) => {
+                    setCloneOpenForId(o ? template.id : null);
+                    if (o) setCloneName(`${template.name} (副本)`);
+                  }}>
+                    <PopoverTrigger asChild>
+                      <button
+                        className="cinema-eyebrow hover:text-[var(--cinema-amber)] transition-colors flex items-center gap-0.5"
+                        title="克隆为我的模板"
+                      >
+                        <Copy className="w-2.5 h-2.5" />
+                        克隆
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="center" className="w-64 space-y-2">
+                      <div className="cinema-mono text-[10px] tracking-widest opacity-60">CLONE TEMPLATE</div>
+                      <input
+                        autoFocus
+                        type="text"
+                        value={cloneName}
+                        onChange={(e) => setCloneName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleClone(template); }}
+                        maxLength={40}
+                        className="w-full px-2 py-1.5 bg-[var(--cinema-surface-2)] border border-[var(--cinema-border)] rounded text-sm focus:outline-none focus:border-[var(--cinema-amber)]"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCloneOpenForId(null)}
+                          className="cinema-btn !px-3 !py-1 !text-[11px] flex-1"
+                        >
+                          取消
+                        </button>
+                        <button
+                          onClick={() => handleClone(template)}
+                          disabled={!cloneName.trim() || savingClone}
+                          className="cinema-btn cinema-btn-primary !px-3 !py-1 !text-[11px] flex-1 disabled:opacity-40"
+                        >
+                          {savingClone ? '保存中…' : '保存到我的库'}
+                        </button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  {personal && (
+                    <button
+                      onClick={() => handleDeletePersonal(template as PersonalTemplate)}
+                      className="cinema-eyebrow hover:text-[var(--cinema-red)] transition-colors flex items-center gap-0.5"
+                      title="删除"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 展开详情 */}
+      {expandedTemplate && (
+        <div className="cinema-card-hi mt-2 p-3 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">{expandedTemplate.icon}</span>
+            <span className="cinema-headline text-sm">{expandedTemplate.name}</span>
+            <span className="cinema-mono text-[10px] opacity-60">· {expandedTemplate.nameEn}</span>
+            {isPersonal(expandedTemplate) && (
+              <span className="cinema-mono text-[9px] tracking-widest bg-[var(--cinema-amber)] text-black px-1 rounded">
+                <User className="w-2.5 h-2.5 inline mr-0.5" />
+                PERSONAL
+              </span>
+            )}
+          </div>
+          <p className="cinema-subhead text-[11px] leading-relaxed opacity-85">{expandedTemplate.structureHint}</p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {(expandedTemplate.keyElements || []).map((el) => (
+              <span key={el} className="cinema-chip cinema-chip-amber">{el}</span>
+            ))}
+          </div>
+          <div className="cinema-mono text-[10px] opacity-60">EMOTION CURVE · {expandedTemplate.emotionCurve}</div>
+          {expandedTemplate.tags && expandedTemplate.tags.length > 0 && (
+            <div className="cinema-mono text-[10px] opacity-60">
+              TAGS · {expandedTemplate.tags.join(' · ')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {loadingPersonal && (
+        <div className="cinema-mono text-[10px] opacity-40 mt-1">加载个人模板…</div>
+      )}
+    </div>
+  );
+}

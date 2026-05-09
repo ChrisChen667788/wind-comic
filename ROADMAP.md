@@ -430,11 +430,14 @@
 - ✅ 用户敲一句"一个剑客" → idea normalizer 自动扩成"唐朝长安少年剑客 + 复仇主线 + 关键转折", Director/Writer 拿到的 prompt 质量显著提升
 - ✅ 全套 743/743 vitest, tsc 0 错误, 0 新依赖
 
-### v2.18 P1 待跟(下次)
-- 模板"克隆"功能 — 选已有模板基础上微调后另存为新模板
-- 用户保存自己的项目作为个人模板 (复用 global_assets type='style' / type='template' 表)
-- "试拍" 模式 — 1 镜端到端 (15s) 让用户先确认风格再走完整 pipeline
-- 模板检索 / 标签筛选 UI (现在是平铺列表, 18 个开始多了)
+### v2.18 P1 已交付 ✅ 2026-05-10 (commit `<TBD>`)
+- ✅ **P1.1 + P1.2 模板库 + 个人模板** — `<TemplateLibraryPicker>` 替代原平铺架: 标签 popover 筛选 (AND) + 实时搜索 + 排序 (默认/个人优先/内置优先) + 18 内置 + N 个人模板统一展示;每个模板都有"克隆"按钮(弹 Popover 取名后 POST `/api/global-assets {type:'template'}`);"保存当前为模板"按钮把当前 idea + style + duration + aspect + cameraDefault 一键存为个人模板。`GlobalAssetType` enum 加 `'template'`,无新表
+- ✅ **P1.3 试拍 1 镜端到端** — 新路由 `POST /api/preview-shot {idea, style?, aspect?, videoToo?}`,30-60s 出 1 张 MJ 图 + (可选) 5s Minimax I2V 视频,**不持久化、不创项目、不走完整 8-agent 编排**;`<PreviewShotModal>` 弹窗显示结果,3 个决断: "用这个走全流程" / "再试一次" / "放弃";Minimax 失败 fallback 到只返图 + warning;create 页 ROLL 旁边加 "🎬 试拍 1 镜" CTA,信息密度 + 信心都比"猜"强
+
+### v2.18 P2 待跟(下下次)
+- 试拍模式接 plan-gate (现在不挡免费用户, 但每次烧 ~¥0.5; 大量调用需限流)
+- 试拍记录入个人"试拍历史" — 让用户看自己之前试过什么风格
+- 模板批量导出 / 分享链接 (个人模板 → 公开链接 → 其他用户克隆)
 
 ---
 
