@@ -3267,13 +3267,63 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           console.warn('[Editor] Music visual anchor failed:', e instanceof Error ? e.message : e);
         }
 
-        // v2.14 P1.2: BGM 时长上限从 60s 提到 120s (匹配 Minimax music-2.6 API 上限)。
-        // 即便用户挑 15s × 6 镜 = 90s 总长, BGM 也能一次生成够长的, 不再依赖 ffmpeg loop。
-        // 当总时长仍超 120s (极端: 15s × 12 镜 = 180s), composer 的 aloop 会接力补齐, 不会有静音空白。
-        musicUrl = await this.minimaxService.generateMusic(musicPrompt, {
-          duration: Math.min(totalDuration, 120),
-          style: genre,
-        });
+        // v2.16 P1.1: 长视频 (>30s 且 shots 标了 act 字段) 改成按幕切分 — Act 1 平静 / Act 2 紧张 / Act 3 释放。
+        // 解决 v2.14 P1.2 修复后还存在的"全程一段 BGM 循环听腻"问题, 同时给观众 act-transition 的声音线索。
+        // 短视频 (<30s) 或 shots 没标 act → 走原 single-segment 路径。
+        const { computeActDurations, moodPromptForAct, concatActBgms } =
+          await import('@/lib/bgm-multi-act');
+        const actDurations = computeActDurations(
+          (timeline as any[]).map((t) => ({ duration: t.duration, act: t.act ?? null })),
+        );
+        const useMultiAct = actDurations.canSplit && totalDuration >= 30;
+
+        if (useMultiAct) {
+          this.emit('agentTalk', {
+            role: AgentRole.EDITOR,
+            text: `三幕结构: 分别生成 Act 1 (${actDurations.act1}s) / Act 2 (${actDurations.act2}s) / Act 3 (${actDurations.act3}s) 配乐 🎵×3`,
+          });
+          try {
+            const [a1, a2, a3] = await Promise.all([
+              this.minimaxService.generateMusic(
+                moodPromptForAct(1, dominantEmotion, genre),
+                { duration: Math.min(actDurations.act1, 120), style: genre },
+              ),
+              this.minimaxService.generateMusic(
+                moodPromptForAct(2, dominantEmotion, genre),
+                { duration: Math.min(actDurations.act2, 120), style: genre },
+              ),
+              this.minimaxService.generateMusic(
+                moodPromptForAct(3, dominantEmotion, genre),
+                { duration: Math.min(actDurations.act3, 120), style: genre },
+              ),
+            ]);
+            const concatPath = await concatActBgms([
+              { url: a1, durationSec: actDurations.act1, act: 1 },
+              { url: a2, durationSec: actDurations.act2, act: 2 },
+              { url: a3, durationSec: actDurations.act3, act: 3 },
+            ]);
+            // composer 接受任何 http URL 或者 fs path; 用 file:// 形式包装一下
+            // 实际 composer 的 downloadFile 会判断 https? 协议, 非 http 走 fs.copyFileSync
+            // 这里直接 serve-file 形式让 composer 走文件路径
+            musicUrl = `/api/serve-file?path=${encodeURIComponent(concatPath)}`;
+            console.log(`[Editor] Multi-act BGM done: ${concatPath}`);
+            this.emit('agentTalk', { role: AgentRole.EDITOR, text: '🎵 三幕配乐拼接完成!' });
+          } catch (e) {
+            // 三幕生成或拼接失败 → 退回 single-segment 路径
+            console.warn('[Editor] Multi-act BGM failed, fallback to single segment:', e instanceof Error ? e.message : e);
+            this.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 三幕配乐失败, 退回单段 BGM` });
+            musicUrl = await this.minimaxService.generateMusic(musicPrompt, {
+              duration: Math.min(totalDuration, 120),
+              style: genre,
+            });
+          }
+        } else {
+          // 短视频或 act 未标 → 单段 BGM (v2.14 P1.2 路径)
+          musicUrl = await this.minimaxService.generateMusic(musicPrompt, {
+            duration: Math.min(totalDuration, 120),
+            style: genre,
+          });
+        }
 
         console.log(`[Editor] Music generated: ${musicUrl.slice(0, 80)}...`);
         this.emit('agentTalk', { role: AgentRole.EDITOR, text: '🎵 配乐生成完成！' });

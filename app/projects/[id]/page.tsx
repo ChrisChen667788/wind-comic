@@ -14,6 +14,7 @@ import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
 import { Eyebrow, TimecodeChip, FilmStripDivider } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
+import { ShotWorkshopTab } from '@/components/project/shot-workshop-tab';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -179,6 +180,8 @@ export default function ProjectDetailPage() {
     { key: 'scenes', label: '场景', icon: Mountain, count: scenes.length },
     { key: 'storyboard', label: '分镜', icon: Film, count: storyboards.length },
     { key: 'videos', label: '视频', icon: Video, count: videos.length },
+    // v2.16 P1.4: 镜头工坊 — 4K 重渲 / 首尾帧 / 多分辨率导出 集中入口
+    { key: 'workshop', label: '镜头工坊', icon: Scissors, count: videos.length },
     { key: 'play', label: '完整播放', icon: Play, count: 0 },
   ];
 
@@ -545,6 +548,23 @@ export default function ProjectDetailPage() {
                 );
               })}
             </div>
+          )}
+
+          {/* v2.16 P1.4: 镜头工坊 — 4K 重渲 / 多分辨率导出 / 跳到 U2V 工具 */}
+          {activeTab === 'workshop' && (
+            <ShotWorkshopTab
+              projectId={id}
+              videos={videos.map((v: any) => ({
+                shotNumber: v.shotNumber || v.shot_number,
+                videoUrl: v.mediaUrls?.[0] || v.media_urls?.[0],
+                imageUrl: v.mediaUrls?.[0],
+                meta: v.data || v.meta,
+              }))}
+              storyboards={storyboards.map((s: any) => ({
+                shotNumber: s.shotNumber || s.shot_number,
+                imageUrl: s.imageUrl || s.mediaUrls?.[0],
+              }))}
+            />
           )}
 
           {/* 完整播放 */}

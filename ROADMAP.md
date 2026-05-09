@@ -356,10 +356,16 @@
 - ✅ 全套测试 660/660 (新增 35 用例: 16 plan-gate 矩阵 + 11 transcode helper + 1 FLF plan-gate + 7 等)
 - ✅ tsc --noEmit 0 错误, 0 新依赖 (复用现有 fluent-ffmpeg + ffmpeg-static + shadcn Popover)
 
-### v2.16 P1 待跟(下次 sprint)
-- 镜头工坊 tab 重构(把 P0.2 的 camera picker / FLF 上传整合进项目页 tab, dashboard/create 只放预设)
-- 真 4K Kling 3.0 Master 重新渲染(本次只是 ffmpeg 上采样;真 4K 需要 per-shot Kling re-gen, 1 周工作量)
-- 完成 staging Kling FLF 真打验证 (TODO-CARRYOVERS #1)
+### v2.16 P1 已交付 ✅ 2026-05-04 (commit `<TBD>`)
+- ✅ **P1.1 BGM 按幕切风格** — `lib/bgm-multi-act.ts` 新建, orchestrator 在 30s+ 视频且 ≥50% shots 标了 act 时切 3 段 (Act 1 平静 / Act 2 紧张 / Act 3 释放) 并发生成, ffmpeg concat demuxer (`-c copy` 不重 encode) 拼接, 失败 fallback 到 single-segment; composer 主路径 + concatVideosSimple 兜底路径都加上对 `/api/serve-file?path=...` 形式 BGM 的支持
+- ✅ **P1.2 chip picker 视觉打磨** — create 页 CameraLanguagePicker + StyleLoraLibrary 都包到 `cinema-card-hi p-3` 容器, 视觉与周围 ACT 2 卡对齐
+- ✅ **P1.3 真 4K Kling Master 重渲框架** — `KlingService.regenerateShotAt4K()` 走 mode='professional' + `resolution='4k'` (env `KELING_4K_MODEL` 可覆盖模型名等 Kling 3.0 GA); 新 SSE 路由 `/api/projects/[id]/regenerate-shot-4k` plan-gate pro+, 进度流 + 持久化覆盖该镜 video 资产 + 标记 `quality=4k`
+- ✅ **P1.4 镜头工坊 tab** — 新组件 `<ShotWorkshopTab>`, 项目页加 `workshop` tab, 集中: per-shot 4K 重渲按钮 (带 plan-gate 锁标 + SSE 进度条) + ExportResolutionDropdown + U2V 工具入口
+
+### v2.16 真正待跟(等外部依赖)
+- staging Kling FLF + 4K Master 真打 — 等真 KELING_API_KEY (TODO-CARRYOVERS #1)
+- v2.15 G6 lip-sync — Kling lip-sync API 接入 (等 FLF 验证后)
+- v2.15 G5 音视频一体 — Vidu Q3 Pro (等真 Vidu key)
 
 ---
 

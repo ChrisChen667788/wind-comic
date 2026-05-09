@@ -758,19 +758,23 @@ export default function DashboardCreatePage() {
             </div>
           </div>
 
-          {/* v2.14 P1.1: 全局默认镜头语言 — 让所有镜头都吃这个运镜风格作为默认值 */}
-          <CameraLanguagePicker value={cameraDefault} onChange={setCameraDefault} />
+          {/* v2.14 P1.1 + v2.16 P1.2: 全局默认镜头语言 — 包到 cinema-card-hi 与周围 cards 视觉对齐 */}
+          <div className="cinema-card-hi p-3">
+            <CameraLanguagePicker value={cameraDefault} onChange={setCameraDefault} />
+          </div>
 
-          {/* v2.15 G8: 我的风格库 — 一键存/取/删 (style + cameraDefault) 风格指纹 */}
-          <StyleLoraLibrary
-            currentStyle={style}
-            currentCameraDefault={cameraDefault}
-            onApply={(applied) => {
-              if (applied.stylePreset) setStyle(applied.stylePreset);
-              setCameraDefault(applied.cameraDefault);
-              showToast({ title: `已应用风格: ${applied.stylePreset || ''}`, type: 'success' });
-            }}
-          />
+          {/* v2.15 G8 + v2.16 P1.2: 我的风格库 — 同款卡片包装 */}
+          <div className="cinema-card-hi p-3">
+            <StyleLoraLibrary
+              currentStyle={style}
+              currentCameraDefault={cameraDefault}
+              onApply={(applied) => {
+                if (applied.stylePreset) setStyle(applied.stylePreset);
+                setCameraDefault(applied.cameraDefault);
+                showToast({ title: `已应用风格: ${applied.stylePreset || ''}`, type: 'success' });
+              }}
+            />
+          </div>
 
           {/* v2.15 G9: 草稿数 — 1=直跑, 2/3=先弹对比卡 */}
           <div>

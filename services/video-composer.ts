@@ -440,8 +440,10 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   onProgress?.(40, '构建合成滤镜...');
 
   // 4. 下载配乐（如果有）
+  // v2.16 P1.1: 同时支持 http URL 和内部 /api/serve-file?path=... (后者来自 BGM 三幕拼接产物);
+  // downloadFile 函数自身已支持这两种 URL 形态 (见 line 208-216)
   let localMusicPath = '';
-  if (musicUrl && musicUrl.startsWith('http')) {
+  if (musicUrl && (musicUrl.startsWith('http') || musicUrl.startsWith('/api/serve-file'))) {
     localMusicPath = path.join(tmpDir, 'music.mp3');
     try {
       await downloadFile(musicUrl, localMusicPath);
@@ -1021,8 +1023,9 @@ export async function concatVideosSimple(
   const outputPath = path.join(tmpDir, `concat-${Date.now()}.mp4`);
 
   // 先下载 BGM (如提供)
+  // v2.16 P1.1: 同时支持 http URL 和内部 /api/serve-file 路径 (BGM 三幕拼接产物)
   let localMusicPath = '';
-  if (musicUrl && /^https?:/.test(musicUrl)) {
+  if (musicUrl && (/^https?:/.test(musicUrl) || musicUrl.startsWith('/api/serve-file'))) {
     localMusicPath = path.join(tmpDir, 'bgm.mp3');
     try { await downloadFile(musicUrl, localMusicPath); }
     catch (e) {

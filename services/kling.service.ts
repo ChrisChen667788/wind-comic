@@ -160,6 +160,75 @@ export class KlingService {
   }
 
   /**
+   * v2.16 P1.3: 真 4K Kling Master per-shot 重渲。
+   *
+   * Kling Master (kling-v1-6 + mode='professional') 输出 1080p+ 高质量, 单
+   * 镜头 60-90s。我们在 export 路由 ffmpeg lanczos 上采样到 2160p (P0.2),
+   * 这条路是"真 4K 源"路径 — 直接让 Kling 重新出一段, 而不是后期上采样。
+   *
+   * 当前 Kling 公开 API 只到 1080p (kling-v1-6), 真 2160p 要等 Kling 3.0
+   * 公开。这里先做"切成更高规格的重渲", 拿 1080p 源再后期 lanczos 到 2160p,
+   * 视觉质量已经超过单纯 lanczos from 720p。
+   *
+   * 失败语义: throw, 调用方 (路由层) catch 后写 audioWarning 让用户知道。
+   */
+  async regenerateShotAt4K(
+    firstFrameUrl: string,
+    prompt: string,
+    options?: {
+      duration?: number;
+      onProgress?: ProgressCallback;
+    },
+  ): Promise<string> {
+    if (!this.apiKey || this.apiKey.startsWith('your_')) {
+      throw new Error('KELING_API_KEY is not configured (4K re-render requires Kling Master access)');
+    }
+    if (!firstFrameUrl || firstFrameUrl.startsWith('data:')) {
+      throw new Error('regenerateShotAt4K: 需要 http URL 形式的首帧, 不接受 data URI');
+    }
+
+    const body: Record<string, any> = {
+      // v2.16: 默认 v1-6 (写死, 等 Kling 3.0 GA 时调成 'kling-v1-6-master');
+      // 通过 env KELING_4K_MODEL 覆盖, 让运维能配置而不改代码
+      model_name: process.env.KELING_4K_MODEL || 'kling-v1-6',
+      prompt,
+      mode: 'professional',  // 4K 必须 professional 档
+      duration: String(Math.min(options?.duration || 5, 10)),
+      image: firstFrameUrl,
+      // 期望分辨率 (kling 当前最高 1080p, 真 4K 等 master 上线; 多传一个字段不会出错)
+      resolution: '4k',
+    };
+
+    console.log(`[Kling-4K] 重渲分镜 prompt=${prompt.slice(0, 80)}...`);
+
+    const response = await fetchWithTimeout(
+      `${this.baseURL}/v1/videos/image2video`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      },
+      30_000,
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Kling 4K API error (${response.status}): ${error.slice(0, 500)}`);
+    }
+
+    const data = await response.json();
+    const taskId = data.data?.task_id || data.task_id || data.id;
+    if (!taskId) {
+      throw new Error(`Kling 4K: no task_id in response: ${JSON.stringify(data).slice(0, 300)}`);
+    }
+    console.log(`[Kling-4K] Task created: ${taskId}`);
+    return await this.pollResult(taskId, 180, options?.onProgress); // 4K 渲染慢, 给 15min
+  }
+
+  /**
    * Generate image from text (可灵图像生成)
    */
   async generateImage(prompt: string, options?: {
