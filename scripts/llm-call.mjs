@@ -46,7 +46,10 @@ process.stdin.on('end', async () => {
 
     const data = await resp.json();
     const content = data?.choices?.[0]?.message?.content || '';
-    process.stdout.write(JSON.stringify({ ok: true, content, elapsed }));
+    // v2.18.2: forward finish_reason — orchestrator 用它侦测截断 ('length' 表示撞 maxTokens)
+    const finishReason = data?.choices?.[0]?.finish_reason || '';
+    const usage = data?.usage || null;
+    process.stdout.write(JSON.stringify({ ok: true, content, elapsed, finishReason, usage }));
     process.exit(0);
   } catch (e) {
     const msg = e?.name === 'AbortError' ? 'timeout' : (e?.message || String(e));

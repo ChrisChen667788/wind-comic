@@ -574,12 +574,17 @@ export class HybridOrchestrator {
 
   // ── Claude LLM 调用（带超时和心跳）──
   // 关键修复: 使用子进程运行 LLM 调用，绕过 Next.js Turbopack 运行时的 fetch 阻塞问题
-  private async callLLM(systemPrompt: string, userMessage: string, json = true, useCreativeModel = false): Promise<string> {
+  private async callLLM(systemPrompt: string, userMessage: string, json = true, useCreativeModel = false, opts?: { maxTokens?: number }): Promise<string> {
     if (!API_CONFIG.openai.apiKey) return '';
 
     const model = useCreativeModel ? API_CONFIG.openai.creativeModel : API_CONFIG.openai.model;
     const callId = `llm-${Date.now()}`;
-    console.log(`[LLM:${callId}] 开始调用 | model=${model} | system=${systemPrompt.length}chars, user=${userMessage.length}chars, json=${json}`);
+    // v2.18.2: maxTokens 默认从 4096 提到 8192 — 之前 Director / Writer 输出固定在
+    // ~6000 chars (≈4000 中文 tokens) 处被截断 mid-string, JSON 解析必败 → fallback 占位.
+    // 8192 tokens ≈ 5000-7000 中文 chars 输出, 够 5-8 镜剧本 + 完整 character/scene 数组.
+    // 调用方可用 opts.maxTokens 覆盖 (例如 storyboard 单 prompt 短可以 4096).
+    const maxTokens = opts?.maxTokens ?? 8192;
+    console.log(`[LLM:${callId}] 开始调用 | model=${model} | system=${systemPrompt.length}chars, user=${userMessage.length}chars, json=${json}, maxTokens=${maxTokens}`);
 
     // 心跳：每 8 秒发一次进度
     const heartbeat = setInterval(() => {
@@ -612,7 +617,7 @@ export class HybridOrchestrator {
         model,
         system: finalSystem,
         user: finalUser,
-        maxTokens: 4096,
+        maxTokens,
         timeout: LLM_TIMEOUT,
       });
 
@@ -670,7 +675,8 @@ export class HybridOrchestrator {
       }
 
       let content = parsed.content || '';
-      console.log(`[LLM:${callId}] ✅ 完成 | ${elapsed}s | 响应=${content.length}chars`);
+      const finishReason = parsed.finishReason || parsed.finish_reason || '';
+      console.log(`[LLM:${callId}] ✅ 完成 | ${elapsed}s | 响应=${content.length}chars | finish=${finishReason}`);
 
       // 清理 markdown 代码块包裹
       if (json && content) {
@@ -678,6 +684,19 @@ export class HybridOrchestrator {
         content = content.replace(/^```(?:json)?\s*\n?/, '');
         content = content.replace(/\n?\s*```\s*$/, '');
         content = content.trim();
+      }
+
+      // v2.18.2: 截断侦测 — finishReason='length' = OpenAI 明确告诉我们 maxTokens 撞顶
+      // 或 json 模式下尾部不是 } / ] (说明 LLM 输出被打断在 mid-string)
+      if (json && content) {
+        const lastChar = content.trim().slice(-1);
+        const looksTruncated =
+          finishReason === 'length' ||
+          (lastChar !== '}' && lastChar !== ']');
+        if (looksTruncated) {
+          console.warn(`[LLM:${callId}] ⚠️ 输出疑似被截断 (finish=${finishReason}, lastChar="${lastChar}", len=${content.length}). ` +
+            `调用方需要预备 robustJsonParse 兜底. 如频繁出现请进一步提 maxTokens.`);
+        }
       }
 
       return content;
@@ -939,7 +958,15 @@ export class HybridOrchestrator {
         // 在中文长字段里塞裸 \n / 用全角引号 而炸, 落到 fallback Director plan 出占位内容。
         const parsed = robustJsonParse(raw);
         if (!parsed || typeof parsed !== 'object') {
-          throw new Error(`robustJsonParse 也无法解析 LLM 输出 (raw=${raw.length} chars, head="${raw.slice(0, 80)}...")`);
+          // v2.18.2: dump raw 到 tmp 文件方便排查 — 不阻塞流程
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const tmpFile = path.join('/tmp', `llm-fail-director-${Date.now()}.txt`);
+            fs.writeFileSync(tmpFile, raw);
+            console.error(`[Director] raw 输出已 dump 到 ${tmpFile} (用 cat 查看完整内容)`);
+          } catch { /* swallow */ }
+          throw new Error(`robustJsonParse 也无法解析 LLM 输出 (raw=${raw.length} chars, head="${raw.slice(0, 80)}...", tail="${raw.slice(-80)}")`);
         }
         plan = parsed as DirectorPlan;
         // 仅当用户未选定画风时，才使用 LLM 返回的风格
@@ -1384,7 +1411,15 @@ export class HybridOrchestrator {
         // LLM 在中文长字段塞裸 \n / 用全角引号 而炸 → 走 fallback 出 "镜头N" 占位.
         const parsedScript = robustJsonParse(raw);
         if (!parsedScript || typeof parsedScript !== 'object') {
-          throw new Error(`Writer: robustJsonParse 也无法解析 (raw=${raw.length} chars)`);
+          // v2.18.2: dump raw 方便排查
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const tmpFile = path.join('/tmp', `llm-fail-writer-${Date.now()}.txt`);
+            fs.writeFileSync(tmpFile, raw);
+            console.error(`[Writer] raw 输出已 dump 到 ${tmpFile}`);
+          } catch { /* swallow */ }
+          throw new Error(`Writer: robustJsonParse 也无法解析 (raw=${raw.length} chars, tail="${raw.slice(-100)}")`);
         }
         script = parsedScript as Script;
 
