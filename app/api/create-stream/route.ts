@@ -33,16 +33,21 @@ export async function POST(request: NextRequest) {
     console.log(`[create-stream] idea LLM-expanded: "${rawIdea.slice(0, 60)}..." → "${normalized.normalized.slice(0, 60)}..."`);
   }
 
-  // v2.18.1: thin-idea guard — normalize 后仍 < 30 字 AND 没明确题材线索 → 直接 400
-  // 防止下游 Director / Writer 拿到"一部3D国创风格的AI漫剧短片"这种 18 字的占位输入产出
-  // "镜头 1/2/3/4" 占位剧本 (LLM JSON 又恰好炸 → fallback)。
+  // v2.18.1: thin-idea guard — 拒绝几乎肯定会产出占位内容的输入
+  //   - < 10 字 → 一票否决 (任何 LLM 也救不动 2-9 字的 idea)
+  //   - 10-30 字且没识别出题材 → 拒绝, 让用户补线索
+  // (有 genre 信号的 30+ 字 / 30+ 字无 genre 都允许 — 给 LLM 充分发挥)
   const finalIdea = (normalized.normalized || rawIdea).trim();
-  if (finalIdea.length < 30 && normalized.detectedGenres.length === 0) {
+  const hardTooShort = finalIdea.length < 10;
+  const softThin = finalIdea.length < 30 && normalized.detectedGenres.length === 0;
+  if (hardTooShort || softThin) {
+    const reason = hardTooShort
+      ? `创意只有 ${finalIdea.length} 字 — 即使是题材关键词也至少需要 10 字才能构成完整意图`
+      : `创意 ${finalIdea.length} 字且没识别出题材线索, 直接生成会得到占位内容`;
     return new Response(
       JSON.stringify({
         error:
-          '创意太简短 (' + finalIdea.length + ' 字) 且没识别出题材线索, 直接生成会得到占位内容. ' +
-          '建议补充至少 30 字的具体设定: 主角是谁, 在什么时空, 面对什么冲突. ' +
+          reason + '. 建议补充至少 30 字的具体设定: 主角是谁, 在什么时空, 面对什么冲突. ' +
           '或者点 "🎬 试拍 1 镜" 先看 vibe, 选个故事模板补足设定再开机.',
         category: 'thin-idea',
         normalizedLength: finalIdea.length,
