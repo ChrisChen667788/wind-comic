@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
 import { API_CONFIG } from '@/lib/config';
+// v2.18.1: 复用 polish 那套 4 级 JSON fallback (LLM 对中文长文本经常返回非法 JSON)
+import { robustJsonParse } from '@/lib/polish-json';
 import {
   Agent, AgentRole, DirectorPlan, Script, Storyboard, VideoClip, Character
 } from '@/types/agents';
@@ -932,7 +934,13 @@ export class HybridOrchestrator {
       this.update(AgentRole.DIRECTOR, { progress: 70 });
 
       try {
-        const parsed = JSON.parse(raw);
+        // v2.18.1 修复: 用 robustJsonParse (4 级降级 — markdown fence / 取最外层 {} /
+        // 全角引号 / 修复字符串内裸控制字符 / 平衡括号截取). raw JSON.parse 经常因 LLM
+        // 在中文长字段里塞裸 \n / 用全角引号 而炸, 落到 fallback Director plan 出占位内容。
+        const parsed = robustJsonParse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error(`robustJsonParse 也无法解析 LLM 输出 (raw=${raw.length} chars, head="${raw.slice(0, 80)}...")`);
+        }
         plan = parsed as DirectorPlan;
         // 仅当用户未选定画风时，才使用 LLM 返回的风格
         if (!this.userSelectedStyle) {
@@ -952,7 +960,10 @@ export class HybridOrchestrator {
               directorSystemPrompt,
               `你之前的输出存在以下问题：\n${validation.fixInstructions}\n\n原始输出：\n${raw}\n\n请修正以上所有问题，输出完整的修正后JSON。`
             );
-            const fixedPlan = JSON.parse(fixRaw);
+            const fixedPlan = robustJsonParse(fixRaw);
+            if (!fixedPlan || typeof fixedPlan !== 'object') {
+              throw new Error('Director fix-pass JSON 也解析失败');
+            }
             plan = fixedPlan as DirectorPlan;
             if (!this.userSelectedStyle) {
               this.styleKeywords = fixedPlan.styleKeywords || this.styleKeywords;
@@ -1369,7 +1380,13 @@ export class HybridOrchestrator {
       console.log(`[Writer] Pass 2 完成: raw=${raw.length}chars`);
 
       try {
-        script = JSON.parse(raw) as Script;
+        // v2.18.1 修复: robustJsonParse 4 级降级 — 此前 raw JSON.parse 经常因
+        // LLM 在中文长字段塞裸 \n / 用全角引号 而炸 → 走 fallback 出 "镜头N" 占位.
+        const parsedScript = robustJsonParse(raw);
+        if (!parsedScript || typeof parsedScript !== 'object') {
+          throw new Error(`Writer: robustJsonParse 也无法解析 (raw=${raw.length} chars)`);
+        }
+        script = parsedScript as Script;
 
         // ── 镜头数量验证 + 自动重试 ──
         if (script.shots && script.shots.length < minShotsRequired) {
@@ -1391,7 +1408,8 @@ ${raw.slice(0, 2000)}
 
 请输出完整的修正后 JSON，shots 数组至少 ${minShotsRequired} 个镜头。`
             );
-            const retryScript = JSON.parse(retryRaw) as Script;
+            const retryParsed = robustJsonParse(retryRaw);
+            const retryScript = (retryParsed || {}) as Script;
             if (retryScript.shots && retryScript.shots.length > script.shots.length) {
               script = retryScript;
               console.log(`[Writer] 补充后镜头数: ${script.shots.length}`);
@@ -1413,7 +1431,8 @@ ${raw.slice(0, 2000)}
               prompt,
               `你之前的输出存在以下问题：\n${validation.fixInstructions}\n\n原始输出：\n${raw}\n\n请修正以上所有问题，输出完整的修正后JSON。shots数组必须保持${script.shots?.length || minShotsRequired}个镜头，不可减少。`
             );
-            const fixedScript = JSON.parse(fixRaw) as Script;
+            const fixedParsed = robustJsonParse(fixRaw);
+            const fixedScript = (fixedParsed || {}) as Script;
             if (fixedScript.shots && fixedScript.shots.length >= (script.shots?.length || 0)) {
               script = fixedScript;
               console.log('[Writer] 修正完成');
@@ -1463,8 +1482,10 @@ ${raw.slice(0, 2000)}
                 prompt,
                 `你之前的改编存在以下忠实度问题：\n${fidelityIssues.map((issue, i) => `${i + 1}. ${issue}`).join('\n')}\n\n原始输出：\n${JSON.stringify(script)}\n\n请严格按照原始剧本修正以上问题，输出完整的修正后JSON。记住：你的任务是忠实转化原剧本，不是创作新故事。`
               );
-              const fixedScript = JSON.parse(fidelityFixRaw) as Script;
-              script = fixedScript;
+              const fidelityFixed = robustJsonParse(fidelityFixRaw);
+              if (fidelityFixed && typeof fidelityFixed === 'object') {
+                script = fidelityFixed as Script;
+              }
               console.log('[Writer] 忠实度修正完成');
               this.emit('agentTalk', { role: AgentRole.WRITER, text: '忠实度修正完成，现在与原剧本高度一致 ✅' });
             } catch {
@@ -1882,7 +1903,17 @@ ${shots.map((s, i) => {
       this.update(AgentRole.STORYBOARD, { progress: 70 });
 
       try {
-        const parsed = JSON.parse(raw);
+        // v2.18.1: robustJsonParse + 数组兜底 — Storyboard LLM 偶尔返裸数组(无外层 {}),
+        // robustJsonParse 默认只接对象 → 这里手工补一层数组解析
+        let parsed: any = robustJsonParse(raw);
+        if (!parsed) {
+          // 数组兜底: LLM 可能直出 [{...}, {...}], robustJsonParse 不接受顶层 array
+          try {
+            const m = raw.match(/\[[\s\S]*\]/);
+            if (m) parsed = JSON.parse(m[0]);
+          } catch { /* swallow */ }
+        }
+        if (!parsed) throw new Error('robustJsonParse + array fallback 都失败');
         // 兼容 LLM 可能输出 cameraWork 或 cameraAngle 两种字段名
         storyboardPlans = (Array.isArray(parsed) ? parsed : [parsed]).map((p: any) => ({
           ...p,
@@ -3140,7 +3171,14 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         );
 
         try {
-          const editPlan = JSON.parse(editPlanRaw);
+          // v2.18.1: edit plan 也可能是顶层数组, 兼容两种形态
+          let editPlan: any = robustJsonParse(editPlanRaw);
+          if (!editPlan) {
+            try {
+              const m = editPlanRaw.match(/\[[\s\S]*\]/);
+              if (m) editPlan = JSON.parse(m[0]);
+            } catch { /* swallow */ }
+          }
           if (Array.isArray(editPlan)) {
             for (const plan of editPlan) {
               const t = timeline.find(x => x.shotNumber === plan.shotNumber);
@@ -3575,7 +3613,12 @@ ${characterBibleBlock}${producerContext}
       const raw = await this.callLLM(getDirectorReviewPrompt(), context);
       this.update(AgentRole.PRODUCER, { progress: 80 });
       try {
-        review = JSON.parse(raw);
+        // v2.18.1: robustJsonParse, raw 也可能带 markdown fence / 全角引号
+        const parsedReview = robustJsonParse(raw);
+        if (!parsedReview || typeof parsedReview !== 'object') {
+          throw new Error('director-review: robustJsonParse 失败');
+        }
+        review = parsedReview;
         review.id = `review-${Date.now()}`;
         review.status = review.passed ? 'passed' : 'pending';
         review.createdAt = new Date().toISOString();

@@ -154,9 +154,18 @@ export function VideoModal({ open, onOpenChange, src, title }: Props) {
             <div className="text-xs text-gray-400 leading-relaxed max-w-md">
               {src.startsWith('/api/serve-file?path=') ? (
                 <>
-                  本地合成视频文件已失效(/tmp 临时目录被清理 或 dev server 重启)。
+                  本地合成视频文件已失效。
+                  {src.includes('/tmp/') || src.includes('/var/folders/') ? (
+                    <>
+                      <br />
+                      <span className="text-yellow-300/70">
+                        这是 v2.18.1 之前的老成片 (写在 /tmp 里, 已被系统清理)。
+                        v2.18.1 起新成片写在持久化 data/composed/ 下, 不再消失。
+                      </span>
+                    </>
+                  ) : null}
                   <br />
-                  <span className="text-yellow-300/70">解决方案:点项目页"重新生成"重跑剪辑环节。</span>
+                  <span className="text-yellow-300/70">解决方案:回创作工坊重跑该项目, 新成片会自动持久化。</span>
                 </>
               ) : src.includes('minimax') || src.includes('aliyuncs') ? (
                 <>

@@ -388,13 +388,20 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     }
   }
 
-  // 1. 创建临时工作目录
+  // 1. 创建临时工作目录 (中间文件) + 持久化输出目录 (最终成片)
+  // v2.18.1 修复: 此前 outputPath 也写在 /tmp/qf-compose-* 里, dev 重启 / macOS
+  // 周期清理 /var/folders 后, DB 里 finalVideoUrl 指向的文件就消失了, UI 显示
+  // "本地合成视频文件已失效". 现在: 工作中间产物仍 /tmp (无所谓), 最终 mp4 写到
+  // 项目根 data/composed/ (持久化, 跟 SQLite db 同生命周期).
   const tmpDir = outputDir || path.join(os.tmpdir(), `qf-compose-${Date.now()}`);
   if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir, { recursive: true });
   }
-
-  const outputPath = path.join(tmpDir, `final-${Date.now()}.mp4`);
+  const persistentOutputDir = path.join(process.cwd(), 'data', 'composed');
+  if (!fs.existsSync(persistentOutputDir)) {
+    fs.mkdirSync(persistentOutputDir, { recursive: true });
+  }
+  const outputPath = path.join(persistentOutputDir, `final-${Date.now()}.mp4`);
 
   onProgress?.(5, '下载视频片段...');
 
@@ -1020,7 +1027,12 @@ export async function concatVideosSimple(
   const listContent = localPaths.map(p => `file '${p}'`).join('\n');
   fs.writeFileSync(listPath, listContent);
 
-  const outputPath = path.join(tmpDir, `concat-${Date.now()}.mp4`);
+  // v2.18.1: 持久化输出 (同 composeVideo 修复) — concat fallback 输出也写持久 dir
+  const persistentOutputDir = path.join(process.cwd(), 'data', 'composed');
+  if (!fs.existsSync(persistentOutputDir)) {
+    fs.mkdirSync(persistentOutputDir, { recursive: true });
+  }
+  const outputPath = path.join(persistentOutputDir, `concat-${Date.now()}.mp4`);
 
   // 先下载 BGM (如提供)
   // v2.16 P1.1: 同时支持 http URL 和内部 /api/serve-file 路径 (BGM 三幕拼接产物)

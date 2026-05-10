@@ -38,6 +38,8 @@ next-env.d.ts
 /data/*.db-wal
 /data/*.db-shm
 /data/storage/
+/data/composed/
+/data/exports/
 /projects.db
 /projects.db-wal
 /projects.db-shm

@@ -33,6 +33,26 @@ export async function POST(request: NextRequest) {
     console.log(`[create-stream] idea LLM-expanded: "${rawIdea.slice(0, 60)}..." → "${normalized.normalized.slice(0, 60)}..."`);
   }
 
+  // v2.18.1: thin-idea guard — normalize 后仍 < 30 字 AND 没明确题材线索 → 直接 400
+  // 防止下游 Director / Writer 拿到"一部3D国创风格的AI漫剧短片"这种 18 字的占位输入产出
+  // "镜头 1/2/3/4" 占位剧本 (LLM JSON 又恰好炸 → fallback)。
+  const finalIdea = (normalized.normalized || rawIdea).trim();
+  if (finalIdea.length < 30 && normalized.detectedGenres.length === 0) {
+    return new Response(
+      JSON.stringify({
+        error:
+          '创意太简短 (' + finalIdea.length + ' 字) 且没识别出题材线索, 直接生成会得到占位内容. ' +
+          '建议补充至少 30 字的具体设定: 主角是谁, 在什么时空, 面对什么冲突. ' +
+          '或者点 "🎬 试拍 1 镜" 先看 vibe, 选个故事模板补足设定再开机.',
+        category: 'thin-idea',
+        normalizedLength: finalIdea.length,
+        detectedGenres: normalized.detectedGenres,
+        normalizeHint: normalized.hint,
+      }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
   // v2.13.4: 安全闸门 — 拒绝注入 / 越界 / 有害,脱敏 PII,长度 cap
   const { checkAndSanitize } = await import('@/lib/prompt-guardrails');
   const verdict = checkAndSanitize(normalized.normalized || rawIdea, { task: 'creation' });
