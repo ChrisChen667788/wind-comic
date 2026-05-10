@@ -11,7 +11,14 @@
  */
 
 import { useEffect, useState } from 'react';
-import { X, Loader2, RefreshCw, Check, Sparkles, AlertTriangle } from 'lucide-react';
+import { X, Loader2, RefreshCw, Check, Sparkles, AlertTriangle, Clock, Trash2 } from 'lucide-react';
+
+interface RateLimit {
+  tier: string;
+  used: number;
+  limit: number;
+  remaining: number;
+}
 
 interface PreviewResult {
   imageUrl: string;
@@ -21,6 +28,19 @@ interface PreviewResult {
   aspect: string;
   elapsedMs: number;
   warnings?: string[];
+  rateLimit?: RateLimit;
+  historyId?: string;
+}
+
+interface HistoryEntry {
+  id: string;
+  idea: string;
+  style: string;
+  aspect: string;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  elapsedMs: number;
+  createdAt: string;
 }
 
 export interface PreviewShotModalProps {
@@ -40,11 +60,28 @@ export function PreviewShotModal({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PreviewResult | null>(null);
   const [tryWithVideo, setTryWithVideo] = useState(videoToo);
+  // v2.18 P2.2: 历史面板
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [quota, setQuota] = useState<RateLimit | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
+
+  const refreshHistory = async () => {
+    try {
+      const res = await fetch('/api/preview-shot/history?limit=20');
+      const body = await res.json();
+      if (Array.isArray(body?.entries)) setHistory(body.entries);
+      if (body?.quota) setQuota(body.quota);
+    } catch (e) {
+      console.warn('[preview-modal] history fetch failed:', e);
+    }
+  };
 
   const fetchPreview = async (withVideo: boolean) => {
     setLoading(true);
     setError(null);
     setResult(null);
+    setRateLimitMsg(null);
     try {
       const res = await fetch('/api/preview-shot', {
         method: 'POST',
@@ -52,11 +89,20 @@ export function PreviewShotModal({
         body: JSON.stringify({ idea, style, aspect, videoToo: withVideo }),
       });
       const body = await res.json();
+      if (res.status === 429) {
+        // 配额耗尽 — 给特殊提示, 仍展示 quota
+        setRateLimitMsg(body.error || '今天的试拍次数已用完');
+        if (body.rateLimit) setQuota(body.rateLimit);
+        return;
+      }
       if (!res.ok) {
         setError(body.error || `请求失败 (${res.status})`);
         return;
       }
       setResult(body);
+      if (body.rateLimit) setQuota(body.rateLimit);
+      // 成功后刷新历史 (新条目应当在最前)
+      refreshHistory();
     } catch (e) {
       setError(e instanceof Error ? e.message : '试拍失败');
     } finally {
@@ -64,8 +110,19 @@ export function PreviewShotModal({
     }
   };
 
+  const deleteHistoryEntry = async (id: string) => {
+    if (!confirm('删除这条试拍记录?')) return;
+    try {
+      await fetch(`/api/preview-shot/history?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      await refreshHistory();
+    } catch (e) {
+      console.warn('[preview-modal] delete history failed:', e);
+    }
+  };
+
   useEffect(() => {
     fetchPreview(tryWithVideo);
+    refreshHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idea, style, aspect]);
 
@@ -77,28 +134,68 @@ export function PreviewShotModal({
     >
       <div className="w-full max-w-3xl max-h-[90vh] rounded-2xl bg-[var(--cinema-surface)] border border-[var(--cinema-border-hi)] shadow-2xl flex flex-col overflow-hidden">
         {/* header */}
-        <div className="px-5 py-3 border-b border-[var(--cinema-border)] bg-[var(--cinema-surface-2)] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[var(--cinema-amber)]" />
-            <h3 className="text-sm font-semibold text-[var(--cinema-text)]">
+        <div className="px-5 py-3 border-b border-[var(--cinema-border)] bg-[var(--cinema-surface-2)] flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-4 h-4 text-[var(--cinema-amber)] shrink-0" />
+            <h3 className="text-sm font-semibold text-[var(--cinema-text)] truncate">
               试拍 · 1 镜端到端
             </h3>
             {result && (
-              <span className="cinema-mono text-[10px] opacity-60">
+              <span className="cinema-mono text-[10px] opacity-60 hidden sm:inline">
                 {(result.elapsedMs / 1000).toFixed(1)}s · {result.style} · {result.aspect}
               </span>
             )}
           </div>
-          <button
-            onClick={onCancel}
-            className="p-1.5 rounded hover:bg-white/10 text-white/60 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* v2.18 P2.1: 配额 chip */}
+            {quota && (
+              <span
+                className={`cinema-chip cinema-mono text-[10px] ${
+                  quota.remaining === 0
+                    ? 'cinema-chip-amber'
+                    : quota.remaining <= 2
+                      ? 'cinema-chip-amber'
+                      : ''
+                }`}
+                title={`${quota.tier} 档每天上限 ${quota.limit} 次`}
+              >
+                {quota.used}/{quota.limit} · {quota.tier}
+              </span>
+            )}
+            {/* 历史 toggle */}
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className={`cinema-btn !px-2 !py-1 !text-[11px] inline-flex items-center gap-1 ${showHistory ? 'cinema-btn-primary' : ''}`}
+              title="显示/隐藏 试拍历史"
+            >
+              <Clock className="w-3 h-3" />
+              历史 {history.length > 0 && `(${history.length})`}
+            </button>
+            <button
+              onClick={onCancel}
+              className="p-1.5 rounded hover:bg-white/10 text-white/60 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* v2.18 P2.1: 配额耗尽特殊提示 */}
+          {rateLimitMsg && (
+            <div className="cinema-card p-4 border-[var(--cinema-amber)]/50">
+              <div className="flex items-center gap-2 cinema-mono text-[12px] text-[var(--cinema-amber)]">
+                <AlertTriangle className="w-4 h-4" />
+                {rateLimitMsg}
+              </div>
+              <p className="cinema-mono text-[10px] opacity-60 mt-2">
+                明天 0:00 (UTC) 配额刷新, 或 <a href="/dashboard/billing" className="underline">升级账户</a>{' '}
+                获得更高额度.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="cinema-card p-4 border-[var(--cinema-red)]/40">
               <div className="flex items-center gap-2 cinema-mono text-[12px] text-[var(--cinema-red)]">
@@ -112,6 +209,52 @@ export function PreviewShotModal({
                 <RefreshCw className="w-3 h-3" />
                 重试
               </button>
+            </div>
+          )}
+
+          {/* v2.18 P2.2: 试拍历史抽屉 */}
+          {showHistory && (
+            <div className="cinema-card-hi p-3">
+              <div className="cinema-mono text-[10px] tracking-widest opacity-60 mb-2 flex items-center justify-between">
+                <span>HISTORY · 你之前的试拍 ({history.length})</span>
+                <button
+                  onClick={refreshHistory}
+                  className="cinema-mono text-[10px] hover:text-[var(--cinema-amber)]"
+                >
+                  ⟳ 刷新
+                </button>
+              </div>
+              {history.length === 0 ? (
+                <div className="cinema-mono text-[11px] opacity-50">还没有历史记录</div>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+                  {history.map((h) => (
+                    <div key={h.id} className="relative group">
+                      <div className="aspect-video bg-black/40 rounded overflow-hidden border border-[var(--cinema-border)]">
+                        {h.imageUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={h.imageUrl} alt={h.idea.slice(0, 30)} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full grid place-items-center cinema-mono text-[9px] opacity-40">无图</div>
+                        )}
+                      </div>
+                      <div className="cinema-mono text-[9px] opacity-60 truncate mt-0.5" title={h.idea}>
+                        {h.style} · {(h.elapsedMs / 1000).toFixed(0)}s
+                      </div>
+                      <div className="cinema-mono text-[8px] opacity-40 truncate" title={h.createdAt}>
+                        {h.createdAt.slice(5, 16).replace('T', ' ')}
+                      </div>
+                      <button
+                        onClick={() => deleteHistoryEntry(h.id)}
+                        className="absolute top-1 right-1 p-1 rounded bg-black/60 text-white/70 hover:text-[var(--cinema-red)] opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="删除"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

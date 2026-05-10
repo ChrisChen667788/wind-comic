@@ -30,6 +30,13 @@ import { getUserFromRequest } from '../auth/lib';
 import { MidjourneyService, hasMidjourney } from '@/services/midjourney.service';
 import { MinimaxService } from '@/services/minimax.service';
 import { API_CONFIG } from '@/lib/config';
+import { checkPlan } from '@/lib/plan-gate';
+import {
+  getQuotaState,
+  insertPreview,
+  PREVIEW_DAILY_LIMIT,
+  type Tier,
+} from '@/lib/preview-history';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,6 +74,26 @@ export async function POST(request: NextRequest) {
   if (!rawIdea) return NextResponse.json({ error: '缺 idea' }, { status: 400 });
   if (rawIdea.length < 10) return NextResponse.json({ error: 'idea 至少 10 个字符' }, { status: 400 });
   if (rawIdea.length > 2000) return NextResponse.json({ error: 'idea 太长(上限 2000)' }, { status: 400 });
+
+  // v2.18 P2.1: rate-limit — 按 tier × day 算配额
+  // 用 checkPlan 借现成 user→tier 映射 (即便用户当前层不需 plan-gate, 这里只读 tier)
+  const tierProbe = checkPlan(request, 'free');
+  const userTier: Tier = (tierProbe.current as Tier) || 'free';
+  const quota = getQuotaState(userId, userTier);
+  if (quota.blocked) {
+    return NextResponse.json(
+      {
+        error: `今天的试拍次数已用完 (${quota.used}/${quota.limit}, ${userTier} 档每天 ${quota.limit} 次). 升级会增加配额, 也欢迎明天再试。`,
+        rateLimit: {
+          tier: userTier,
+          used: quota.used,
+          limit: quota.limit,
+          remaining: 0,
+        },
+      },
+      { status: 429 }, // Too Many Requests
+    );
+  }
 
   // v2.13.4 安全闸门 (复用)
   const { checkAndSanitize } = await import('@/lib/prompt-guardrails');
@@ -142,7 +169,30 @@ export async function POST(request: NextRequest) {
   const elapsedMs = Date.now() - t0;
   console.log(`[preview-shot] user=${userId} done in ${elapsedMs}ms, image=ok, video=${videoUrl ? 'ok' : 'skip/fail'}`);
 
+  // v2.18 P2.2: 持久化到 preview_history (供 rate-limit 计数 + UI 历史面板用)
+  let savedId: string | undefined;
+  try {
+    const saved = insertPreview({
+      userId,
+      idea: cleanedIdea,
+      style,
+      aspect,
+      imageUrl,
+      videoUrl: videoUrl || null,
+      prompt: visualPrompt,
+      elapsedMs,
+      warnings,
+    });
+    savedId = saved.id;
+  } catch (e) {
+    console.warn('[preview-shot] persist history failed (non-fatal):', e instanceof Error ? e.message : e);
+  }
+
+  // 重新拉一次配额 (insertPreview 后 used+1) — 让前端能立即更新 chip
+  const updatedQuota = getQuotaState(userId, userTier);
+
   return NextResponse.json({
+    historyId: savedId,
     imageUrl,
     videoUrl,
     prompt: visualPrompt,
@@ -150,6 +200,12 @@ export async function POST(request: NextRequest) {
     aspect,
     elapsedMs,
     warnings,
+    rateLimit: {
+      tier: userTier,
+      used: updatedQuota.used,
+      limit: updatedQuota.limit,
+      remaining: updatedQuota.remaining,
+    },
   });
 }
 

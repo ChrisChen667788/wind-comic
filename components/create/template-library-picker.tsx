@@ -28,7 +28,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X, Trash2, Copy, User, Sparkles, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, X, Trash2, Copy, User, Sparkles, Filter, ChevronDown, ChevronUp, Share2, Check } from 'lucide-react';
 import { storyTemplates, type StoryTemplate } from '@/lib/story-templates';
 import {
   Popover,
@@ -70,6 +70,9 @@ export function TemplateLibraryPicker({
   const [cloneOpenForId, setCloneOpenForId] = useState<string | null>(null);
   const [cloneName, setCloneName] = useState('');
   const [savingClone, setSavingClone] = useState(false);
+  // v2.18 P2.3: 已复制的分享链接 token (用来显示 "✓ 已复制" 状态)
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [sharingId, setSharingId] = useState<string | null>(null);
 
   // 拉个人模板
   const refreshPersonal = async () => {
@@ -214,6 +217,37 @@ export function TemplateLibraryPicker({
       await refreshPersonal();
     } catch (e) {
       console.warn('[TemplateLibrary] delete failed:', e);
+    }
+  };
+
+  /** v2.18 P2.3: 给个人模板创建分享 token + 复制 URL 到剪贴板 */
+  const handleSharePersonal = async (t: PersonalTemplate) => {
+    setSharingId(t.id);
+    try {
+      const res = await fetch('/api/templates/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: t.personalAssetId }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        alert(body.error || '生成分享链接失败');
+        return;
+      }
+      // 复制到剪贴板
+      try {
+        await navigator.clipboard.writeText(body.url);
+        setCopiedToken(body.token);
+        setTimeout(() => setCopiedToken(null), 3000);
+        alert(`分享链接已复制到剪贴板:\n${body.url}\n\n任何人打开都能看到这个模板, 也能克隆到自己库。`);
+      } catch {
+        // clipboard 失败时仍弹链接让用户手动复制
+        alert(`分享链接 (请手动复制):\n${body.url}`);
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '生成分享链接失败');
+    } finally {
+      setSharingId(null);
     }
   };
 
@@ -400,13 +434,28 @@ export function TemplateLibraryPicker({
                     </PopoverContent>
                   </Popover>
                   {personal && (
-                    <button
-                      onClick={() => handleDeletePersonal(template as PersonalTemplate)}
-                      className="cinema-eyebrow hover:text-[var(--cinema-red)] transition-colors flex items-center gap-0.5"
-                      title="删除"
-                    >
-                      <Trash2 className="w-2.5 h-2.5" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleSharePersonal(template as PersonalTemplate)}
+                        disabled={sharingId === template.id}
+                        className="cinema-eyebrow hover:text-[var(--cinema-amber)] transition-colors flex items-center gap-0.5 disabled:opacity-50"
+                        title="生成公开分享链接, 让别人能看到 + 克隆这个模板"
+                      >
+                        {copiedToken ? (
+                          <Check className="w-2.5 h-2.5 text-[var(--cinema-green)]" />
+                        ) : (
+                          <Share2 className="w-2.5 h-2.5" />
+                        )}
+                        分享
+                      </button>
+                      <button
+                        onClick={() => handleDeletePersonal(template as PersonalTemplate)}
+                        className="cinema-eyebrow hover:text-[var(--cinema-red)] transition-colors flex items-center gap-0.5"
+                        title="删除"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

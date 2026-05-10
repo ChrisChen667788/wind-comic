@@ -313,6 +313,41 @@ CREATE INDEX IF NOT EXISTS idx_project_quality_scores_project ON project_quality
 CREATE INDEX IF NOT EXISTS idx_project_quality_scores_created ON project_quality_scores(created_at);
 `);
 
+// v2.18 P2 (2026-05-10): 试拍记录 — 既给"今天用了几次"做 rate-limit, 又给"试拍历史"
+// UI 显示用. 不建立 user FK (使匿名/demo 用户也可记 + 未来 user 删除不级联)。
+db.exec(`
+CREATE TABLE IF NOT EXISTS preview_history (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  idea TEXT NOT NULL,                           -- 截到 ≤500 字
+  style TEXT NOT NULL DEFAULT '',
+  aspect TEXT NOT NULL DEFAULT '16:9',
+  image_url TEXT,
+  video_url TEXT,
+  prompt TEXT,                                  -- 实际喂 MJ 的 prompt, ≤400 字
+  elapsed_ms INTEGER DEFAULT 0,
+  warnings TEXT DEFAULT '[]',                   -- JSON array
+  created_at TEXT NOT NULL                      -- ISO timestamp, 也是 day 维度索引基础
+);
+CREATE INDEX IF NOT EXISTS idx_preview_history_user_created ON preview_history(user_id, created_at);
+`);
+
+// v2.18 P2 (2026-05-10): 模板分享 token. global_assets type='template' 的可分享外链。
+// 同一 asset 可重复生成 token (用最新的); 删 token (回收) 直接 DELETE row。
+db.exec(`
+CREATE TABLE IF NOT EXISTS template_share_tokens (
+  token TEXT PRIMARY KEY,                       -- nanoid, URL-safe
+  asset_id TEXT NOT NULL,                       -- → global_assets.id (type='template')
+  owner_user_id TEXT NOT NULL,                  -- 谁创建的, 用来鉴权回收
+  view_count INTEGER NOT NULL DEFAULT 0,        -- 公开页被查看次数
+  clone_count INTEGER NOT NULL DEFAULT 0,       -- 被克隆次数
+  created_at TEXT NOT NULL,
+  expires_at TEXT                               -- 可空 = 永不过期
+);
+CREATE INDEX IF NOT EXISTS idx_template_share_tokens_asset ON template_share_tokens(asset_id);
+CREATE INDEX IF NOT EXISTS idx_template_share_tokens_owner ON template_share_tokens(owner_user_id);
+`);
+
 export const now = () => new Date().toISOString();
 
 // Placeholder SVG generator for server-side seed data

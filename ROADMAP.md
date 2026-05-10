@@ -434,10 +434,16 @@
 - ✅ **P1.1 + P1.2 模板库 + 个人模板** — `<TemplateLibraryPicker>` 替代原平铺架: 标签 popover 筛选 (AND) + 实时搜索 + 排序 (默认/个人优先/内置优先) + 18 内置 + N 个人模板统一展示;每个模板都有"克隆"按钮(弹 Popover 取名后 POST `/api/global-assets {type:'template'}`);"保存当前为模板"按钮把当前 idea + style + duration + aspect + cameraDefault 一键存为个人模板。`GlobalAssetType` enum 加 `'template'`,无新表
 - ✅ **P1.3 试拍 1 镜端到端** — 新路由 `POST /api/preview-shot {idea, style?, aspect?, videoToo?}`,30-60s 出 1 张 MJ 图 + (可选) 5s Minimax I2V 视频,**不持久化、不创项目、不走完整 8-agent 编排**;`<PreviewShotModal>` 弹窗显示结果,3 个决断: "用这个走全流程" / "再试一次" / "放弃";Minimax 失败 fallback 到只返图 + warning;create 页 ROLL 旁边加 "🎬 试拍 1 镜" CTA,信息密度 + 信心都比"猜"强
 
-### v2.18 P2 待跟(下下次)
-- 试拍模式接 plan-gate (现在不挡免费用户, 但每次烧 ~¥0.5; 大量调用需限流)
-- 试拍记录入个人"试拍历史" — 让用户看自己之前试过什么风格
-- 模板批量导出 / 分享链接 (个人模板 → 公开链接 → 其他用户克隆)
+### v2.18 P2 已交付 ✅ 2026-05-10 (commit `<TBD>`)
+- ✅ **P2.1 试拍 plan-gate (按 tier × day 限流)** — 新表 `preview_history` (id/user_id/idea/style/aspect/image_url/video_url/prompt/elapsed_ms/warnings/created_at, 索引 user_id+created_at);新 lib `lib/preview-history.ts` (insertPreview / countTodayForUser / listForUser / deletePreview / getQuotaState);限额 free 5/d, creator 20/d, pro 100/d, enterprise 500/d;`/api/preview-shot` 入口拒 429 + rateLimit payload, 出口 +1 计数 + 返回更新后 quota
+- ✅ **P2.2 试拍历史** — 新路由 `GET /api/preview-shot/history?limit=N` 返回 entries + quota, `DELETE ?id=xxx` 删除某条;`<PreviewShotModal>` header 加 quota chip (used/limit · tier) + "历史" toggle 按钮, 点击展开历史抽屉 (网格缩略图 + style + 时间, hover 显示删除); 配额耗尽特殊提示 + 升级跳转
+- ✅ **P2.3 模板分享链接** — 新表 `template_share_tokens` (token PK / asset_id / owner_user_id / view_count / clone_count / expires_at);新 lib `lib/template-share.ts` (createShareToken / getByToken / increment counters / listTokensForOwner / deleteToken / getTemplateAssetForToken — 类型守卫只返 template asset);新路由 `POST/GET/DELETE /api/templates/share` (鉴权) + `GET /api/templates/shared/[token]` (公开+1 view) + `POST /api/templates/shared/[token]/clone` (要登录, 写入个人库 + 标 metadata.clonedFromShareToken);新公开页 `app/template/[token]/page.tsx` (展示 icon/name/desc/structureHint/keyElements/tags/recommended* + 克隆按钮 + view/clone 计数 chip);TemplateLibraryPicker 个人模板加"分享"按钮 (生成 token + 复制链接到剪贴板)
+
+### v2.18 P3 待跟(下下次)
+- 把 `preview_history` 扩到"项目首图候选" — 试拍后想正式跑就把 imageUrl 直接用作 storyboard 首帧
+- `template_share_tokens` 可设 `expires_at` 但 UI 还没暴露 — 临时分享场景需要
+- 分享链接的"分享 Open Graph 卡片" — 让别人在微信/Twitter 贴链接时显示模板预览图(需 og:image)
+- 个人模板的"导出 JSON / 导入 JSON" (绕开链接, 离线团队协作)
 
 ---
 
