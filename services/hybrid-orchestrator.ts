@@ -574,25 +574,27 @@ export class HybridOrchestrator {
 
   // ── Claude LLM 调用（带超时和心跳）──
   // 关键修复: 使用子进程运行 LLM 调用，绕过 Next.js Turbopack 运行时的 fetch 阻塞问题
-  private async callLLM(systemPrompt: string, userMessage: string, json = true, useCreativeModel = false, opts?: { maxTokens?: number }): Promise<string> {
+  private async callLLM(systemPrompt: string, userMessage: string, json = true, useCreativeModel = false, opts?: { maxTokens?: number; timeoutMs?: number }): Promise<string> {
     if (!API_CONFIG.openai.apiKey) return '';
 
     const model = useCreativeModel ? API_CONFIG.openai.creativeModel : API_CONFIG.openai.model;
     const callId = `llm-${Date.now()}`;
-    // v2.18.2: maxTokens 默认从 4096 提到 8192 — 之前 Director / Writer 输出固定在
-    // ~6000 chars (≈4000 中文 tokens) 处被截断 mid-string, JSON 解析必败 → fallback 占位.
-    // 8192 tokens ≈ 5000-7000 中文 chars 输出, 够 5-8 镜剧本 + 完整 character/scene 数组.
-    // 调用方可用 opts.maxTokens 覆盖 (例如 storyboard 单 prompt 短可以 4096).
-    const maxTokens = opts?.maxTokens ?? 8192;
-    console.log(`[LLM:${callId}] 开始调用 | model=${model} | system=${systemPrompt.length}chars, user=${userMessage.length}chars, json=${json}, maxTokens=${maxTokens}`);
+    // v2.18.3: maxTokens 默认 16384 (从 4096 / 8192 再提一档).
+    // 实测 claude-opus-4-6 给 Director 单次输出能到 18KB+ (5 角色 + 8 场景 + 8 shotSpec
+    // 全部带 nested 结构), 8192 tokens (~10-12K chars) 仍 finish=length 被截断.
+    // 16384 tokens ≈ 20-24K chars output 给 Director / Writer Pass-2 充足空间.
+    // 调用方可用 opts.maxTokens 覆盖 (storyboard 单 prompt 短可以 4096 省 token).
+    const maxTokens = opts?.maxTokens ?? 16384;
+    // v2.18.3: 超时也跟着提 — 8192 token claude-opus 响应通常 90-180s, 150s 太紧。
+    // 默认 300s, Director / Writer 这种重 prompt 配合 8192 cap 实际能 50-220s 完成。
+    const LLM_TIMEOUT = opts?.timeoutMs ?? 300_000;
+    console.log(`[LLM:${callId}] 开始调用 | model=${model} | system=${systemPrompt.length}chars, user=${userMessage.length}chars, json=${json}, maxTokens=${maxTokens}, timeout=${LLM_TIMEOUT / 1000}s`);
 
     // 心跳：每 8 秒发一次进度
     const heartbeat = setInterval(() => {
       this.emit('heartbeat', { message: 'LLM 正在思考...' });
       console.log(`[LLM:${callId}] ⏳ 等待中...`);
     }, 8000);
-
-    const LLM_TIMEOUT = 150_000;
 
     try {
       const finalSystem = json
