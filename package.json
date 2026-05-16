@@ -13,6 +13,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:ws": "node scripts/ws-server.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -82,6 +83,9 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
+    "ws": "^8.20.1",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.30",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -91,6 +95,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.1",
     "vitest": "^4.1.0"

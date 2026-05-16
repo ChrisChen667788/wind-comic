@@ -395,6 +395,20 @@ CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipien
 CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(recipient_user_id, read_at, created_at);
 `);
 
+// v3.0 P0.2 (2026-05-17): Yjs 文档持久化.
+// 每个 project 对应一个 Y.Doc, 状态以 BLOB 存. WS server 启动时 load + 在 update
+// 时 debounced 写回. update_count 给 GC 用 (每 N 次 update 做一次 full snapshot).
+db.exec(`
+CREATE TABLE IF NOT EXISTS yjs_docs (
+  doc_name TEXT PRIMARY KEY,                     -- 例: 'project-<projectId>'
+  state BLOB NOT NULL,                           -- Y.encodeStateAsUpdate(ydoc) 二进制
+  update_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_yjs_docs_updated ON yjs_docs(updated_at);
+`);
+
 export const now = () => new Date().toISOString();
 
 // Placeholder SVG generator for server-side seed data

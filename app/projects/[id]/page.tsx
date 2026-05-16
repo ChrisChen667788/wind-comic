@@ -16,7 +16,9 @@ import { Eyebrow, TimecodeChip, FilmStripDivider } from '@/components/cinema/pri
 import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
 import { ShotWorkshopTab } from '@/components/project/shot-workshop-tab';
 import { CommentThread } from '@/components/collab/comment-thread';
+import { PresenceAvatars } from '@/components/collab/presence-avatars';
 import { buildTargetId } from '@/lib/comments';
+import { useAuth } from '@/components/auth-provider';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -30,6 +32,7 @@ function isVideoUrl(url: string): boolean {
 export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { user } = useAuth();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('script');
@@ -207,6 +210,13 @@ export default function ProjectDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* v3.0 P0.2: presence — 现在谁在看这个项目 (Yjs awareness) */}
+            {user && (
+              <PresenceAvatars
+                projectId={id}
+                currentUser={{ id: user.id, name: user.name, avatarUrl: user.avatarUrl || null }}
+              />
+            )}
             <span className={`cinema-chip ${project.status === 'completed' ? 'cinema-chip-green' : 'cinema-chip-amber'}`}>
               <span className="cinema-statusbar-dot" style={{ background: project.status === 'completed' ? 'var(--cinema-green)' : 'var(--cinema-amber)' }} />
               {project.status === 'completed' ? 'COMPLETED' : 'IN PRODUCTION'}

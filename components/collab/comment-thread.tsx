@@ -16,9 +16,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Trash2, MessageCircle, Send, Loader2 } from 'lucide-react';
+import { Trash2, MessageCircle, Send, Loader2, Radio, RadioReceiver } from 'lucide-react';
 import { MentionTextarea } from './mention-textarea';
 import type { CommentRow, CommentTargetType } from '@/lib/comments';
+import { useYjs } from '@/hooks/use-yjs';
 
 interface FetchedComment extends CommentRow {}
 interface Thread { root: FetchedComment; replies: FetchedComment[] }
@@ -31,8 +32,18 @@ export interface CommentThreadProps {
   contextLabel?: string;
   /** 当前用户 id, 用来判断是否能删 */
   currentUserId?: string | null;
-  /** 自动刷新间隔 ms; 0 = 不轮询 */
+  /**
+   * v3.0 P0.1: 自动轮询间隔; 0 = 不轮询 (子线程默认 0 省电).
+   * v3.0 P0.2 后变成 fallback — 主路径走 Yjs 实时, 轮询用于:
+   *   1. 初次进入页面 (拉取 server 已存历史)
+   *   2. WS 断连时兜底刷新
+   */
   pollIntervalMs?: number;
+  /**
+   * v3.0 P0.2: 设 false 跳过 Yjs 连接 (例如 SSR / 静态预览页).
+   * 默认 true — 实时同步.
+   */
+  enableRealtime?: boolean;
 }
 
 function groupByThread(comments: FetchedComment[]): Thread[] {
@@ -144,7 +155,8 @@ function CommentItem({ comment, currentUserId, onReplyClick, onDeleteClick, inde
 }
 
 export function CommentThread({
-  projectId, targetType, targetId, contextLabel, currentUserId, pollIntervalMs = 30_000,
+  projectId, targetType, targetId, contextLabel, currentUserId,
+  pollIntervalMs = 30_000, enableRealtime = true,
 }: CommentThreadProps) {
   const [comments, setComments] = useState<FetchedComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,6 +165,10 @@ export function CommentThread({
   const [submitting, setSubmitting] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState('');
+
+  // v3.0 P0.2: Yjs 实时 — 一个项目一个 doc, 所有 target 的评论都在同一 Y.Array
+  // 这里按 targetType+targetId filter 出本组件关心的子集.
+  const yjs = useYjs(enableRealtime ? `project-${projectId}` : null);
 
   const fetchComments = useCallback(async () => {
     try {
@@ -169,13 +185,49 @@ export function CommentThread({
     }
   }, [projectId, targetType, targetId]);
 
+  // 初次 + WS 重连时拉 server 端权威列表 (Yjs 仅做实时 push, 不做权威源)
   useEffect(() => {
     fetchComments();
-    if (pollIntervalMs > 0) {
+    // 没启实时, 走老的轮询路径
+    if (!enableRealtime && pollIntervalMs > 0) {
       const t = setInterval(fetchComments, pollIntervalMs);
       return () => clearInterval(t);
     }
-  }, [fetchComments, pollIntervalMs]);
+    // 实时模式下: 仍保留低频轮询作为 WS 断连兜底, 间隔显著拉长省电
+    if (enableRealtime && pollIntervalMs > 0) {
+      const fallbackInterval = Math.max(pollIntervalMs, 60_000) * 4; // ≥4 分钟
+      const t = setInterval(fetchComments, fallbackInterval);
+      return () => clearInterval(t);
+    }
+  }, [fetchComments, pollIntervalMs, enableRealtime]);
+
+  // Yjs Y.Array 监听 — 新评论 push 进来, 按 targetId filter 后 merge 到 state
+  useEffect(() => {
+    if (!yjs) return;
+    const arr = yjs.doc.getArray<{ [k: string]: unknown }>('comments');
+    const onChange = () => {
+      const all = arr.toArray() as unknown as FetchedComment[];
+      const filtered = all.filter(
+        (c) => c && c.targetType === targetType && c.targetId === targetId,
+      );
+      if (filtered.length === 0) return;
+      setComments((prev) => {
+        const byId = new Map(prev.map((c) => [c.id, c]));
+        for (const yc of filtered) {
+          // 合并: Yjs 版优先 (它带 deletedAt 更新), 但保 prev 字段兜底
+          byId.set(yc.id, { ...byId.get(yc.id), ...yc });
+        }
+        // 按 createdAt asc
+        return Array.from(byId.values()).sort((a, b) =>
+          a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0,
+        );
+      });
+    };
+    arr.observe(onChange);
+    // 初次也跑一遍, 把已有的 Y.Array 内容 merge 进来
+    onChange();
+    return () => arr.unobserve(onChange);
+  }, [yjs, targetType, targetId]);
 
   const post = async (content: string, parentId: string | null) => {
     const trimmed = content.trim();
@@ -228,9 +280,29 @@ export function CommentThread({
           <MessageCircle className="w-3 h-3" />
           COMMENTS{contextLabel ? ` · ${contextLabel}` : ''}
         </div>
-        <span className="cinema-mono text-[10px] opacity-50">
-          {comments.filter((c) => !c.deletedAt).length} 条
-        </span>
+        <div className="flex items-center gap-2">
+          {/* v3.0 P0.2: WS 连接状态 chip */}
+          {enableRealtime && yjs && (
+            <span
+              className={`cinema-mono text-[9px] inline-flex items-center gap-1 ${
+                yjs.status === 'connected' ? 'text-[var(--cinema-green)]'
+                : yjs.status === 'connecting' ? 'opacity-50'
+                : 'text-[var(--cinema-amber)]'
+              }`}
+              title={
+                yjs.status === 'connected' ? '实时同步已开 (Yjs WS)'
+                : yjs.status === 'connecting' ? '正在连接实时同步...'
+                : 'WS 已断, 走轮询兜底 — 检查 npm run dev:ws'
+              }
+            >
+              {yjs.status === 'connected' ? <Radio className="w-2.5 h-2.5" /> : <RadioReceiver className="w-2.5 h-2.5" />}
+              {yjs.status === 'connected' ? '实时' : yjs.status === 'connecting' ? '...' : '离线'}
+            </span>
+          )}
+          <span className="cinema-mono text-[10px] opacity-50">
+            {comments.filter((c) => !c.deletedAt).length} 条
+          </span>
+        </div>
       </div>
 
       {error && (

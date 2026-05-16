@@ -27,6 +27,7 @@ import {
   deleteComment,
   type CommentTargetType,
 } from '@/lib/comments';
+import { broadcastNewComment, broadcastDeleteComment } from '@/lib/yjs-broadcast';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -106,6 +107,9 @@ export async function POST(
       content,
       parentId,
     });
+    // v3.0 P0.2: 写完 DB 后异步广播到 Yjs — 在线客户端实时收到, 不再依赖 30s 轮询.
+    // 失败不阻塞响应 (broadcast 是 best-effort, client 还能 fallback 到下次拉).
+    void broadcastNewComment(projectId, result.comment);
     return NextResponse.json(result);
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || '创建评论失败' }, { status: 400 });
@@ -114,9 +118,9 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params: _params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  void _params; // path projectId 仅用于路由 scope, 实际鉴权按 comment.author 走
+  const { id: projectId } = await params;
   const user = resolveUserId(request);
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
@@ -125,5 +129,7 @@ export async function DELETE(
 
   const ok = deleteComment(commentId, user.id);
   if (!ok) return NextResponse.json({ error: '不存在或无权删除' }, { status: 403 });
+  // v3.0 P0.2: 广播软删, 在线 client 把 row 上的 deletedAt 标位置
+  void broadcastDeleteComment(projectId, commentId, new Date().toISOString());
   return NextResponse.json({ deleted: true });
 }

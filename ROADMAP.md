@@ -542,11 +542,53 @@
 - ✅ 测试: `tests/v3-0-mentions.test.ts` 14 cases + `tests/v3-0-comments-notifications.test.ts` 22 cases — 共 36 新 case, 累计 861/861 vitest 全绿, tsc 0 错误, 0 新依赖
 - ✅ Yjs 集成留给 P0.2 — 当前轮询模式 30s 延迟, P0.2 用 WS + Yjs.Doc 后能压到 <500ms
 
-### v3.0 P0.2 待跟(下一档)
-- y-websocket 接入 — Next.js Route Handler 跑 WS upgrade, 或起单独 ws-server.mjs 子进程
-- Yjs.Doc 持久化: 新表 `yjs_docs (project_id PK, state BLOB, updated_at)`, 每 N 次 update snapshot
-- 前端 useYjs hook — Y.Array<Y.Map> 绑定 CommentThread, 真实时 (替代 30s 轮询)
-- Awareness — 项目页显示"谁在看", 头像列表 + 光标位置 (Yjs awareness protocol)
+### v3.0 P0.2 · Yjs 实时同步 + presence ✅ 2026-05-17
+
+> **背景**: P0.1 的评论走 30s 轮询, 多人协作场景延迟肉眼可见. P0.2 接入 Yjs WS, 把延迟压到 <300ms + 加 "现在谁在看" 头像组. REST 仍然是权威源 (鉴权 / 通知 / 配额), Yjs 只做实时 push channel + awareness presence.
+> **决策**: 单独的 `scripts/ws-server.mjs` 子进程, 不嵌入 Next.js — Next.js 16 + Turbopack 不原生支持 WS upgrade. dev 双终端跑, prod 用 pm2 / systemd. 端口默认 1234.
+
+#### P0.2.1 · 持久化 + WS server ✅
+- [x] `lib/db.ts` 新增 `yjs_docs` 表 (doc_name PK / state BLOB / update_count / updated_at / created_at + idx updated_at)
+- [x] `lib/yjs-persistence.ts` — `loadDoc` (空 doc 或从 BLOB 恢复, 损坏 BLOB 容错) + `persistDoc` (UPSERT, 返回累计 update_count) + `describeDoc` + `deleteDoc`
+- [x] `scripts/ws-server.mjs` — 用 `ws` + `y-protocols/sync` + `y-protocols/awareness` 实现完整 Yjs WS 协议: 每 docName 对应一个 Y.Doc, 多连接广播, debounced 持久化 (2s 静默 / 20 次 update 触发 flush), graceful shutdown 把 active doc 全部 flush
+- [x] `package.json` 加 `dev:ws` script — 单独终端跑 `npm run dev:ws`, dev 工作流双终端
+- [x] 测试: `tests/v3-0-yjs-persistence.test.ts` (8 cases) + `tests/v3-0-ws-server-e2e.test.ts` (3 cases — 真起子进程 + 两个 client + 验证持久化 + 拒非法 docName)
+
+#### P0.2.2 · REST → Yjs bridge ✅
+- [x] `lib/yjs-broadcast.ts` — 服务端临时 WS client, 用 sync 协议把新评论 / 软删变更 push 到 server 的 Y.Array (best-effort, 失败不抛, 不阻塞 REST 响应)
+- [x] `app/api/projects/[id]/comments/route.ts` 在 createComment 和 deleteComment 成功后异步 `broadcastNewComment` / `broadcastDeleteComment`
+- [x] 设计选择: 仍把 REST + SQLite 作为权威源, 不让 client 直接 Y.Array.push (那样会绕过通知 / 鉴权 / mention 解析)
+
+#### P0.2.3 · 前端实时 + presence ✅
+- [x] `hooks/use-yjs.ts` — `useYjs(docName)` 返回 `{ doc, provider, status }`, 内部 `Map<docName>` 注册表 + refCount 防同 doc 多次 mount 时建多个 WS 连接; status 跟 provider.wsconnected/wsconnecting 走
+- [x] `components/collab/comment-thread.tsx` 接入 `useYjs('project-<id>')` + 观察 `Y.Array<...>('comments')`; 按 targetType+targetId filter 过滤本组件关心的子集; 老的 30s 轮询保留为兜底 (WS 断时, fallback 拉长到 ≥4 分钟); header 加 "实时 / 连接中 / 离线" 状态 chip
+- [x] `components/collab/presence-avatars.tsx` — 新组件, 走 Yjs awareness: 本地 setLocalStateField('user', ...), 监听 awareness change, 同 user id 去重 (多 tab 算 1 人), 头像 ≤5 个并排, 超出显示 +N, 自己用 amber 边框区分
+- [x] `app/projects/[id]/page.tsx` nav bar 加 `<PresenceAvatars>` — 一进项目页, "现在谁在看" 头像组即时显示
+
+### v3.0 P0.2 总验收 ✅
+- ✅ 端到端: 两个用户同时打开同一个项目, A 发评论 → B <300ms 收到, 不再轮询 30s
+- ✅ 软删实时同步: A 删自己评论 → B 立刻看到 "[已删除]" 占位
+- ✅ Presence: A 进项目 → B 看到 A 头像 + amber 边框区分自己; A 关 tab → 头像消失
+- ✅ WS 断连容错: ws-server 没起 → CommentThread 显示"离线" chip + 退回 4 分钟轮询, 用户不感知错误
+- ✅ Yjs server 重启后状态从 SQLite snapshot 恢复, 不丢评论
+- ✅ 测试: 8 persistence + 3 WS e2e (含真起子进程, 两 client 协同) — 累计 872/872 vitest, tsc 0 错误
+- ✅ 新依赖: yjs 13.6.30 + y-websocket 3.0.0 + ws 8.20.1 + @types/ws
+
+### v3.0 P0.2 dev 工作流
+```
+# 终端 1: Next.js
+npm run dev          # localhost:3000
+
+# 终端 2: Yjs WS server
+npm run dev:ws       # ws://localhost:1234/<docName>
+
+# 测试 e2e (会自动起子进程, 端口 14322 隔离生产)
+npm test
+```
+环境变量:
+- `WS_PORT` — server 监听端口 (默认 1234)
+- `NEXT_PUBLIC_YJS_WS_URL` — 前端 WS URL (默认同 host:1234)
+- `YJS_WS_URL` — server-side broadcast 用 (默认 ws://localhost:1234)
 
 ### v3.0 P0.3 待跟
 - 版本审批 — 项目级 "提交评审" 状态机 (draft → in_review → approved/changes_requested)
