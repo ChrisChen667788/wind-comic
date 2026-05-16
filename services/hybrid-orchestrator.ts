@@ -984,6 +984,34 @@ export class HybridOrchestrator {
           throw new Error(`robustJsonParse 也无法解析 LLM 输出 (raw=${raw.length} chars, head="${raw.slice(0, 80)}...", tail="${raw.slice(-80)}")`);
         }
         plan = parsed as DirectorPlan;
+
+        // v2.18.6: 角色名兜底 — LLM (尤其 MiniMax-M2) 容易把 name 字段填成 "主角"/"伙伴"
+        // /"男主"/"女主"/"反派" 这种角色定位标签, 哪怕 prompt 明确禁止. 这里硬性侦测 +
+        // 替换成具体名字, 保证下游 saveAsset / global_assets 能按"真名"去重和复用.
+        const GENERIC_NAMES = /^(主角|男主|女主|主人公|男一号|女一号|男二号|女二号|男主角|女主角|伙伴|配角|对手|反派|路人甲|路人乙|男配|女配)$/;
+        const FALLBACK_NAMES_MALE = ['李弼', '陈淮安', '裴砚', '沈砺', '萧承', '阿衡', '周隅', '陆昭', '宋彦', '徐衍'];
+        const FALLBACK_NAMES_FEMALE = ['苏念之', '林婉', '叶清辞', '阿宁', '柳晚棠', '顾舒', '楚瑶', '白蘅', '安姝', '陶宛宁'];
+        const usedNames = new Set<string>();
+        if (Array.isArray(plan.characters)) {
+          plan.characters = plan.characters.map((char: any, idx: number) => {
+            const origName = char?.name?.trim() || '';
+            const looksGeneric = !origName || GENERIC_NAMES.test(origName);
+            if (looksGeneric) {
+              // 用 visual.age + role 推断性别 → 取对应库一个未用过的名字
+              const ageHint = (char?.visual?.age || '').toString();
+              const roleHint = (char?.role || origName || '').toString();
+              const isFemaleHint = /女|girl|female|姐|妹|娘子/i.test(roleHint + ageHint);
+              const pool = isFemaleHint ? FALLBACK_NAMES_FEMALE : FALLBACK_NAMES_MALE;
+              let pick = pool.find((n) => !usedNames.has(n)) || `${isFemaleHint ? '阿' : '小'}${idx + 1}`;
+              usedNames.add(pick);
+              console.warn(`[Director] 角色 #${idx} name="${origName}" 是占位标签 → 自动改名 "${pick}" (role=${roleHint})`);
+              return { ...char, name: pick, originalRoleLabel: origName };
+            }
+            usedNames.add(origName);
+            return char;
+          });
+        }
+
         // 仅当用户未选定画风时，才使用 LLM 返回的风格
         if (!this.userSelectedStyle) {
           this.styleKeywords = parsed.styleKeywords || '';

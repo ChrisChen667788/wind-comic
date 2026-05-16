@@ -515,10 +515,27 @@ export class MinimaxService {
 
     const retryCount = options?._retryCount ?? 0;
     // 第 1 次尝试用原始 prompt；后续重试自动净化
-    const effectivePrompt = retryCount === 0 ? prompt : sanitizePromptForMinimax(prompt);
+    let effectivePrompt = retryCount === 0 ? prompt : sanitizePromptForMinimax(prompt);
+
+    // v2.18.6: Minimax image-01 硬限制 prompt < 1500 字符. 我们的 character / scene
+    // prompt 把 McKee 6 维特征 + 视觉锚点 + 服装 + 风格关键词全堆进去, 经常 > 1500 →
+    // 上游 2013 报错 → 角色图直接没生成. 这里硬截到 1400 (留 100 字 buffer 给 prompt_optimizer).
+    const MAX_PROMPT_LEN = 1400;
+    if (effectivePrompt.length > MAX_PROMPT_LEN) {
+      const original = effectivePrompt.length;
+      effectivePrompt = effectivePrompt.slice(0, MAX_PROMPT_LEN);
+      // 尝试切在最近一个标点处, 避免截在词中间
+      const cutAt = Math.max(
+        effectivePrompt.lastIndexOf('. '),
+        effectivePrompt.lastIndexOf(', '),
+        effectivePrompt.lastIndexOf('; '),
+      );
+      if (cutAt > MAX_PROMPT_LEN * 0.7) effectivePrompt = effectivePrompt.slice(0, cutAt);
+      console.warn(`[Minimax] prompt too long (${original}>${MAX_PROMPT_LEN}), truncated to ${effectivePrompt.length}`);
+    }
 
     try {
-      console.log(`[Minimax] Generating image ${retryCount > 0 ? '(sanitized retry) ' : ''}with prompt: ${effectivePrompt.slice(0, 100)}...`);
+      console.log(`[Minimax] Generating image ${retryCount > 0 ? '(sanitized retry) ' : ''}with prompt (${effectivePrompt.length}chars): ${effectivePrompt.slice(0, 100)}...`);
 
       const body: Record<string, any> = {
         model: 'image-01',
