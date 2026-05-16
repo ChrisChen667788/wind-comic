@@ -121,6 +121,20 @@ export async function POST(request: NextRequest) {
     if (!resp.ok || !data?.choices?.[0]?.message?.content) {
       const msg = data?.error?.message || `LLM 调用失败 (${resp.status})`;
       console.warn('[polish-script] upstream error:', msg);
+      // v2.18.4: 识别上游 quota 耗尽 → 给出可操作的清晰提示, 不再让用户看到裸 "user quota" 英文
+      const isQuota = /quota|insufficient|余额|balance|user quota is not enough|429/i.test(msg);
+      if (isQuota) {
+        return Response.json(
+          {
+            error: '上游 LLM 网关(vectorengine)余额不足, 无法润色. ' +
+              '解决方案: 1) 去 vectorengine 后台充值; 2) 在 .env.local 换个有余额的 OPENAI_API_KEY; ' +
+              '3) 临时把 OPENAI_MODEL 改成 claude-sonnet (比 opus 便宜 5x).',
+            category: 'upstream-quota',
+            originalMessage: msg,
+          },
+          { status: 402 },
+        );
+      }
       return Response.json({ error: msg }, { status: 502 });
     }
 

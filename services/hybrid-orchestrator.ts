@@ -579,12 +579,14 @@ export class HybridOrchestrator {
 
     const model = useCreativeModel ? API_CONFIG.openai.creativeModel : API_CONFIG.openai.model;
     const callId = `llm-${Date.now()}`;
-    // v2.18.3: maxTokens 默认 16384 (从 4096 / 8192 再提一档).
-    // 实测 claude-opus-4-6 给 Director 单次输出能到 18KB+ (5 角色 + 8 场景 + 8 shotSpec
-    // 全部带 nested 结构), 8192 tokens (~10-12K chars) 仍 finish=length 被截断.
-    // 16384 tokens ≈ 20-24K chars output 给 Director / Writer Pass-2 充足空间.
-    // 调用方可用 opts.maxTokens 覆盖 (storyboard 单 prompt 短可以 4096 省 token).
-    const maxTokens = opts?.maxTokens ?? 16384;
+    // v2.18.4: maxTokens 默认 8192 (智能升级模式).
+    // v2.18.3 把默认拉到 16384 是为了不被截断, 但实测每个项目消耗翻 3-4x, 用户 quota 烧得
+    // 飞快. 改成: 默认 8192 (大多数 case 够), 若 callLLM 检测到 finish=length 截断,
+    // 调用方可以传 opts.maxTokens=16384 retry. 这样简单项目省 50%+ token, 复杂项目仍能完成.
+    // 可用 env OPENAI_MAX_TOKENS 全局覆盖默认值 (例如紧 quota 时设 6144 更省).
+    const envDefault = parseInt(process.env.OPENAI_MAX_TOKENS || '', 10);
+    const defaultMaxTokens = Number.isFinite(envDefault) && envDefault > 0 ? envDefault : 8192;
+    const maxTokens = opts?.maxTokens ?? defaultMaxTokens;
     // v2.18.3: 超时也跟着提 — 8192 token claude-opus 响应通常 90-180s, 150s 太紧。
     // 默认 300s, Director / Writer 这种重 prompt 配合 8192 cap 实际能 50-220s 完成。
     const LLM_TIMEOUT = opts?.timeoutMs ?? 300_000;
@@ -951,7 +953,9 @@ export class HybridOrchestrator {
         parsedSceneCount: this.parsedScript.stats.sceneCount,
       } : undefined);
 
-      const raw = await this.callLLM(directorSystemPrompt, userPrompt, true, true);
+      // v2.18.4: Director 是 known-heavy call (5 角色 + 8 场景 + 8 shotSpec nested) — 12-19K chars 输出
+      // 实测必须给 16384 cap 否则 8192 default 必截断. Writer Pass-2 同理.
+      const raw = await this.callLLM(directorSystemPrompt, userPrompt, true, true, { maxTokens: 16384 });
       this.update(AgentRole.DIRECTOR, { progress: 70 });
 
       try {
@@ -1372,7 +1376,8 @@ export class HybridOrchestrator {
         : `${trimmedUserCtx}\n\nshots 数组必须有 ${minShotsRequired}-${maxShotsAllowed} 个镜头。`;
 
       console.log(`[Writer] Pass 2 开始: pass2Context=${pass2Context.length}chars`);
-      const raw = await this.callLLM(prompt, pass2Context, true, true);
+      // v2.18.4: Writer Pass-2 知 known-heavy (8-10 镜 × 每镜 11+ 字段 nested) — 实测 19K chars 输出
+      const raw = await this.callLLM(prompt, pass2Context, true, true, { maxTokens: 16384 });
       this.update(AgentRole.WRITER, { progress: 70 });
 
       if (!raw) {
