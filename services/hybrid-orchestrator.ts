@@ -682,6 +682,15 @@ export class HybridOrchestrator {
       const finishReason = parsed.finishReason || parsed.finish_reason || '';
       console.log(`[LLM:${callId}] ✅ 完成 | ${elapsed}s | 响应=${content.length}chars | finish=${finishReason}`);
 
+      // v2.18.5: 剥掉推理模型 (MiniMax-M2 / deepseek-r1 等) 的 <think>...</think> 推理块.
+      // 这类模型在正式输出前会先吐一段 reasoning. 我们只要最后的实际答案.
+      // 兼容 <think>...</think> 单段 和 多段连续推理块.
+      const beforeStrip = content.length;
+      content = content.replace(/<think>[\s\S]*?<\/think>\s*/gi, '').trim();
+      if (content.length !== beforeStrip) {
+        console.log(`[LLM:${callId}] 剥掉 <think> 推理块: ${beforeStrip}→${content.length}chars`);
+      }
+
       // 清理 markdown 代码块包裹
       if (json && content) {
         content = content.trim();
