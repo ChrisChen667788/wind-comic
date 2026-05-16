@@ -40,6 +40,7 @@ next-env.d.ts
 /data/storage/
 /data/composed/
 /data/exports/
+/.dev-logs/
 /projects.db
 /projects.db-wal
 /projects.db-shm
