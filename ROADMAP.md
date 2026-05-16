@@ -511,6 +511,51 @@
 
 ---
 
+## 4.11 v3.0 P0.1 · "协作雏形" — 评论 + @mention + 通知 ✅
+
+> **背景**: ROADMAP §5 Sprint D 把"多人协作 (G11)"列为 v3.x 大版本, 6-8 周. 这是第 1 档落地切片 — REST + 30s 轮询的"轻协作", 让团队能在项目页里讨论, 但暂不动 Yjs / WebSocket. P0.2 再叠 Yjs 实时同步.
+> **决策**: 0 新依赖, 复用现有 SQLite + Next.js Route Handler. Yjs/y-websocket 留给 P0.2 (那时再决定要不要单进程 WS server).
+
+### P0.1.1 · DB schema + lib ✅ 2026-05-17
+- [x] `lib/db.ts` 新增表: `comments` (id/project_id/target_type/target_id/author_*/content/mentions JSON/parent_id/created_at/updated_at/deleted_at + idx project, target, author) + `notifications` (id/recipient_user_id/type/source_user_*/project_id/comment_id/preview/read_at/created_at + idx recipient, unread)
+- [x] `lib/mentions.ts` — 纯函数: `parseMentionNames` (中文 / 字母 / 数字 / 下划线, 1-30 字符, 拒邮件 @host 类) + `uniqueMentions` (case-insensitive dedupe, 20 上限)
+- [x] `lib/comments.ts` — `createComment` 事务化 (写评论 + 解析 mention + 写 notifications 一致性), `listComments` (按 project_id + targetType + targetId 过滤), `deleteComment` (软删, 只允许作者), `buildTargetId` (统一 target_id 构造规则, 防拼写漂移), `groupByThread` (parent_id 1 层嵌套, 不无限深)
+- [x] `lib/notifications.ts` — `listForUser` (unreadOnly + limit), `countUnread`, `markRead` (按 recipient 鉴权), `markAllRead`
+
+### P0.1.2 · API routes ✅ 2026-05-17
+- [x] `GET/POST/DELETE /api/projects/[id]/comments` — 列表 / 创建 / 软删, target_type 白名单 (project/shot/scene/character/storyboard), content ≤2000 字, parentId 校验同 project
+- [x] `GET/POST /api/notifications` — 列表 (unreadOnly 可选) + markRead/markAllRead, 严格按 recipient_user_id 隔离
+- [x] `GET /api/users/lookup?q=` — @-mention autocomplete 用, 前缀匹配 users.name, ≤10 条, 只返 id+name+avatarUrl
+
+### P0.1.3 · UI 三件套 ✅ 2026-05-17
+- [x] `<MentionTextarea>` — textarea + @-popup 候选下拉, ↑↓ Enter/Tab 选, Esc 关; 选中替换为 `@FullName `; ⌘+Enter 提交回调
+- [x] `<CommentThread>` — 单 target 评论流, 1 层 reply, 软删占位"[已删除]", @name 高亮成 cinema-amber, 30s 轮询; props 包含 contextLabel + currentUserId + pollIntervalMs (子线程 set 0 不轮询省电)
+- [x] `<NotificationBell>` — nav popover, 60s 轮询, badge (>99 → "99+"), 点条目 → 跳 `/projects/[id]#comment-[commentId]` + markRead, "全部已读" 一键
+
+### P0.1.4 · 项目页 + dashboard 接入 ✅ 2026-05-17
+- [x] `app/projects/[id]/page.tsx` 新增 "评论协作" tab — 顶部项目级 CommentThread + 折叠的 per-shot 子线程 (每个分镜独立 details/summary, 默认收起)
+- [x] `app/dashboard/layout.tsx` 右上角浮 NotificationBell (任意 dashboard 子页都可见)
+
+### v3.0 P0.1 总验收 ✅
+- ✅ 评论 + @mention + 通知端到端打通, 单人 + 多人都能用
+- ✅ 软删 + 自删保护 + 跨项目隔离 + 跨用户隔离 全部锁死
+- ✅ 测试: `tests/v3-0-mentions.test.ts` 14 cases + `tests/v3-0-comments-notifications.test.ts` 22 cases — 共 36 新 case, 累计 861/861 vitest 全绿, tsc 0 错误, 0 新依赖
+- ✅ Yjs 集成留给 P0.2 — 当前轮询模式 30s 延迟, P0.2 用 WS + Yjs.Doc 后能压到 <500ms
+
+### v3.0 P0.2 待跟(下一档)
+- y-websocket 接入 — Next.js Route Handler 跑 WS upgrade, 或起单独 ws-server.mjs 子进程
+- Yjs.Doc 持久化: 新表 `yjs_docs (project_id PK, state BLOB, updated_at)`, 每 N 次 update snapshot
+- 前端 useYjs hook — Y.Array<Y.Map> 绑定 CommentThread, 真实时 (替代 30s 轮询)
+- Awareness — 项目页显示"谁在看", 头像列表 + 光标位置 (Yjs awareness protocol)
+
+### v3.0 P0.3 待跟
+- 版本审批 — 项目级 "提交评审" 状态机 (draft → in_review → approved/changes_requested)
+- 评论支持图片/视频附件 (拖拽到输入框)
+- 通知邮件推送 (可选, 用户偏好控制)
+- Cinema 时间线轨道交互 (G12, 是大头, 留 v3.1)
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |

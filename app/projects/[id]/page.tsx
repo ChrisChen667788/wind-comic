@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
-  Star, CheckCircle2, AlertTriangle, Pencil, Save, X
+  Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle,
 } from 'lucide-react';
 import { CameoPanel } from '@/components/CameoPanel';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
@@ -15,6 +15,8 @@ import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidg
 import { Eyebrow, TimecodeChip, FilmStripDivider } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
 import { ShotWorkshopTab } from '@/components/project/shot-workshop-tab';
+import { CommentThread } from '@/components/collab/comment-thread';
+import { buildTargetId } from '@/lib/comments';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -182,6 +184,8 @@ export default function ProjectDetailPage() {
     { key: 'videos', label: '视频', icon: Video, count: videos.length },
     // v2.16 P1.4: 镜头工坊 — 4K 重渲 / 首尾帧 / 多分辨率导出 集中入口
     { key: 'workshop', label: '镜头工坊', icon: Scissors, count: videos.length },
+    // v3.0 P0.1: 评论协作 — 项目级讨论 + 提及通知
+    { key: 'comments', label: '评论协作', icon: MessageCircle, count: 0 },
     { key: 'play', label: '完整播放', icon: Play, count: 0 },
   ];
 
@@ -565,6 +569,51 @@ export default function ProjectDetailPage() {
                 imageUrl: s.imageUrl || s.mediaUrls?.[0],
               }))}
             />
+          )}
+
+          {/* v3.0 P0.1: 评论协作 — 项目级讨论 + 每个镜头独立线程 */}
+          {activeTab === 'comments' && (
+            <div className="space-y-4">
+              <CommentThread
+                projectId={id}
+                targetType="project"
+                targetId={buildTargetId('project', id)}
+                contextLabel="PROJECT"
+                currentUserId={(project?.userId || project?.user_id) || null}
+              />
+              {/* 每个分镜独立评论线程 — 用 collapsible 列表展现 */}
+              {script?.shots && script.shots.length > 0 && (
+                <div className="space-y-2">
+                  <div className="cinema-eyebrow opacity-60">PER-SHOT COMMENTS</div>
+                  <div className="grid grid-cols-1 gap-3">
+                    {script.shots.map((sh: any) => (
+                      <details
+                        key={sh.shotNumber}
+                        className="cinema-card-hi p-3 group"
+                      >
+                        <summary className="cursor-pointer flex items-center justify-between gap-2 select-none">
+                          <span className="cinema-mono text-[11px]">
+                            <span className="opacity-50">SHOT</span> #{sh.shotNumber}
+                            <span className="opacity-50 ml-2">· {sh.sceneDescription?.slice(0, 40) || '(无场景描述)'}</span>
+                          </span>
+                          <span className="cinema-mono text-[10px] opacity-50 group-open:hidden">展开评论 →</span>
+                        </summary>
+                        <div className="mt-3">
+                          <CommentThread
+                            projectId={id}
+                            targetType="shot"
+                            targetId={buildTargetId('shot', id, sh.shotNumber)}
+                            contextLabel={`SHOT #${sh.shotNumber}`}
+                            currentUserId={(project?.userId || project?.user_id) || null}
+                            pollIntervalMs={0}
+                          />
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {/* 完整播放 */}

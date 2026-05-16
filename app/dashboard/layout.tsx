@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { Sidebar } from '@/components/sidebar';
 import { ApiQuotaBanner } from '@/components/dashboard/api-quota-banner';
+import { NotificationBell } from '@/components/collab/notification-bell';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -46,6 +47,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="page-glow" />
         {/* v2.17 P0.3: API 配额告警 banner — 任意上游配额耗尽 / 上游饱和时可见 */}
         <ApiQuotaBanner />
+        {/* v3.0 P0.1: 通知 bell — 浮在右上角, dashboard 任意页都可见 */}
+        <div className="absolute top-4 right-5 z-30">
+          <NotificationBell />
+        </div>
         <div className="relative z-10 p-5 lg:p-7">
           {children}
         </div>

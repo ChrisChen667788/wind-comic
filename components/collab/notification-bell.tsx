@@ -1,0 +1,194 @@
+'use client';
+
+/**
+ * v3.0 P0.1 — NotificationBell for nav bar.
+ *
+ * 行为:
+ *   - 60s 轮询 /api/notifications, 取 unreadCount + 最近 30 条
+ *   - 点 bell 弹 popover, 显示通知列表
+ *   - 每条通知点击 → 跳到对应 project (带 commentId hash)
+ *   - "全部标已读" 按钮
+ *   - badge 在 ≥1 时显示数字 (>99 → "99+")
+ */
+
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Bell, Check, AtSign, MessageCircle, Loader2 } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+
+interface NotificationItem {
+  id: string;
+  type: 'mention' | 'reply' | 'project_invite';
+  sourceUserId: string;
+  sourceUserName: string;
+  projectId: string | null;
+  commentId: string | null;
+  preview: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+export interface NotificationBellProps {
+  /** 轮询间隔; 0 = 不自动轮询 (例如未登录) */
+  pollIntervalMs?: number;
+}
+
+export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellProps) {
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/notifications?limit=30');
+      if (res.status === 401) {
+        // 未登录 — 静默关闭轮询, bell 不显示 badge
+        setItems([]);
+        setUnreadCount(0);
+        setError(null);
+        return;
+      }
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+      setItems(Array.isArray(body?.notifications) ? body.notifications : []);
+      setUnreadCount(typeof body?.unreadCount === 'number' ? body.unreadCount : 0);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'fetch failed');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    if (pollIntervalMs > 0) {
+      const t = setInterval(refresh, pollIntervalMs);
+      return () => clearInterval(t);
+    }
+  }, [refresh, pollIntervalMs]);
+
+  const markRead = async (id: string) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'markRead', id }),
+      });
+      setItems((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
+      setUnreadCount((n) => Math.max(0, n - 1));
+    } catch {/* swallow */}
+  };
+
+  const markAllRead = async () => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'markAllRead' }),
+      });
+      setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
+      setUnreadCount(0);
+    } catch {/* swallow */}
+  };
+
+  const badgeText = unreadCount === 0 ? null : unreadCount > 99 ? '99+' : String(unreadCount);
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        className="relative cinema-btn-ghost cinema-btn !p-2"
+        title="通知"
+        aria-label={`通知 ${unreadCount > 0 ? `(${unreadCount} 未读)` : ''}`}
+      >
+        <Bell className="w-4 h-4" />
+        {badgeText && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--cinema-amber)] text-black cinema-mono text-[9px] font-bold flex items-center justify-center">
+            {badgeText}
+          </span>
+        )}
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0 max-h-[480px] overflow-hidden flex flex-col">
+        <div className="px-3 py-2 flex items-center justify-between border-b border-[var(--cinema-border)]">
+          <div className="cinema-eyebrow">NOTIFICATIONS</div>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllRead}
+              className="cinema-mono text-[10px] opacity-60 hover:text-[var(--cinema-amber)] inline-flex items-center gap-1"
+            >
+              <Check className="w-2.5 h-2.5" />
+              全部已读
+            </button>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {loading && items.length === 0 ? (
+            <div className="px-3 py-6 cinema-mono text-[11px] opacity-50 text-center inline-flex items-center justify-center gap-2 w-full">
+              <Loader2 className="w-3 h-3 animate-spin" /> 加载中
+            </div>
+          ) : error ? (
+            <div className="px-3 py-4 cinema-mono text-[10px] text-[var(--cinema-red)] opacity-80">✗ {error}</div>
+          ) : items.length === 0 ? (
+            <div className="px-3 py-6 cinema-mono text-[11px] opacity-50 text-center">
+              暂无通知
+            </div>
+          ) : (
+            <div>
+              {items.map((n) => {
+                const isUnread = !n.readAt;
+                const href = n.projectId
+                  ? `/projects/${n.projectId}${n.commentId ? `#comment-${n.commentId}` : ''}`
+                  : '#';
+                const Icon = n.type === 'mention' ? AtSign : MessageCircle;
+                return (
+                  <Link
+                    key={n.id}
+                    href={href}
+                    onClick={() => isUnread && markRead(n.id)}
+                    className={`block px-3 py-2 border-b border-white/5 hover:bg-white/5 ${isUnread ? 'bg-[var(--cinema-amber)]/5' : ''}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Icon className={`w-3 h-3 mt-0.5 flex-shrink-0 ${isUnread ? 'text-[var(--cinema-amber)]' : 'opacity-50'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="cinema-mono text-[11px]">
+                          <span className="font-medium">{n.sourceUserName}</span>
+                          <span className="opacity-70">
+                            {n.type === 'mention' ? ' 提到了你' : ' 回复了你'}
+                          </span>
+                        </div>
+                        {n.preview && (
+                          <div className="cinema-mono text-[10px] opacity-60 truncate mt-0.5">
+                            {n.preview}
+                          </div>
+                        )}
+                        <div className="cinema-mono text-[9px] opacity-40 mt-0.5">
+                          {formatTime(n.createdAt)}
+                        </div>
+                      </div>
+                      {isUnread && <span className="w-1.5 h-1.5 rounded-full bg-[var(--cinema-amber)] mt-1.5 flex-shrink-0" />}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}

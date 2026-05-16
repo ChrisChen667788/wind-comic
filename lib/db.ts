@@ -348,6 +348,53 @@ CREATE INDEX IF NOT EXISTS idx_template_share_tokens_asset ON template_share_tok
 CREATE INDEX IF NOT EXISTS idx_template_share_tokens_owner ON template_share_tokens(owner_user_id);
 `);
 
+// v3.0 P0.1 (2026-05-16): 协作 — 评论 + @人 + 通知.
+//
+// 设计要点:
+//   - 评论 target: project / shot / scene / character / storyboard 都可 (target_type + target_id)
+//     project_id 始终冗余存一份, 方便 "拉某项目下所有 comments" 不跨表 join.
+//   - mentions JSON 存 [{userId, name}] 数组 — 解析时机: 服务端在 createComment 触发 (单源真理).
+//   - parent_id 支持简单 1 层 reply, 不做无限嵌套 (UI 体验更糟).
+//   - 通知是独立表, FK 不强制 — comment / project 删除后通知仍能显示 (体感更好).
+//   - 跨项目读取 (用户的"@我"收件箱) 走 notifications.recipient_user_id 索引, 不查 comments.
+db.exec(`
+CREATE TABLE IF NOT EXISTS comments (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,                      -- 冗余, 方便按项目筛
+  target_type TEXT NOT NULL,                     -- 'project'|'shot'|'scene'|'character'|'storyboard'
+  target_id TEXT NOT NULL,                       -- target_type='project' 时 = project_id; 否则 = 镜头号等
+  author_user_id TEXT NOT NULL,
+  author_name TEXT NOT NULL,                     -- snapshot, 用户改名后老评论仍显示当时的名
+  author_avatar_url TEXT,                        -- 同上
+  content TEXT NOT NULL,                         -- ≤ 2000 字, 原文(含 @user 文本占位)
+  mentions TEXT DEFAULT '[]',                    -- JSON [{userId, name}]
+  parent_id TEXT,                                -- 1 层 reply; null = top-level
+  created_at TEXT NOT NULL,
+  updated_at TEXT,                               -- null = 没编辑过
+  deleted_at TEXT                                -- 软删 — 让 thread 保留 "[已删除]" 占位避免 reply 孤儿
+);
+CREATE INDEX IF NOT EXISTS idx_comments_project ON comments(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_comments_target ON comments(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_comments_author ON comments(author_user_id);
+`);
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  recipient_user_id TEXT NOT NULL,
+  type TEXT NOT NULL,                            -- 'mention'|'reply'|'project_invite' (v3.x)
+  source_user_id TEXT NOT NULL,
+  source_user_name TEXT NOT NULL,                -- snapshot
+  project_id TEXT,                               -- 可空 — system 通知
+  comment_id TEXT,                               -- 触发本通知的评论, 可空
+  preview TEXT,                                  -- ≤ 200 字, 评论原文截断
+  read_at TEXT,                                  -- null = 未读
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(recipient_user_id, read_at, created_at);
+`);
+
 export const now = () => new Date().toISOString();
 
 // Placeholder SVG generator for server-side seed data
