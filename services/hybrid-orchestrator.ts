@@ -242,6 +242,21 @@ function buildCharacterAnchorPrompt(anchors: CharacterVisualAnchor[], shotCharac
   ).join(' ');
 }
 
+/**
+ * v2.19 P1.2: 检测是否是 "reasoning" 类模型 — 会先吐 <think>...</think> 推理块,
+ * 整段响应时间显著高于普通模型, 默认 LLM_TIMEOUT 需要从 300s 拉到 420s.
+ *
+ * 命中:
+ *   - MiniMax-M2 (/m2\b/ — 注意词边界, 否则会把 'm2-foo' 也错配)
+ *   - deepseek-r1 系列
+ *   - OpenAI o1 / o3 / o4 系列
+ *   - 任何包含 "reasoning" 关键词的别名
+ */
+export function isReasoningModelName(model: string | null | undefined): boolean {
+  if (!model) return false;
+  return /\bm2\b|deepseek-r1|^o1$|^o1-|^o3$|^o3-|^o4$|^o4-|reasoning/i.test(model);
+}
+
 export class HybridOrchestrator {
   private agents: Map<AgentRole, Agent>;
   private openai: OpenAI | null;
@@ -294,6 +309,11 @@ export class HybridOrchestrator {
   // P4: 渐进式一致性链 — 存储已渲染的分镜图URL，作为后续镜头的额外参考
   private renderedStoryboardUrls: string[] = [];
 
+  // v2.19 P0.2: 试拍图复用 — 用户在 create 页"试拍 1 镜"接受了某张图,把这张图
+  // 直接当作第 1 镜的 storyboard 渲染结果, 跳过对应的 MJ 生成调用。
+  // 只接受 http(s) URL, data:/svg/mock 图自动忽略。
+  private previewSeedImage: string = '';
+
   // Parsed script data (when user provides a full script)
   private parsedScript: ParsedScript | null = null;
 
@@ -337,6 +357,24 @@ export class HybridOrchestrator {
     this.primaryCharacterRef = url;
     this.primaryCharacterRefLocked = true;
     console.log(`[Cameo] Primary character face locked from user: ${url.slice(0, 60)}...`);
+  }
+
+  /**
+   * v2.19 P0.2: 用户接受了 "试拍 1 镜" 的结果, 把那张图设为第 1 镜的 storyboard
+   * 渲染产物, 省一次 MJ/Minimax 出图调用 (≈30-60s + ¥). 也作为后续镜头的 sref 链
+   * 起点 (推入 renderedStoryboardUrls), 让整片画风跟用户拍板的那张图对齐。
+   *
+   * 必须在 runStoryboardRenderer 之前调用 (通常 create-stream 入口就 set 好)。
+   * 只接受 http(s) URL — data:/svg/mock 不行 (远端 API 无法消费, 也无价值)。
+   */
+  setPreviewSeedImage(url: string) {
+    if (!url || typeof url !== 'string') return;
+    if (!url.startsWith('http')) {
+      console.warn(`[PreviewSeed] Rejected non-http URL: ${url.slice(0, 40)}`);
+      return;
+    }
+    this.previewSeedImage = url;
+    console.log(`[PreviewSeed] Shot 1 will reuse preview image: ${url.slice(0, 60)}...`);
   }
 
   /**
@@ -587,15 +625,27 @@ export class HybridOrchestrator {
     const envDefault = parseInt(process.env.OPENAI_MAX_TOKENS || '', 10);
     const defaultMaxTokens = Number.isFinite(envDefault) && envDefault > 0 ? envDefault : 8192;
     const maxTokens = opts?.maxTokens ?? defaultMaxTokens;
-    // v2.18.3: 超时也跟着提 — 8192 token claude-opus 响应通常 90-180s, 150s 太紧。
-    // 默认 300s, Director / Writer 这种重 prompt 配合 8192 cap 实际能 50-220s 完成。
-    const LLM_TIMEOUT = opts?.timeoutMs ?? 300_000;
-    console.log(`[LLM:${callId}] 开始调用 | model=${model} | system=${systemPrompt.length}chars, user=${userMessage.length}chars, json=${json}, maxTokens=${maxTokens}, timeout=${LLM_TIMEOUT / 1000}s`);
 
-    // 心跳：每 8 秒发一次进度
+    // v2.19 P1.2: reasoning 模型 (MiniMax-M2 / deepseek-r1 / o1 等) 在正式输出前会先
+    // 吐一大段 <think>...</think> 推理块, 实测 8192 maxTokens 下首字节往往要 60-180s,
+    // 整段响应 200-360s 不夸张. 默认 300s 对它们偏紧 — 给一档 420s 的余量,
+    // 减少"该出但卡推理"的超时浪费.
+    const isReasoning = isReasoningModelName(model);
+    const defaultTimeout = isReasoning ? 420_000 : 300_000;
+    const LLM_TIMEOUT = opts?.timeoutMs ?? defaultTimeout;
+    console.log(`[LLM:${callId}] 开始调用 | model=${model}${isReasoning ? ' (reasoning)' : ''} | system=${systemPrompt.length}chars, user=${userMessage.length}chars, json=${json}, maxTokens=${maxTokens}, timeout=${LLM_TIMEOUT / 1000}s`);
+
+    // v2.19 P1.2: 心跳分两档 —
+    //   - 0-30s: "LLM 正在思考..."
+    //   - 30s+: 推理模型 → "推理模型正在展开思路..." (让用户知道这不是卡死, 是 think 块在写)
+    const heartbeatStart = Date.now();
     const heartbeat = setInterval(() => {
-      this.emit('heartbeat', { message: 'LLM 正在思考...' });
-      console.log(`[LLM:${callId}] ⏳ 等待中...`);
+      const elapsed = Math.floor((Date.now() - heartbeatStart) / 1000);
+      const msg = isReasoning && elapsed > 30
+        ? `推理模型展开思路中... (已 ${elapsed}s, 上限 ${LLM_TIMEOUT / 1000}s)`
+        : 'LLM 正在思考...';
+      this.emit('heartbeat', { message: msg });
+      console.log(`[LLM:${callId}] ⏳ ${elapsed}s elapsed${isReasoning ? ' (reasoning)' : ''}`);
     }, 8000);
 
     try {
@@ -2174,6 +2224,23 @@ ${shots.map((s, i) => {
         currentTask: `渲染第 ${sb.shotNumber} 镜（角色一致性 + 画风一致性）`,
         progress: Math.round((completedCount / storyboards.length) * 100),
       });
+
+      // v2.19 P0.2: 第 1 镜如果有试拍图,直接用,跳过 generateImage 调用。
+      // 这张图被用户主动接受过, 是 "ground truth" 第一帧, 后续 sref 链自然以它为起点。
+      if (i === 0 && this.previewSeedImage) {
+        const seedUrl = this.previewSeedImage;
+        this.renderedStoryboardUrls.push(seedUrl);
+        completedCount++;
+        this.update(AgentRole.STORYBOARD, {
+          progress: Math.round((completedCount / storyboards.length) * 100),
+        });
+        this.emit('agentTalk', {
+          role: AgentRole.STORYBOARD,
+          text: `📸 第 1 镜复用试拍图, 跳过 MJ 出图 (省 ≈30s + 1 次调用), 后续镜头将以它为风格基准`,
+        });
+        console.log(`[Renderer] Shot ${sb.shotNumber} reused preview seed: ${seedUrl.slice(0, 60)}...`);
+        return { shotNumber: sb.shotNumber, imageUrl: seedUrl, prompt: sb.prompt };
+      }
 
       // v2.11 #5: 用集中的一致性策略选取 cref/sref/cw —— 锁脸 → cw 125 / 主角 100 / 配角 80
       const shotCharacters = shot?.characters || [];

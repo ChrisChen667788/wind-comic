@@ -69,13 +69,14 @@ describe('/api/create-stream thin-idea guard (v2.18.1)', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.category).toBe('thin-idea');
-    expect(body.error).toContain('简短');
+    // v2.18.1 文案: "创意只有 N 字 ..." (旧版本是 "简短")
+    expect(body.error).toMatch(/字|简短/);
   });
 
-  it('idea < 30 chars BUT has genre keyword → passes thin-idea guard (continues to safety/pipeline)', async () => {
+  it('idea 10-30 chars BUT has genre keyword → passes thin-idea guard (continues to safety/pipeline)', async () => {
     const POST = await importPost();
-    // "古装复仇" 7 chars 但能检测到题材, 不挡 (后续可能被其他闸门挡, 不是本测试范围)
-    const res = await POST(mkReq({ idea: '古装复仇' }));
+    // v2.18.1: hard reject <10 chars 不论 genre; 这条用 >=10 但 <30 字 + 题材关键词来验软门
+    const res = await POST(mkReq({ idea: '古装复仇短剧的精彩故事' })); // 11 chars, 含'古装' 触发题材识别
     // 不应被 thin-idea 拦; 可能被其他闸门 (例如 SSE stream 启动) 影响, 但 status != 400 with thin-idea
     if (res.status === 400) {
       const body = await res.json();

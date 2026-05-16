@@ -48,8 +48,14 @@ export interface PreviewShotModalProps {
   style: string;
   aspect: string;
   videoToo?: boolean;
-  /** 用户点 "用这个走全流程" → 父组件触发完整 ROLL */
-  onAccept: () => void;
+  /**
+   * 用户点 "用这个走全流程" → 父组件触发完整 ROLL
+   *
+   * v2.19 P0.2: 把试拍图 url 透给父组件, 由父组件透传到 /api/create-stream 的
+   * `previewSeedImage` 字段, 这样第 1 镜的 storyboard 就直接复用这张图。
+   * 传 null 表示 "走全流程但不带种子" (例如 fallback 路径 modal 异常时)。
+   */
+  onAccept: (seed: { imageUrl: string; prompt: string } | null) => void;
   onCancel: () => void;
 }
 
@@ -339,12 +345,21 @@ export function PreviewShotModal({
               放弃
             </button>
             <button
-              onClick={onAccept}
+              onClick={() => {
+                if (!result) {
+                  onAccept(null);
+                  return;
+                }
+                // v2.19 P0.2: 把这张试拍图当作第 1 镜的 storyboard 渲染结果,
+                // 走全流程时让 orchestrator 跳过对应的 MJ 调用。
+                onAccept({ imageUrl: result.imageUrl, prompt: result.prompt });
+              }}
               disabled={!result || loading || !!error}
               className="cinema-btn cinema-btn-primary !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40"
+              title="第 1 镜直接用这张图, 后续镜头以它为画风基准"
             >
               <Check className="w-3 h-3" />
-              用这个风格走全流程
+              用这张图走全流程
             </button>
           </div>
         </div>

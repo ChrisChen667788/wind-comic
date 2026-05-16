@@ -56,13 +56,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '不能分享别人的模板' }, { status: 403 });
   }
 
-  const t = createShareToken({ assetId, ownerUserId: userId });
+  // v2.19 P0.3: expiresInDays 让用户选 "1天/7天/30天/永久".
+  // 上限 365 天 (超过 1 年的"永久" 用 null 表示, 不写过期时间)。
+  let expiresAt: string | null = null;
+  if (typeof body?.expiresInDays === 'number' && Number.isFinite(body.expiresInDays)) {
+    const days = Math.max(1, Math.min(365, Math.floor(body.expiresInDays)));
+    expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  const t = createShareToken({ assetId, ownerUserId: userId, expiresAt });
   return NextResponse.json({
     token: t.token,
     url: buildShareUrl(request, t.token),
     viewCount: t.viewCount,
     cloneCount: t.cloneCount,
     createdAt: t.createdAt,
+    expiresAt: t.expiresAt,
   });
 }
 

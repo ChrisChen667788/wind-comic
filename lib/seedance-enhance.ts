@@ -29,18 +29,17 @@
  * 目的是让模型在 512px 内就给出稳定的 ID,后续 --cref 引用时不会漂移。
  */
 export function enhanceCharacterPromptSeedance(basePrompt: string, charName: string): string {
+  // v2.19 P0.1: slim from 8 anchors → 4 (was ~750 chars, now ~250).
+  // Kept the highest-signal phrases; the rest were redundant fluff that pushed
+  // the final image prompt past Minimax's 1500-char hard limit.
   const seedanceAnchors = [
-    'character turnaround sheet with 4 synchronized views (front / three-quarter left / profile / back)',
-    'consistent facial geometry across all views, same eye shape same nose bridge same jawline',
-    'identical hair style and volume in every view',
-    'identical outfit and accessories in every view, same color palette',
-    'unified silhouette identity, instantly recognizable from shadow alone',
-    'signature visual anchors locked: face, hair, clothing, props',
-    'neutral studio lighting, even illumination, no dramatic shadows to preserve identity features',
-    'clean white background, no distracting elements',
+    'multi-view turnaround (front / three-quarter / profile / back)',
+    'consistent facial geometry, hair, outfit and accessories across views',
+    'unified silhouette, signature visual anchors locked',
+    'neutral studio lighting, clean white background',
   ].join(', ');
 
-  return `${basePrompt}. Character identity lock: ${charName}. ${seedanceAnchors}`;
+  return `${basePrompt}. Character ID lock: ${charName}. ${seedanceAnchors}`;
 }
 
 /**
@@ -49,16 +48,14 @@ export function enhanceCharacterPromptSeedance(basePrompt: string, charName: str
  * 所以要画成"可被多机位复用的通用环境板",而不是某个具体取景。
  */
 export function enhanceScenePromptSeedance(basePrompt: string): string {
+  // v2.19 P0.1: slim from 6 hints → 3 (was ~450 chars, now ~150).
   const multiLensHints = [
-    'environment established shot designed for multi-lens coverage',
-    'wide-angle master plate showing full spatial layout',
-    'stable lighting scheme locked for this location, reusable across multiple shots',
-    'unified color grading anchor for the scene',
-    'clear foreground / midground / background separation for later camera blocking',
-    'atmospheric depth rendered, matte painting quality',
+    'wide-angle master plate for multi-lens coverage',
+    'stable lighting locked, foreground/midground/background separation',
+    'atmospheric depth, matte painting quality',
   ].join(', ');
 
-  return `${basePrompt}. Multi-lens storytelling preparation: ${multiLensHints}`;
+  return `${basePrompt}. Multi-lens prep: ${multiLensHints}`;
 }
 
 /**
@@ -107,11 +104,10 @@ export function buildProgressiveRefs(opts: {
  */
 export function styleAnchorBlock(styleKeywords: string): string {
   if (!styleKeywords) return '';
+  // v2.19 P0.1: slim from 4 phrases → 2 (was ~250 chars, now ~100).
   return [
     `STYLE LOCK: ${styleKeywords}`,
-    'maintain identical rendering style across all frames',
-    'same brushwork, same line quality, same shading technique',
-    'consistent color temperature and saturation throughout the series',
+    'identical rendering, brushwork and color tone across all frames',
   ].join(', ');
 }
 

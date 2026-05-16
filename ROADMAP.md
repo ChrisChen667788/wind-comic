@@ -439,11 +439,75 @@
 - ✅ **P2.2 试拍历史** — 新路由 `GET /api/preview-shot/history?limit=N` 返回 entries + quota, `DELETE ?id=xxx` 删除某条;`<PreviewShotModal>` header 加 quota chip (used/limit · tier) + "历史" toggle 按钮, 点击展开历史抽屉 (网格缩略图 + style + 时间, hover 显示删除); 配额耗尽特殊提示 + 升级跳转
 - ✅ **P2.3 模板分享链接** — 新表 `template_share_tokens` (token PK / asset_id / owner_user_id / view_count / clone_count / expires_at);新 lib `lib/template-share.ts` (createShareToken / getByToken / increment counters / listTokensForOwner / deleteToken / getTemplateAssetForToken — 类型守卫只返 template asset);新路由 `POST/GET/DELETE /api/templates/share` (鉴权) + `GET /api/templates/shared/[token]` (公开+1 view) + `POST /api/templates/shared/[token]/clone` (要登录, 写入个人库 + 标 metadata.clonedFromShareToken);新公开页 `app/template/[token]/page.tsx` (展示 icon/name/desc/structureHint/keyElements/tags/recommended* + 克隆按钮 + view/clone 计数 chip);TemplateLibraryPicker 个人模板加"分享"按钮 (生成 token + 复制链接到剪贴板)
 
-### v2.18 P3 待跟(下下次)
-- 把 `preview_history` 扩到"项目首图候选" — 试拍后想正式跑就把 imageUrl 直接用作 storyboard 首帧
-- `template_share_tokens` 可设 `expires_at` 但 UI 还没暴露 — 临时分享场景需要
-- 分享链接的"分享 Open Graph 卡片" — 让别人在微信/Twitter 贴链接时显示模板预览图(需 og:image)
-- 个人模板的"导出 JSON / 导入 JSON" (绕开链接, 离线团队协作)
+### v2.18 P3 待跟(下下次) — ✅ 已并入 v2.19 完成
+- ~~把 `preview_history` 扩到"项目首图候选"~~ → v2.19 P0.2 ✅
+- ~~`template_share_tokens` 可设 `expires_at` 但 UI 还没暴露~~ → v2.19 P0.3 ✅
+- ~~分享链接的"分享 Open Graph 卡片"~~ → v2.19 P0.3 ✅
+- ~~个人模板的"导出 JSON / 导入 JSON"~~ → v2.19 P0.4 ✅
+
+---
+
+## 4.10 v2.19 · "稳定性收尾 + Phase 4 完结" Sprint(本次启动 — 不动外部 API)
+
+> **背景**: v2.18.6 之前 6 轮稳定性修复(JSON parse / maxTokens / `<think>` / 主角兜底) 把 pipeline 跑通到能出片; 这一轮把 "用户敲 1 句话, 端到端 0 报错" 这条主路径闭环, 同时把 v2.18 P3 待跟全部清掉。
+> **决策**: 0 新依赖, 0 外部 API key 要求 (Kling/Vidu/真 4K 全留给 v2.20)。
+
+### P0.1 · Prompt slim — 减 17% 角色/场景图 prompt 长度 ✅
+- [x] `lib/seedance-enhance.ts`:
+  - `enhanceCharacterPromptSeedance` 8 anchors → 4 (~750 → ~250 chars)
+  - `enhanceScenePromptSeedance` 6 hints → 3 (~450 → ~150 chars)
+  - `styleAnchorBlock` 4 phrases → 2 (~250 → ~100 chars)
+- [x] `lib/mckee-skill.ts`:
+  - `getCharacterVisualPrompt` 末尾 scaffolding ~250 → ~120 chars; era constraint ~200 → ~80 chars per branch
+  - `getSceneVisualPrompt` 末尾"no people/figures/humans/silhouettes/faces/bodies" 7 句压成 1 句 + --no flags 保留 (~480 → ~220 chars)
+  - 新增 dedup 逻辑: 当结构化 visual ≥4 维时跳过 verbose appearance, 避免英中双重描述同一信息
+- [x] 实测典型古装角色 prompt: 1396 → 1156 chars (17% 减), 远低于 Minimax image-01 的 1500 字硬上限, `services/minimax.service.ts` 的 1400 hard-truncate 不再触发
+- [x] 测试: `tests/v2-19-prompt-slim.test.ts` 5 cases — 典型 / worst-case / marker 保留 / 场景 --no flags 保留 / 场景预算
+
+### P0.2 · 试拍图 → 第 1 镜首帧复用 ✅
+- [x] `services/hybrid-orchestrator.ts`: 新增 `private previewSeedImage: string` + `setPreviewSeedImage(url)` 公开 setter (校验 http(s), 拒 data:/svg/mock)
+- [x] `runStoryboardRenderer.renderSingleShot`: i===0 且有 previewSeedImage 时, 直接 return seedUrl + 推入 renderedStoryboardUrls 让 sref 链以它为起点, 跳过 generateImage 调用 (省 ≈30s + 1 次 MJ 出图)
+- [x] `app/api/create-stream/route.ts`: 读 body.previewSeedImage 透到 setter
+- [x] `components/create/preview-shot-modal.tsx`: onAccept 签名改成 `(seed: { imageUrl, prompt } | null) => void`; 按钮文字 "用这个风格走全流程" → "用这张图走全流程"
+- [x] `app/dashboard/create/page.tsx`: `runFullPipeline(idea, { previewSeedImage })` 新增可选 opts; modal onAccept 收到 seed 时跳过 handleStartCreation (会重置 state) 直接进 pipeline
+- [x] 测试: `tests/v2-19-preview-seed.test.ts` 8 cases — setter 合法 URL / data: 拒 / svg 拒 / 空拒 / 非 string 拒 / override / 失败保留之前值
+
+### P0.3 · 模板分享 OG card + 过期 UI ✅
+- [x] `app/api/templates/share/route.ts`: POST 接受 `expiresInDays` (1-365), null 表示永久; 返回 expiresAt 字段
+- [x] `components/create/template-library-picker.tsx`: 分享按钮改成 Popover 弹 "1 天 / 7 天 / 30 天 / 永久" 选项; alert 中显示过期时间
+- [x] `app/template/[token]/page.tsx`: 拆 server component (generateMetadata 注入 og:title/og:description/twitter:card 等) + `template-client.tsx` 持原交互
+- [x] `app/template/[token]/opengraph-image.tsx` 新建 — 用 `next/og` ImageResponse 动态生成 1200×630 暗金渐变 OG 图, 含 icon + name + description + tags chip; token 不存在/过期也返回兜底图不 500
+
+### P0.4 · 个人模板 JSON 导出/导入 ✅
+- [x] `template-library-picker`: 每个模板卡新增"📥 导出"按钮 (下载 `windcomic-template-<name>-<ts>.json`), 顶部工具条新增"📤 导入 JSON" 按钮 (file input)
+- [x] 导出 schema: `{ __windComicTemplate: 'v1', __exportedAt, ...StoryTemplate fields }`, 不含 token/userId/id
+- [x] 导入校验: 必须有 `__windComicTemplate === 'v1'` 标记 + name 字段; 各字段全部 slice 上限 (name 60 / description 300 / exampleIdea 500 / keyElements 10 max + 50/each / tags 10 max + 30/each) 防恶意输入; recommendedDuration 白名单 [5,6,10,15]
+- [x] 走 `/api/global-assets` 同款 server-side 校验路径, 不绕权限/quota
+
+### P1.1 · 图片 404 兜底 — 全局 ZoomableImage 加 placeholder + 重试 ✅
+- [x] `components/ui/image-lightbox.tsx` ZoomableImage: 新增 `errored` state + img `onError` 触发, 失败时渲染 `<ImageOff>` 图标 + "图片加载失败" + "🔁 重试" 按钮
+- [x] 重试: setErrored(false) + setRetryNonce(n+1), 给 src 拼 `?retry=N` 做 cache-buster (避免浏览器复用上次 404 缓存)
+- [x] src 换了 → useEffect 自动重置 errored + nonce, 不影响父组件重生图的正常流程
+- [x] 一处改动惠及全站: `character-node.tsx` / `scene-node.tsx` / `storyboard-editor.tsx` 三个调用点都 inherit fallback
+
+### P1.2 · Reasoning 模型分级超时 ✅
+- [x] `services/hybrid-orchestrator.ts`: 新增导出 `isReasoningModelName(model)` 检测 `MiniMax-M2 / deepseek-r1 / o1-* / o3-* / o4-* / *reasoning*` (用 word-boundary `\bm2\b` 避免 `m2x` 误配)
+- [x] callLLM 默认超时按模型分级: reasoning → 420s, 其他 → 300s; 可被 `opts.timeoutMs` 覆盖
+- [x] 心跳分级: 30s 后对 reasoning 模型切换文案 "推理模型展开思路中... (已 Ns)", 让用户知道不是卡死
+- [x] 测试: `tests/v2-19-reasoning-model.test.ts` 27 cases — 命中 14 个 (M2 / deepseek-r1 / o1-3-4 系列 / 自定义 *reasoning*) + 排除 13 个 (gpt-4 / claude / Hailuo / m2x boundary / o1ce / null / undefined / 空串)
+
+### v2.19 总验收 ✅
+- ✅ Pipeline 主路径闭环: 试拍 → 接受 → 全流程 → 第 1 镜直接用那张图 (省 ≈30s + 1 次 MJ)
+- ✅ Prompt 字符压力下降: 角色图 prompt 典型场景 -17%, 不再触发 Minimax hard-truncate
+- ✅ 图片加载失败有兜底 UI (3 个调用点同时受益)
+- ✅ Reasoning 模型不再因 300s 超时浪费已经在推理的调用
+- ✅ 模板分享有 OG 卡片 + 过期日选项, 个人模板能 JSON 导出导入 (v2.18 P3 残项全清)
+- ✅ 全套 vitest 825/825, tsc 0 错误, 0 新依赖
+- ✅ 顺带修了 2 个 v2.18.1 起就 stale 的 thin-idea guard test 文案断言
+
+### v2.19 真正待跟(进入下一 sprint 的候选)
+- v2.20 外部 API 真打: Kling FLF / Lip-sync / 真 4K Master / Vidu Q3 音视频一体 — 等真 key
+- v3.x · Sora-style Cameo IP 经济 + Vision Audit + 创作者分成
 
 ---
 

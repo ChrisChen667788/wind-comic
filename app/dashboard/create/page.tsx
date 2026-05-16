@@ -162,7 +162,10 @@ export default function DashboardCreatePage() {
     runFullPipeline(adapted);
   };
 
-  const runFullPipeline = async (rawIdea: string) => {
+  // v2.19 P0.2: opts.previewSeedImage — 试拍 modal "用这张图走全流程" 透下来的图,
+  // /api/create-stream 收到后 setPreviewSeedImage 注入到 orchestrator,
+  // 第 1 镜的 storyboard 渲染会直接复用它, 跳过对应 MJ 调用。
+  const runFullPipeline = async (rawIdea: string, opts?: { previewSeedImage?: string }) => {
     const sanitizedIdea = sanitizeInput(rawIdea);
     const projectId = `proj-${Date.now()}`;
     const project: Project = {
@@ -199,6 +202,8 @@ export default function DashboardCreatePage() {
           lockedCharacters: lockedCharacters.length > 0 ? lockedCharacters : undefined,
           // v2.14 P1.1: 全局默认镜头语言 id (CAMERA_LANGUAGE_PRESETS), 影响所有镜头的运镜默认值
           cameraDefault: cameraDefault || undefined,
+          // v2.19 P0.2: 试拍图 → 第 1 镜首帧复用 (orchestrator 跳过 generateImage)
+          previewSeedImage: opts?.previewSeedImage || undefined,
         }),
       });
       if (!response.ok) throw new Error('创作失败');
@@ -546,15 +551,23 @@ export default function DashboardCreatePage() {
       )}
 
       {/* v2.18 P1.3: 试拍 modal — 1 镜端到端预览 */}
+      {/* v2.19 P0.2: seed 接到 runFullPipeline 直接走 — 不再过 handleStartCreation
+          (handleStartCreation 会重置很多状态, 也可能弹 draft compare modal, 而试拍场景
+          用户已经做完选择, 直接进 pipeline 即可) */}
       {showPreview && (
         <PreviewShotModal
           idea={idea}
           style={style}
           aspect={aspect}
           videoToo={true}
-          onAccept={() => {
+          onAccept={(seed) => {
             setShowPreview(false);
-            handleStartCreation();
+            if (seed?.imageUrl) {
+              showToast({ title: `已复用试拍图作为第 1 镜首帧, 进入完整创作`, type: 'success' });
+              runFullPipeline(idea, { previewSeedImage: seed.imageUrl });
+            } else {
+              handleStartCreation();
+            }
           }}
           onCancel={() => setShowPreview(false)}
         />

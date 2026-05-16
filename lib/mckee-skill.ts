@@ -478,10 +478,15 @@ export function getCharacterVisualPrompt(name: string, description: string, appe
   }
   const structuredDesc = structuredParts.join(', ');
 
-  // 如果已有高质量appearance, 直接使用; 否则从description生成
-  // 当同时存在结构化 visual 和 appearance 时, 以结构化为主、appearance 作补充
+  // v2.19 P0.1: dedup logic — when structured visual is rich enough (≥4 populated
+  // fields like hair/outfit/props/face), skip the verbose Chinese appearance to
+  // avoid redundancy. structuredParts already encodes the same info in english.
   let visualDesc: string;
-  if (structuredDesc.length >= 30) {
+  const richStructured = structuredParts.length >= 4 && structuredDesc.length >= 80;
+  if (richStructured) {
+    // structured covers it — drop appearance to save ~80-200 chars
+    visualDesc = structuredDesc;
+  } else if (structuredDesc.length >= 30) {
     visualDesc = appearance && appearance.length > 30
       ? `${structuredDesc}, ${appearance}`
       : structuredDesc;
@@ -490,7 +495,8 @@ export function getCharacterVisualPrompt(name: string, description: string, appe
   }
 
   // ═══ 年代/风格一致性约束 ═══
-  // 根据 genre 推断时代背景，强制注入到 prompt 中确保所有角色处于同一年代
+  // v2.19 P0.1: era constraint trimmed from ~200 chars to ~80 per branch.
+  // Per-period costume details were redundant with the structured visual.outfit field.
   let eraConstraint = '';
   const genre = (options?.genre || '').toLowerCase();
   const style = (options?.style || '').toLowerCase();
@@ -498,23 +504,27 @@ export function getCharacterVisualPrompt(name: string, description: string, appe
 
   let negativePrompt = '';
   if (allContext.match(/古|秦|唐|宋|明|清|朝|宫|侠|武|仙|修|汉服|古装|ancient|dynasty|wuxia|xianxia/)) {
-    eraConstraint = 'ancient Chinese historical era, traditional Chinese hanfu robes, flowing silk garments, ornate hair accessories and jade ornaments, historical dynasty-accurate costume design, elegant classical hairstyle with hairpin, ';
-    negativePrompt = ' --no hoodie --no sneakers --no modern --no cap --no jeans --no t-shirt --no contemporary';
+    eraConstraint = 'ancient Chinese hanfu era, period-accurate silk costume and hair, ';
+    negativePrompt = ' --no hoodie --no sneakers --no modern --no jeans --no t-shirt';
   } else if (allContext.match(/赛博|科幻|未来|ai|机器|太空|cyber|sci-fi|future|mech/)) {
-    eraConstraint = 'futuristic sci-fi setting, cyberpunk or sci-fi costume design, high-tech accessories, neon-lit elements, ';
+    eraConstraint = 'futuristic sci-fi setting, cyberpunk costume with high-tech accessories, ';
     negativePrompt = ' --no historical --no ancient --no hanfu';
   } else if (allContext.match(/中世纪|骑士|魔法|精灵|medieval|knight|fantasy|elf/)) {
-    eraConstraint = 'medieval fantasy setting, fantasy-era costume and accessories, ';
+    eraConstraint = 'medieval fantasy setting, period costume and accessories, ';
     negativePrompt = ' --no modern --no contemporary';
   } else if (allContext.match(/民国|1920|1930|1940|republic era/)) {
-    eraConstraint = 'Republic of China era (1920s-1940s), period-accurate clothing (cheongsam, zhongshan suit), ';
+    eraConstraint = 'Republic of China era (1920s-1940s), cheongsam or zhongshan suit, ';
     negativePrompt = '';
   } else {
-    eraConstraint = 'modern contemporary setting, modern clothing and accessories, ';
+    eraConstraint = 'modern contemporary setting, ';
     negativePrompt = '';
   }
 
-  return `character concept art turnaround sheet, front view three-quarter view and back view, ${eraConstraint}${visualDesc}, full body standing pose, highly detailed character design, ALL characters must share the same era and art style, ${styleKeywords}, sharp focus, professional illustration, artstation trending, concept art quality, neutral studio lighting, clean background --ar 16:9 --s 250${negativePrompt}`;
+  // v2.19 P0.1: trim trailing scaffolding from ~250 chars to ~120.
+  // Removed: 'highly detailed character design', 'ALL characters must share the
+  // same era and art style' (redundant with eraConstraint), 'sharp focus',
+  // 'professional illustration', 'artstation trending', 'concept art quality'.
+  return `character concept art turnaround sheet, front three-quarter and back views, ${eraConstraint}${visualDesc}, full body standing pose, ${styleKeywords}, neutral studio lighting, clean background --ar 16:9 --s 250${negativePrompt}`;
 }
 
 // ═══════════════════════════════════════════
@@ -565,7 +575,10 @@ export function getSceneVisualPrompt(description: string, location: string, styl
       : cleanDesc || location || 'cinematic landscape';
   }
 
-  return `environment concept art, ${sceneBody}, ${styleKeywords}, ABSOLUTELY NO people, UNPOPULATED empty scene, pure landscape and architecture only, no characters no figures no humans no silhouettes no faces no bodies, cinematic composition, volumetric lighting, atmospheric perspective, matte painting quality, detailed textures, epic scale, professional cinematography --no people --no person --no character --no figure --no human --ar 16:9 --s 250`;
+  // v2.19 P0.1: trim from ~480 chars to ~220. The 7 phrases saying
+  // "no people / no figures / no humans / no silhouettes / no faces / no bodies"
+  // were redundant — the --no flags below carry the same signal at 1/3 the chars.
+  return `environment concept art, ${sceneBody}, ${styleKeywords}, unpopulated empty scene, cinematic composition, volumetric lighting, atmospheric perspective, matte painting quality --no people --no person --no character --no figure --no human --ar 16:9 --s 250`;
 }
 
 // ═══════════════════════════════════════════

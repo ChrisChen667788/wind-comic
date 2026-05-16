@@ -28,7 +28,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X, Trash2, Copy, User, Sparkles, Filter, ChevronDown, ChevronUp, Share2, Check } from 'lucide-react';
+import { Search, X, Trash2, Copy, User, Sparkles, Filter, ChevronDown, ChevronUp, Share2, Check, Download, Upload } from 'lucide-react';
 import { storyTemplates, type StoryTemplate } from '@/lib/story-templates';
 import {
   Popover,
@@ -220,29 +220,131 @@ export function TemplateLibraryPicker({
     }
   };
 
-  /** v2.18 P2.3: 给个人模板创建分享 token + 复制 URL 到剪贴板 */
-  const handleSharePersonal = async (t: PersonalTemplate) => {
+  /**
+   * v2.19 P0.4: 导出单个个人模板为 JSON 文件 — 离线团队协作场景 (绕开分享链接).
+   * 文件 schema 与 storyTemplates entry 一致, 加 `__windComicTemplate: 'v1'` 标记
+   * 供 import 校验. 不包含 token / userId / id 等 server-side 字段.
+   */
+  const handleExportTemplate = (t: AnyTemplate) => {
+    const exportData = {
+      __windComicTemplate: 'v1',
+      __exportedAt: new Date().toISOString(),
+      name: t.name,
+      nameEn: t.nameEn,
+      icon: t.icon,
+      description: t.description,
+      exampleIdea: t.exampleIdea,
+      structureHint: t.structureHint,
+      emotionCurve: t.emotionCurve,
+      keyElements: t.keyElements,
+      styleRecommendation: t.styleRecommendation,
+      shotCount: t.shotCount,
+      colorPalette: t.colorPalette,
+      tags: t.tags,
+      recommendedDuration: t.recommendedDuration,
+      recommendedAspect: t.recommendedAspect,
+      recommendedCamera: t.recommendedCamera,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // 文件名: 模板名 (中文 OK) + 时间戳前缀, 浏览器自己 sanitize 非法字符
+    a.download = `windcomic-template-${t.name.slice(0, 20)}-${Date.now()}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  /**
+   * v2.19 P0.4: 从 JSON 文件导入到个人库. 强校验:
+   *   - 必须是 v1 schema 标记 (拒绝随便扔个 JSON 进来)
+   *   - 必须有 name (其他字段全 optional)
+   *   - 字段长度上限, 防 DOS
+   */
+  const handleImportTemplate = async (file: File) => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (parsed?.__windComicTemplate !== 'v1') {
+        alert('不是 Wind Comic 模板 JSON. 请用 "导出" 按钮生成的文件.');
+        return;
+      }
+      if (typeof parsed.name !== 'string' || !parsed.name.trim()) {
+        alert('JSON 里缺 name 字段, 无法导入');
+        return;
+      }
+      const safeName = String(parsed.name).slice(0, 60);
+      // 复用 createGlobalAsset 同款路径, 不绕 server-side 校验
+      const res = await fetch('/api/global-assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'template',
+          name: `${safeName} (导入)`,
+          description: typeof parsed.description === 'string' ? parsed.description.slice(0, 300) : undefined,
+          metadata: {
+            __importedAt: new Date().toISOString(),
+            nameEn: typeof parsed.nameEn === 'string' ? parsed.nameEn.slice(0, 60) : undefined,
+            icon: typeof parsed.icon === 'string' ? parsed.icon.slice(0, 10) : undefined,
+            exampleIdea: typeof parsed.exampleIdea === 'string' ? parsed.exampleIdea.slice(0, 500) : undefined,
+            structureHint: typeof parsed.structureHint === 'string' ? parsed.structureHint.slice(0, 500) : undefined,
+            emotionCurve: typeof parsed.emotionCurve === 'string' ? parsed.emotionCurve.slice(0, 200) : undefined,
+            keyElements: Array.isArray(parsed.keyElements) ? parsed.keyElements.slice(0, 10).map((x: unknown) => String(x).slice(0, 50)) : undefined,
+            styleRecommendation: typeof parsed.styleRecommendation === 'string' ? parsed.styleRecommendation.slice(0, 200) : undefined,
+            shotCount: parsed.shotCount && typeof parsed.shotCount === 'object' ? parsed.shotCount : undefined,
+            colorPalette: typeof parsed.colorPalette === 'string' ? parsed.colorPalette.slice(0, 200) : undefined,
+            tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 10).map((x: unknown) => String(x).slice(0, 30)) : undefined,
+            recommendedDuration: [5, 6, 10, 15].includes(parsed.recommendedDuration) ? parsed.recommendedDuration : undefined,
+            recommendedAspect: typeof parsed.recommendedAspect === 'string' ? parsed.recommendedAspect.slice(0, 10) : undefined,
+            recommendedCamera: typeof parsed.recommendedCamera === 'string' ? parsed.recommendedCamera.slice(0, 60) : undefined,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || `导入失败 (${res.status})`);
+        return;
+      }
+      await refreshPersonal();
+      alert(`已导入: ${safeName} (导入)`);
+    } catch (e) {
+      alert(e instanceof Error ? `JSON 解析失败: ${e.message}` : 'JSON 解析失败');
+    }
+  };
+
+  /**
+   * v2.18 P2.3 + v2.19 P0.3: 给个人模板创建分享 token + 复制 URL 到剪贴板。
+   * v2.19 加 expiresInDays 参数 — null 表示 "永久", 否则按天数生成 expires_at。
+   */
+  const handleSharePersonal = async (t: PersonalTemplate, expiresInDays: number | null) => {
     setSharingId(t.id);
     try {
       const res = await fetch('/api/templates/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assetId: t.personalAssetId }),
+        body: JSON.stringify({
+          assetId: t.personalAssetId,
+          // 传 number 表示 N 天过期; 不传表示永久 (server 端的 default)
+          ...(expiresInDays != null ? { expiresInDays } : {}),
+        }),
       });
       const body = await res.json();
       if (!res.ok) {
         alert(body.error || '生成分享链接失败');
         return;
       }
+      const expiryNote = body.expiresAt
+        ? `\n\n⏳ 此链接 ${new Date(body.expiresAt).toLocaleDateString()} 过期`
+        : '\n\n♾️ 永久有效';
       // 复制到剪贴板
       try {
         await navigator.clipboard.writeText(body.url);
         setCopiedToken(body.token);
         setTimeout(() => setCopiedToken(null), 3000);
-        alert(`分享链接已复制到剪贴板:\n${body.url}\n\n任何人打开都能看到这个模板, 也能克隆到自己库。`);
+        alert(`分享链接已复制到剪贴板:\n${body.url}\n\n任何人打开都能看到这个模板, 也能克隆到自己库。${expiryNote}`);
       } catch {
         // clipboard 失败时仍弹链接让用户手动复制
-        alert(`分享链接 (请手动复制):\n${body.url}`);
+        alert(`分享链接 (请手动复制):\n${body.url}${expiryNote}`);
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : '生成分享链接失败');
@@ -347,6 +449,25 @@ export function TemplateLibraryPicker({
             存为模板
           </button>
         )}
+
+        {/* v2.19 P0.4: 从 JSON 导入模板 (离线团队协作场景) */}
+        <label
+          className="cinema-btn !px-2.5 !py-1 !text-[11px] inline-flex items-center gap-1 cursor-pointer"
+          title="从 JSON 文件导入模板 (绕开分享链接, 适合离线协作)"
+        >
+          <Upload className="w-3 h-3" />
+          导入 JSON
+          <input
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (f) await handleImportTemplate(f);
+              e.target.value = ''; // 允许同一文件再次选择
+            }}
+          />
+        </label>
       </div>
 
       {/* 模板网格 */}
@@ -435,18 +556,53 @@ export function TemplateLibraryPicker({
                   </Popover>
                   {personal && (
                     <>
+                      {/* v2.19 P0.3: 分享按钮 → popover 让用户选有效期 */}
+                      <Popover>
+                        <PopoverTrigger
+                          disabled={sharingId === template.id}
+                          className="cinema-eyebrow hover:text-[var(--cinema-amber)] transition-colors flex items-center gap-0.5 disabled:opacity-50"
+                          title="生成公开分享链接, 让别人能看到 + 克隆这个模板"
+                        >
+                          {copiedToken ? (
+                            <Check className="w-2.5 h-2.5 text-[var(--cinema-green)]" />
+                          ) : (
+                            <Share2 className="w-2.5 h-2.5" />
+                          )}
+                          分享
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2">
+                          <div className="cinema-mono text-[10px] opacity-60 mb-2">
+                            链接有效期
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            {[
+                              { label: '1 天', days: 1 },
+                              { label: '7 天 (推荐)', days: 7 },
+                              { label: '30 天', days: 30 },
+                              { label: '永久 ♾️', days: null as number | null },
+                            ].map((opt) => (
+                              <button
+                                key={opt.label}
+                                onClick={() => handleSharePersonal(template as PersonalTemplate, opt.days)}
+                                disabled={sharingId === template.id}
+                                className="cinema-btn !text-[11px] !py-1 hover:cinema-btn-primary text-left disabled:opacity-50"
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="cinema-mono text-[9px] opacity-50 mt-2 leading-relaxed">
+                            过期后链接自动失效, 已克隆的副本不受影响
+                          </p>
+                        </PopoverContent>
+                      </Popover>
+                      {/* v2.19 P0.4: 导出 JSON */}
                       <button
-                        onClick={() => handleSharePersonal(template as PersonalTemplate)}
-                        disabled={sharingId === template.id}
-                        className="cinema-eyebrow hover:text-[var(--cinema-amber)] transition-colors flex items-center gap-0.5 disabled:opacity-50"
-                        title="生成公开分享链接, 让别人能看到 + 克隆这个模板"
+                        onClick={() => handleExportTemplate(template)}
+                        className="cinema-eyebrow hover:text-[var(--cinema-amber)] transition-colors flex items-center gap-0.5"
+                        title="导出为 JSON 文件 (可分享给团队 / 备份)"
                       >
-                        {copiedToken ? (
-                          <Check className="w-2.5 h-2.5 text-[var(--cinema-green)]" />
-                        ) : (
-                          <Share2 className="w-2.5 h-2.5" />
-                        )}
-                        分享
+                        <Download className="w-2.5 h-2.5" />
                       </button>
                       <button
                         onClick={() => handleDeletePersonal(template as PersonalTemplate)}

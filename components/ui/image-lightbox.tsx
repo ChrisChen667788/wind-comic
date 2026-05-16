@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ZoomIn, ImageOff, RefreshCw } from 'lucide-react';
 
 /**
  * 统一的图片放大查看组件。
@@ -129,36 +129,76 @@ export function ZoomableImage({
   src, alt, title, className, imgClassName, showHoverIcon = true, children, disabled = false,
 }: ZoomableImageProps) {
   const [open, setOpen] = useState(false);
+  // v2.19 P1.1: 图片加载失败兜底 — img onError 后切到 placeholder + 重试按钮.
+  // retryNonce 加到 src 后做 cache-buster, 避免浏览器复用上次 404 的缓存.
+  const [errored, setErrored] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+
+  // src 换了 → 重置 error 状态 (例如父组件重生了 imageUrl)
+  useEffect(() => {
+    setErrored(false);
+    setRetryNonce(0);
+  }, [src]);
 
   const handleClick = useCallback((e: React.MouseEvent | React.PointerEvent) => {
-    if (disabled || !src) return;
+    if (disabled || !src || errored) return;
     // 阻止事件冒泡到 React Flow 节点(否则会触发节点拖拽/选中)
     e.preventDefault();
     e.stopPropagation();
     setOpen(true);
-  }, [disabled, src]);
+  }, [disabled, src, errored]);
 
   // Pointer events 版本 - React Flow 把 pointerDown 当做拖拽触发
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.stopPropagation();
   }, []);
 
+  const handleRetry = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setErrored(false);
+    setRetryNonce((n) => n + 1);
+  }, []);
+
+  // 拼 cache-buster 到 src — 只在 retry 时启用, 不污染正常 URL
+  const effectiveSrc = retryNonce > 0
+    ? `${src}${src.includes('?') ? '&' : '?'}retry=${retryNonce}`
+    : src;
+
   return (
     <>
       <div
-        className={`relative group cursor-zoom-in ${className || ''}`}
+        className={`relative group ${errored ? '' : 'cursor-zoom-in'} ${className || ''}`}
         onClick={handleClick}
         onPointerDown={handlePointerDown}
       >
-        {children || (
-          <img
-            src={src}
-            alt={alt || title || ''}
-            className={imgClassName || 'w-full h-full object-cover'}
-            draggable={false}
-          />
+        {errored ? (
+          <div className="w-full h-full bg-black/40 border border-white/10 flex flex-col items-center justify-center gap-1.5 p-2 rounded-[inherit]">
+            <ImageOff className="w-5 h-5 text-white/40" />
+            <span className="cinema-mono text-[10px] opacity-50 text-center px-2 leading-tight">
+              图片加载失败
+            </span>
+            <button
+              onClick={handleRetry}
+              className="cinema-mono text-[10px] inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 transition-colors"
+              title="重试加载"
+            >
+              <RefreshCw className="w-2.5 h-2.5" />
+              重试
+            </button>
+          </div>
+        ) : (
+          children || (
+            <img
+              src={effectiveSrc}
+              alt={alt || title || ''}
+              className={imgClassName || 'w-full h-full object-cover'}
+              draggable={false}
+              onError={() => setErrored(true)}
+            />
+          )
         )}
-        {showHoverIcon && !disabled && (
+        {showHoverIcon && !disabled && !errored && (
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none rounded-[inherit]">
             <div className="bg-black/60 backdrop-blur-sm rounded-full p-1.5">
               <ZoomIn className="w-4 h-4 text-white" />
@@ -166,9 +206,9 @@ export function ZoomableImage({
           </div>
         )}
       </div>
-      {open && (
+      {open && !errored && (
         <ImageLightboxModal
-          src={src}
+          src={effectiveSrc}
           title={title}
           onClose={() => setOpen(false)}
         />
