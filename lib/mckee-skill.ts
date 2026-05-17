@@ -11,6 +11,8 @@
 import { buildDirectorCinemaPromptBlock } from './director-enhance';
 import { buildProducerReviewPromptBlock } from './producer-enhance';
 import { buildWriterCinemaPromptBlock, validateWriterCinematography } from './writer-enhance';
+// v2.20 P0.2: drama-tropes 在 Writer prompt 里注入短剧强约束
+import { buildDramaTropeBlock } from './drama-tropes';
 
 // ═══════════════════════════════════════════
 // 导演 system prompt（增强版 — 角色悖论 + 五感场景）
@@ -142,6 +144,11 @@ export function getMcKeeWriterPrompt(genre: string, style: string, options?: {
   maxShots?: number;
   /** Director 建议的镜头数（非改编模式时由 Director plan 提供） */
   directorTotalShots?: number;
+  /**
+   * v2.20 P0.2: 原始 idea 文本 — 用来检测是否短剧/漫剧 (启用 漫剧 Mode 强约束).
+   * 不传则只按 genre 判断.
+   */
+  idea?: string;
 }): string {
   const isAdapt = options?.isScriptAdaptation || false;
   // 动态计算镜头数范围：基于 Director 建议值
@@ -180,8 +187,15 @@ ${options?.characterAppearances ? '\n### 角色外貌参考（必须在 visualPr
 5. 确保最终输出覆盖了原剧本的完整主线
 ` : '';
 
+  // v2.20 P0.2: 检测是否短剧/漫剧, 是的话注入超强约束块. 这块优先级在 麦基理论 之上 —
+  // 短剧观众完全不吃文艺片那一套, 必须用反转+钩子+cliffhanger 的密集结构.
+  const dramaBlock = buildDramaTropeBlock(genre, options?.idea);
+  const dramaTropeBlock = dramaBlock
+    ? `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${dramaBlock}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
+    : '';
+
   return `你是一位同时精通罗伯特·麦基叙事理论和短视频编剧的顶级AI编剧。
-${adaptNote}
+${adaptNote}${dramaTropeBlock}
 
 ## 核心创作法则
 

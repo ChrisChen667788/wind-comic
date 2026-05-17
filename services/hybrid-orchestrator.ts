@@ -30,6 +30,8 @@ import {
   enhanceCharacterPromptSeedance, enhanceScenePromptSeedance,
   buildProgressiveRefs, styleAnchorBlock,
 } from '@/lib/seedance-enhance';
+import { buildStyleBiblePrompt, prependStyleAnchor } from '@/lib/style-bible';
+import type { ImageEngine } from '@/lib/image-router';
 import {
   buildScreenwriterEnhanceUserBlock,
   inferVoiceFingerprintsFromCharacters,
@@ -314,6 +316,19 @@ export class HybridOrchestrator {
   // 只接受 http(s) URL, data:/svg/mock 图自动忽略。
   private previewSeedImage: string = '';
 
+  // v2.20 P0.1: Style Bible 帧 — 全片视觉锚点. Director plan 解析完后立刻渲染 1 张,
+  // 作为 Character Designer / Scene Designer / Storyboard Renderer 的第 1 张 sref.
+  // 失败时空字符串 (degraded: 老路径仍走 styleKeywords 文本不会 crash).
+  private styleAnchorImageUrl: string = '';
+
+  // v2.20: project 级宽高比 — 16:9 横屏 / 9:16 漫剧竖屏 / 1:1 / 2.35:1. create-stream
+  // 入口透下来 (默认 16:9). Style Bible / Character / Scene / Storyboard 都吃这个.
+  private aspect: string = '16:9';
+
+  // v2.20 P0.2: 原始 idea 文本 — 让 Writer 知道用户的初始意图 (用于检测短剧 trope).
+  // runDirector 调用时缓存, 后续 runWriter 用来注入 drama-tropes block.
+  private originalIdea: string = '';
+
   // Parsed script data (when user provides a full script)
   private parsedScript: ParsedScript | null = null;
 
@@ -375,6 +390,21 @@ export class HybridOrchestrator {
     }
     this.previewSeedImage = url;
     console.log(`[PreviewSeed] Shot 1 will reuse preview image: ${url.slice(0, 60)}...`);
+  }
+
+  /**
+   * v2.20: 设置项目级宽高比. 默认 16:9, 漫剧场景应该传 '9:16'.
+   * 影响 Style Bible / 角色三视图 / 场景图 / 分镜图 的渲染参数, 以及视频生成的尺寸.
+   */
+  setAspect(aspect: string) {
+    if (!aspect || typeof aspect !== 'string') return;
+    const a = aspect.trim();
+    if (!/^\d+:\d+$/.test(a)) {
+      console.warn(`[setAspect] Rejected non-ratio: ${aspect}`);
+      return;
+    }
+    this.aspect = a;
+    console.log(`[Hybrid] aspect ratio set to ${a}`);
   }
 
   /**
@@ -882,47 +912,65 @@ export class HybridOrchestrator {
       });
     };
 
-    // ═══ 统一路由：MJ 优先（画质最佳）→ Minimax image-01 → flux.1-kontext-pro ═══
-    // 实测结论：之前版本效果好就是因为 MJ 出图质量高，Minimax image-01 速度快但风格偏弱，
-    // flux.1-kontext-pro 作为最终兜底（100% 可用但质量一般）
-    console.log(`[ImageRouter] ${hasRefImages ? 'Reference' : 'Standard'} routing for: ${label}`);
+    // ═══ v2.20 P0.3: 智能路由 — 按 refs 数量分流 ═══
+    // 关键改进: refs ≥ 3 时优先走 Minimax multi-ref (能用全部 4 张), 而不是 MJ 退化成 2 张.
+    // 这样 Style Bible + 主角 + 配角 + 场景 可以同时锁住, 不再每镜舍弃一半参考.
+    const { decideImageRoute, collectValidRefs } = await import('@/lib/image-router');
+    const validRefs = collectValidRefs({
+      cref: opts?.cref,
+      sref: opts?.sref,
+      referenceImages: opts?.referenceImages,
+    });
+    const route = decideImageRoute({
+      validRefs,
+      mjAvailable: !!this.mjService,
+      minimaxAvailable: !!this.minimaxService?.isImageAvailable(),
+      kontextAvailable: !!veKey || !!qytKey,
+    });
+    console.log(`[ImageRouter] ${label}: refs=${validRefs.length} → primary=${route.primary} fallbacks=[${route.fallbacks.join(',')}] (${route.reason})`);
 
-    // 1️⃣ Midjourney（vectorengine，画质最佳，有参考图时用 --cref/--sref）
-    if (this.mjService) {
-      try {
-        if (hasRefImages) {
-          console.log(`[ImageRouter] → Midjourney (--cref/--sref) for: ${label}`);
+    // engine 执行器 — 每个 engine 抽成一个 thunk, router 按顺序串行 try
+    const tryEngine = async (eng: ImageEngine): Promise<string> => {
+      switch (eng) {
+        case 'mj': {
+          if (!this.mjService) throw new Error('mj not available');
           this.mjService.onProgress = (progress, status) => { this.emit('mjProgress', { progress, status, label }); };
-          return await this.mjService.generateImage(prompt, {
-            aspectRatio: opts?.aspectRatio, cref: opts?.cref, sref: opts?.sref, cw: opts?.cw ?? 100,
-          });
-        } else {
-          console.log(`[ImageRouter] → Midjourney for: ${label}`);
-          this.mjService.onProgress = (progress, status) => { this.emit('mjProgress', { progress, status, label }); };
+          if (hasRefImages) {
+            return await this.mjService.generateImage(prompt, {
+              aspectRatio: opts?.aspectRatio, cref: opts?.cref, sref: opts?.sref, cw: opts?.cw ?? 100,
+            });
+          }
           return await this.mjService.generateImage(prompt, { aspectRatio: opts?.aspectRatio });
         }
-      } catch (e) { console.warn(`[ImageRouter] MJ failed for ${label}:`, e); }
-    }
+        case 'minimax-multi': {
+          if (!this.minimaxService) throw new Error('minimax not available');
+          return await this.minimaxService.generateImageWithRefs(prompt, validRefs, {
+            aspectRatio: opts?.aspectRatio || '16:9',
+          });
+        }
+        case 'minimax-single': {
+          if (!this.minimaxService) throw new Error('minimax not available');
+          return await this.minimaxService.generateImage(prompt, { aspectRatio: opts?.aspectRatio || '16:9' });
+        }
+        case 'kontext': {
+          if (veKey) return hasRefImages ? await kontextImage(veBase, veKey) : await apiImage('flux.1-kontext-pro', veBase, veKey);
+          if (qytKey) return hasRefImages ? await kontextImage(qytBase, qytKey) : await apiImage('flux.1-kontext-pro', qytBase, qytKey);
+          throw new Error('no kontext gateway key');
+        }
+      }
+    };
 
-    // 2️⃣ Minimax image-01 官方 API（MJ 失败时的主 fallback）
-    if (this.minimaxService?.isImageAvailable()) {
+    const engineChain: ImageEngine[] = [route.primary, ...route.fallbacks];
+    let lastErr: unknown = null;
+    for (const eng of engineChain) {
       try {
-        console.log(`[ImageRouter] → Minimax image-01 for: ${label}`);
-        return await this.minimaxService.generateImage(prompt, { aspectRatio: opts?.aspectRatio || '16:9' });
-      } catch (e) { console.warn(`[ImageRouter] Minimax image-01 failed for ${label}:`, e instanceof Error ? e.message : e); }
+        return await tryEngine(eng);
+      } catch (e) {
+        lastErr = e;
+        console.warn(`[ImageRouter] ${eng} failed for ${label}:`, e instanceof Error ? e.message : e);
+      }
     }
-
-    // 3️⃣ vectorengine flux.1-kontext-pro（终极兜底，100% 可用）
-    if (veKey) {
-      try { return hasRefImages ? await kontextImage(veBase, veKey) : await apiImage('flux.1-kontext-pro', veBase, veKey); }
-      catch (e) { console.warn(`[ImageRouter] flux-kontext failed for ${label}:`, e instanceof Error ? e.message : e); }
-    }
-
-    // 4️⃣ qingyuntop flux.1-kontext-pro（二级备选）
-    if (qytKey) {
-      try { return hasRefImages ? await kontextImage(qytBase, qytKey) : await apiImage('flux.1-kontext-pro', qytBase, qytKey); }
-      catch (e) { console.warn(`[ImageRouter] qyt flux-kontext failed for ${label}:`, e instanceof Error ? e.message : e); }
-    }
+    // engineChain 全炸了, 落到下面的 falFlux 兜底
 
     // 5️⃣ fal.ai / ComfyUI（本地）
     if (this.falFluxService) {
@@ -956,6 +1004,8 @@ export class HybridOrchestrator {
   // 导演（Claude LLM）
   // ══════════════════════════════════════
   async runDirector(idea: string): Promise<DirectorPlan> {
+    // v2.20 P0.2: 缓存原始 idea, runWriter 用它检测短剧 trope
+    this.originalIdea = idea || '';
     this.update(AgentRole.DIRECTOR, { status: 'thinking', currentTask: '分析创意，制定拍摄计划', progress: 10 });
 
     // ── P3: 检测是否为完整剧本输入 ──
@@ -1222,6 +1272,92 @@ export class HybridOrchestrator {
   }
 
   // ══════════════════════════════════════
+  // v2.20 P0.1: Style Bible Artist — 渲染 1 张全片视觉锚点帧
+  // ══════════════════════════════════════
+  //
+  // 设计动机:
+  //   之前每个 shot 独立生成, MJ/Flux 看到的"风格"只有一段文字 + 最近 2 张图.
+  //   结果 6 个 shot 看起来像 6 部不同的剧.
+  //
+  // 解法:
+  //   Director plan 拿到后立刻渲染 1 张 canonical "key art" 帧 — 把 styleKeywords
+  //   / genre / 主题情绪凝固成视觉锚点. 后续 Character / Scene / Storyboard
+  //   每一次 generateImage 都把这张图作为第 1 张 sref, 整片画风 drift 接近 0.
+  //
+  // 容错:
+  //   失败时 this.styleAnchorImageUrl 留空, 老路径 styleKeywords 文本仍生效不 crash.
+  async runStyleBibleArtist(plan: DirectorPlan): Promise<string> {
+    // 没风格关键词就跳过 — 用户没选 style, Director 也没出, 没必要白烧一次 image 调用
+    if (!this.styleKeywords || this.styleKeywords.length < 5) {
+      console.log('[StyleBible] no styleKeywords yet, skipping bible frame render');
+      return '';
+    }
+
+    // v2.20 P0.2: 漫剧/短剧自动默认 9:16 竖屏 (用户没显式 setAspect 时)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { shouldDefaultToVertical } = require('@/lib/drama-tropes');
+      if (this.aspect === '16:9' && shouldDefaultToVertical(this.genre, this.originalIdea)) {
+        console.log('[StyleBible] drama genre detected, defaulting aspect 16:9 → 9:16');
+        this.aspect = '9:16';
+      }
+    } catch { /* drama-tropes 加载失败不阻塞 */ }
+
+    this.update(AgentRole.DIRECTOR, { currentTask: '渲染 Style Bible 帧 — 锁定全片视觉锚点', progress: 95 });
+    this.emit('agentTalk', {
+      role: AgentRole.DIRECTOR,
+      text: '🎨 先画一张 Style Bible — 把整片画风钉死, 后续每个镜头都以它为基准',
+    });
+
+    const moodHint = [
+      (plan as any).hookStrategy,
+      (plan as any).emotion,
+      (plan as any).synopsis?.slice(0, 60),
+      (plan as any)?.theme,
+    ].filter(Boolean).join(' · ').slice(0, 100);
+
+    const biblePrompt = buildStyleBiblePrompt({
+      styleKeywords: this.styleKeywords,
+      genre: this.genre,
+      moodHint,
+      aspect: this.aspect,
+    });
+
+    // 限时 90s — Style Bible 一旦超时就放弃, 不阻塞主流程 (degraded fallback OK)
+    const BIBLE_TIMEOUT = 90_000;
+    let imageUrl = '';
+    try {
+      imageUrl = await Promise.race([
+        this.generateImage(biblePrompt, {
+          aspectRatio: this.aspect || '16:9',
+          label: 'Style Bible Key Art',
+        }),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error('Style Bible timeout')), BIBLE_TIMEOUT),
+        ),
+      ]);
+    } catch (e) {
+      console.warn(`[StyleBible] render failed: ${e instanceof Error ? e.message : e}, falling back to text-only style`);
+      return '';
+    }
+
+    // 只接受真 http URL — mock/data: 不能作 sref
+    if (!imageUrl || !imageUrl.startsWith('http')) {
+      console.warn('[StyleBible] got non-http url, treating as fallback');
+      return '';
+    }
+
+    this.styleAnchorImageUrl = imageUrl;
+    console.log(`[StyleBible] anchor frame locked: ${imageUrl.slice(0, 80)}...`);
+    this.emit('styleBible', { url: imageUrl, prompt: biblePrompt });
+    this.emit('agentTalk', {
+      role: AgentRole.DIRECTOR,
+      text: '✅ Style Bible 已锁定 — 后续 6 个镜头都会以这张图作 sref 锚定画风',
+    });
+    return imageUrl;
+  }
+
+  // ══════════════════════════════════════
   // 编剧（Claude LLM + 麦基方法论）
   // ══════════════════════════════════════
   async runWriter(plan: DirectorPlan): Promise<Script> {
@@ -1334,7 +1470,12 @@ export class HybridOrchestrator {
       } : {
         directorTotalShots,
       };
-      const prompt = getMcKeeWriterPrompt(plan.genre, plan.style, writerPromptOptions);
+      // v2.20 P0.2: 把原始 idea 透给 Writer prompt builder, 启用 漫剧 mode 检测
+      const writerPromptOptionsWithIdea = {
+        ...writerPromptOptions,
+        idea: this.originalIdea || (plan as any).synopsis || '',
+      };
+      const prompt = getMcKeeWriterPrompt(plan.genre, plan.style, writerPromptOptionsWithIdea);
 
       // ── P3: 根据是否有原始剧本，构建不同上下文 ──
       let userContext: string;
@@ -1812,17 +1953,21 @@ ${raw.slice(0, 2000)}
       // ★ Seedance 风格: 渐进参考链 — 前一个角色图作为风格基准,保证所有角色画风一致
       // 第 1 个角色无参考; 第 2 个起,用前一个角色图作 --sref (风格基准)
       const priorCharRef = generatedCharRefs[generatedCharRefs.length - 1];
-      const progressiveRefs = buildProgressiveRefs({
+      const baseRefs = buildProgressiveRefs({
         primaryCharRef: priorCharRef,
         maxRefs: 2,
       });
+      // v2.20 P0.1: Style Bible 图作首位 sref, 保证所有角色三视图都对齐到全片画风
+      const progressiveRefs = prependStyleAnchor(this.styleAnchorImageUrl, baseRefs).slice(0, 3);
 
       // 单角色限时 3 分钟，超时则降级为 mock
       const CHAR_TIMEOUT = 180_000;
       const imageUrl = await Promise.race([
         this.generateImage(enhancedPrompt, {
+          aspectRatio: this.aspect || '16:9',
           label: `${char.name} 三视图`,
-          // 第一个角色无参考; 第二个角色起把前序角色图当 --sref 风格基准
+          // v2.20 P0.1: 第 1 张 sref 永远是 Style Bible (如果有) — 锁全片画风;
+          // 没有时 fallback 到前序角色图 (老路径)
           sref: progressiveRefs[0],
           referenceImages: progressiveRefs,
         }),
@@ -1909,19 +2054,22 @@ ${raw.slice(0, 2000)}
       //   styleRef (用户上传) > 主角色图 > 最近场景图 > 次角色图
       //   flux.1-kontext-pro 最多吃 4 张, MJ 只吃 2 张 (--cref + --sref)
       const prevSceneRef = completedSceneRefs[completedSceneRefs.length - 1];
-      const progressiveRefs = buildProgressiveRefs({
+      const baseRefs = buildProgressiveRefs({
         primaryCharRef: srefUrl,
         prevSceneRef,
         secondaryCharRef: this.characterImageUrls[1],
         maxRefs: 4,
       });
+      // v2.20 P0.1: Style Bible 作为首位 sref — 锁全片画风
+      const progressiveRefs = prependStyleAnchor(this.styleAnchorImageUrl, baseRefs).slice(0, 4);
+      const finalSref = progressiveRefs[0] || srefUrl;
 
       // 单场景限时：如果超时则返回 mock
       const imageUrl = await Promise.race([
         this.generateImage(enhancedPrompt, {
-          aspectRatio: '16:9', label: scene.location,
-          sref: srefUrl, // 主 --sref 通道保持角色风格
-          referenceImages: progressiveRefs, // 额外参考图供 flux.1-kontext-pro 使用
+          aspectRatio: this.aspect || '16:9', label: scene.location,
+          sref: finalSref, // v2.20: Style Bible 优先, fallback 到主角色图
+          referenceImages: progressiveRefs,
         }),
         new Promise<string>((_, reject) =>
           setTimeout(() => reject(new Error(`Scene timeout: ${scene.location}`)), SCENE_TIMEOUT)
@@ -2320,6 +2468,10 @@ ${shots.map((s, i) => {
       renderPrompt = optimizeMidjourneyPrompt(renderPrompt);
 
       // P4: 渐进式一致性链（并发安全 — 读取当前已完成的分镜图）
+      // v2.20 P0.1: Style Bible 永远作首位 sref — 锁全片画风, 不被后续镜头覆盖.
+      // Refs 优先级 (从前到后):
+      //   styleAnchor (全片 look bible) > crefUrl (主角) > extra cref (配角)
+      //   > srefUrl (场景) > 最近 2 张已渲染分镜
       const progressiveRefs: string[] = [];
       if (crefUrl) progressiveRefs.push(crefUrl);
       // v2.12 Phase 2: 同一镜头里其他匹配上的 lockedCharacters 的脸图也塞 referenceImages,
@@ -2334,18 +2486,23 @@ ${shots.map((s, i) => {
           progressiveRefs.push(url);
         }
       }
+      // v2.20 P0.1: Style Bible 插入首位, 取代 srefUrl 作 --sref 通道 (画风优先于场景)
+      const refsWithBible = prependStyleAnchor(this.styleAnchorImageUrl, progressiveRefs);
+      const finalSref = this.styleAnchorImageUrl && this.styleAnchorImageUrl.startsWith('http')
+        ? this.styleAnchorImageUrl
+        : srefUrl;
 
-      console.log(`[P4-Chain] Shot ${sb.shotNumber}: ${progressiveRefs.length} reference images (cref=${!!crefUrl}, sref=${!!srefUrl}, chain=${recentRendered.length})`);
+      console.log(`[P4-Chain] Shot ${sb.shotNumber}: ${refsWithBible.length} reference images (styleBible=${!!this.styleAnchorImageUrl}, cref=${!!crefUrl}, sref=${!!srefUrl}, chain=${recentRendered.length})`);
 
       // 单张分镜限时 3 分钟; cw 由 policy 决定 (锁脸 125, 主角 100, 配角 80)
       const imageUrl = await Promise.race([
         this.generateImage(renderPrompt, {
-          aspectRatio: '16:9',
+          aspectRatio: this.aspect || '16:9',
           label: `Shot ${sb.shotNumber}`,
           cref: crefUrl,
           cw: refsPick.cw,
-          sref: srefUrl,
-          referenceImages: progressiveRefs.length > 0 ? progressiveRefs : undefined,
+          sref: finalSref,
+          referenceImages: refsWithBible.length > 0 ? refsWithBible : undefined,
         }),
         new Promise<string>((_, reject) =>
           setTimeout(() => reject(new Error(`Storyboard timeout: Shot ${sb.shotNumber}`)), SB_TIMEOUT)
@@ -2382,15 +2539,17 @@ ${shots.map((s, i) => {
             additionalReferences: additionalRefs.length > 0 ? additionalRefs : undefined,
             regenerate: async (boostedCw, extraRefs) => {
               const reinforcedPrompt = `${renderPrompt}, IDENTICAL face structure to reference, same character identity, ${shotCharacters[0] || 'same protagonist'}`;
-              const reinforcedRefs = [...progressiveRefs, ...extraRefs].filter(
-                (u, idx, arr) => u && arr.indexOf(u) === idx
+              // v2.20 P0.1: cameo-retry 也带上 Style Bible 锚点
+              const reinforcedRefs = prependStyleAnchor(
+                this.styleAnchorImageUrl,
+                [...progressiveRefs, ...extraRefs].filter((u, idx, arr) => u && arr.indexOf(u) === idx),
               );
               return await this.generateImage(reinforcedPrompt, {
-                aspectRatio: '16:9',
+                aspectRatio: this.aspect || '16:9',
                 label: `Shot ${sb.shotNumber} (cameo-retry cw${boostedCw})`,
                 cref: crefUrl,
                 cw: boostedCw,
-                sref: srefUrl,
+                sref: finalSref,
                 referenceImages: reinforcedRefs.length > 0 ? reinforcedRefs : undefined,
               });
             },
@@ -4058,6 +4217,8 @@ ${characterBibleBlock}${producerContext}
   // ══════════════════════════════════════
   async startProduction(idea: string, videoProvider: string) {
     const plan = await this.runDirector(idea);
+    // v2.20 P0.1: 在角色/场景/分镜之前先渲染 1 张 Style Bible 帧, 全片视觉锚定
+    await this.runStyleBibleArtist(plan);
     const script = await this.runWriter(plan);
     const characters = await this.runCharacterDesigner(plan.characters);
     const scenes = await this.runSceneDesigner(plan.scenes);

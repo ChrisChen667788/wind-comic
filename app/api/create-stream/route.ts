@@ -126,6 +126,11 @@ export async function POST(request: NextRequest) {
           orchestrator.setCameraDefault(cameraDefault);
         }
 
+        // v2.20 P0.1: 项目级宽高比 — 漫剧场景应 '9:16', 横屏剧用 '16:9'
+        if (aspect && typeof aspect === 'string') {
+          orchestrator.setAspect(aspect);
+        }
+
         // v2.19 P0.2: 试拍图复用 — 用户在 create 页 "试拍 1 镜" 接受了某张图,
         // 直接当第 1 镜的 storyboard 渲染结果, 跳一次 MJ 调用 + 把整片画风锚定到那张图。
         // setter 内部校验 http(s) URL, 非法值会被忽略, 不阻塞主流程。
@@ -288,6 +293,18 @@ export async function POST(request: NextRequest) {
         }
 
         if (!plan) { send('error', { message: '导演计划生成失败' }); controller.close(); return; }
+
+        // ── 1.5 Style Bible ── v2.20 P0.1: 渲染 1 张全片视觉锚点帧
+        try {
+          send('status', { message: '渲染 Style Bible 帧 — 锁定全片画风...' });
+          const bibleUrl = await orchestrator.runStyleBibleArtist(plan);
+          if (bibleUrl) {
+            send('styleBible', { url: bibleUrl });
+            saveAsset(projectId, 'styleBible', 'Style Bible Key Art', { url: bibleUrl });
+          }
+        } catch (e) {
+          console.warn('[Stream] Style Bible 渲染失败, 继续走老路径:', e);
+        }
 
         // ── 2. Writer ──
         try {

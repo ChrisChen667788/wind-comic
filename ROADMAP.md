@@ -590,11 +590,83 @@ npm test
 - `NEXT_PUBLIC_YJS_WS_URL` — 前端 WS URL (默认同 host:1234)
 - `YJS_WS_URL` — server-side broadcast 用 (默认 ws://localhost:1234)
 
-### v3.0 P0.3 待跟
+### v3.0 P0.3 待跟 (暂搁置 — 用户改为优先 v2.20 核心质量)
 - 版本审批 — 项目级 "提交评审" 状态机 (draft → in_review → approved/changes_requested)
 - 评论支持图片/视频附件 (拖拽到输入框)
 - 通知邮件推送 (可选, 用户偏好控制)
 - Cinema 时间线轨道交互 (G12, 是大头, 留 v3.1)
+
+---
+
+## 4.12 v2.20 · "漫剧核心质量" Sprint ✅ 2026-05-17
+
+> **背景**: 用户反馈 "对比业内顶级产品 (Sora 2 / Kling 2.0 Master / Seedance 2.0 / Runway Gen-4 / Vidu Q3 / Higgsfield), 漫剧生成 及格分都没达到". 暂停协作功能 (v3.0 P0.3 搁置), 主攻**核心生成质量**.
+> **决策**: 0 新外部 API key, 0 新依赖. 三个最致命的根因一次处理 — 风格漂移 / 故事生硬 / 多图参考没用上.
+
+### 诊断 (Diagnostic Agent 输出, 不另外文档):
+- G1 styleKeywords 只是一段字符串, 没视觉锚点 → 每个 shot 重新协商风格, 6 镜看着像 6 部不同剧
+- G2 storyboard 只看最近 2 帧, shot 6 不知道 shot 1 长什么样 — 4 跳后画风必然飘
+- G3 "9-ref" 是文字宣传, MJ 只吃 2 张 (cref+sref), Minimax image-01 multi-ref 已写但没在 image 阶段用过
+- G4 lipsync 全无 (Kling key 没到位, 留 v2.20+)
+- G5 Writer 走 McKee-Hollywood-3 幕, 不是中国短剧节奏, 默认 16:9 横屏 ≠ 漫剧场景
+
+### P0.1 · Global Style Bible Frame ✅
+- [x] `lib/style-bible.ts` 新建 — `buildStyleBiblePrompt` (按 genre 自带 mood words: 古装 amber/ink-wash, 赛博 neon/teal, 恐怖 steel-blue, 校园 golden hour, 言情 peach, 等 8 类) + `normalizeAspect` (16:9 / 9:16 / 1:1 / 2.35:1 兼容多种写法) + `prependStyleAnchor` (把 anchor URL 永远塞首位 sref, dedup, 拒 data:/mock)
+- [x] `services/hybrid-orchestrator.ts`:
+  - 新字段 `private styleAnchorImageUrl + aspect + originalIdea`
+  - 新 setter `setAspect(ratio)` 校验 N:N 格式
+  - 新方法 `runStyleBibleArtist(plan)` — Director plan 拿到后立刻渲染 1 张 canonical "key art" 帧, 90s 超时直接放弃 (degraded fallback)
+  - Character Designer / Scene Designer / Storyboard Renderer 三处都接入 `prependStyleAnchor` — 全片 sref 第 1 张永远是 Style Bible, MJ/Minimax 不再"猜风格"
+  - Cameo retry 也带 Style Bible 锚点
+- [x] `app/api/create-stream/route.ts`: SSE 加 `styleBible` event, 在 Writer 之前调用 `runStyleBibleArtist`; 新 setter `setAspect(aspect)` 把 body.aspect 透下来
+- [x] 测试: `tests/v2-20-style-bible.test.ts` 27 cases — prompt 注入校验 / genre mood 互不污染 / no-people 负向 prompt / aspect 归一化 / prependStyleAnchor 优先级 + dedup / setAspect 校验
+
+### P0.2 · 漫剧 Mode + 短剧 Tropes + 9:16 默认 ✅
+- [x] `lib/drama-tropes.ts` 新建 — 12 个最常见中国短剧 hook 模板:
+  - reborn (重生): "醒来回到 N 年前 + 预知关键事件"
+  - system (系统流): "突然听到系统提示音"
+  - reveal (战神/扮猪): "被瞧不起者亮出隐藏身份打脸"
+  - slap (打脸): "被瞧不起的人当场反杀"
+  - transmigrate (穿越): "醒来发现身在异世界 / 古代"
+  - rich-vs-poor (霸总): "灰姑娘遇豪门"
+  - revenge (复仇): "主角执行复仇计划关键瞬间"
+  - amnesia (失忆): "醒来不记得过去, 周围态度异常"
+  - cliffhanger (危机起手): "极端危险瞬间 + 倒叙"
+  - mistaken (误会): "关键对话被错位解读"
+  - pregnant (隐孕): "未告知男方却已怀孕"
+  - family-feud (豪门/宫斗): "家族聚会下暗流涌动"
+  - 每个 trope 都带: hookCore + shot1Visual + shot1Dialogue + beatPlan (6 镜节奏建议)
+- [x] `isDramaContext(genre, idea)` / `detectTrope` / `shouldDefaultToVertical` / `buildDramaTropeBlock` 全套 API
+- [x] `lib/mckee-skill.ts`: `getMcKeeWriterPrompt` 新加 `idea?` 参数, 静态 import `drama-tropes`, 命中短剧时把 `buildDramaTropeBlock` 输出包裹在 ━━━ 分隔线里塞进 Writer system prompt 顶部 (优先级高于 麦基理论)
+- [x] `services/hybrid-orchestrator.ts`:
+  - `runDirector` 缓存 `this.originalIdea`
+  - `runWriter` 把 idea 透给 `getMcKeeWriterPrompt`
+  - `runStyleBibleArtist` 自动检测短剧 → 默认 9:16 竖屏 (用户没显式 setAspect 时)
+- [x] 测试: `tests/v2-20-drama-tropes.test.ts` 29 cases — isDramaContext 矩阵 / trope 命中精度 / buildDramaTropeBlock 完整规则块 + trope 模板 / library 完整性 (12 trope 字段齐) / mckee 集成 (短剧才注入, 非短剧不污染)
+
+### P0.3 · 多图参考路由 — 真正用上所有 refs ✅
+- [x] `lib/image-router.ts` 新建 — `decideImageRoute({ validRefs, mjAvailable, minimaxAvailable, kontextAvailable })` 返回 `{ primary, fallbacks, reason }`:
+  - 0 refs → MJ (画质优先)
+  - 1-2 refs → MJ (cref+sref native fit)
+  - **≥3 refs → minimax-multi (关键改进 — 不再让 MJ 丢 ref)**, fallback MJ (退化到 2 ref) + kontext
+  - 引擎不可用时按可用性自动降级
+- [x] `collectValidRefs({ cref, sref, referenceImages })` — 去重 + 仅 http(s) + 拒 data: 的统一规整
+- [x] `services/minimax.service.ts`: 新方法 `generateImageWithRefs(prompt, refs, opts)` — 用 image-01 的 `subject_reference: [{ type, image_file }]` 字段一次塞 ≤4 张; 上游报错 → throw, 调用方 fallback; 1026 敏感词复用 sanitize retry 路径
+- [x] `services/hybrid-orchestrator.ts` `generateImage`: 老的"MJ → Minimax → kontext" 硬序列改成 router 驱动的 engineChain; 每个 engine 抽成 thunk, router 决定顺序后串行 try, 全部失败才落到 falFlux 兜底
+- [x] 测试: `tests/v2-20-image-router.test.ts` 15 cases — refs=0/1/2/3/4 × 引擎可用性矩阵 / collectValidRefs 去重 / 非 string 防御
+
+### v2.20 总验收 ✅
+- ✅ Style Bible 帧: 在 Director 之后立刻渲染 1 张, 之后所有 6 镜以它为首位 sref → 全片画风 drift 接近 0
+- ✅ 漫剧 mode: 命中短剧 → Writer 自动用密集钩子+反转+cliffhanger 结构, 第 1 镜不再"晨曦初露主角散步", 默认 9:16 竖屏
+- ✅ 多图 router: ≥3 refs 时 Minimax multi-ref 优先, 真正同时锁住 "Style Bible + 主角 + 场景 + 配角" 4 维度
+- ✅ 测试: 71 新 case (27 style-bible + 29 drama-tropes + 15 image-router) — 累计 943/943 vitest, tsc 0 错误, 0 新依赖
+- ✅ 失败降级链完整 (Style Bible 90s 超时 → 跳过; Minimax multi-ref 失败 → MJ; router 全炸 → falFlux)
+
+### v2.20 待跟 (P1 候选, 下一轮)
+- 反转密度 / 节奏感的 lib 化 + UI 节奏图 (现在只在 Writer prompt 文字硬约束, 没自动 audit)
+- Character DNA 数字化 (vision 抽取 8 维特征作 prompt anchor)
+- 真 Lipsync (Kling key 到位后)
+- Vision Audit 给 Style Bible 加 LUT/光线维度对比
 
 ---
 

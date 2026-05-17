@@ -614,6 +614,110 @@ export class MinimaxService {
     }
   }
 
+  /**
+   * v2.20 P0.3: 带 subject reference 的图像生成 — 用 image-01 的 subject_reference
+   * 字段, 一次塞 ≤ 4 张图作锚点, 让模型同时锁住"角色长相 + 场景气氛 + 全片画风".
+   *
+   * 与普通 generateImage 的区别:
+   *   - body 多一个 subject_reference: [{ type: 'character', image_file: [url] }, ...]
+   *   - refs 数组中第 1 张通常是 Style Bible 帧 (锁画风), 之后是 cref / sref
+   *
+   * 失败处理:
+   *   - 上游不支持该字段 / 400-500 → throw, 让调用方 fallback 到普通 generateImage 或 MJ
+   *   - 1026 敏感词 → 复用主路径 sanitize + retry 一次
+   *
+   * 注: Minimax 文档对 image-01 的 subject_reference 字段支持有歧义 (官方主要演示在
+   * S2V-01 video 上). 如果上游报错就走 fallback, 不会拖垮整条 pipeline.
+   */
+  async generateImageWithRefs(prompt: string, refs: string[], options?: {
+    aspectRatio?: string;
+    _retryCount?: number;
+  }): Promise<string> {
+    if (!this.imageEndpointAvailable) {
+      throw new Error(`Minimax image endpoint unavailable on baseURL "${this.baseURL}"`);
+    }
+    const validRefs = (refs || []).filter((u) => typeof u === 'string' && u.startsWith('http')).slice(0, 4);
+    if (validRefs.length === 0) {
+      // 没有效 refs — 直接降级到普通 generateImage, 不浪费一个 multi-ref 请求
+      return this.generateImage(prompt, options);
+    }
+
+    const retryCount = options?._retryCount ?? 0;
+    let effectivePrompt = retryCount === 0 ? prompt : sanitizePromptForMinimax(prompt);
+    const MAX_PROMPT_LEN = 1400;
+    if (effectivePrompt.length > MAX_PROMPT_LEN) {
+      effectivePrompt = effectivePrompt.slice(0, MAX_PROMPT_LEN);
+      const cutAt = Math.max(
+        effectivePrompt.lastIndexOf('. '),
+        effectivePrompt.lastIndexOf(', '),
+        effectivePrompt.lastIndexOf('; '),
+      );
+      if (cutAt > MAX_PROMPT_LEN * 0.7) effectivePrompt = effectivePrompt.slice(0, cutAt);
+    }
+
+    try {
+      const subjectArr = validRefs.map((url) => ({ type: 'character', image_file: [url] }));
+      const body: Record<string, any> = {
+        model: 'image-01',
+        prompt: effectivePrompt,
+        prompt_optimizer: true,
+        subject_reference: subjectArr,
+      };
+      if (options?.aspectRatio) {
+        const ratioMap: Record<string, { width: number; height: number }> = {
+          '1:1': { width: 1024, height: 1024 },
+          '16:9': { width: 1344, height: 768 },
+          '9:16': { width: 768, height: 1344 },
+          '4:3': { width: 1152, height: 896 },
+          '3:4': { width: 896, height: 1152 },
+        };
+        const size = ratioMap[options.aspectRatio] || ratioMap['1:1'];
+        body.width = size.width;
+        body.height = size.height;
+      }
+
+      console.log(`[Minimax-multi] generating with ${validRefs.length} subject refs, prompt ${effectivePrompt.length}chars`);
+      const response = await fetchWithTimeout(`${this.baseURL}/v1/image_generation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }, 120_000);
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`Minimax multi-ref API error (${response.status}): ${JSON.stringify(data).slice(0, 200)}`);
+      }
+      if (data.base_resp?.status_code && data.base_resp.status_code !== 0) {
+        const code = data.base_resp.status_code;
+        const msg = data.base_resp.status_msg || 'unknown';
+        if (code === 1026 && retryCount === 0) {
+          console.warn('[Minimax-multi] 1026 sensitive content — sanitized retry');
+          return await this.generateImageWithRefs(prompt, refs, { ...options, _retryCount: 1 });
+        }
+        throw new Error(`Minimax multi-ref (${code}): ${msg}`);
+      }
+
+      // 直接返 url 模式
+      if (data.data?.image_urls && Array.isArray(data.data.image_urls) && data.data.image_urls.length > 0) {
+        console.log(`[Minimax-multi] ✅ ${data.data.image_urls[0]}`);
+        return data.data.image_urls[0];
+      }
+      // 异步 task_id 模式
+      const taskId = data.data?.task_id || data.task_id;
+      if (taskId) {
+        return await this.pollImageResult(taskId);
+      }
+      throw new Error(`Minimax multi-ref: no url or task_id in response`);
+    } catch (error) {
+      console.warn(`[Minimax-multi] failed, caller should fallback:`, error instanceof Error ? error.message : error);
+      _trackMinimaxError(error, 'image-01', 'generateImageWithRefs');
+      throw error;
+    }
+  }
+
   // 轮询图片生成结果
   private async pollImageResult(taskId: string, maxAttempts = 60): Promise<string> {
     for (let i = 0; i < maxAttempts; i++) {
