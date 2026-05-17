@@ -31,6 +31,8 @@ interface RegenInput {
   useStyleBible?: boolean;
   useCref?: boolean;
   aspectRatio?: string;
+  /** v2.24 B: 用户上传的参考图 URL — 作 sref 优先于 Style Bible */
+  referenceImageUrl?: string;
 }
 
 function getProjectContext(projectId: string): {
@@ -99,7 +101,7 @@ export async function POST(
   try { body = await request.json(); }
   catch { return new Response('Invalid JSON', { status: 400 }); }
 
-  const { shotNumber, customPrompt, useStyleBible, useCref, aspectRatio } = body;
+  const { shotNumber, customPrompt, useStyleBible, useCref, aspectRatio, referenceImageUrl } = body;
   if (!shotNumber || typeof shotNumber !== 'number') {
     return new Response('shotNumber required', { status: 400 });
   }
@@ -108,6 +110,12 @@ export async function POST(
   }
   if (customPrompt.length > 2000) {
     return new Response('customPrompt too long (max 2000)', { status: 400 });
+  }
+  // v2.24 B: 校验上传参考图 URL — 必须 http(s) (data: URI 应该在客户端先走 /api/upload 落盘)
+  if (referenceImageUrl && typeof referenceImageUrl === 'string') {
+    if (!referenceImageUrl.startsWith('http')) {
+      return new Response('referenceImageUrl must be http URL (upload first)', { status: 400 });
+    }
   }
 
   const ctx = getProjectContext(projectId);
@@ -142,12 +150,25 @@ export async function POST(
         const { optimizeMidjourneyPrompt } = await import('@/lib/prompt-filter');
         const finalPrompt = optimizeMidjourneyPrompt(customPrompt.trim());
 
+        // v2.24 B: 引用图优先级 — 用户上传的 referenceImage > Style Bible
+        // sref 通道: 用户上传 > styleAnchor; cref 不变 (主角脸独立通道)
+        const effectiveSref = referenceImageUrl
+          || (useStyleBible !== false ? ctx.styleAnchorUrl : undefined)
+          || undefined;
+        const refImages: string[] = [];
+        if (referenceImageUrl) refImages.push(referenceImageUrl);
+        if (useStyleBible !== false && ctx.styleAnchorUrl && ctx.styleAnchorUrl !== referenceImageUrl) {
+          refImages.push(ctx.styleAnchorUrl);
+        }
+        if (useCref !== false && ctx.primaryCharacterRef) refImages.push(ctx.primaryCharacterRef);
+
         // 走 orchestrator 的 generateImage (private), 用 hack 暴露
         const imageUrl = await (orchestrator as any).generateImage(finalPrompt, {
           aspectRatio: aspectRatio || '16:9',
-          label: `Shot ${shotNumber} (manual regen)`,
+          label: `Shot ${shotNumber} (manual regen${referenceImageUrl ? ' + userRef' : ''})`,
           cref: useCref !== false ? ctx.primaryCharacterRef : undefined,
-          sref: useStyleBible !== false ? ctx.styleAnchorUrl : undefined,
+          sref: effectiveSref,
+          referenceImages: refImages.length > 0 ? refImages : undefined,
         });
 
         if (!imageUrl || imageUrl.startsWith('data:')) {

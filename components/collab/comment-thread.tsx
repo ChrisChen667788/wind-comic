@@ -16,9 +16,9 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Trash2, MessageCircle, Send, Loader2, Radio, RadioReceiver } from 'lucide-react';
+import { Trash2, MessageCircle, Send, Loader2, Radio, RadioReceiver, Paperclip, X as XIcon } from 'lucide-react';
 import { MentionTextarea } from './mention-textarea';
-import type { CommentRowShape as CommentRow, CommentTargetType } from '@/lib/comments-shared';
+import type { CommentRowShape as CommentRow, CommentTargetType, CommentAttachmentShape } from '@/lib/comments-shared';
 import { useYjs } from '@/hooks/use-yjs';
 
 interface FetchedComment extends CommentRow {}
@@ -127,6 +127,32 @@ function CommentItem({ comment, currentUserId, onReplyClick, onDeleteClick, inde
         <div className="cinema-mono text-[12px] leading-relaxed break-words whitespace-pre-wrap">
           {renderContent(comment.content, deleted)}
         </div>
+        {/* v3.x E.1: 附件渲染 — 图片缩略图 / 视频 controls / 文件链接 */}
+        {!deleted && Array.isArray((comment as any).attachments) && (comment as any).attachments.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {((comment as any).attachments as Array<{ url: string; type: string; filename?: string }>).map((att, i) => (
+              <a
+                key={i}
+                href={att.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block max-w-[180px] rounded border border-white/10 overflow-hidden hover:border-[var(--cinema-amber)]/50"
+                title={att.filename}
+              >
+                {att.type === 'image' ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={att.url} alt={att.filename || 'attachment'} className="w-full max-h-32 object-cover" />
+                ) : att.type === 'video' ? (
+                  <video src={att.url} className="w-full max-h-32" controls muted />
+                ) : (
+                  <div className="px-2 py-3 text-[10px] opacity-70 break-all">
+                    📎 {att.filename || 'file'}
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+        )}
         {!deleted && (
           <div className="flex items-center gap-2 mt-1">
             {onReplyClick && (
@@ -165,6 +191,38 @@ export function CommentThread({
   const [submitting, setSubmitting] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState('');
+  // v3.x E.1: 附件状态
+  const [draftAttachments, setDraftAttachments] = useState<CommentAttachmentShape[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+
+  const uploadAttachment = async (file: File) => {
+    if (uploadingAttachment) return;
+    if (draftAttachments.length >= 6) {
+      setError('附件最多 6 个');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError(`${file.name} 超过 10MB 上限`);
+      return;
+    }
+    setUploadingAttachment(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/upload/comment-attachment', { method: 'POST', body: form });
+      const body = await res.json();
+      if (!res.ok || !body?.url) {
+        setError(body?.error || `上传失败 (${res.status})`);
+        return;
+      }
+      setDraftAttachments((prev) => [...prev, { url: body.url, type: body.type, size: body.size, filename: body.filename }]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '上传失败');
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
 
   // v3.0 P0.2: Yjs 实时 — 一个项目一个 doc, 所有 target 的评论都在同一 Y.Array
   // 这里按 targetType+targetId filter 出本组件关心的子集.
@@ -231,13 +289,19 @@ export function CommentThread({
 
   const post = async (content: string, parentId: string | null) => {
     const trimmed = content.trim();
-    if (!trimmed) return;
+    // v3.x E.1: 允许"附件无文字"评论
+    const isMainComment = parentId === null;
+    const attachmentsForPost = isMainComment ? draftAttachments : [];
+    if (!trimmed && attachmentsForPost.length === 0) return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetType, targetId, content: trimmed, parentId }),
+        body: JSON.stringify({
+          targetType, targetId, content: trimmed, parentId,
+          attachments: attachmentsForPost,
+        }),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -249,6 +313,7 @@ export function CommentThread({
         setReplyDraft('');
       } else {
         setDraft('');
+        setDraftAttachments([]); // v3.x E.1: 清空附件
       }
       // 乐观刷新
       await fetchComments();
@@ -373,21 +438,85 @@ export function CommentThread({
       </div>
 
       {/* 新评论输入 */}
-      <div className="space-y-2 pt-2 border-t border-white/5">
+      <div
+        className="space-y-2 pt-2 border-t border-white/5"
+        onDrop={async (e) => {
+          e.preventDefault();
+          const files = Array.from(e.dataTransfer.files || []);
+          for (const f of files) {
+            if (f.type.startsWith('image/') || f.type.startsWith('video/')) {
+              await uploadAttachment(f);
+            }
+          }
+        }}
+        onDragOver={(e) => e.preventDefault()}
+      >
         <MentionTextarea
           value={draft}
           onChange={setDraft}
           rows={3}
-          placeholder="评论这条... 输入 @ 提及成员. ⌘+Enter 发送."
+          placeholder="评论这条... 输入 @ 提及成员. ⌘+Enter 发送. 拖图片/视频可附件."
           onSubmit={() => post(draft, null)}
         />
-        <div className="flex items-center justify-between">
-          <span className="cinema-mono text-[9px] opacity-40">
-            {draft.length}/2000
-          </span>
+        {/* v3.x E.1: 附件预览 */}
+        {draftAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {draftAttachments.map((att, i) => (
+              <div
+                key={i}
+                className="relative max-w-[120px] rounded border border-white/10 overflow-hidden group/att"
+              >
+                {att.type === 'image' ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={att.url} alt={att.filename} className="w-full max-h-20 object-cover" />
+                ) : att.type === 'video' ? (
+                  <video src={att.url} className="w-full max-h-20" muted />
+                ) : (
+                  <div className="px-2 py-3 text-[10px]">📎 {att.filename}</div>
+                )}
+                <button
+                  onClick={() => setDraftAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="absolute top-0.5 right-0.5 p-0.5 rounded bg-black/60 text-white/80 opacity-0 group-hover/att:opacity-100 transition-opacity"
+                  title="移除附件"
+                >
+                  <XIcon className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <label
+              className={`cinema-mono text-[10px] inline-flex items-center gap-1 px-2 py-0.5 rounded border border-[var(--cinema-border)] cursor-pointer hover:border-[var(--cinema-amber)] transition-colors ${
+                uploadingAttachment || draftAttachments.length >= 6 ? 'opacity-40 cursor-not-allowed' : ''
+              }`}
+              title={draftAttachments.length >= 6 ? '已达 6 附件上限' : '上传图片/视频 (≤10MB, 最多 6 个)'}
+            >
+              {uploadingAttachment ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Paperclip className="w-3 h-3" />
+              )}
+              附件
+              <input
+                type="file"
+                accept="image/*,video/*"
+                disabled={uploadingAttachment || draftAttachments.length >= 6}
+                multiple={false}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (f) await uploadAttachment(f);
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
+            </label>
+            <span className="cinema-mono text-[9px] opacity-40">{draft.length}/2000</span>
+          </div>
           <button
             onClick={() => post(draft, null)}
-            disabled={!draft.trim() || submitting}
+            disabled={(!draft.trim() && draftAttachments.length === 0) || submitting}
             className="cinema-btn cinema-btn-primary !px-3 !py-1 !text-[11px] inline-flex items-center gap-1 disabled:opacity-40"
           >
             {submitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}

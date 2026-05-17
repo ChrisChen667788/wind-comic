@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
   Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle, BarChart3,
+  Clapperboard,
 } from 'lucide-react';
 import { CameoPanel } from '@/components/CameoPanel';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
@@ -20,6 +21,8 @@ import { PresenceAvatars } from '@/components/collab/presence-avatars';
 import { buildTargetId } from '@/lib/comments-shared';
 import { useAuth } from '@/components/auth-provider';
 import { PacingChart } from '@/components/project/pacing-chart';
+import { ReviewStatusBadge } from '@/components/project/review-status-badge';
+import { CinemaTimeline } from '@/components/project/cinema-timeline';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -188,6 +191,8 @@ export default function ProjectDetailPage() {
     { key: 'videos', label: '视频', icon: Video, count: videos.length },
     // v2.16 P1.4: 镜头工坊 — 4K 重渲 / 首尾帧 / 多分辨率导出 集中入口
     { key: 'workshop', label: '镜头工坊', icon: Scissors, count: videos.length },
+    // v3.1 F: Cinema 时间线 — 拖拽重排 + 时长调整
+    { key: 'timeline', label: 'Cinema 时间线', icon: Clapperboard, count: script?.shots?.length || 0 },
     // v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议
     { key: 'pacing', label: '节奏分析', icon: BarChart3, count: script?.pacingReport?.warnings?.length || 0 },
     // v3.0 P0.1: 评论协作 — 项目级讨论 + 提及通知
@@ -220,6 +225,8 @@ export default function ProjectDetailPage() {
                 currentUser={{ id: user.id, name: user.name, avatarUrl: user.avatarUrl || null }}
               />
             )}
+            {/* v3.x P0.3 E.3: 审批状态 badge */}
+            <ReviewStatusBadge projectId={id} currentUserId={user?.id} />
             <span className={`cinema-chip ${project.status === 'completed' ? 'cinema-chip-green' : 'cinema-chip-amber'}`}>
               <span className="cinema-statusbar-dot" style={{ background: project.status === 'completed' ? 'var(--cinema-green)' : 'var(--cinema-amber)' }} />
               {project.status === 'completed' ? 'COMPLETED' : 'IN PRODUCTION'}
@@ -584,9 +591,23 @@ export default function ProjectDetailPage() {
             />
           )}
 
+          {/* v3.1 F: Cinema 时间线 MVP */}
+          {activeTab === 'timeline' && (
+            <CinemaTimeline projectId={id} />
+          )}
+
           {/* v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议 */}
           {activeTab === 'pacing' && (
-            <PacingChart report={script?.pacingReport || null} />
+            <PacingChart
+              report={script?.pacingReport || null}
+              dialogueCoverage={script?.dialogueCoverageReport || null}
+              styleAuditShots={storyboards.map((sb: any) => ({
+                shotNumber: sb.shotNumber || sb.shot_number,
+                styleAuditScore: sb.styleAuditScore ?? sb.data?.styleAuditScore,
+                styleAuditRetried: sb.styleAuditRetried ?? sb.data?.styleAuditRetried,
+                styleAuditReason: sb.styleAuditReason ?? sb.data?.styleAuditReason,
+              }))}
+            />
           )}
 
           {/* v3.0 P0.1: 评论协作 — 项目级讨论 + 每个镜头独立线程 */}

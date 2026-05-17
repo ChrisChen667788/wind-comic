@@ -93,7 +93,17 @@ export async function POST(
     return NextResponse.json({ error: `invalid targetType` }, { status: 400 });
   }
   if (!targetId) return NextResponse.json({ error: '缺 targetId' }, { status: 400 });
-  if (!content.trim()) return NextResponse.json({ error: '评论不能为空' }, { status: 400 });
+
+  // v3.x E.1: 校验附件 (createComment 会再校一次, 这里给客户端友好错误)
+  const rawAttachments = Array.isArray(body?.attachments) ? body.attachments : [];
+  const attachments = rawAttachments
+    .filter((a: any) => a && typeof a.url === 'string' && a.url.startsWith('http'))
+    .filter((a: any) => ['image', 'video', 'file'].includes(a.type))
+    .slice(0, 6);
+
+  if (!content.trim() && attachments.length === 0) {
+    return NextResponse.json({ error: '评论或附件至少有一个' }, { status: 400 });
+  }
   if (content.length > 2000) return NextResponse.json({ error: '评论超过 2000 字' }, { status: 400 });
 
   try {
@@ -106,6 +116,7 @@ export async function POST(
       authorAvatarUrl: user.avatarUrl,
       content,
       parentId,
+      attachments,
     });
     // v3.0 P0.2: 写完 DB 后异步广播到 Yjs — 在线客户端实时收到, 不再依赖 30s 轮询.
     // 失败不阻塞响应 (broadcast 是 best-effort, client 还能 fallback 到下次拉).

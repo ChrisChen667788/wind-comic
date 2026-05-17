@@ -21,15 +21,8 @@
  *   - 可由调用方在 orchestrator 里关掉 (env LIPSYNC_DISABLED=1)
  */
 
-import { API_CONFIG } from '@/lib/config';
-
-function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 60_000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
-}
-
-function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+// v2.24 G: API_CONFIG / fetch / sleep 移到 lipsync-providers.ts
+import { selectProvider, listAvailableProviders } from '@/services/lipsync-providers';
 
 export interface LipSyncOptions {
   /** 嘴型对齐的语言 — Kling 支持 zh / en, 默认 zh */
@@ -48,25 +41,24 @@ export interface LipSyncResult {
 }
 
 export class LipSyncService {
-  private apiKey: string;
-  private baseURL: string;
   /** env LIPSYNC_DISABLED=1 可全局关闭 (省钱 / 调试) */
   private disabled: boolean;
 
   constructor() {
-    this.apiKey = API_CONFIG.keling?.apiKey || '';
-    this.baseURL = API_CONFIG.keling?.baseURL || '';
     this.disabled = process.env.LIPSYNC_DISABLED === '1';
   }
 
   /**
-   * 当前环境是否能跑 lip-sync. 没 key / disabled → false, 调用方应跳过.
+   * 当前环境是否能跑 lip-sync. v2.24 G: 走 provider router, 任一 provider 可用即可.
    */
   isAvailable(): boolean {
     if (this.disabled) return false;
-    if (!this.apiKey || this.apiKey.startsWith('your_')) return false;
-    if (!this.baseURL) return false;
-    return true;
+    return !!selectProvider();
+  }
+
+  /** v2.24 G: 列出哪些 provider 当前可用 (admin / status banner 用) */
+  listProviders(): string[] {
+    return listAvailableProviders();
   }
 
   /**
@@ -81,15 +73,9 @@ export class LipSyncService {
     audioUrl: string,
     options?: LipSyncOptions,
   ): Promise<LipSyncResult> {
-    // Pre-flight 检查
-    if (!this.isAvailable()) {
-      return {
-        videoUrl,
-        applied: false,
-        warning: this.disabled
-          ? 'lip-sync 已 disable (LIPSYNC_DISABLED=1)'
-          : 'KELING_API_KEY 未配置, lip-sync 跳过',
-      };
+    // Pre-flight
+    if (this.disabled) {
+      return { videoUrl, applied: false, warning: 'lip-sync 已 disable (LIPSYNC_DISABLED=1)' };
     }
     if (!videoUrl || !audioUrl) {
       return { videoUrl, applied: false, warning: 'videoUrl / audioUrl 缺失' };
@@ -98,115 +84,26 @@ export class LipSyncService {
       return { videoUrl, applied: false, warning: 'lip-sync 需要 http URL, data:/本地路径 不支持' };
     }
 
-    console.log('[LipSync] 启动 — video:', videoUrl.slice(0, 60), ' audio:', audioUrl.slice(0, 60));
-
-    const language = options?.language || 'zh';
-    const body: Record<string, any> = {
-      // Kling lip-sync API endpoint (公开 API 在 /v1/videos/lip-sync)
-      // 字段名以 Kling 官方文档为准, 若不匹配 / 上游 4xx, 调用方 catch fallback.
-      input: {
-        video_url: videoUrl,
-        audio_type: 'audio_url',
-        audio_url: audioUrl,
-        language,
-      },
-    };
-
-    try {
-      const response = await fetchWithTimeout(
-        `${this.baseURL}/v1/videos/lip-sync`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        },
-        30_000,
-      );
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => '');
-        return {
-          videoUrl,
-          applied: false,
-          warning: `Kling lip-sync API ${response.status}: ${errText.slice(0, 150)}`,
-        };
-      }
-
-      const data = await response.json();
-      const taskId = data.data?.task_id || data.task_id || data.id;
-      if (!taskId) {
-        return {
-          videoUrl,
-          applied: false,
-          warning: `Kling lip-sync 无 task_id: ${JSON.stringify(data).slice(0, 150)}`,
-        };
-      }
-
-      const syncedUrl = await this.pollResult(taskId, 60, options?.onProgress);
-      if (!syncedUrl) {
-        return { videoUrl, applied: false, warning: 'Kling lip-sync poll 超时' };
-      }
-
-      console.log('[LipSync] ✅ 成功:', syncedUrl.slice(0, 80));
-      return { videoUrl: syncedUrl, applied: true };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn('[LipSync] 失败, 降级到原视频:', msg);
-      return { videoUrl, applied: false, warning: `lip-sync failed: ${msg.slice(0, 150)}` };
+    // v2.24 G: 走 provider router
+    const provider = selectProvider();
+    if (!provider) {
+      return {
+        videoUrl, applied: false,
+        warning: '无 lip-sync provider 可用 (设 KELING_API_KEY / SYNCSO_API_KEY / MINIMAX_API_KEY 任一)',
+      };
     }
+
+    console.log(`[LipSync] 启动 (${provider.name}) — video:`, videoUrl.slice(0, 60), ' audio:', audioUrl.slice(0, 60));
+    const result = await provider.syncMouthToAudio(videoUrl, audioUrl, options);
+    if (result.applied) {
+      console.log(`[LipSync] ✅ ${provider.name} 成功:`, result.videoUrl.slice(0, 80));
+    } else {
+      console.warn(`[LipSync] ${provider.name} 失败:`, result.warning);
+    }
+    return result;
   }
 
-  /**
-   * 轮询 Kling 任务结果 — 与 KlingService.pollResult 类似但只关心 lip-sync 视频 URL.
-   * 失败时返 null 让上层降级.
-   */
-  private async pollResult(
-    taskId: string,
-    maxAttempts = 60,
-    onProgress?: (progress: number, status: string) => void,
-  ): Promise<string | null> {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await sleep(5000);
-      try {
-        const response = await fetchWithTimeout(
-          `${this.baseURL}/v1/videos/lip-sync/${taskId}`,
-          {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${this.apiKey}` },
-          },
-          15_000,
-        );
-        if (!response.ok) continue; // 偶发 5xx 容忍, 下一轮再试
-
-        const data = await response.json();
-        const status = data.data?.task_status || data.task_status;
-        const progress = Math.round(((attempt + 1) / maxAttempts) * 100);
-        onProgress?.(progress, status || 'polling');
-
-        if (status === 'succeed' || status === 'completed' || status === 'success') {
-          // Kling 视频结果通常在 task_result.videos[0].url
-          const url =
-            data.data?.task_result?.videos?.[0]?.url ||
-            data.task_result?.videos?.[0]?.url ||
-            data.data?.video_url ||
-            data.video_url;
-          if (url) return url;
-          return null;
-        }
-        if (status === 'failed' || status === 'error') {
-          console.warn(`[LipSync] task ${taskId} ${status}`);
-          return null;
-        }
-      } catch (e) {
-        // 网络抖动容忍, 继续 poll
-        console.warn(`[LipSync] poll attempt ${attempt}: ${e instanceof Error ? e.message : e}`);
-      }
-    }
-    return null; // 超时
-  }
+  // v2.24 G: pollResult 已迁移到 lipsync-providers.ts (每 provider 自带)
 }
 
 /**

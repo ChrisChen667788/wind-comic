@@ -1,15 +1,42 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import { Users, Loader2, CheckCircle2, RefreshCw, Clock, Dna } from 'lucide-react';
+import { Users, Loader2, CheckCircle2, RefreshCw, Clock, Dna, Sparkles } from 'lucide-react';
 import { ZoomableImage } from '@/components/ui/image-lightbox';
 
 function CharacterNodeComponent({ data }: NodeProps) {
   const d = data as unknown as PipelineNodeData;
   const characters = d.assets?.filter(a => a.type === 'character') || [];
+  // v2.24 D: DNA 重抽 state
+  const [dnaBusy, setDnaBusy] = useState<string | null>(null);
+  const [dnaLocal, setDnaLocal] = useState<Record<string, any>>({});
+  const [dnaError, setDnaError] = useState<string | null>(null);
+
+  const reExtractDna = async (charName: string, projectId: string) => {
+    if (dnaBusy) return;
+    setDnaBusy(charName);
+    setDnaError(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/extract-character-dna`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characterName: charName }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setDnaError(body?.error || `失败 ${res.status}`);
+        return;
+      }
+      setDnaLocal((prev) => ({ ...prev, [charName]: body.dna }));
+    } catch (e) {
+      setDnaError(e instanceof Error ? e.message : '请求失败');
+    } finally {
+      setDnaBusy(null);
+    }
+  };
 
   return (
     <NodeShell status={d.status} color="amber" className="min-w-[380px] max-w-[480px]" agentRole={d.agentRole}>
@@ -34,19 +61,22 @@ function CharacterNodeComponent({ data }: NodeProps) {
       {characters.length > 0 ? (
         <div className="grid grid-cols-2 gap-3">
           {characters.map((c) => {
-            // v2.23 P0.3: 拿 DNA 命中率 (8 维 vision 抽取)
-            const dna = (c.data as any)?.dna;
+            // v2.23 P0.3 + v2.24 D: DNA 命中率 (优先用本地重抽结果)
+            const dnaSource = dnaLocal[c.name] || (c.data as any)?.dna;
+            const dna = dnaSource;
             const dnaFilled = dna?.filledCount;
             const dnaTotal = dna?.totalCount;
             const dnaMissing: string[] = dna?.missing || [];
             const dnaStrong = dnaFilled != null && dnaTotal != null && dnaFilled >= dnaTotal * 0.75;
+            const isReExtracting = dnaBusy === c.name;
+            const projectId = c.projectId; // ProjectAsset 自带 projectId
             return (
             <div key={c.id} className="bg-black/30 border border-white/5 rounded-xl overflow-hidden group">
               <div className="px-3 py-2 flex items-center justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-semibold text-white flex items-center gap-1.5 flex-wrap">
                     {c.name}
-                    {/* v2.23 P0.3: DNA 覆盖度 chip */}
+                    {/* v2.23 P0.3 + v2.24 D: DNA 覆盖度 chip + 重抽按钮 */}
                     {dnaFilled != null && dnaTotal != null && (
                       <span
                         title={dnaMissing.length > 0 ? `已抽 ${dnaFilled}/${dnaTotal} 维; 缺: ${dnaMissing.join(', ')}` : `DNA 全部 ${dnaTotal} 维已抽取`}
@@ -58,6 +88,28 @@ function CharacterNodeComponent({ data }: NodeProps) {
                       >
                         <Dna className="w-2.5 h-2.5" />
                         {dnaFilled}/{dnaTotal}
+                      </span>
+                    )}
+                    {/* v2.24 D: 重抽 DNA 按钮 — 仅 hover 显示, 节省空间 */}
+                    {projectId && !isReExtracting && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          reExtractDna(c.name, projectId);
+                        }}
+                        disabled={dnaBusy !== null}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] bg-white/5 hover:bg-white/15 text-white/70 hover:text-white disabled:opacity-30"
+                        title="重抽 DNA — vision 重跑 8 维, 不重生角色图 (~5-10s)"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        重抽
+                      </button>
+                    )}
+                    {isReExtracting && (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] bg-white/5 text-white/60">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        重抽中
                       </span>
                     )}
                   </div>
@@ -92,6 +144,13 @@ function CharacterNodeComponent({ data }: NodeProps) {
           <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-500" style={{ width: `${d.progress}%` }} />
           </div>
+        </div>
+      )}
+
+      {/* v2.24 D: DNA 重抽错误 */}
+      {dnaError && (
+        <div className="mt-2 text-[10px] text-red-300/80 bg-red-900/20 border border-red-500/20 rounded px-2 py-1">
+          DNA 重抽失败: {dnaError}
         </div>
       )}
 

@@ -1,19 +1,15 @@
 'use client';
 
 /**
- * v2.21 P1.4 — 节奏分析图 (PacingChart).
+ * v2.21 P1.4 + v2.24 A/C — 节奏分析图 (PacingChart).
  *
- * 展示 lib/pacing-audit.ts 的 PacingAuditReport:
- *   - 顶部 KPI: 平均冲突分 / 反转数 / 通过/不通过
- *   - 主图: 每镜的 conflict score (色带 + 极性图标 + 反转箭头)
- *   - 底部: warnings + suggestions 列表
- *
- * 设计原则:
- *   - 一眼能看出 "哪一镜偏弱" — 颜色编码 + hover title
- *   - 看不到具体数据时退化优雅 (空报告也能渲染骨架)
+ * 展示:
+ *   - PacingAuditReport (P1.1) — 冲突分 / 反转 / cliffhanger
+ *   - StyleAudit 历史趋势 (v2.24 A) — 每镜画风评分 + 重生标记
+ *   - DialogueCoverageReport (v2.24 C) — 缺反打 / 缺特写 列表
  */
 
-import { ArrowRight, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Minus, Lightbulb } from 'lucide-react';
+import { ArrowRight, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Minus, Lightbulb, Palette, MessageCircle } from 'lucide-react';
 
 type Polarity = -1 | 0 | 1;
 
@@ -35,8 +31,31 @@ interface PacingReport {
   suggestions: string[];
 }
 
+// v2.24 A — Style audit per-shot data (from Storyboard.styleAuditScore etc)
+export interface StyleAuditShot {
+  shotNumber: number;
+  styleAuditScore?: number;     // 0-100
+  styleAuditRetried?: boolean;
+  styleAuditReason?: string;
+}
+
+// v2.24 C — Dialogue coverage report shape
+export interface DialogueCoverageReportShape {
+  sceneCount: number;
+  multiCharSceneCount: number;
+  needsReverseShot: Array<{ startIndex: number; endIndex: number; characters: string[] }>;
+  needsCloseUp: Array<{ startIndex: number; endIndex: number; characters: string[] }>;
+  coverageScore: number;
+  warnings: string[];
+  rewriteHints: string[];
+}
+
 export interface PacingChartProps {
   report: PacingReport | null | undefined;
+  /** v2.24 A — 每镜 style audit 分数, 给 "画风一致性" sub-section 用 */
+  styleAuditShots?: StyleAuditShot[];
+  /** v2.24 C — 对话覆盖度报告 */
+  dialogueCoverage?: DialogueCoverageReportShape | null;
 }
 
 function scoreColor(score: number): string {
@@ -51,7 +70,7 @@ function PolarityIcon({ p }: { p: Polarity }) {
   return <Minus className="w-3 h-3 opacity-40" />;
 }
 
-export function PacingChart({ report }: PacingChartProps) {
+export function PacingChart({ report, styleAuditShots, dialogueCoverage }: PacingChartProps) {
   if (!report) {
     return (
       <div className="cinema-card-hi p-6 text-center">
@@ -194,6 +213,144 @@ export function PacingChart({ report }: PacingChartProps) {
           </span>
         </div>
       </div>
+
+      {/* v2.24 A: 画风一致性 sub-section (StyleAudit 每镜评分) */}
+      {styleAuditShots && styleAuditShots.length > 0 && (
+        <div className="cinema-card-hi p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="cinema-eyebrow flex items-center gap-1.5">
+              <Palette className="w-3 h-3" />
+              STYLE BIBLE 一致性 (每镜 vision 审计)
+            </div>
+            {(() => {
+              const scored = styleAuditShots.filter((s) => s.styleAuditScore != null);
+              if (scored.length === 0) return null;
+              const avg = scored.reduce((sum, s) => sum + (s.styleAuditScore || 0), 0) / scored.length;
+              const retried = styleAuditShots.filter((s) => s.styleAuditRetried).length;
+              return (
+                <span className="cinema-mono text-[10px] opacity-60">
+                  平均 {avg.toFixed(0)}/100 · {retried} 镜重生
+                </span>
+              );
+            })()}
+          </div>
+          <div className="flex items-end gap-1 min-h-[80px]">
+            {styleAuditShots.map((s) => {
+              const score = s.styleAuditScore;
+              if (score == null) {
+                return (
+                  <div key={s.shotNumber} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                    <div className="w-full bg-white/5 rounded-t" style={{ height: '20%' }} />
+                    <span className="cinema-mono text-[9px] opacity-30">{s.shotNumber}</span>
+                  </div>
+                );
+              }
+              const heightPct = Math.max(15, (score / 100) * 100);
+              const color = score >= 85 ? 'var(--cinema-green)' : score >= 70 ? 'var(--cinema-amber)' : 'var(--cinema-red)';
+              return (
+                <div key={s.shotNumber} className="flex-1 flex flex-col items-center gap-1 min-w-0 relative">
+                  {s.styleAuditRetried && (
+                    <span
+                      className="absolute -top-3 cinema-mono text-[10px]"
+                      style={{ color: 'var(--cinema-amber)' }}
+                      title={`已重生 (vision 修偏: ${s.styleAuditReason || ''})`}
+                    >
+                      🔄
+                    </span>
+                  )}
+                  <div
+                    className="w-full rounded-t flex items-end justify-center"
+                    style={{
+                      height: `${heightPct}%`,
+                      minHeight: '14px',
+                      background: color,
+                      opacity: 0.9,
+                    }}
+                    title={s.styleAuditReason ? `${score}/100: ${s.styleAuditReason}` : `${score}/100`}
+                  >
+                    <span className="cinema-mono text-[9px] text-black/70 font-bold pb-0.5">{score}</span>
+                  </div>
+                  <span className="cinema-mono text-[10px] opacity-60">{s.shotNumber}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-3 mt-3 cinema-mono text-[9px] opacity-50">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm" style={{ background: 'var(--cinema-green)' }} /> 强 ≥85
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm" style={{ background: 'var(--cinema-amber)' }} /> 中 70-84
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm" style={{ background: 'var(--cinema-red)' }} /> 弱 &lt;70 (已触发重生)
+            </span>
+            <span className="ml-auto inline-flex items-center gap-1">🔄 vision auto-regen</span>
+          </div>
+        </div>
+      )}
+
+      {/* v2.24 C: 对话覆盖度 sub-section */}
+      {dialogueCoverage && dialogueCoverage.multiCharSceneCount > 0 && (
+        <div className="cinema-card-hi p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="cinema-eyebrow flex items-center gap-1.5">
+              <MessageCircle className="w-3 h-3" />
+              对话覆盖度 (正反打 / 反应特写)
+            </div>
+            <span
+              className={`cinema-mono text-[11px] font-bold ${
+                dialogueCoverage.coverageScore >= 80 ? 'text-[var(--cinema-green)]'
+                : dialogueCoverage.coverageScore >= 50 ? 'text-[var(--cinema-amber)]'
+                : 'text-[var(--cinema-red)]'
+              }`}
+            >
+              {dialogueCoverage.coverageScore}/100
+            </span>
+          </div>
+          <div className="cinema-mono text-[10px] opacity-60 mb-2">
+            {dialogueCoverage.sceneCount} 个对话场景 · {dialogueCoverage.multiCharSceneCount} 个多角色对话
+          </div>
+          {dialogueCoverage.needsReverseShot.length > 0 && (
+            <div className="mt-2">
+              <div className="cinema-mono text-[10px] opacity-80 mb-1">
+                🎬 缺正反打 ({dialogueCoverage.needsReverseShot.length} 处)
+              </div>
+              <ul className="space-y-0.5">
+                {dialogueCoverage.needsReverseShot.slice(0, 5).map((s, i) => (
+                  <li key={i} className="cinema-mono text-[10px] opacity-70">
+                    · Shot 群 #{s.startIndex + 1}: {s.characters.join(' / ')} — 仅 1 镜, 缺反应切镜
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {dialogueCoverage.needsCloseUp.length > 0 && (
+            <div className="mt-2">
+              <div className="cinema-mono text-[10px] opacity-80 mb-1">
+                📷 缺反应特写 ({dialogueCoverage.needsCloseUp.length} 处)
+              </div>
+              <ul className="space-y-0.5">
+                {dialogueCoverage.needsCloseUp.slice(0, 5).map((s, i) => (
+                  <li key={i} className="cinema-mono text-[10px] opacity-70">
+                    · Shot 群 #{s.startIndex + 1}: {s.characters.join(' / ')} — 全 wide shot, 缺 CU/MCU
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {dialogueCoverage.rewriteHints.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-white/5">
+              <div className="cinema-mono text-[10px] opacity-60 mb-1">改写建议</div>
+              <ul className="space-y-0.5">
+                {dialogueCoverage.rewriteHints.slice(0, 3).map((h, i) => (
+                  <li key={i} className="cinema-mono text-[10px] opacity-70">→ {h}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Warnings */}
       {warnings.length > 0 && (

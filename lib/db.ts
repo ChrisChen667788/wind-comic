@@ -378,6 +378,32 @@ CREATE INDEX IF NOT EXISTS idx_comments_target ON comments(target_type, target_i
 CREATE INDEX IF NOT EXISTS idx_comments_author ON comments(author_user_id);
 `);
 
+// v3.x P0.3 E.1 — 评论附件 (拖拽上传的图片 URL). 加列而不是新表 — 1:1 关系简单.
+// 兼容老数据: 没列时不报错, 后续 INSERT 都带值 (默认 '[]').
+try {
+  db.exec(`ALTER TABLE comments ADD COLUMN attachments TEXT DEFAULT '[]'`);
+} catch { /* already exists */ }
+
+// v3.x P0.3 E.2 — 用户邮件提醒偏好 ('all'|'mentions'|'none'). 默认 mentions.
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN email_notify_pref TEXT DEFAULT 'mentions'`);
+} catch { /* already exists */ }
+
+// v3.x P0.3 E.3 — 项目级版本审批状态机.
+db.exec(`
+CREATE TABLE IF NOT EXISTS project_review_status (
+  project_id TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'draft',          -- 'draft' | 'in_review' | 'approved' | 'changes_requested'
+  submitted_by_user_id TEXT,
+  submitted_at TEXT,
+  reviewed_by_user_id TEXT,
+  reviewed_at TEXT,
+  review_note TEXT,                              -- 审批人留言 (approve/request changes 时填)
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_review_status_status ON project_review_status(status, updated_at);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,

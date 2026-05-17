@@ -14,6 +14,13 @@ export type CommentTargetType =
   | 'character'
   | 'storyboard';
 
+export interface CommentAttachmentShape {
+  url: string;
+  type: 'image' | 'video' | 'file';
+  size?: number;
+  filename?: string;
+}
+
 export interface CommentRowShape {
   id: string;
   projectId: string;
@@ -24,6 +31,7 @@ export interface CommentRowShape {
   authorAvatarUrl: string | null;
   content: string;
   mentions: Array<{ userId: string; name: string }>;
+  attachments?: CommentAttachmentShape[]; // v3.x E.1
   parentId: string | null;
   createdAt: string;
   updatedAt: string | null;

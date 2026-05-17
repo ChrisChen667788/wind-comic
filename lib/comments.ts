@@ -26,6 +26,13 @@ export { buildTargetId } from '@/lib/comments-shared';
 export type { CommentTargetType } from '@/lib/comments-shared';
 import type { CommentTargetType } from '@/lib/comments-shared';
 
+export interface CommentAttachment {
+  url: string;       // http URL (走 /api/upload 落盘后)
+  type: 'image' | 'video' | 'file';
+  size?: number;     // bytes
+  filename?: string; // 原始文件名 (展示)
+}
+
 export interface CommentRow {
   id: string;
   projectId: string;
@@ -36,6 +43,8 @@ export interface CommentRow {
   authorAvatarUrl: string | null;
   content: string;
   mentions: Array<{ userId: string; name: string }>;
+  /** v3.x E.1: 评论附件 — 拖拽图片到评论框上传 */
+  attachments: CommentAttachment[];
   parentId: string | null;
   createdAt: string;
   updatedAt: string | null;
@@ -52,6 +61,7 @@ interface CommentDbRow {
   author_avatar_url: string | null;
   content: string;
   mentions: string;
+  attachments: string | null;
   parent_id: string | null;
   created_at: string;
   updated_at: string | null;
@@ -64,6 +74,16 @@ function rowToComment(row: CommentDbRow): CommentRow {
     const parsed = JSON.parse(row.mentions || '[]');
     if (Array.isArray(parsed)) mentions = parsed;
   } catch { /* ignore corrupt JSON */ }
+  let attachments: CommentAttachment[] = [];
+  try {
+    const parsed = JSON.parse(row.attachments || '[]');
+    if (Array.isArray(parsed)) {
+      attachments = parsed.filter((a: any) =>
+        a && typeof a.url === 'string' && a.url.startsWith('http') &&
+        ['image', 'video', 'file'].includes(a.type),
+      );
+    }
+  } catch { /* ignore */ }
   return {
     id: row.id,
     projectId: row.project_id,
@@ -74,6 +94,7 @@ function rowToComment(row: CommentDbRow): CommentRow {
     authorAvatarUrl: row.author_avatar_url,
     content: row.content,
     mentions,
+    attachments,
     parentId: row.parent_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -92,6 +113,8 @@ export interface CreateCommentInput {
   authorAvatarUrl?: string | null;
   content: string;
   parentId?: string | null;
+  /** v3.x E.1: 附件 URL 数组 (上限 6, 单个 ≤10MB 由上传 API 校验) */
+  attachments?: CommentAttachment[];
 }
 
 export interface CreateCommentResult {
@@ -109,7 +132,14 @@ export interface CreateCommentResult {
  */
 export function createComment(input: CreateCommentInput): CreateCommentResult {
   const content = (input.content || '').trim();
-  if (!content) throw new Error('comment content empty');
+  // v3.x E.1: 允许"附件无文字"评论 — 仅当无 content + 无附件时拒
+  const attachments: CommentAttachment[] = Array.isArray(input.attachments)
+    ? input.attachments
+        .filter((a) => a && typeof a.url === 'string' && a.url.startsWith('http'))
+        .filter((a) => ['image', 'video', 'file'].includes(a.type))
+        .slice(0, 6) // 上限 6 个附件
+    : [];
+  if (!content && attachments.length === 0) throw new Error('comment content empty');
   if (content.length > 2000) throw new Error('comment content too long (max 2000)');
 
   const txn = db.transaction(() => {
@@ -142,8 +172,8 @@ export function createComment(input: CreateCommentInput): CreateCommentResult {
     const ts = now();
     db.prepare(`
       INSERT INTO comments
-      (id, project_id, target_type, target_id, author_user_id, author_name, author_avatar_url, content, mentions, parent_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, project_id, target_type, target_id, author_user_id, author_name, author_avatar_url, content, mentions, attachments, parent_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       input.projectId,
@@ -154,6 +184,7 @@ export function createComment(input: CreateCommentInput): CreateCommentResult {
       input.authorAvatarUrl || null,
       content,
       JSON.stringify(mentions),
+      JSON.stringify(attachments),
       parentId,
       ts,
     );
@@ -195,10 +226,47 @@ export function createComment(input: CreateCommentInput): CreateCommentResult {
     return {
       comment: rowToComment(row),
       notifiedUserIds: Array.from(notifyIds),
+      // v3.x E.2: 收集 per-recipient 类型, 给事务外的 email send 用
+      notifyRecords: Array.from(notifyIds).map((rid) => ({
+        recipientUserId: rid,
+        type: (parentId && mentions.every(m => m.userId !== rid)) ? 'reply' as const : 'mention' as const,
+        preview,
+      })),
     };
   });
 
-  return txn();
+  const result = txn();
+
+  // v3.x E.2: 事务外异步触发邮件 — best-effort, 失败不影响评论已提交
+  void (async () => {
+    try {
+      const { sendCommentNotificationEmail, isEmailEnabled } = await import('@/lib/email-sender');
+      if (!isEmailEnabled()) return;
+      // 查项目标题给邮件用
+      let projectTitle: string | undefined;
+      try {
+        const p = db.prepare('SELECT title FROM projects WHERE id = ?').get(input.projectId) as { title?: string } | undefined;
+        projectTitle = p?.title;
+      } catch { /* ignore */ }
+      for (const rec of (result as any).notifyRecords || []) {
+        await sendCommentNotificationEmail({
+          recipientUserId: rec.recipientUserId,
+          sourceUserName: input.authorName,
+          projectId: input.projectId,
+          projectTitle,
+          commentId: result.comment.id,
+          preview: rec.preview,
+          type: rec.type,
+        }).catch((e) => {
+          console.warn('[email-notify] send failed:', e instanceof Error ? e.message : e);
+        });
+      }
+    } catch (e) {
+      console.warn('[email-notify] block failed:', e instanceof Error ? e.message : e);
+    }
+  })();
+
+  return { comment: result.comment, notifiedUserIds: result.notifiedUserIds };
 }
 
 export interface ListCommentsOptions {

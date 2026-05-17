@@ -15,7 +15,7 @@
  */
 
 import { useState } from 'react';
-import { X, Loader2, RefreshCw, Sparkles, ImageOff } from 'lucide-react';
+import { X, Loader2, RefreshCw, Sparkles, ImageOff, Upload, ImagePlus } from 'lucide-react';
 
 export interface StoryboardRegenModalProps {
   projectId: string;
@@ -38,6 +38,46 @@ export function StoryboardRegenModal({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  // v2.24 B: 用户上传的参考图 URL (服务端持久化后的 http URL)
+  const [refImageUrl, setRefImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUploadFile = async (file: File) => {
+    if (uploading || busy) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError('参考图过大 (上限 10MB)');
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/upload/character-face', {
+        method: 'POST',
+        body: form,
+      });
+      const body = await res.json();
+      if (!res.ok || !body.url) {
+        setError(body?.error || `上传失败 (${res.status})`);
+        return;
+      }
+      setRefImageUrl(body.url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '上传失败');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (uploading || busy) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      await handleUploadFile(file);
+    }
+  };
 
   const handleRegen = async () => {
     if (busy) return;
@@ -62,6 +102,8 @@ export function StoryboardRegenModal({
             useStyleBible,
             useCref,
             aspectRatio,
+            // v2.24 B: 用户上传的参考图 (作 sref 优先于 Style Bible)
+            referenceImageUrl: refImageUrl || undefined,
           }),
         },
       );
@@ -168,6 +210,81 @@ export function StoryboardRegenModal({
               placeholder="改写镜头描述... 例: 把主角换成俯拍角度, 加强情绪冲击"
               className="w-full px-3 py-2 cinema-mono text-[12px] bg-[var(--cinema-surface-2)] border border-[var(--cinema-border)] rounded focus:outline-none focus:border-[var(--cinema-amber)] resize-y disabled:opacity-50"
             />
+          </div>
+
+          {/* v2.24 B: 用户上传参考图 (拖拽或点击) — 优先级高于 Style Bible */}
+          <div
+            className="cinema-card-hi p-3 space-y-2"
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="cinema-eyebrow flex items-center gap-1.5">
+                <ImagePlus className="w-3 h-3" />
+                参考图 (可选, 优先于 Style Bible)
+              </div>
+              {refImageUrl && (
+                <button
+                  onClick={() => setRefImageUrl(null)}
+                  disabled={busy || uploading}
+                  className="cinema-mono text-[10px] opacity-60 hover:text-red-300 disabled:opacity-30"
+                >
+                  ✕ 移除
+                </button>
+              )}
+            </div>
+            {refImageUrl ? (
+              <div className="flex gap-2 items-start">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={refImageUrl}
+                  alt="reference"
+                  className="w-24 h-16 object-cover rounded border border-[var(--cinema-amber)]/40"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="cinema-mono text-[10px] opacity-80">✓ 已上传参考图</div>
+                  <div className="cinema-mono text-[9px] opacity-50 break-all line-clamp-2 mt-0.5">
+                    {refImageUrl}
+                  </div>
+                  <div className="cinema-mono text-[9px] opacity-60 mt-1">
+                    本次重生会以这张图作 sref (替代 Style Bible)
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <label
+                className={`flex items-center justify-center gap-2 px-4 py-6 border border-dashed rounded cursor-pointer transition-colors ${
+                  busy || uploading
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'border-[var(--cinema-border)] hover:border-[var(--cinema-amber)]'
+                }`}
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin opacity-60" />
+                    <span className="cinema-mono text-[11px] opacity-60">上传中...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 opacity-60" />
+                    <span className="cinema-mono text-[11px] opacity-60">
+                      拖一张参考图到此 (或点击选择) — 模型会按这张图风格出
+                    </span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={busy || uploading}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (f) await handleUploadFile(f);
+                    e.target.value = '';
+                  }}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
 
           {/* 选项 */}

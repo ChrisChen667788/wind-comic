@@ -794,11 +794,114 @@ npm test
 - ✅ 失败降级链: style audit 失败 → 不重生; regen API 报错 → modal 显示 error; DNA 抽失败 → 角色卡不显示 chip; dialogue-coverage 失败 → 不阻塞 runWriter
 
 ### v2.23 待跟 (P2 候选)
-- StyleAudit 历史趋势图 (项目页, 看哪一镜重生过几次)
-- 单镜重生支持"参考图上传" (用户给一张参考图替代 cref)
-- 对话覆盖度 audit 给 UI tab — 现在只在 Writer SSE 流, 项目页节奏 tab 应该加一个 sub-section
-- DNA 重抽 (用户在角色卡点"重抽 DNA" 按钮, 不重生角色图)
+- ~~StyleAudit 历史趋势图~~ → v2.24 A ✅
+- ~~单镜重生支持"参考图上传"~~ → v2.24 B ✅
+- ~~对话覆盖度 audit 给 UI tab~~ → v2.24 C ✅
+- ~~DNA 重抽 (用户在角色卡点"重抽 DNA" 按钮)~~ → v2.24 D ✅
 - Lipsync staging 实测 (KELING_API_KEY 到位)
+
+---
+
+## 4.15 v2.24 + v3.x P0.3 + v3.1 — 多 sprint 大批量交付 ✅ 2026-05-18
+
+> **背景**: 用户要求一次性把 7 个候选 (A-G) 全做完: A/B/C/D 是 v2.23 待跟收尾, E 是 v3.0 P0.3 协作进阶, F 是 v3.1 Cinema 时间线 MVP, G 是 lipsync provider 抽象.
+
+### A · StyleAudit 历史趋势图 ✅
+- [x] `components/project/pacing-chart.tsx` 扩展 — 新加 "STYLE BIBLE 一致性" sub-section: 每镜柱状图 (颜色按 4 维 vision 评分), 重生过的镜上方 🔄 标记, 平均分 + 重生数 KPI
+- [x] `app/projects/[id]/page.tsx` 把 storyboards 的 styleAuditScore/Retried/Reason 透传给 PacingChart 的 `styleAuditShots` 新 prop
+
+### B · 单镜重生支持参考图上传 ✅
+- [x] `app/api/projects/[id]/regenerate-storyboard/route.ts` 新增 `referenceImageUrl` 字段; 优先级 高于 Style Bible 作 sref
+- [x] `components/project/storyboard-regen-modal.tsx`:
+  - 新增"参考图"sub-section (拖拽 / 点击上传, ≤10MB)
+  - 复用 `/api/upload/character-face` 持久化
+  - 选中状态显示缩略图 + 移除按钮 + "本次以这张图作 sref" 提示
+
+### C · 对话覆盖度 UI tab section ✅
+- [x] `PacingChart` 新加 "对话覆盖度" 卡片 — 显示 coverageScore (色码) + 缺反打 list + 缺特写 list + rewrite hints 前 3 条
+- [x] 项目页通过 `script.dialogueCoverageReport` prop 传入
+
+### D · DNA 重抽按钮 ✅
+- [x] `app/api/projects/[id]/extract-character-dna/route.ts` 新建 — body `{ characterName }`, 重跑 vision LLM 8 维抽取, 写回 asset.data.dna (merge, 不丢 description/appearance)
+- [x] `components/nodes/character-node.tsx`:
+  - hover 时角色名旁显示 "✨ 重抽" 按钮 (节省默认空间)
+  - 重抽中显示 spinner, 完成后本地 override 立即生效
+  - 失败显示底部 inline 错误条
+
+### E.1 · 评论附件 (drag-drop image/video) ✅
+- [x] `lib/db.ts` `ALTER TABLE comments ADD COLUMN attachments TEXT DEFAULT '[]'` (兼容老数据)
+- [x] `lib/comments.ts` + `lib/comments-shared.ts`:
+  - 新类型 `CommentAttachment { url, type: 'image'|'video'|'file', size?, filename? }`
+  - createComment 接受 attachments, 上限 6, 过滤非 http URL, 拒非法 type
+  - 允许 "附件无文字" 评论 (内容 + 附件至少一个)
+- [x] `app/api/upload/comment-attachment/route.ts` 新建 — multipart 上传, 接受 image/*+video/*, ≤10MB, 走 persistAsset 落 data/storage
+- [x] `app/api/projects/[id]/comments/route.ts` POST 接受 attachments
+- [x] `components/collab/comment-thread.tsx`:
+  - 输入区支持拖拽上传 + paperclip 按钮
+  - 预览附件 + 移除按钮
+  - 评论展示附件: 图片缩略 / 视频 controls / 文件链接
+
+### E.2 · 邮件通知 scaffold (Resend, env-optional) ✅
+- [x] `lib/db.ts` 加 `users.email_notify_pref` 列 (默认 'mentions')
+- [x] `lib/email-sender.ts` 新建 — `isEmailEnabled()` / `sendEmail()` / `sendCommentNotificationEmail()`:
+  - Resend API, env `RESEND_API_KEY` 缺失或 placeholder → 静默 skip
+  - 黑名单邮箱模式 (demo@ / @example.com / @test.local / 等), 防 seeded user 收垃圾
+  - 偏好默认 'mentions' (只 @ 发, 回复不发), 用户可设 'none'/'all'
+  - 失败永不抛, 返 `{ sent: false, warning }`
+- [x] `lib/comments.ts` createComment 事务后 best-effort 触发邮件 (查项目标题作 subject)
+- [x] HTML 模板: 暖金色按钮 + 评论引用 block + unsubscribe 链接
+
+### E.3 · 版本审批状态机 (draft → in_review → approved/changes_requested) ✅
+- [x] `lib/db.ts` 新表 `project_review_status` (project_id PK + status + submitted_by + reviewed_by + note + timestamps)
+- [x] `lib/review-status.ts` 新建:
+  - `ReviewStatus` 4 状态 (draft/in_review/approved/changes_requested)
+  - `ALLOWED_TRANSITIONS` 矩阵 + 校验
+  - `transitionReviewStatus` 检查: 路径合法 / 不能自审 / request_changes 必须填留言
+  - UPSERT 单条记录, 不存历史 (v3.x P1 audit log 再说)
+- [x] `app/api/projects/[id]/review-status/route.ts` GET + POST (action: submit/approve/request_changes/withdraw)
+- [x] `components/project/review-status-badge.tsx` 项目页 nav bar 上 chip + popover 操作 (4 状态色码 + 留言 textarea + 4 个按钮按权限可见)
+- [x] 测试: `tests/v3-x-review-status.test.ts` 12 cases — 全状态转换 + 自审拒 + note 必填 / 撤回 / 重新提交 cycle
+
+### F · Cinema Timeline MVP (v3.1 大版本的 1/N) ✅
+- [x] `app/api/projects/[id]/timeline/route.ts`:
+  - GET → 每镜 (shotNumber/duration/dialogue/thumbnail/videoUrl) + totalDuration
+  - POST { shotOrder?, durations? } 改顺序 + 改时长, 重写 script asset, 自动重分配 shotNumber 1..N
+- [x] `components/project/cinema-timeline.tsx` 新建:
+  - 横向滚动轨道, 每镜卡片 (缩略图 + 时长 select + 对白预览 + 角色 chip)
+  - HTML5 drag-and-drop 重排 (visual hover 反馈)
+  - 音频轨道占位 (TTS 段琥珀色, 静默灰色, 真正多轨编辑留 v3.1.x)
+  - 顶部 KPI (总镜数 + 总时长) + "未保存"指示 + 保存按钮
+- [x] 项目页新增 "Cinema 时间线" tab (Clapperboard icon)
+- [x] 测试: `tests/v3-1-timeline.test.ts` 6 cases — GET 空 / 有数据 / POST 重排+shotNumber重分配 / POST 改时长 / 时长 clamp / 404 当无 script
+
+### G · Lipsync provider 抽象 (Kling + Sync.so + Hailuo) ✅
+- [x] `services/lipsync-providers.ts` 新建:
+  - `LipSyncProvider` 接口 + 3 个实现:
+    - `KlingLipSyncProvider` (走原 KELING API 路径)
+    - `SyncSoLipSyncProvider` (https://sync.so v2 API, x-api-key header)
+    - `HailuoLipSyncProvider` (Minimax `/v1/lipsync_generation`)
+  - `selectProvider()` router: `LIPSYNC_PROVIDER` env 优先, 否则 auto 按 kling > syncso > hailuo 顺序选
+  - `listAvailableProviders()` admin 用
+- [x] `services/lipsync.service.ts` 重构 — 删 Kling 直连逻辑, 改 delegate 到 router; 新加 `listProviders()` 公开方法
+- [x] `tests/v2-21-lipsync.test.ts` 重写 — 测 routing 行为不变, 新增 listProviders 测试; `tests/v2-24-lipsync-providers.test.ts` 9 cases — provider 可用性矩阵 + override + placeholder key 拒
+
+### v2.24+v3.x+v3.1 总验收 ✅
+- ✅ A+C: 节奏分析 tab 现在显示 3 个 sub-section (pacing + style audit + dialogue coverage)
+- ✅ B: 用户改 prompt 重生时可上传自定义参考图, 替代 Style Bible 做 sref
+- ✅ D: DNA 不再黑盒 — 角色卡显示命中率 + hover 重抽
+- ✅ E.1: 评论支持拖图片/视频
+- ✅ E.2: 有 RESEND_API_KEY 时 mention/reply 自动邮件提醒 (用户偏好可控)
+- ✅ E.3: 项目 nav bar 审批状态 badge + 操作 popover, 不能自审
+- ✅ F: Cinema timeline tab — 拖拽重排 + 改时长, 改完保存重写 script
+- ✅ G: lipsync 不再硬绑 Kling, 多 provider 自动选 (env 覆盖); 任一 key 在 .env 出现就自动启
+- ✅ 测试: 60+ 新 case (review 12 + comment-att 7 + email 11 + timeline 6 + lipsync-providers 9 + lipsync rewrite 17), 累计 **vitest 1088/1088** / **tsc 0 错误** / 0 新依赖
+
+### v2.24+v3.x+v3.1 待跟 (P2 候选)
+- F.1 多轨道编辑 (BGM/字幕拖拽) — 真 Logic Pro 级别留 v3.1.x
+- E.2 用户偏好设置页 (account settings) — 让用户可在 UI 改 email_notify_pref
+- E.3 审批历史日志 (audit log) — 当前只存最新状态
+- G 真 staging 实测 — 等任一 lipsync provider 真 key 到位
+- 评论附件: 拖拽 PDF 等其他文件类型支持 (当前 image/* + video/*)
 
 ---
 
