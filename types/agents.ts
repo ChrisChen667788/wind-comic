@@ -154,6 +154,20 @@ export interface Storyboard {
     score: number | null;     // null = 该角色 vision 失败
     reasoning?: string;
   }>;
+  /**
+   * v2.23 P0.1: Style Bible Vision Audit — vision 比对该镜与 Style Bible 帧
+   * 在 4 维 (palette / lighting / colorTemp / texture) 的一致性. 跟 cameo 平级:
+   * <70 自动重生, <85 给 warning. 字段缺失代表 audit 跳过 (无 styleBible 帧 / mock 图).
+   */
+  styleAuditScore?: number;     // 0-100, min of 4 dimensions
+  styleAuditRetried?: boolean;  // 是否因 audit < 70 触发了重生
+  styleAuditReason?: string;    // vision 一句话说明最大偏差
+  styleAuditDims?: {
+    palette: number;
+    lighting: number;
+    colorTemperature: number;
+    texture: number;
+  };
 }
 
 // 视频片段

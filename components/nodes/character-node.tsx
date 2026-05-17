@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import { Users, Loader2, CheckCircle2, RefreshCw, Clock } from 'lucide-react';
+import { Users, Loader2, CheckCircle2, RefreshCw, Clock, Dna } from 'lucide-react';
 import { ZoomableImage } from '@/components/ui/image-lightbox';
 
 function CharacterNodeComponent({ data }: NodeProps) {
@@ -33,14 +33,37 @@ function CharacterNodeComponent({ data }: NodeProps) {
 
       {characters.length > 0 ? (
         <div className="grid grid-cols-2 gap-3">
-          {characters.map((c) => (
+          {characters.map((c) => {
+            // v2.23 P0.3: 拿 DNA 命中率 (8 维 vision 抽取)
+            const dna = (c.data as any)?.dna;
+            const dnaFilled = dna?.filledCount;
+            const dnaTotal = dna?.totalCount;
+            const dnaMissing: string[] = dna?.missing || [];
+            const dnaStrong = dnaFilled != null && dnaTotal != null && dnaFilled >= dnaTotal * 0.75;
+            return (
             <div key={c.id} className="bg-black/30 border border-white/5 rounded-xl overflow-hidden group">
               <div className="px-3 py-2 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold text-white">{c.name}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-white flex items-center gap-1.5 flex-wrap">
+                    {c.name}
+                    {/* v2.23 P0.3: DNA 覆盖度 chip */}
+                    {dnaFilled != null && dnaTotal != null && (
+                      <span
+                        title={dnaMissing.length > 0 ? `已抽 ${dnaFilled}/${dnaTotal} 维; 缺: ${dnaMissing.join(', ')}` : `DNA 全部 ${dnaTotal} 维已抽取`}
+                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] ${
+                          dnaStrong
+                            ? 'bg-emerald-500/15 text-emerald-300'
+                            : 'bg-amber-500/15 text-amber-300'
+                        }`}
+                      >
+                        <Dna className="w-2.5 h-2.5" />
+                        {dnaFilled}/{dnaTotal}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px] text-gray-400 line-clamp-2 mt-0.5">{c.data?.description || ''}</div>
                 </div>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-white/10">
+                <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-white/10 flex-shrink-0">
                   <RefreshCw className="w-3 h-3 text-gray-400" />
                 </button>
               </div>
@@ -55,7 +78,8 @@ function CharacterNodeComponent({ data }: NodeProps) {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-6 text-gray-500 text-xs">

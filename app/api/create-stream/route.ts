@@ -101,7 +101,37 @@ export async function POST(request: NextRequest) {
 
       try {
         const orchestrator = new HybridOrchestrator();
-        orchestrator.onProgress = (type, data) => send(type, data);
+        orchestrator.onProgress = (type, data) => {
+          send(type, data);
+          // v2.23 P0.3: 持久化 character DNA 到 character asset 的 data 字段, 让项目页能拿到
+          if (type === 'characterDna' && data?.perCharacter && Array.isArray(data.perCharacter)) {
+            try {
+              const { db, now } = require('@/lib/db');
+              const updateStmt = db.prepare(
+                `UPDATE project_assets SET data = ?, updated_at = ?
+                 WHERE project_id = ? AND type = 'character' AND name = ?`,
+              );
+              for (const entry of data.perCharacter as Array<{ name: string; signature: any; filledCount: number; totalCount: number; missing: string[] }>) {
+                // 读旧 data 合并 — 不丢之前的 description/appearance
+                const row = db.prepare(
+                  `SELECT data FROM project_assets WHERE project_id = ? AND type = 'character' AND name = ?`,
+                ).get(projectId, entry.name) as { data?: string } | undefined;
+                let mergedData: any = {};
+                try { mergedData = row?.data ? JSON.parse(row.data) : {}; } catch { /* ignore */ }
+                mergedData.dna = {
+                  signature: entry.signature,
+                  filledCount: entry.filledCount,
+                  totalCount: entry.totalCount,
+                  missing: entry.missing,
+                  extractedAt: now(),
+                };
+                updateStmt.run(JSON.stringify(mergedData), now(), projectId, entry.name);
+              }
+            } catch (e) {
+              console.warn('[create-stream] DNA persist failed:', e);
+            }
+          }
+        };
 
         // Register orchestrator so the gate route can resolve intervention gates
         activeOrchestrators.set(projectId, orchestrator);

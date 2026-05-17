@@ -1824,6 +1824,29 @@ ${raw.slice(0, 2000)}
       console.warn('[PacingAudit] failed (non-blocking):', e instanceof Error ? e.message : e);
     }
 
+    // v2.23 P0.4: 对话覆盖度 audit — 多角色对话缺反打/特写的场景标出来.
+    // 非阻塞, 给 SSE + Writer 频道.
+    try {
+      const { auditDialogueCoverage } = await import('@/lib/dialogue-coverage');
+      const dialogueReport = auditDialogueCoverage(script);
+      (script as any).dialogueCoverageReport = dialogueReport;
+      this.emit('dialogueCoverage', dialogueReport);
+      if (dialogueReport.warnings.length > 0) {
+        const first = dialogueReport.warnings[0];
+        this.emit('agentTalk', {
+          role: AgentRole.WRITER,
+          text: `${first}${dialogueReport.warnings.length > 1 ? ` (共 ${dialogueReport.warnings.length} 条对话覆盖度建议)` : ''}`,
+        });
+      } else if (dialogueReport.multiCharSceneCount > 0) {
+        this.emit('agentTalk', {
+          role: AgentRole.WRITER,
+          text: `🎬 对话覆盖度 ✅ ${dialogueReport.multiCharSceneCount} 个多角色对话场景全部满足正反打 (${dialogueReport.coverageScore}/100)`,
+        });
+      }
+    } catch (e) {
+      console.warn('[DialogueCoverage] failed (non-blocking):', e instanceof Error ? e.message : e);
+    }
+
     return script;
   }
 
@@ -2054,7 +2077,26 @@ ${raw.slice(0, 2000)}
         if (dnaMap.size > 0) {
           this.characterDnaMap = dnaMap;
           console.log(`[CharacterDna] extracted DNA for ${dnaMap.size}/${httpChars.length} characters`);
-          this.emit('characterDna', { count: dnaMap.size, total: httpChars.length });
+          // v2.23 P0.3: per-character DNA 透传给 SSE — 让 create-stream 能落 character asset 上,
+          // UI 节点可显示 "DNA 8/8 字段" + 缺失维度高亮
+          const perCharacter = Array.from(dnaMap.entries()).map(([name, dna]) => {
+            const sig = dna.signature;
+            const dims: (keyof typeof sig)[] = [
+              'eyeShape', 'jawShape', 'noseShape', 'mouthShape',
+              'hairStyle', 'hairColor', 'skinTone', 'signatureOutfit',
+            ];
+            const filled = dims.filter((k) => sig[k] && (sig[k] as string).length > 0);
+            const missing = dims.filter((k) => !sig[k] || (sig[k] as string).length === 0);
+            return {
+              name,
+              filledCount: filled.length,
+              totalCount: dims.length,
+              missing,
+              signature: sig,
+              promptBlock: dna.promptBlock,
+            };
+          });
+          this.emit('characterDna', { count: dnaMap.size, total: httpChars.length, perCharacter });
           this.emit('agentTalk', {
             role: AgentRole.CHARACTER_DESIGNER,
             text: `🧬 ${dnaMap.size}/${httpChars.length} 个角色抽完 DNA 签名 — 后续每个出场镜头会拼上结构化 anchor, 锁脸更稳`,
@@ -2634,6 +2676,54 @@ ${shots.map((s, i) => {
         }
       }
 
+      // ── v2.23 P0.1 · Style Bible Vision Audit (画风一致性) ────────────────
+      // 跟 cameo-retry 平级: cameo 验"脸像不像", styleAudit 验"画风对得上 bible 吗"
+      // 只在有 styleAnchorImageUrl + 真图时跑; <70 触发 1 次重生.
+      let styleAuditResult: Awaited<ReturnType<typeof import('@/lib/style-audit').auditShotStyle>> = null;
+      let styleAuditRetried = false;
+      const canAudit = this.styleAnchorImageUrl
+        && this.styleAnchorImageUrl.startsWith('http')
+        && finalImageUrl
+        && finalImageUrl.startsWith('http');
+      if (canAudit) {
+        try {
+          const { auditShotStyle, buildRegenHintFromAudit } = await import('@/lib/style-audit');
+          styleAuditResult = await auditShotStyle(finalImageUrl, this.styleAnchorImageUrl);
+          if (styleAuditResult && styleAuditResult.shouldRegen) {
+            // 重生: 在 renderPrompt 末尾追加针对性 hint (palette / lighting / etc), 重跑 1 次
+            const styleHint = buildRegenHintFromAudit(styleAuditResult);
+            const correctedPrompt = `${renderPrompt}. ${styleHint}`;
+            try {
+              const newImg = await this.generateImage(correctedPrompt, {
+                aspectRatio: this.aspect || '16:9',
+                label: `Shot ${sb.shotNumber} (style-regen)`,
+                cref: crefUrl,
+                cw: refsPick.cw,
+                sref: finalSref,
+                referenceImages: refsWithBible.length > 0 ? refsWithBible : undefined,
+              });
+              if (newImg && newImg.startsWith('http')) {
+                // 再审一次, 取分高的版本 — 防"重生反而更差"
+                const reAudit = await auditShotStyle(newImg, this.styleAnchorImageUrl);
+                if (reAudit && reAudit.score >= styleAuditResult.score) {
+                  finalImageUrl = newImg;
+                  styleAuditResult = reAudit;
+                  styleAuditRetried = true;
+                  this.emit('agentTalk', {
+                    role: AgentRole.STORYBOARD,
+                    text: `🎨 第 ${sb.shotNumber} 镜画风自动重生: ${styleAuditResult.score < reAudit.score ? styleAuditResult.score : '?'} → ${reAudit.score} (修偏: ${reAudit.reasoning.slice(0, 30)})`,
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn(`[StyleAudit] regen shot ${sb.shotNumber} failed:`, e instanceof Error ? e.message : e);
+            }
+          }
+        } catch (e) {
+          console.warn(`[StyleAudit] shot ${sb.shotNumber} audit threw:`, e instanceof Error ? e.message : e);
+        }
+      }
+
       // P4: 将成功渲染的图片加入一致性链
       if (finalImageUrl && !finalImageUrl.startsWith('data:')) {
         this.renderedStoryboardUrls.push(finalImageUrl);
@@ -2660,6 +2750,13 @@ ${shots.map((s, i) => {
             reasoning: p.reasoning || undefined,
           }));
         }
+      }
+      // v2.23 P0.1: 把 style audit 透传给前端 (workshop 卡 / 节奏 tab 都能消费)
+      if (styleAuditResult) {
+        out.styleAuditScore = styleAuditResult.score;
+        out.styleAuditRetried = styleAuditRetried;
+        out.styleAuditReason = styleAuditResult.reasoning || undefined;
+        out.styleAuditDims = styleAuditResult.dimensions;
       }
       return out;
     };

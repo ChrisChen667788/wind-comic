@@ -13,6 +13,8 @@ import { buildProducerReviewPromptBlock } from './producer-enhance';
 import { buildWriterCinemaPromptBlock, validateWriterCinematography } from './writer-enhance';
 // v2.20 P0.2: drama-tropes 在 Writer prompt 里注入短剧强约束
 import { buildDramaTropeBlock } from './drama-tropes';
+// v2.23 P0.4: 对话覆盖度硬规则 — 强制正反打
+import { buildDialogueCoverageBlock } from './dialogue-coverage';
 
 // ═══════════════════════════════════════════
 // 导演 system prompt（增强版 — 角色悖论 + 五感场景）
@@ -194,8 +196,12 @@ ${options?.characterAppearances ? '\n### 角色外貌参考（必须在 visualPr
     ? `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${dramaBlock}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
     : '';
 
+  // v2.23 P0.4: 对话场景覆盖度硬规则 (正反打 + 反应特写). 对所有 genre 都生效 —
+  // 多角色对话场景缺反打是 "AI 感" 最大来源, 不只是短剧问题.
+  const dialogueCoverageBlock = buildDialogueCoverageBlock();
+
   return `你是一位同时精通罗伯特·麦基叙事理论和短视频编剧的顶级AI编剧。
-${adaptNote}${dramaTropeBlock}
+${adaptNote}${dramaTropeBlock}${dialogueCoverageBlock}
 
 ## 核心创作法则
 

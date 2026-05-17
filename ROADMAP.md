@@ -725,9 +725,80 @@ npm test
 - ✅ 失败降级链完整, 任何一项失败都不阻塞主管线
 
 ### v2.21 待跟 (P2 候选)
-- Vision audit 给 Style Bible 加 LUT / 光线 / 色温 维度对比 (现在只锁画风, 不锁色调)
-- Character DNA 命中率监控 — 实测 vision 能抽出几个字段, 哪些字段最常空
+- ~~Vision audit 给 Style Bible 加 LUT / 光线 / 色温 维度对比~~ → v2.23 P0.1 ✅
+- ~~Character DNA 命中率监控~~ → v2.23 P0.3 ✅
 - Lipsync staging 实测 — 等 KELING_API_KEY 到位后跑 1 个项目, 验证 audio_to_video 字段格式
+
+---
+
+## 4.14 v2.23 · "画风/对话/单镜可控性" Sprint ✅ 2026-05-17
+
+> **背景**: 用户实测反馈 + v2.21 待跟的 2 项 + 用户痛点"某一镜不满意但重生整片太贵". 4 个 P0 一次解决.
+> **决策**: 没新外部 API key, 全用现有 vision LLM. Style Bible vision 验证 + 单镜重生 + DNA UI 透明化 + 对话覆盖度强制.
+
+### P0.1 · Style Bible Vision Audit ✅
+- [x] `lib/style-audit.ts` 新建:
+  - `auditShotStyle(shotUrl, bibleUrl)` 调 vision LLM, 评 4 维 (palette / lighting / colorTemperature / texture), 综合分 = min
+  - 双阈值: <70 触发重生 (shouldRegen), <85 标 warning 但不重生 (passed=false)
+  - 失败 fallback (无 key / data: URI / 网络抖) 全部返 null, 调用方走"无 audit 数据" 路径
+  - `buildRegenHintFromAudit(audit)` 找最弱维度, 拼成针对性 prompt hint (e.g. "match Style Bible's palette exactly")
+- [x] `services/hybrid-orchestrator.ts` `runStoryboardRenderer.renderSingleShot`:
+  - 在 cameo-retry 之后, renderedStoryboardUrls.push 之前插入 style audit 块
+  - shouldRegen → 用 corrected prompt (含 hint) 重生 1 次, 再审, 取分高者 (防"重生反而更差")
+  - Storyboard 输出新增 styleAuditScore / styleAuditRetried / styleAuditReason / styleAuditDims, 透传给前端
+- [x] `types/agents.ts` Storyboard 类型扩展 4 个 styleAudit* 字段
+- [x] 测试: `tests/v2-23-style-audit.test.ts` 9 cases — 前置条件 (无 key / data: URI / 缺图) + buildRegenHintFromAudit 4 维选最弱
+
+### P0.2 · 单镜手动重生 (镜头工坊) ✅
+- [x] 新路由 `POST /api/projects/[id]/regenerate-storyboard`:
+  - body: { shotNumber, customPrompt (必, ≥5 ≤2000 字), useStyleBible?, useCref?, aspectRatio? }
+  - 走 orchestrator.generateImage 完整路由 (multi-ref router / style anchor / 文字负向 prompt)
+  - 持久化新 storyboard asset (保留历史, 不覆盖)
+  - SSE 流: status / complete / error
+- [x] `components/project/storyboard-regen-modal.tsx` 新建:
+  - 显示当前图缩略图 + 原 prompt
+  - 编辑 textarea + 字数计数
+  - 锁 Style Bible / 锁主角脸 双选项 (默认 on)
+  - 4 档 aspect 切换
+  - SSE 进度 + 错误展示
+  - 完成回调把新 URL 传父组件
+- [x] `components/project/shot-workshop-tab.tsx`:
+  - 每镜行新增 "改 prompt 重生" 按钮 (Pencil icon), 弹 modal
+  - 成功后 sbOverrides[shotNumber] 替换缩略图 + 显示 "🎨 分镜图已重生" chip
+
+### P0.3 · DNA 命中率监控 UI ✅
+- [x] `services/hybrid-orchestrator.ts` characterDna SSE 事件扩展: emit `{ count, total, perCharacter: [{name, filledCount, totalCount, missing[], signature, promptBlock}] }`
+- [x] `app/api/create-stream/route.ts` SSE 监听 characterDna, 把 per-character DNA 持久化到 character asset 的 data.dna 字段 (merge, 不丢 description/appearance)
+- [x] `components/nodes/character-node.tsx` 角色卡新增 DNA chip:
+  - 显示 "Dna 8/8" 或 "Dna 5/8" (绿/琥珀分级)
+  - hover tooltip 列出缺失维度名 (e.g. "缺: eyeShape, jawShape")
+  - ≥75% 维度填充 = 强 (绿), 否则中 (琥珀)
+
+### P0.4 · 对话正反打强制 (shot/reverse shot) ✅
+- [x] `lib/dialogue-coverage.ts` 新建:
+  - `isDialogueShot/isWideShot/isCloseUpShot` 检测助手 (词典 + 中英文)
+  - `locationKey(shot)` — 取 sceneDescription 第一段 (逗号前), 剥掉镜头修饰词作为 venue key
+  - `detectDialogueScenes(shots)` 把连续对话镜按 location 分组
+  - `auditDialogueCoverage(script)` 输出 needsReverseShot / needsCloseUp / coverageScore + warnings + rewriteHints
+  - `buildDialogueCoverageBlock()` 给 Writer system prompt 注入硬规则 (2+ 角色 ≥ 2 镜 / 正反打 / 反应特写)
+- [x] `lib/mckee-skill.ts` `getMcKeeWriterPrompt` 注入 dialogueCoverageBlock (在 dramaTropeBlock 之后, 全 genre 生效)
+- [x] `services/hybrid-orchestrator.ts` `runWriter` 末尾跑 audit, 挂 `script.dialogueCoverageReport`, emit `dialogueCoverage` event + Writer 频道 warning 摘要
+- [x] 测试: `tests/v2-23-dialogue-coverage.test.ts` 13 cases — detectDialogueScenes 5 cases (location grouping / 跨 location 切 / 非对话间隔 / 单镜 / wide vs CU 识别) + auditDialogueCoverage 6 cases (单镜缺反打 / wide-only 缺 CU / 满足 / 单角色独白 / 覆盖率分母 / 空) + Writer prompt block 2 cases
+
+### v2.23 总验收 ✅
+- ✅ Style Bible 真验证: 每镜画风跟 bible 不一致时自动重生, 锁全片画风一致性最后一公里
+- ✅ 单镜可控: 用户在 workshop 改 prompt + 选选项 + 重生, 不用整片重跑
+- ✅ DNA 透明: 角色卡显示 "Dna N/8" chip + 缺失维度提示, v2.21 P1.2 的能力不再隐性
+- ✅ 对话强制正反打: Writer 输出阶段就检查, 缺反打/特写的场景立刻 warn, "AI 感"最大来源解决
+- ✅ 测试: 22 新 case (9 style-audit + 13 dialogue-coverage) — 累计 1039/1039 vitest, tsc 0 错误, 0 新依赖
+- ✅ 失败降级链: style audit 失败 → 不重生; regen API 报错 → modal 显示 error; DNA 抽失败 → 角色卡不显示 chip; dialogue-coverage 失败 → 不阻塞 runWriter
+
+### v2.23 待跟 (P2 候选)
+- StyleAudit 历史趋势图 (项目页, 看哪一镜重生过几次)
+- 单镜重生支持"参考图上传" (用户给一张参考图替代 cref)
+- 对话覆盖度 audit 给 UI tab — 现在只在 Writer SSE 流, 项目页节奏 tab 应该加一个 sub-section
+- DNA 重抽 (用户在角色卡点"重抽 DNA" 按钮, 不重生角色图)
+- Lipsync staging 实测 (KELING_API_KEY 到位)
 
 ---
 

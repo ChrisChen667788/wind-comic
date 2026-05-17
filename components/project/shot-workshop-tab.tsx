@@ -15,8 +15,9 @@
  */
 
 import { useState } from 'react';
-import { RefreshCw, Loader2, Sparkles, ExternalLink, Lock, Film } from 'lucide-react';
+import { RefreshCw, Loader2, Sparkles, ExternalLink, Lock, Film, Pencil } from 'lucide-react';
 import { ExportResolutionDropdown } from './export-resolution-dropdown';
+import { StoryboardRegenModal } from './storyboard-regen-modal';
 
 interface Video {
   shotNumber: number;
@@ -47,6 +48,10 @@ export function ShotWorkshopTab({
   const [error, setError] = useState<string | null>(null);
   // local override 4K-regen 后的 url, 让 UI 立即生效不等父组件刷新
   const [localOverrides, setLocalOverrides] = useState<Record<number, { url: string; quality: string }>>({});
+  // v2.23 P0.2: 单镜分镜图重生 — 用户改 prompt 后重渲
+  const [regenModalShot, setRegenModalShot] = useState<number | null>(null);
+  // 分镜图本地 override (regen 成功后立刻替换缩略图)
+  const [sbOverrides, setSbOverrides] = useState<Record<number, string>>({});
 
   const canDo4K = !userTier || userTier === 'pro' || userTier === 'enterprise';
 
@@ -116,6 +121,9 @@ export function ShotWorkshopTab({
   // 把 shotNumber 排序; storyboard 缩略图按 shotNumber 配对
   const sortedShots = [...videos].sort((a, b) => a.shotNumber - b.shotNumber);
   const sbByShot = new Map(storyboards.map((s) => [s.shotNumber, s.imageUrl]));
+  const getShotImage = (shotNumber: number): string | undefined => {
+    return sbOverrides[shotNumber] || sbByShot.get(shotNumber);
+  };
 
   return (
     <div className="space-y-5">
@@ -163,7 +171,8 @@ export function ShotWorkshopTab({
             const overridden = localOverrides[v.shotNumber];
             const currentQuality = overridden?.quality || v.meta?.quality || 'standard';
             const isBusy = busyShot === v.shotNumber;
-            const sbImg = sbByShot.get(v.shotNumber) || v.imageUrl;
+            const sbImg = getShotImage(v.shotNumber) || v.imageUrl;
+            const sbRegenerated = !!sbOverrides[v.shotNumber];
             return (
               <div
                 key={v.shotNumber}
@@ -188,7 +197,8 @@ export function ShotWorkshopTab({
                     ) : (
                       <span className="cinema-chip !px-1.5 !py-0.5 !text-[9px] opacity-70">{currentQuality}</span>
                     )}
-                    {overridden && <span className="cinema-mono text-[9px] text-[var(--cinema-green)]">✓ 已重渲</span>}
+                    {overridden && <span className="cinema-mono text-[9px] text-[var(--cinema-green)]">✓ 4K 已重渲</span>}
+                    {sbRegenerated && <span className="cinema-mono text-[9px] text-[var(--cinema-amber)]">🎨 分镜图已重生</span>}
                   </div>
                   {isBusy && progress && progress.shotNumber === v.shotNumber && (
                     <div className="flex items-center gap-2 mt-1">
@@ -205,27 +215,58 @@ export function ShotWorkshopTab({
                   )}
                 </div>
 
-                <button
-                  onClick={() => regenAt4K(v.shotNumber)}
-                  disabled={isBusy || busyShot !== null}
-                  title={canDo4K ? '用 Kling Master 重新渲染这一镜 (60-90s)' : '需要 pro 档及以上'}
-                  className={`cinema-btn !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40 ${
-                    canDo4K ? '' : 'opacity-60'
-                  }`}
-                >
-                  {isBusy ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : canDo4K ? (
-                    <RefreshCw className="w-3 h-3" />
-                  ) : (
-                    <Lock className="w-3 h-3 text-[var(--cinema-amber)]" />
-                  )}
-                  4K 重渲
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* v2.23 P0.2: 改 prompt 重生分镜图 */}
+                  <button
+                    onClick={() => setRegenModalShot(v.shotNumber)}
+                    disabled={busyShot !== null}
+                    title="改 prompt 重生这一镜的分镜图 (走 image 路由, 不重生视频)"
+                    className="cinema-btn !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    改 prompt 重生
+                  </button>
+                  <button
+                    onClick={() => regenAt4K(v.shotNumber)}
+                    disabled={isBusy || busyShot !== null}
+                    title={canDo4K ? '用 Kling Master 重新渲染这一镜 (60-90s)' : '需要 pro 档及以上'}
+                    className={`cinema-btn !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40 ${
+                      canDo4K ? '' : 'opacity-60'
+                    }`}
+                  >
+                    {isBusy ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : canDo4K ? (
+                      <RefreshCw className="w-3 h-3" />
+                    ) : (
+                      <Lock className="w-3 h-3 text-[var(--cinema-amber)]" />
+                    )}
+                    4K 重渲
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* v2.23 P0.2: 改 prompt 重生 modal */}
+      {regenModalShot !== null && (
+        <StoryboardRegenModal
+          projectId={projectId}
+          shotNumber={regenModalShot}
+          currentImageUrl={getShotImage(regenModalShot)}
+          currentPrompt={
+            (videos.find((v) => v.shotNumber === regenModalShot)?.meta as any)?.prompt
+            || (storyboards.find((s) => s.shotNumber === regenModalShot) as any)?.prompt
+            || ''
+          }
+          onComplete={(newUrl) => {
+            setSbOverrides((prev) => ({ ...prev, [regenModalShot]: newUrl }));
+            setRegenModalShot(null);
+          }}
+          onCancel={() => setRegenModalShot(null)}
+        />
       )}
 
       <div className="cinema-mono text-[10px] opacity-50 leading-relaxed">
