@@ -2898,8 +2898,13 @@ ${shots.map((s, i) => {
       if (scriptAction) {
         enhancedPrompt += `. Action: ${scriptAction}`;
       }
+      // v2.22 fix #2: 之前直接拼 `Speaking: "中文对白"` → 视频模型尝试渲染 CJK
+      // 文字 → 字幕区一片乱码. 业内做法: 不传原文, 只描述"在说话"+ 节奏 hint,
+      // 实际字幕走后期 ffmpeg burn (CJK 字体烧字, 见 video-composer.ts).
       if (scriptDialogue) {
-        enhancedPrompt += `. Speaking: "${scriptDialogue.slice(0, 60)}"`;
+        const { sanitizeDialogueForPrompt } = await import('@/lib/text-control');
+        const speakerName = shot?.characters?.[0];
+        enhancedPrompt += `. ${sanitizeDialogueForPrompt(scriptDialogue, speakerName)}`;
       }
       if (scriptEmotion) {
         enhancedPrompt += `. Mood: ${scriptEmotion}`;
@@ -2917,6 +2922,12 @@ ${shots.map((s, i) => {
       // 风格一致性
       if (this.styleKeywords) enhancedPrompt += `, ${this.styleKeywords}`;
       enhancedPrompt += ', cinematic quality';
+      // v2.22 fix #2: 强制告诉视频模型不要画文字 / 字幕 / 招牌, 字幕走后期 ffmpeg burn
+      {
+        const { getTextNegativePromptFlags } = await import('@/lib/text-control');
+        // Minimax/Hailuo 类直接拼 "no X" 在 prompt 末尾即可 (它们不识别 --no 语法)
+        enhancedPrompt += getTextNegativePromptFlags({ flavor: 'plain' });
+      }
 
       // P1: 注入角色视觉锚点
       const anchorPrompt = buildCharacterAnchorPrompt(this.characterAnchors, shotCharacters);

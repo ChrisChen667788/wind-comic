@@ -20,7 +20,7 @@ import { AlertTriangle, X, Zap, Wifi, Clock, Lock } from 'lucide-react';
 
 interface AlertItem {
   provider: string;
-  alertType: 'exhausted' | 'saturated' | 'rate_limited' | 'auth_failed';
+  alertType: 'exhausted' | 'saturated' | 'rate_limited' | 'auth_failed' | 'model_unavailable';
   lastSeenAt: string;
   count: number;
 }
@@ -43,6 +43,8 @@ const ALERT_LABEL: Record<AlertItem['alertType'], { text: string; icon: any; ton
   saturated: { text: '上游饱和', icon: Wifi, tone: 'amber' },
   rate_limited: { text: '触发限流', icon: Clock, tone: 'amber' },
   auth_failed: { text: '鉴权失败', icon: Lock, tone: 'red' },
+  // v2.22: 套餐不支持某模型 — 不是鉴权问题, 提示用户改模型 / 升级套餐
+  model_unavailable: { text: '套餐不支持此模型', icon: Lock, tone: 'amber' },
 };
 
 const DISMISS_KEY = 'apiQuotaBanner.dismissed';

@@ -40,7 +40,7 @@ export type ApiProvider =
   | 'xverse'
   | 'qingyuntop';
 
-export type AlertType = 'exhausted' | 'saturated' | 'rate_limited' | 'auth_failed';
+export type AlertType = 'exhausted' | 'saturated' | 'rate_limited' | 'auth_failed' | 'model_unavailable';
 
 export interface ApiCallRecord {
   provider: ApiProvider;
@@ -80,7 +80,12 @@ const QUOTA_MATCHERS: Record<ApiProvider, QuotaMatcher[]> = {
   minimax: [
     { type: 'exhausted', match: (sc, msg) =>
         sc === 1008 || /余额不足|insufficient.*balance|账户余额/i.test(msg || '') },
-    { type: 'auth_failed', match: (sc) => sc === 2061 || sc === 1004 },
+    // v2.22 fix: 2061 ("your current token plan not support model") 不是鉴权问题,
+    // 是该模型在用户当前套餐里不可用 — 跟 401/403 鉴权失败语义完全不同, 单独标 model_unavailable.
+    // 1004 还是真鉴权失败 (invalid token).
+    { type: 'model_unavailable', match: (sc, msg) =>
+        sc === 2061 || /token plan not support|plan.*not.*support.*model/i.test(msg || '') },
+    { type: 'auth_failed', match: (sc) => sc === 1004 },
     { type: 'rate_limited', match: (sc, msg) =>
         sc === 429 || /rate.?limit|too.?many.?requests/i.test(msg || '') },
   ],

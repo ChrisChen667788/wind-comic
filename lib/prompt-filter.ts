@@ -92,5 +92,11 @@ export function optimizeMidjourneyPrompt(prompt: string): string {
     optimized += `, ${safeStyles.join(', ')}`;
   }
 
+  // v2.22 fix #2: 禁止模型画字. CJK 字幕走后期 ffmpeg burn, 不依赖模型.
+  // 如已含 --no 不重复加 (storyboard plan 已经塞过的情况).
+  if (!/--no\s+(text|words|chinese|captions)/i.test(optimized)) {
+    optimized += ' --no text --no words --no letters --no captions --no subtitles --no chinese --no calligraphy --no signage --no watermark';
+  }
+
   return optimized;
 }

@@ -177,10 +177,11 @@ export class MinimaxService {
       // 让本地上传也能走 I2V-01 真图生视频。
       const hasRealImage = !!imageUrl && !imageUrl.startsWith('data:') && imageUrl.length > 0;
 
-      // 根据是否有首帧图选择最佳模型：
-      //   有首帧 → I2V-01（图生视频，质量最高）
-      //   无首帧 → MiniMax-Hailuo-2.3（文生视频，当前套餐支持）
-      const model = hasRealImage ? 'I2V-01' : 'MiniMax-Hailuo-2.3';
+      // v2.22 fix: I2V-01 已被当前套餐 EOL (实测 2061 "your current token plan
+      // not support model"). 改成统一用 Hailuo 2.3 — T2V 和 I2V 同一个模型,
+      // 传 first_frame_image 时自动按 I2V 跑. 可被 env MINIMAX_VIDEO_MODEL 覆盖
+      // (例如有 Hailuo-02 plan 时设 'MiniMax-Hailuo-02').
+      const model = process.env.MINIMAX_VIDEO_MODEL || 'MiniMax-Hailuo-2.3';
 
       const body: Record<string, any> = {
         model,

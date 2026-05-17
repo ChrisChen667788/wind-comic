@@ -63,15 +63,27 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── 模式 2: 旧 /tmp 路径(v2.8 及之前) ──
+  // ── 模式 2: 本地路径白名单 ──
   if (!filePath) {
     return NextResponse.json({ error: 'Missing path / key / proxy parameter' }, { status: 400 });
   }
 
-  // 安全检查：只允许服务临时目录下的文件
+  // v2.22 fix: 允许 4 个目录:
+  //   1) /tmp (v2.8 及之前老成片, 现在大多失效)
+  //   2) data/composed (v2.18.1+ 持久化最终成片, 之前被 403 → 用户看到"本地合成视频文件已失效")
+  //   3) data/exports (v2.16 P0.2 多分辨率 mp4)
+  //   4) data/storage (持久化资产, 兜底)
+  // 防 path traversal: 必须以这些前缀开头, 且不含 '..'.
   const resolvedPath = path.resolve(filePath);
-  const tmpDir = os.tmpdir();
-  if (!resolvedPath.startsWith(tmpDir)) {
+  const cwd = process.cwd();
+  const allowedPrefixes = [
+    os.tmpdir(),
+    path.join(cwd, 'data', 'composed'),
+    path.join(cwd, 'data', 'exports'),
+    path.join(cwd, 'data', 'storage'),
+  ];
+  const isAllowed = allowedPrefixes.some((p) => resolvedPath.startsWith(path.resolve(p)));
+  if (!isAllowed) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 

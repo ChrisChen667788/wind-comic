@@ -34,8 +34,11 @@ describe('detectQuotaError', () => {
     expect(detectQuotaError('minimax', undefined, '余额不足')).toBe('exhausted');
   });
 
-  it('Minimax 2061 → auth_failed (plan not support model)', () => {
-    expect(detectQuotaError('minimax', 2061, 'plan not support')).toBe('auth_failed');
+  it('Minimax 2061 → model_unavailable (套餐不支持此模型, 不是鉴权问题) — v2.22 fix', () => {
+    expect(detectQuotaError('minimax', 2061, 'plan not support')).toBe('model_unavailable');
+    expect(detectQuotaError('minimax', undefined, 'your current token plan not support model, I2V-01'))
+      .toBe('model_unavailable');
+    // 1004 仍是真鉴权失败
     expect(detectQuotaError('minimax', 1004, 'auth fail')).toBe('auth_failed');
   });
 
@@ -176,7 +179,8 @@ describe('recordApiCall', () => {
     recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
     recordApiCall({ provider: 'minimax', success: false, statusCode: 2061, errorMessage: 'plan not support' });
     const alerts = listActiveQuotaAlerts({ provider: 'minimax' });
-    expect(alerts.map((a) => a.alertType).sort()).toEqual(['auth_failed', 'exhausted']);
+    // v2.22 fix: 2061 重分类为 model_unavailable (之前是 auth_failed)
+    expect(alerts.map((a) => a.alertType).sort()).toEqual(['exhausted', 'model_unavailable']);
   });
 });
 

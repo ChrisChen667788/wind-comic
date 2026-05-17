@@ -481,6 +481,47 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     }
   }
 
+  // ═══ v2.22 fix #2: 烧 CJK 字幕 ═══
+  // 视频模型不能正确渲染 CJK 文字, 之前 prompt 里塞 dialogue 出来一片乱码.
+  // 业界做法: 让模型只画"角色在说话"的动作, 真字幕走 ffmpeg subtitles filter
+  // (libass + .srt + 系统 CJK 字体).
+  let subtitlesFilterFragment = '';
+  try {
+    const hasAnyDialogue = validClips.some((c) => (c?.dialogue || '').trim().length > 0);
+    if (hasAnyDialogue) {
+      const { buildSrt, findCjkFont } = await import('@/lib/text-control');
+      // 注意: 这里的 duration 应该是 scaled 后的, 但 srt 时间轴是按"成片播放时间"算 —
+      // 单镜路径下文 line 508 会因 speed 改 durations[0], 多镜路径 durations 是原始.
+      // 为了和成片时间轴对得齐, 先按 ComposerClip.duration 拼 srt (这是 ORIGINAL 时长).
+      // 单镜路径如果 speed≠1, 会有轻微 drift, 但单镜场景几乎都是 5-15s, 用户感知小于多镜.
+      const srtSrc = validClips.map((c) => ({
+        dialogue: c.dialogue || '',
+        duration: c.duration,
+      }));
+      const srtContent = buildSrt(srtSrc);
+      if (srtContent.trim().length > 0) {
+        const srtPath = path.join(tmpDir, 'subtitles.srt');
+        fs.writeFileSync(srtPath, srtContent, 'utf-8');
+        // libass subtitles filter — 必须 escape colon (Windows path 兼容) + 内部单引号
+        const escapedPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+        const cjkFont = findCjkFont();
+        // force_style: 字号 + 白字 + 黑边 + 下方居中 (Alignment=2 = 底部居中 libass)
+        // FontName 用 PingFang SC / Noto Sans CJK SC 等 CJK 字体名, 找不到字体时让 libass 走默认
+        const fontName = cjkFont ? path.basename(cjkFont, path.extname(cjkFont)) : 'PingFang SC';
+        const forceStyle = `FontName=${fontName},FontSize=24,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00000000&,Outline=2,Shadow=1,Alignment=2,MarginV=40`;
+        subtitlesFilterFragment = `,subtitles='${escapedPath}':force_style='${forceStyle}'`;
+        if (cjkFont) {
+          const fontDir = path.dirname(cjkFont).replace(/\\/g, '/').replace(/:/g, '\\:');
+          // fontsdir 让 libass 在指定目录找字体, 解决 macOS PingFang.ttc 默认搜不到的问题
+          subtitlesFilterFragment = `,subtitles='${escapedPath}':fontsdir='${fontDir}':force_style='${forceStyle}'`;
+        }
+        console.log(`[Composer] 字幕烧入: ${srtPath} (font: ${cjkFont || 'system default'})`);
+      }
+    }
+  } catch (e) {
+    console.warn('[Composer] subtitle setup failed (non-blocking):', e instanceof Error ? e.message : e);
+  }
+
   // 5. 如果只有一个片段：也应用变速 + 转场 + 配乐 + 配音
   if (localClips.length === 1) {
     return new Promise((resolve, reject) => {
@@ -510,6 +551,8 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       }
       // 添加淡入淡出效果
       videoFilter += `,fade=t=in:st=0:d=0.8,fade=t=out:st=${Math.max(0, durations[0] - 1)}:d=1`;
+      // v2.22 fix #2: 烧 CJK 字幕 (在 fade 之后, 避免字幕被淡出)
+      videoFilter += subtitlesFilterFragment;
       videoFilter += `[vout]`;
 
       const filters: string[] = [videoFilter];
@@ -610,12 +653,23 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       );
 
       const offset = Math.max(0, cumulativeDuration - effectiveTd);
-      const outLabel = i === n - 1 ? 'vout' : `xv${i}`;
+      // v2.22 fix #2: 最后一段不再直接出 [vout] — 留出 [xvfinal] 给字幕 filter
+      const outLabel = i === n - 1 ? 'xvfinal' : `xv${i}`;
 
       filters.push(`[${prevLabel}][v${i}]xfade=transition=${transition}:duration=${effectiveTd.toFixed(2)}:offset=${offset.toFixed(2)}[${outLabel}]`);
 
       cumulativeDuration = offset + durations[i];
       prevLabel = outLabel;
+    }
+
+    // v2.22 fix #2: 烧 CJK 字幕作 last step — 字幕在转场之后, 让所有片段 dialogue 都显示
+    if (subtitlesFilterFragment) {
+      // strip 开头的逗号 — subtitles filter 在 filter chain 里独立用 = 而不是 ,
+      const filterBody = subtitlesFilterFragment.replace(/^,/, '');
+      filters.push(`[xvfinal]${filterBody}[vout]`);
+    } else {
+      // 无字幕 — pass-through, 保持 [vout] label 名一致
+      filters.push(`[xvfinal]null[vout]`);
     }
 
     // 音频处理：生成的视频通常没有音频流，统一生成静音替代
