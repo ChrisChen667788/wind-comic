@@ -17,7 +17,7 @@ import { ExportResolutionDropdown } from '@/components/project/export-resolution
 import { ShotWorkshopTab } from '@/components/project/shot-workshop-tab';
 import { CommentThread } from '@/components/collab/comment-thread';
 import { PresenceAvatars } from '@/components/collab/presence-avatars';
-import { buildTargetId } from '@/lib/comments';
+import { buildTargetId } from '@/lib/comments-shared';
 import { useAuth } from '@/components/auth-provider';
 import { PacingChart } from '@/components/project/pacing-chart';
 

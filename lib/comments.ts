@@ -20,8 +20,11 @@
 import { db, now } from '@/lib/db';
 import { nanoid } from 'nanoid';
 import { parseMentionNames, uniqueMentions } from '@/lib/mentions';
-
-export type CommentTargetType = 'project' | 'shot' | 'scene' | 'character' | 'storyboard';
+// v2.21 hotfix: client-safe helpers 移到独立文件, 避免 page.tsx 导入这里时
+// 把 better-sqlite3 拉进浏览器 bundle. 这里仍 re-export 让旧 import 不破.
+export { buildTargetId } from '@/lib/comments-shared';
+export type { CommentTargetType } from '@/lib/comments-shared';
+import type { CommentTargetType } from '@/lib/comments-shared';
 
 export interface CommentRow {
   id: string;
@@ -78,21 +81,7 @@ function rowToComment(row: CommentDbRow): CommentRow {
   };
 }
 
-/** 给 UI 调用方统一构造 target_id 的辅助函数, 避免拼写漂移. */
-export function buildTargetId(
-  targetType: CommentTargetType,
-  projectId: string,
-  subKey?: string | number,
-): string {
-  if (targetType === 'project') return projectId;
-  if (targetType === 'shot' || targetType === 'storyboard') {
-    if (subKey == null) throw new Error(`${targetType} target requires subKey (shotNumber)`);
-    return `${projectId}:${subKey}`;
-  }
-  // scene / character — 用名字作 sub-key
-  if (subKey == null) throw new Error(`${targetType} target requires subKey (name)`);
-  return String(subKey);
-}
+// buildTargetId 已迁移到 lib/comments-shared.ts (client-safe), 这里 re-export 见文件顶部.
 
 export interface CreateCommentInput {
   projectId: string;

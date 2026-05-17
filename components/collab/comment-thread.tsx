@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Trash2, MessageCircle, Send, Loader2, Radio, RadioReceiver } from 'lucide-react';
 import { MentionTextarea } from './mention-textarea';
-import type { CommentRow, CommentTargetType } from '@/lib/comments';
+import type { CommentRowShape as CommentRow, CommentTargetType } from '@/lib/comments-shared';
 import { useYjs } from '@/hooks/use-yjs';
 
 interface FetchedComment extends CommentRow {}
