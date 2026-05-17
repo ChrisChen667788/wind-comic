@@ -329,6 +329,11 @@ export class HybridOrchestrator {
   // runDirector 调用时缓存, 后续 runWriter 用来注入 drama-tropes block.
   private originalIdea: string = '';
 
+  // v2.21 P1.2: 角色 DNA 数字签名 — CharacterDesigner 完成三视图后, 给每张图过一次
+  // vision API 抽 8 维 (eye/jaw/nose/mouth/hair style/hair color/skin/signature outfit),
+  // 拼成短 prompt block, 在每个该角色出场的 shot 里追加. 与 cref/sref 双锁.
+  private characterDnaMap: Map<string, import('@/lib/character-dna').CharacterDna> = new Map();
+
   // Parsed script data (when user provides a full script)
   private parsedScript: ParsedScript | null = null;
 
@@ -1792,6 +1797,33 @@ ${raw.slice(0, 2000)}
 
     this.update(AgentRole.WRITER, { status: 'completed', progress: 100, output: script });
     this.emit('agentTalk', { role: AgentRole.WRITER, text: `「${script.title}」写好了！这次的反转绝对够劲 🔥` });
+
+    // v2.21 P1.1: 节奏 audit — 检查冲突分 + 反转密度 + cliffhanger 收尾.
+    // 非阻塞 — 即使全片节奏崩, 也让用户看到分镜画面再决定要不要重生.
+    try {
+      const { auditScript } = await import('@/lib/pacing-audit');
+      const { isDramaContext } = await import('@/lib/drama-tropes');
+      const dramaMode = isDramaContext(plan.genre, this.originalIdea);
+      const report = auditScript(script, { dramaMode });
+      // 挂到 script 上, 供前端 SSE + 项目页"节奏分析" tab 用
+      (script as any).pacingReport = report;
+      this.emit('pacingAudit', report);
+      if (!report.passed && report.warnings.length > 0) {
+        // 提示用户但不打断 — 第 1 条 warning 给 Writer 频道, 让对话感更自然
+        this.emit('agentTalk', {
+          role: AgentRole.WRITER,
+          text: `📊 节奏 audit: ${report.warnings[0]}${report.warnings.length > 1 ? ` (共 ${report.warnings.length} 条建议, 看项目页节奏分析 tab)` : ''}`,
+        });
+      } else if (report.passed) {
+        this.emit('agentTalk', {
+          role: AgentRole.WRITER,
+          text: `📊 节奏 audit ✅ 通过 (平均冲突分 ${report.averageConflictScore.toFixed(1)}/10, ${report.reversalCount} 次反转)`,
+        });
+      }
+    } catch (e) {
+      console.warn('[PacingAudit] failed (non-blocking):', e instanceof Error ? e.message : e);
+    }
+
     return script;
   }
 
@@ -2009,6 +2041,30 @@ ${raw.slice(0, 2000)}
     }
 
     this.emit('agentTalk', { role: AgentRole.CHARACTER_DESIGNER, text: `三视图画完了，${results.length}个角色帅到我自己都心动~ ✨\n角色锚点已锁定，后续镜头将严格保持一致性 🔒` });
+
+    // v2.21 P1.2: 异步抽 Character DNA — 不阻塞主流程, 给后续 storyboard 用
+    void (async () => {
+      try {
+        const { extractCharacterDnaBatch } = await import('@/lib/character-dna');
+        const httpChars = results
+          .map((r) => ({ name: r.character, imageUrl: r.imageUrl }))
+          .filter((c) => c.imageUrl && c.imageUrl.startsWith('http'));
+        if (httpChars.length === 0) return;
+        const dnaMap = await extractCharacterDnaBatch(httpChars);
+        if (dnaMap.size > 0) {
+          this.characterDnaMap = dnaMap;
+          console.log(`[CharacterDna] extracted DNA for ${dnaMap.size}/${httpChars.length} characters`);
+          this.emit('characterDna', { count: dnaMap.size, total: httpChars.length });
+          this.emit('agentTalk', {
+            role: AgentRole.CHARACTER_DESIGNER,
+            text: `🧬 ${dnaMap.size}/${httpChars.length} 个角色抽完 DNA 签名 — 后续每个出场镜头会拼上结构化 anchor, 锁脸更稳`,
+          });
+        }
+      } catch (e) {
+        console.warn('[CharacterDna] batch extraction failed (non-blocking):', e instanceof Error ? e.message : e);
+      }
+    })();
+
     return results;
   }
 
@@ -2463,6 +2519,15 @@ ${shots.map((s, i) => {
       }
       if (srefUrl) {
         renderPrompt = `${renderPrompt}, consistent scene style, same environment as reference`;
+      }
+
+      // v2.21 P1.2: 注入 Character DNA — 给本镜出场的角色拼上结构化签名 (eyes/jaw/hair/...)
+      // 让模型同时收到"参考图 + 自然语言锚点", 双层锁脸
+      if (this.characterDnaMap.size > 0) {
+        try {
+          const { injectDnaIntoPrompt } = await import('@/lib/character-dna');
+          renderPrompt = injectDnaIntoPrompt(renderPrompt, shotCharacters, this.characterDnaMap);
+        } catch { /* 加载失败不阻塞 */ }
       }
 
       renderPrompt = optimizeMidjourneyPrompt(renderPrompt);
@@ -3586,6 +3651,49 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
               ? `🎙️ AI 配音部分完成: ${successfulTts}/${voiceoverClips.length} 真实音, ${audioWarnings.length} 降级`
               : `🎙️ AI 配音完成！${voiceoverClips.length} 段语音已就绪`,
           });
+        }
+
+        // ═══ v2.21 P1.3: Lip-sync — 把视频里的嘴型对齐到 TTS 配音 ═══
+        // 仅对真实 http 视频 + 真实 http 音频 + Kling key 配置时跑.
+        // 失败 / 没 key → 保留原视频, 仅 warning. 不阻塞 final cut.
+        try {
+          const { getLipSyncService } = await import('@/services/lipsync.service');
+          const lipsync = getLipSyncService();
+          if (lipsync.isAvailable() && voiceoverClips.length > 0) {
+            this.update(AgentRole.EDITOR, { currentTask: '嘴型对齐 (lip-sync)...', progress: 45 });
+            this.emit('agentTalk', {
+              role: AgentRole.EDITOR,
+              text: `👄 Lip-sync 启动: 把 ${voiceoverClips.length} 段配音对齐到视频嘴型 (Kling)...`,
+            });
+            let appliedCount = 0;
+            for (const v of voiceoverClips) {
+              const videoEntry = videos.find((x) => (x?.shotNumber ?? -1) === v.shotNumber);
+              const videoUrl = videoEntry?.videoUrl || (videoEntry as any)?.mediaUrls?.[0];
+              if (!videoEntry || !videoUrl || !videoUrl.startsWith('http')) continue;
+              // audioUrl 可能是 /api/serve-file 形式 (本地 TTS 文件) — lip-sync 需要 http URL,
+              // 不是 http 就 skip (Kling 抓不到 localhost)
+              if (!v.audioUrl || !v.audioUrl.startsWith('http')) {
+                console.log(`[LipSync] shot ${v.shotNumber} skipped — audio is non-http (likely local TTS)`);
+                continue;
+              }
+              const r = await lipsync.syncMouthToAudio(videoUrl, v.audioUrl, { language: 'zh' });
+              if (r.applied && r.videoUrl && r.videoUrl.startsWith('http')) {
+                videoEntry.videoUrl = r.videoUrl;
+                appliedCount++;
+              } else if (r.warning) {
+                audioWarnings.push(`👄 shot ${v.shotNumber} lip-sync 跳过: ${r.warning.slice(0, 60)}`);
+              }
+            }
+            this.emit('agentTalk', {
+              role: AgentRole.EDITOR,
+              text: appliedCount > 0
+                ? `👄 Lip-sync 完成: ${appliedCount}/${voiceoverClips.length} 段视频嘴型已对齐 ✓`
+                : `👄 Lip-sync: 没有可对齐的镜头 (TTS 是本地文件或 Kling 配额耗尽)`,
+            });
+          }
+        } catch (e) {
+          // 完全不阻塞主流程
+          console.warn('[LipSync] block failed (non-blocking):', e instanceof Error ? e.message : e);
         }
       }
     }

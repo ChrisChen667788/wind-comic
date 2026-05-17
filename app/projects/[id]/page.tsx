@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
-  Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle,
+  Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle, BarChart3,
 } from 'lucide-react';
 import { CameoPanel } from '@/components/CameoPanel';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
@@ -19,6 +19,7 @@ import { CommentThread } from '@/components/collab/comment-thread';
 import { PresenceAvatars } from '@/components/collab/presence-avatars';
 import { buildTargetId } from '@/lib/comments';
 import { useAuth } from '@/components/auth-provider';
+import { PacingChart } from '@/components/project/pacing-chart';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -187,6 +188,8 @@ export default function ProjectDetailPage() {
     { key: 'videos', label: '视频', icon: Video, count: videos.length },
     // v2.16 P1.4: 镜头工坊 — 4K 重渲 / 首尾帧 / 多分辨率导出 集中入口
     { key: 'workshop', label: '镜头工坊', icon: Scissors, count: videos.length },
+    // v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议
+    { key: 'pacing', label: '节奏分析', icon: BarChart3, count: script?.pacingReport?.warnings?.length || 0 },
     // v3.0 P0.1: 评论协作 — 项目级讨论 + 提及通知
     { key: 'comments', label: '评论协作', icon: MessageCircle, count: 0 },
     { key: 'play', label: '完整播放', icon: Play, count: 0 },
@@ -579,6 +582,11 @@ export default function ProjectDetailPage() {
                 imageUrl: s.imageUrl || s.mediaUrls?.[0],
               }))}
             />
+          )}
+
+          {/* v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议 */}
+          {activeTab === 'pacing' && (
+            <PacingChart report={script?.pacingReport || null} />
           )}
 
           {/* v3.0 P0.1: 评论协作 — 项目级讨论 + 每个镜头独立线程 */}

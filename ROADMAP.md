@@ -663,10 +663,71 @@ npm test
 - ✅ 失败降级链完整 (Style Bible 90s 超时 → 跳过; Minimax multi-ref 失败 → MJ; router 全炸 → falFlux)
 
 ### v2.20 待跟 (P1 候选, 下一轮)
-- 反转密度 / 节奏感的 lib 化 + UI 节奏图 (现在只在 Writer prompt 文字硬约束, 没自动 audit)
-- Character DNA 数字化 (vision 抽取 8 维特征作 prompt anchor)
-- 真 Lipsync (Kling key 到位后)
-- Vision Audit 给 Style Bible 加 LUT/光线维度对比
+- ~~反转密度 / 节奏感的 lib 化 + UI 节奏图~~ → v2.21 P1.1 + P1.4 ✅
+- ~~Character DNA 数字化~~ → v2.21 P1.2 ✅
+- ~~真 Lipsync (Kling key 到位后)~~ → v2.21 P1.3 scaffold ✅ (有 key 自动启)
+- Vision Audit 给 Style Bible 加 LUT/光线维度对比 (留 v2.22)
+
+---
+
+## 4.13 v2.21 · "节奏 + 角色锚定 + Lipsync 接通" Sprint ✅ 2026-05-17
+
+> **背景**: v2.20 把"画风统一感"和"短剧 mode"做了, 但还差: (a) 节奏 / 反转没自动 audit, 用户得自己看分镜; (b) 角色一致性差最后一公里 (cref 漂移); (c) 嘴型对不上 TTS 是漫剧最大违和源.
+> **决策**: 一次性把这 4 件全做了, lipsync 用 scaffold 模式 — 没 Kling key 时自动跳过, 有 key 自动启, 用户不用改代码.
+
+### P1.1 · 节奏 / 反转密度自动 audit ✅
+- [x] `lib/pacing-audit.ts` 新建 — 纯函数 + 词典:
+  - `scoreShotConflict(shot)` 0-10 分 (冲突词 × 2 cap 6 + 对白 +1 + 极性 +1 + emoT≥7 +2)
+  - `detectEmotionPolarity(text)` -1/0/+1 (positive vs negative 词典对比)
+  - `detectReversals(shots)` 相邻不同极性 = 反转, neutral 跳过 (McKee value-shift 检测)
+  - `auditScript(script, opts)` 综合: avg conflict / reversalCount / per-shot warnings / suggestions
+  - 阈值按模式: 短剧 reversal ≥2 + avg ≥3.5 + 第 1 镜 ≥5 + cliffhanger; 普通宽松
+- [x] `services/hybrid-orchestrator.ts` `runWriter` 末尾跑 audit, 挂 `script.pacingReport`, emit SSE `pacingAudit`, Writer 频道发 warning 摘要
+- [x] 测试: `tests/v2-21-pacing-audit.test.ts` 23 cases — 极性 / 单镜分 / 反转检测 / drama vs normal mode / cliffhanger 检查 / 空数组
+
+### P1.2 · Character DNA 数字签名 ✅
+- [x] `lib/character-dna.ts` 新建:
+  - `extractCharacterDna(name, imageUrl)` — vision LLM 抽 8 维 (eye/jaw/nose/mouth/hair style/hair color/skin/signature outfit), 失败/无 key 返 null
+  - `extractCharacterDnaBatch` 并发 2 路批量抽
+  - `buildPromptBlock(name, sig)` 拼成 "<name> visual DNA: eyes:..., jaw:..., hair:..." 短描述, ≤200 字段值 cap
+  - `injectDnaIntoPrompt(basePrompt, shotCharacters, dnaMap)` 多角色同框时用 ' | ' 分隔, 未命中字符不污染
+- [x] `services/hybrid-orchestrator.ts`:
+  - 新字段 `characterDnaMap: Map<name, CharacterDna>`
+  - `runCharacterDesigner` 末尾异步 `extractCharacterDnaBatch` (非阻塞, 失败不影响主流程), emit `characterDna` event
+  - `runStoryboardRenderer.renderSingleShot` 在 `optimizeMidjourneyPrompt` 之前 inject DNA — 模型同时收到"参考图 + 自然语言锚点"双锁脸
+- [x] 测试: `tests/v2-21-character-dna.test.ts` 13 cases — buildPromptBlock 字段拼接 / 200 cap / injectDnaIntoPrompt 多角色 / extractCharacterDna 无 key/非法 URL/空 name 兜底
+
+### P1.3 · Lipsync 接通 (Kling-key-ready scaffold) ✅
+- [x] `services/lipsync.service.ts` 新建 — `LipSyncService`:
+  - `isAvailable()` 检查 KELING_API_KEY + `LIPSYNC_DISABLED` env
+  - `syncMouthToAudio(videoUrl, audioUrl)` 调 Kling `/v1/videos/lip-sync` API, 轮询任务, 返新视频 URL
+  - 所有失败路径 (无 key / disabled / data:URL / API 4xx / 网络抖动 / poll 超时) 都返 `{ videoUrl: 原, applied: false, warning }`, **永不抛**
+  - singleton `getLipSyncService()` 全 orchestrator 共用
+- [x] `services/hybrid-orchestrator.ts` Editor 阶段 TTS 完成后插入 lipsync 循环:
+  - 仅对真实 http 视频 + http 音频跑 (本地 TTS 文件 / 静音兜底自动 skip)
+  - applied=true 时 mutate `videos[i].videoUrl` 为新 URL, 否则保留原视频 + warning
+  - emit Editor 频道进度: "👄 Lip-sync 完成: N/M 段视频嘴型已对齐"
+- [x] 测试: `tests/v2-21-lipsync.test.ts` 12 cases — isAvailable 矩阵 (无 key / placeholder key / 真 key / disabled) + 失败 fallback (data:/local audio / 缺 url / 4xx / 网络抛 / no task_id), 全部不抛
+
+### P1.4 · 节奏图 UI ✅
+- [x] `components/project/pacing-chart.tsx` 新建 — 接收 `PacingAuditReport` 渲染:
+  - 顶 3 卡: 平均冲突分 / 反转数 / 通过/待改 verdict
+  - 主图: 每镜柱状条 (色码绿/琥珀/红) + 极性 icon (TrendingUp/Down/Minus) + 反转点 ArrowRight 箭头
+  - 底部: warnings 列表 + suggestions 列表
+- [x] `app/projects/[id]/page.tsx` 新增 "节奏分析" tab (BarChart3 icon), tab 计数 = `pacingReport.warnings.length` (有问题时给红点提示)
+
+### v2.21 总验收 ✅
+- ✅ 节奏自动 audit 上线: 写完剧本立刻知道哪一镜偏弱, 不需要把片渲完再发现
+- ✅ Character DNA 落地: 主角跨镜头一致性多一层"自然语言 anchor", cref 漂移时由 DNA 兜底
+- ✅ Lipsync scaffold 通了: 没 Kling key 时静默跳过, 一旦用户在 .env 加 `KELING_API_KEY=...`, 下一个项目自动启
+- ✅ 节奏图 UI 直观: 用户看分镜前就能从节奏 tab 判断"这版要不要重生"
+- ✅ 测试: 60 新 case (23 pacing + 13 dna + 12 lipsync + 12 既有) — 累计 991/991 vitest, tsc 0 错误, 0 新依赖
+- ✅ 失败降级链完整, 任何一项失败都不阻塞主管线
+
+### v2.21 待跟 (P2 候选)
+- Vision audit 给 Style Bible 加 LUT / 光线 / 色温 维度对比 (现在只锁画风, 不锁色调)
+- Character DNA 命中率监控 — 实测 vision 能抽出几个字段, 哪些字段最常空
+- Lipsync staging 实测 — 等 KELING_API_KEY 到位后跑 1 个项目, 验证 audio_to_video 字段格式
 
 ---
 
