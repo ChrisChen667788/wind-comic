@@ -23,6 +23,7 @@ import { useAuth } from '@/components/auth-provider';
 import { PacingChart } from '@/components/project/pacing-chart';
 import { ReviewStatusBadge } from '@/components/project/review-status-badge';
 import { CinemaTimeline } from '@/components/project/cinema-timeline';
+import { InviteProjectButton } from '@/components/project/invite-project-button';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -227,6 +228,11 @@ export default function ProjectDetailPage() {
             )}
             {/* v3.x P0.3 E.3: 审批状态 badge */}
             <ReviewStatusBadge projectId={id} currentUserId={user?.id} />
+            {/* v3.x: 邀请协作者 (仅 owner 显示) */}
+            <InviteProjectButton
+              projectId={id}
+              isOwner={!!user && (project?.userId === user.id || project?.user_id === user.id)}
+            />
             <span className={`cinema-chip ${project.status === 'completed' ? 'cinema-chip-green' : 'cinema-chip-amber'}`}>
               <span className="cinema-statusbar-dot" style={{ background: project.status === 'completed' ? 'var(--cinema-green)' : 'var(--cinema-amber)' }} />
               {project.status === 'completed' ? 'COMPLETED' : 'IN PRODUCTION'}

@@ -897,11 +897,60 @@ npm test
 - ✅ 测试: 60+ 新 case (review 12 + comment-att 7 + email 11 + timeline 6 + lipsync-providers 9 + lipsync rewrite 17), 累计 **vitest 1088/1088** / **tsc 0 错误** / 0 新依赖
 
 ### v2.24+v3.x+v3.1 待跟 (P2 候选)
-- F.1 多轨道编辑 (BGM/字幕拖拽) — 真 Logic Pro 级别留 v3.1.x
+- ~~F.1 多轨道编辑~~ → v3.1.1 ✅ (本轮)
+- ~~F.2 虚拟滚动~~ → v3.1.1 ✅
+- ~~v3.x 协作扩展 (邀请协作者)~~ → v3.x.1 ✅
 - E.2 用户偏好设置页 (account settings) — 让用户可在 UI 改 email_notify_pref
 - E.3 审批历史日志 (audit log) — 当前只存最新状态
 - G 真 staging 实测 — 等任一 lipsync provider 真 key 到位
 - 评论附件: 拖拽 PDF 等其他文件类型支持 (当前 image/* + video/*)
+
+---
+
+## 4.16 v3.1.1 + v3.x.1 — Cinema 多轨道 + 虚拟滚动 + 协作邀请 ✅ 2026-05-18
+
+> **背景**: v2.24/v3.x/v3.1 大批量交付了 cinema timeline MVP (单轨拖拽), v3.x P0.3 落了评论/审批等协作底座. 这一轮把 cinema timeline 升到多轨道 (BGM/字幕独立可控), 加虚拟滚动应对长片, 同时把"邀请协作者 + 角色分级"这条协作骨架接通.
+
+### F.1 · 多轨道 Cinema Timeline ✅
+- [x] `lib/db.ts` 新表 `project_track_edits` (track_type / segment_key / muted / start_offset_sec / duration_override / custom_text, UNIQUE per project+track+key)
+- [x] `lib/timeline-tracks.ts` 新建 — 派生 BGM 段 (按 shot.act 分组) + 派生 Subtitle 段 (按 dialogue + 累计时长); 用户 override 合并 (UPSERT 语义); `computeTracks` / `applyTrackEdits` / `resetTrackEdit` / `clearAllTrackEdits`
+- [x] `/api/projects/[id]/timeline` GET 现在返回 `{ shots, totalDuration, tracks: { bgm, subtitle } }`; POST 接受 `trackEdits` 和 `trackResets` 批量, 透传 SegmentOverride 数组到 `applyTrackEdits`
+- [x] `components/project/cinema-timeline.tsx` UI 大改: 3 行布局 (shots / BGM / subtitle), 每段:
+  - 拖动 → 改 startOffsetSec
+  - 🔇/🔊 toggle → 改 muted
+  - 双击字幕段 → 改 customText (内联 modal)
+  - 🔄 → 重置该段 override (回派生默认)
+  - amber/cyan 色带 + 已编辑段 amber ring 高亮
+
+### F.2 · 虚拟滚动 ✅
+- [x] `lib/timeline-virtual.ts` 新建 — `visibleRange({ totalCount, itemWidth, scrollLeft, viewportWidth, gap, buffer })` 返回 startIdx/endIdx/leftPad/rightPad
+- [x] `shouldVirtualize(totalCount, threshold=12)` 短片不启用 (省 UI 复杂度)
+- [x] cinema-timeline shot row: 滚动事件触发 `setScrollLeft`, ResizeObserver 监听 viewport; >12 shots 自动启用 windowed render, header 显示 "virtual 已启 (N-M / Total)"
+
+### v3.x.1 · 项目协作邀请 ✅
+- [x] DB 新表 `project_share_tokens` (token PK + role) + `project_collaborators` (project_id + user_id UNIQUE + role)
+- [x] `lib/project-share.ts` 新建:
+  - `createProjectShareToken / getProjectShareToken / revokeProjectShareToken` — 创建/读/吊销 (owner only)
+  - `acceptProjectInvite` — 校验 token, owner 自己拒, 已加入 collaborator 走 role-升级 (不降级)
+  - `listCollaborators / removeCollaborator / updateCollaboratorRole` — owner 管理
+  - `getUserProjectRole / canEditProject / canCommentProject / canViewProject` — 鉴权 helper (owner = editor)
+- [x] API: `POST/GET/DELETE/PATCH /api/projects/[id]/invite` (owner only); `GET/POST /api/project-invite/[token]` (公开预览 + auth 接受)
+- [x] UI:
+  - `<InviteProjectButton>` — 项目 nav popover (创建链接 + role/expires 选择 + 一键复制 + 协作者列表 + 角色下拉 + 踢人); 仅 owner 显示
+  - `/project-invite/[token]/page.tsx` — 公开邀请预览页 (项目卡 + role 说明 + "接受邀请" / 未登录跳 /auth?next=)
+- [x] 接入项目页 nav bar
+
+### v3.1.1 + v3.x.1 总验收 ✅
+- ✅ 单测: 49 新 case (10 virtual-scroll + 13 timeline-tracks + 26 project-share), 累计 **vitest 1137/1137** / **tsc 0 错误**
+- ✅ 0 新依赖, 0 破坏性改动 (timeline API 向后兼容: 没 tracks 字段时 UI 走空数组路径)
+- ✅ 长片 (>12 镜) 时 cinema timeline 不再卡 (实测 50 镜下渲 ~10 张卡片, 余下 lazy)
+- ✅ 邀请链接 → role 升级语义清晰 (viewer < commenter < editor), 接受过的人再点新链接可升级不可降级
+
+### v3.1.1 待跟 (P2 候选)
+- 多轨道 drag 的"绝对坐标 vs offset" 语义二次校准 — 多次拖动当前是累加 offset, 大幅拖时段感不直观
+- BGM 真实波形显示 (现在是色带 + 标题, 没声波)
+- 字幕段时长拉伸 (拽两边边沿改 durationOverride)
+- 协作者实时光标 (与 v3.0 P0.2 Yjs 整合)
 
 ---
 

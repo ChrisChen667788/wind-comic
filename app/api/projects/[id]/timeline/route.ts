@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
 import { getUserFromRequest } from '../../../auth/lib';
 import type { Script, ScriptShot } from '@/types/agents';
+import { computeTracks, applyTrackEdits, resetTrackEdit, type SegmentOverride } from '@/lib/timeline-tracks';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -73,7 +74,7 @@ export async function GET(
   const { id: projectId } = await params;
   const { script } = loadScript(projectId);
   if (!script || !Array.isArray(script.shots)) {
-    return NextResponse.json({ shots: [] });
+    return NextResponse.json({ shots: [], tracks: { bgm: [], subtitle: [] }, totalDuration: 0 });
   }
   const media = loadShotMedia(projectId);
   const shots = script.shots.map((s) => ({
@@ -87,7 +88,9 @@ export async function GET(
     videoUrl: media.get(s.shotNumber)?.videoUrl || null,
   }));
   const totalDuration = shots.reduce((sum, s) => sum + (s.duration || 0), 0);
-  return NextResponse.json({ shots, totalDuration });
+  // v3.1 F.1: 派生 BGM + subtitle 轨道
+  const tracks = computeTracks(projectId, script);
+  return NextResponse.json({ shots, totalDuration, tracks });
 }
 
 export async function POST(
@@ -135,7 +138,25 @@ export async function POST(
     `UPDATE project_assets SET data = ?, updated_at = ? WHERE id = ?`,
   ).run(JSON.stringify(script), now(), row.id);
 
+  // v3.1 F.1: 处理 track edits (BGM/字幕 mute/移位/改写)
+  // 单段 reset 走 trackResets array; 普通编辑走 trackEdits array
+  if (Array.isArray(body.trackEdits)) {
+    const valid: SegmentOverride[] = body.trackEdits.filter((e: any) =>
+      e && (e.trackType === 'bgm' || e.trackType === 'subtitle') && typeof e.segmentKey === 'string',
+    );
+    if (valid.length > 0) applyTrackEdits(projectId, valid);
+  }
+  if (Array.isArray(body.trackResets)) {
+    for (const r of body.trackResets) {
+      if (r && typeof r.segmentKey === 'string' && (r.trackType === 'bgm' || r.trackType === 'subtitle')) {
+        resetTrackEdit(projectId, r.trackType, r.segmentKey);
+      }
+    }
+  }
+
   const totalDuration = script.shots.reduce((sum, s: ScriptShot) => sum + (s.duration || 5), 0);
+  // 重新派生 tracks 给 client (含最新 override)
+  const tracks = computeTracks(projectId, script);
   return NextResponse.json({
     shots: script.shots.map((s) => ({
       shotNumber: s.shotNumber,
@@ -143,5 +164,6 @@ export async function POST(
       dialogue: s.dialogue || '',
     })),
     totalDuration,
+    tracks,
   });
 }

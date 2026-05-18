@@ -404,6 +404,60 @@ CREATE TABLE IF NOT EXISTS project_review_status (
 CREATE INDEX IF NOT EXISTS idx_review_status_status ON project_review_status(status, updated_at);
 `);
 
+// v3.1 F.1 — Cinema timeline 多轨道用户编辑覆盖层.
+//   - 默认所有 BGM/字幕 segments 从 script 派生 (按 shots[].dialogue + 时长累计)
+//   - 用户在 timeline 上拖拽改时间 / 静音单段 / 切某段后, 把 override 写到这里
+//   - 渲染时: 取 script 派生默认值 + 该表 override 覆盖
+//   - track_type: 'bgm' | 'subtitle'
+//   - segment_key: 段内唯一 (字幕用 shotNumber, BGM 用 act number 或 segment idx)
+//   - 字段: muted/start_offset_sec/duration_override/custom_text (字幕改写)
+db.exec(`
+CREATE TABLE IF NOT EXISTS project_track_edits (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  track_type TEXT NOT NULL,                       -- 'bgm' | 'subtitle'
+  segment_key TEXT NOT NULL,                      -- shot-N 或 bgm-act-N 等稳定 key
+  muted INTEGER NOT NULL DEFAULT 0,
+  start_offset_sec REAL,                          -- 相对默认 startSec 的偏移 (秒, 可负)
+  duration_override_sec REAL,                     -- 覆盖默认时长 (>0 才生效)
+  custom_text TEXT,                               -- subtitle 改写后的文本 (BGM 不用)
+  updated_at TEXT NOT NULL,
+  UNIQUE(project_id, track_type, segment_key)
+);
+CREATE INDEX IF NOT EXISTS idx_track_edits_project ON project_track_edits(project_id, track_type);
+`);
+
+// v3.x — 项目协作: 分享链接 + 协作者表 (复用 template_share_tokens 模式).
+//   project_share_tokens: 创建分享链接, 含 role 控权限 ('viewer'|'commenter'|'editor')
+//   project_collaborators: 用户点链接接受后写入 — 后续直接进项目页可见
+db.exec(`
+CREATE TABLE IF NOT EXISTS project_share_tokens (
+  token TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  owner_user_id TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'viewer',
+  view_count INTEGER NOT NULL DEFAULT 0,
+  accept_count INTEGER NOT NULL DEFAULT 0,
+  expires_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_project_share_tokens_project ON project_share_tokens(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_share_tokens_owner ON project_share_tokens(owner_user_id);
+
+CREATE TABLE IF NOT EXISTS project_collaborators (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'viewer',
+  invited_by_user_id TEXT,
+  invited_via_token TEXT,
+  joined_at TEXT NOT NULL,
+  UNIQUE(project_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_project_collaborators_project ON project_collaborators(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_collaborators_user ON project_collaborators(user_id);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,
