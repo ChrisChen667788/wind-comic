@@ -182,6 +182,55 @@ describe('v3.1 F.1 · applyTrackEdits + override merge', () => {
   });
 });
 
+describe('v3.1.2 · derivedStartSec / derivedDurationSec exposure', () => {
+  it('un-edited segment derivedStartSec = startSec, derivedDurationSec = durationSec', () => {
+    const s = script([shot(1, { act: 1, duration: 10 }), shot(2, { act: 2, duration: 8 })]);
+    const { bgm } = computeTracks(PROJ, s);
+    for (const seg of bgm) {
+      expect(seg.derivedStartSec).toBe(seg.startSec);
+      expect(seg.derivedDurationSec).toBe(seg.durationSec);
+    }
+  });
+
+  it('edited segment keeps derived values for client-side offset computation', () => {
+    const s = script([shot(1, { act: 1, duration: 10 }), shot(2, { act: 2, duration: 5 })]);
+    const before = computeTracks(PROJ, s);
+    const seg = before.bgm[1];
+    expect(seg.derivedStartSec).toBe(10); // Act 2 派生 startSec
+    applyTrackEdits(PROJ, [{
+      trackType: 'bgm', segmentKey: seg.id,
+      startOffsetSec: 4,
+      durationOverrideSec: 7,
+    }]);
+    const after = computeTracks(PROJ, s);
+    const edited = after.bgm[1];
+    expect(edited.startSec).toBe(14);              // 当前 startSec = derived + offset
+    expect(edited.derivedStartSec).toBe(10);       // derived 永远是 base, 没动
+    expect(edited.durationSec).toBe(7);            // 当前时长 = override
+    expect(edited.derivedDurationSec).toBe(5);     // derived 时长还在
+  });
+
+  it('multiple absolute drags via client (newStart - derivedStart) idempotent', () => {
+    // 模拟 client: 用户把段从 10s 拖到 15s, 再拖到 20s.
+    // 旧 buggy 路径: 第 2 次 client 发 offset=5 (delta from 15), server 把 5 当 new offset, 实际只移到 15. 不直观.
+    // 修复路径: client 用 derivedStartSec 算 absoluteStart - derivedStartSec 作 offset.
+    const s = script([shot(1, { act: 1, duration: 10 }), shot(2, { act: 2, duration: 5 })]);
+    const before = computeTracks(PROJ, s);
+    const seg = before.bgm[1];
+    const derived = seg.derivedStartSec; // = 10
+
+    // 第 1 次拖到 absoluteStart = 15
+    const offset1 = 15 - derived; // 5
+    applyTrackEdits(PROJ, [{ trackType: 'bgm', segmentKey: seg.id, startOffsetSec: offset1 }]);
+    expect(computeTracks(PROJ, s).bgm[1].startSec).toBe(15);
+
+    // 第 2 次拖到 absoluteStart = 20 — client 仍然用 derived=10 算 offset
+    const offset2 = 20 - derived; // 10
+    applyTrackEdits(PROJ, [{ trackType: 'bgm', segmentKey: seg.id, startOffsetSec: offset2 }]);
+    expect(computeTracks(PROJ, s).bgm[1].startSec).toBe(20); // 真到 20 了, 不再错位
+  });
+});
+
 describe('v3.1 F.1 · resetTrackEdit', () => {
   it('restores default after reset', () => {
     const s = script([shot(1, { duration: 5, dialogue: 'X' })]);

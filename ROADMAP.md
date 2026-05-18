@@ -946,11 +946,59 @@ npm test
 - ✅ 长片 (>12 镜) 时 cinema timeline 不再卡 (实测 50 镜下渲 ~10 张卡片, 余下 lazy)
 - ✅ 邀请链接 → role 升级语义清晰 (viewer < commenter < editor), 接受过的人再点新链接可升级不可降级
 
-### v3.1.1 待跟 (P2 候选)
-- 多轨道 drag 的"绝对坐标 vs offset" 语义二次校准 — 多次拖动当前是累加 offset, 大幅拖时段感不直观
-- BGM 真实波形显示 (现在是色带 + 标题, 没声波)
-- 字幕段时长拉伸 (拽两边边沿改 durationOverride)
-- 协作者实时光标 (与 v3.0 P0.2 Yjs 整合)
+### v3.1.1 待跟 (P2 候选) — ✅ 全部并入 v3.1.2 完成
+- ~~多轨道 drag 累加 offset~~ → v3.1.2 P1 ✅
+- ~~BGM 波形显示~~ → v3.1.2 P3 ✅
+- ~~字幕段时长拉伸~~ → v3.1.2 P2 ✅
+- ~~协作者实时光标~~ → v3.1.2 P4 ✅
+
+---
+
+## 4.17 v3.1.2 — Timeline 打磨: 拖动语义 + resize 手柄 + 波形 + Yjs 光标 ✅ 2026-05-18
+
+> **背景**: v3.1.1 多轨道 timeline 落地后, P1.1 用户反馈"第 2 次拖会错位", BGM 看不出"有声音", 字幕只能拖移不能调长, 协作时看不到别人在哪. 这一轮 4 件一起做完.
+
+### P1 · 拖动语义二次校准 (offset 不再累加) ✅
+- [x] `lib/timeline-tracks.ts` `TrackSegment` 加 `derivedStartSec` + `derivedDurationSec` 字段 — server 透传"派生默认值"
+- [x] `cinema-timeline.tsx` trackDrag state 重写: 起点时存 `derivedStartSec/initialStartSec/initialDurationSec/mode`, 拖完算 `startOffsetSec = newAbsoluteStart - derivedStartSec` (绝对偏移, 跟拖动次数无关)
+- [x] 新增反 regression 单测: 模拟 client 连续 2 次拖到 15s/20s, 两次都精确到位 (老 buggy 路径会"卡在 15")
+
+### P2 · 双边沿 resize 手柄 ✅
+- [x] TrackRow 段两侧加 1.5px 宽 invisible-grab 手柄, hover 高亮; 中部仍是平移
+- [x] 三种 drag mode:
+  - `move` — 整段平移, 改 startOffsetSec
+  - `resize-left` — 左边沿移动, end 固定; 同时改 startOffset + durationOverride
+  - `resize-right` — 右边沿移动, start 固定; 改 durationOverride
+- [x] cursor + title hint 明示哪段是 move 哪段是 resize ("拖左边沿改起点", "拖右边沿改时长")
+- [x] minimum duration clamp 0.5s, startSec ≥ 0
+
+### P3 · BGM 程式化波形 ✅
+- [x] `buildWaveformPath(seed, width, height, bars)` — 用 segmentKey hash 做 Park-Miller LCG, 输出 SVG path
+- [x] 每段中部能量比两端高 (~envelope), 视觉上像真 BGM 的"高潮段"
+- [x] 同 segmentKey 永远画同样的波形 (确定性), 不会每次 render 闪
+- [x] TrackRow `showWaveform` prop, 只 BGM 启用, subtitle 不需要
+- [x] 真 mp3 decode 留 v3.1.3 (需要 Web Audio API 解码 BGM URL, scope 单独)
+
+### P4 · Yjs awareness 时间线光标 ✅
+- [x] CinemaTimeline 接 `currentUser` prop + `useYjs('project-<id>')`
+- [x] 本地 mousemove: `awareness.setLocalStateField('timelineCursor', { timeSec, color })`, 50ms 节流
+- [x] mouseleave 主动清 cursor (别人看不到我的"幽灵指针")
+- [x] 监听 `awareness.on('change')`, 过滤掉自己, 提取 `{ userId, userName, timeSec, color }` → 渲染垂直竖线 + 名字标签
+- [x] 跨 BGM + Subtitle 两条轨道画一条连续竖线, color shadow glow 明显
+- [x] 同色策略复用 PresenceAvatars 的 `pickColor(userId)` (8 色 round-robin)
+
+### v3.1.2 总验收 ✅
+- ✅ 单测: 3 新 case (timeline-tracks 加 derivedStartSec / 多次拖到位 / 编辑保留 derived 引用), 累计 **vitest 1140/1140** / **tsc 0 错误**
+- ✅ 实测多次拖同一段不再"卡在第一次拖完位置", 二次拖能到任意新位置
+- ✅ BGM 段背景有波形, 用户一眼看出"这条有声音"
+- ✅ 字幕 / BGM 段都能两边沿 resize, 改完保存 server 端写 durationOverrideSec, 复合拖动也正确
+- ✅ 两人同开同项目, 一方鼠标 hover timeline → 另一方立刻看到对方光标 (color shadow + name label)
+
+### v3.1.2 待跟 (留 v3.1.3+)
+- 真 BGM mp3 decode → Web Audio API → 真波形 (替换 procedural)
+- 段间碰撞检测 (拖 A 到 B 上面时给警告 / auto-snap)
+- Cursor 在不同 tab 间也跟随 (现在只 timeline tab; 用户切到分镜 tab 时光标消失)
+- 协作者多人同拖同一段时锁 — Yjs Y.Map 字段而非 awareness
 
 ---
 

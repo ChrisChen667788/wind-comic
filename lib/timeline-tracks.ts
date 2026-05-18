@@ -20,12 +20,21 @@ export type TrackType = 'bgm' | 'subtitle';
 export interface TrackSegment {
   id: string;              // 稳定 id (segment_key) — 供 UI dedupe + 写 override 用
   type: TrackType;
-  startSec: number;        // 相对全片起始秒
-  durationSec: number;
-  label: string;           // BGM: "Act 1" / 字幕: 原对白文本
+  startSec: number;        // 相对全片起始秒 (含 override)
+  durationSec: number;     // 当前生效时长 (含 override)
+  label: string;           // BGM: "Act 1" / 字幕: 原对白文本 (含 override)
   muted: boolean;
   /** 是否已被用户 override (UI 高亮显示) */
   isEdited: boolean;
+  /**
+   * v3.1.2: 派生默认起始秒 (不含任何 override).
+   * Client 用这个算正确的 startOffsetSec:
+   *   下一次拖动后 → server-side offset = newAbsoluteStart - derivedStartSec
+   * 避免老 UI 多次拖动累加导致 offset 错位.
+   */
+  derivedStartSec: number;
+  /** v3.1.2: 派生默认时长 — 同上, 给 duration override 计算用 */
+  derivedDurationSec: number;
 }
 
 interface TrackEditRow {
@@ -125,6 +134,7 @@ function applyOverrides(
       return {
         id: seg.key, type, startSec: seg.start, durationSec: seg.duration,
         label: seg.label, muted: false, isEdited: false,
+        derivedStartSec: seg.start, derivedDurationSec: seg.duration,
       };
     }
     const startSec = Math.max(0, seg.start + (edit.start_offset_sec || 0));
@@ -138,6 +148,8 @@ function applyOverrides(
       label,
       muted: edit.muted === 1,
       isEdited: true,
+      derivedStartSec: seg.start,
+      derivedDurationSec: seg.duration,
     };
   });
 }

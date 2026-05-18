@@ -23,6 +23,7 @@ import {
   Volume2, VolumeX, Pencil, RotateCcw,
 } from 'lucide-react';
 import { visibleRange, shouldVirtualize } from '@/lib/timeline-virtual';
+import { useYjs } from '@/hooks/use-yjs';
 
 interface TimelineShot {
   shotNumber: number;
@@ -43,6 +44,9 @@ interface TrackSegment {
   label: string;
   muted: boolean;
   isEdited: boolean;
+  /** v3.1.2 server 返的派生默认值, client 算 offset 用 */
+  derivedStartSec: number;
+  derivedDurationSec: number;
 }
 
 interface TimelineData {
@@ -56,11 +60,34 @@ interface PendingTrackEdit {
   segmentKey: string;
   muted?: boolean;
   startOffsetSec?: number;
+  /** v3.1.2 拖右边沿改时长 — 用绝对值, 服务端按 override 存 */
+  durationOverrideSec?: number;
   customText?: string;
 }
 
 export interface CinemaTimelineProps {
   projectId: string;
+  /** v3.1.2 P4: 当前用户信息 — Yjs cursor 标签 + skip 自身 cursor */
+  currentUser?: { id: string; name: string; avatarUrl: string | null };
+}
+
+interface RemoteCursor {
+  userId: string;
+  userName: string;
+  timeSec: number;
+  color: string;
+  /** 上次更新时间 — 老的不渲染 */
+  updatedAt: number;
+}
+
+const CURSOR_COLORS = [
+  '#E8C547', '#4DE0C2', '#F472B6', '#A78BFA',
+  '#FB7185', '#34D399', '#60A5FA', '#FBBF24',
+];
+function pickColor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return CURSOR_COLORS[h % CURSOR_COLORS.length];
 }
 
 const DURATION_OPTIONS = [3, 5, 6, 8, 10, 15, 20, 30];
@@ -68,7 +95,7 @@ const SHOT_CARD_WIDTH = 160;
 const SHOT_CARD_GAP = 8;
 const VIRTUAL_THRESHOLD = 12;
 
-export function CinemaTimeline({ projectId }: CinemaTimelineProps) {
+export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) {
   const [data, setData] = useState<TimelineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,12 +106,25 @@ export function CinemaTimeline({ projectId }: CinemaTimelineProps) {
   /** v3.1 F.1: 待保存的 track edits (合并 client-side 多次操作) */
   const [pendingEdits, setPendingEdits] = useState<Map<string, PendingTrackEdit>>(new Map());
   const [pendingResets, setPendingResets] = useState<Set<string>>(new Set());
-  /** Sub-track drag state — 拖 BGM/subtitle 段 */
+  /**
+   * Sub-track drag state — 拖 BGM/subtitle 段.
+   * v3.1.2 三种模式: 整段移位 / 左边沿改 startOffset 同时保 endSec / 右边沿改 durationOverride.
+   * derivedStartSec 是 server 给的派生默认值, 用它算最终 absoluteStart - derived = offset 写回.
+   */
   const [trackDrag, setTrackDrag] = useState<{
     trackType: 'bgm' | 'subtitle';
     segmentKey: string;
     startX: number;
-    startOffsetSec: number;
+    /** 拖动起点的 segment startSec (绝对) */
+    initialStartSec: number;
+    /** 拖动起点的 segment durationSec (绝对) */
+    initialDurationSec: number;
+    /** 派生 startSec (server-side derived) */
+    derivedStartSec: number;
+    /** 派生 durationSec (server-side derived) */
+    derivedDurationSec: number;
+    /** 操作类型 */
+    mode: 'move' | 'resize-left' | 'resize-right';
   } | null>(null);
   /** Subtitle 文本编辑 modal — 简单内联编辑 */
   const [editingSub, setEditingSub] = useState<{ segmentKey: string; text: string } | null>(null);
@@ -92,6 +132,12 @@ export function CinemaTimeline({ projectId }: CinemaTimelineProps) {
   /** v3.2 F.2: virtual scroll state */
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
+  /** v3.1.2 P4: 多人协作时间线光标 — 走 Yjs awareness */
+  const yjs = useYjs(currentUser ? `project-${projectId}` : null);
+  const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
+  /** 容器 ref — 计算 mouseX 相对位置, 反推 timeSec 写到 awareness */
+  const tracksContainerRef = useRef<HTMLDivElement | null>(null);
+  const cursorBroadcastThrottleRef = useRef<number>(0);
   const [viewportWidth, setViewportWidth] = useState(800);
 
   const refresh = useCallback(async () => {
@@ -200,52 +246,78 @@ export function CinemaTimeline({ projectId }: CinemaTimelineProps) {
     setEditingSub(null);
   };
 
-  // 拖 segment 改 startSec
-  const handleTrackDragStart = (e: React.MouseEvent, trackType: 'bgm' | 'subtitle', segment: TrackSegment) => {
+  // 拖 segment — 三种模式: move (整段平移) / resize-left / resize-right
+  const handleTrackDragStart = (
+    e: React.MouseEvent,
+    trackType: 'bgm' | 'subtitle',
+    segment: TrackSegment,
+    mode: 'move' | 'resize-left' | 'resize-right' = 'move',
+  ) => {
     e.preventDefault();
+    e.stopPropagation();
     setTrackDrag({
-      trackType, segmentKey: segment.id,
+      trackType,
+      segmentKey: segment.id,
       startX: e.clientX,
-      startOffsetSec: segment.startSec,
+      initialStartSec: segment.startSec,
+      initialDurationSec: segment.durationSec,
+      derivedStartSec: segment.derivedStartSec,
+      derivedDurationSec: segment.derivedDurationSec,
+      mode,
     });
   };
   useEffect(() => {
     if (!trackDrag || !data) return;
     const pxPerSec = (viewportWidth || 800) / Math.max(1, data.totalDuration);
+
     const handleMove = (e: MouseEvent) => {
-      const deltaPx = e.clientX - trackDrag.startX;
-      const deltaSec = deltaPx / pxPerSec;
-      const newStart = Math.max(0, trackDrag.startOffsetSec + deltaSec);
-      // 乐观更新 segment 位置
+      const deltaSec = (e.clientX - trackDrag.startX) / pxPerSec;
       setData((d) => {
         if (!d) return d;
         const tracks = { ...d.tracks };
-        tracks[trackDrag.trackType] = tracks[trackDrag.trackType].map((s) =>
-          s.id === trackDrag.segmentKey ? { ...s, startSec: newStart, isEdited: true } : s,
-        );
+        tracks[trackDrag.trackType] = tracks[trackDrag.trackType].map((s) => {
+          if (s.id !== trackDrag.segmentKey) return s;
+          if (trackDrag.mode === 'move') {
+            // 整段平移
+            return {
+              ...s,
+              startSec: Math.max(0, trackDrag.initialStartSec + deltaSec),
+              isEdited: true,
+            };
+          }
+          if (trackDrag.mode === 'resize-right') {
+            // 拖右边沿 — 改 duration, startSec 不变
+            const newDur = Math.max(0.5, trackDrag.initialDurationSec + deltaSec);
+            return { ...s, durationSec: newDur, isEdited: true };
+          }
+          // resize-left — 改 startSec + 同步改 duration 让 endSec 不变
+          const proposedStart = trackDrag.initialStartSec + deltaSec;
+          const initialEnd = trackDrag.initialStartSec + trackDrag.initialDurationSec;
+          const clampedStart = Math.max(0, Math.min(initialEnd - 0.5, proposedStart));
+          const newDur = initialEnd - clampedStart;
+          return { ...s, startSec: clampedStart, durationSec: newDur, isEdited: true };
+        });
         return { ...d, tracks };
       });
     };
+
     const handleUp = () => {
       if (!data || !trackDrag) return;
       const trackArr = data.tracks[trackDrag.trackType];
       const seg = trackArr.find((s) => s.id === trackDrag.segmentKey);
       if (seg) {
-        // 计算 startOffsetSec (相对默认派生 startSec) — 用 original 段距离差.
-        // 因为客户端不知道 "original startSec", 直接传当前 startSec 作 startOffsetSec
-        // (服务端会把它当 offset 加到 derived; 简化语义: 拖到哪里就是哪里的"绝对位移")
-        // 为了正确, 我们做相对偏移: 取 startSec - originalStart (但我们没存 original).
-        // 妥协: 把 startOffsetSec 直接设为 segment.startSec - getOriginalStart(seg)
-        // getOriginalStart 太复杂; 实际方案: 让服务端基于 derived 重算 offset
-        // 这里只发送 customText/muted 之类, startOffsetSec 走简化路径: 发当前 startSec 作 offset 0
-        // (admin 拖动 = 实际坐标, 不是 offset; 服务端 schema 允许)
-        // 见 lib/timeline-tracks.ts 注释 — startOffset 累加到 derived start, 所以这里
-        // 应传 (newStart - originalStart). 但 originalStart 不在 client. 实用做法:
-        // 把"绝对 startSec" 当 customText 旁的字段; 改架构有点重. 暂存 offset 为
-        // (newStart - trackDrag.startOffsetSec), 即"相对拖动起点的位移", 多次拖动会累加.
-        stagePendingEdit(trackDrag.trackType, trackDrag.segmentKey, {
-          startOffsetSec: seg.startSec - trackDrag.startOffsetSec,
-        });
+        // v3.1.2 修复: 用 derivedStartSec 算绝对 offset, 多次拖动也对.
+        // 即: server 端 offset = currentAbsoluteStart - derivedStart, 与拖动次数无关.
+        const patch: Partial<PendingTrackEdit> = {};
+        if (trackDrag.mode === 'move' || trackDrag.mode === 'resize-left') {
+          patch.startOffsetSec = seg.startSec - trackDrag.derivedStartSec;
+        }
+        if (trackDrag.mode === 'resize-left' || trackDrag.mode === 'resize-right') {
+          patch.durationOverrideSec = seg.durationSec;
+        }
+        if (Object.keys(patch).length > 0) {
+          stagePendingEdit(trackDrag.trackType, trackDrag.segmentKey, patch);
+        }
       }
       setTrackDrag(null);
     };
@@ -256,6 +328,67 @@ export function CinemaTimeline({ projectId }: CinemaTimelineProps) {
       window.removeEventListener('mouseup', handleUp);
     };
   }, [trackDrag, data, viewportWidth]);
+
+  // ─── v3.1.2 P4: Yjs awareness 时间线光标 ───────────────────────────────────
+  // 本地: setLocalStateField('timelineCursor', { timeSec, color }) — 50ms 节流
+  // 远端: awareness.on('change') → 渲染 RemoteCursor[]
+  useEffect(() => {
+    if (!yjs || !currentUser) return;
+    const aw = yjs.provider.awareness;
+    const onChange = () => {
+      const states = Array.from(aw.getStates().entries());
+      const now = Date.now();
+      const remote: RemoteCursor[] = [];
+      for (const [clientId, state] of states) {
+        const u = (state as any)?.user;
+        const cur = (state as any)?.timelineCursor;
+        if (!u || !u.id || !cur || typeof cur.timeSec !== 'number') continue;
+        if (u.id === currentUser.id) continue; // skip self
+        void clientId;
+        remote.push({
+          userId: String(u.id),
+          userName: String(u.name || '匿名'),
+          timeSec: cur.timeSec,
+          color: typeof cur.color === 'string' ? cur.color : pickColor(String(u.id)),
+          updatedAt: now,
+        });
+      }
+      setRemoteCursors(remote);
+    };
+    aw.on('change', onChange);
+    onChange();
+    return () => aw.off('change', onChange);
+  }, [yjs, currentUser]);
+
+  // 本地 mousemove → 写 awareness (50ms 节流)
+  const handleTracksMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!yjs || !currentUser || !data) return;
+    const now = performance.now();
+    if (now - cursorBroadcastThrottleRef.current < 50) return;
+    cursorBroadcastThrottleRef.current = now;
+    const container = tracksContainerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const relX = e.clientX - rect.left + container.scrollLeft;
+    const totalWidth = data.shots.length * (SHOT_CARD_WIDTH + SHOT_CARD_GAP);
+    const pxPerSecLocal = data.totalDuration > 0 ? totalWidth / data.totalDuration : 0;
+    if (pxPerSecLocal <= 0) return;
+    const timeSec = Math.max(0, Math.min(data.totalDuration, relX / pxPerSecLocal));
+    try {
+      yjs.provider.awareness.setLocalStateField('timelineCursor', {
+        timeSec,
+        color: pickColor(currentUser.id),
+      });
+    } catch { /* ignore */ }
+  }, [yjs, currentUser, data]);
+
+  // 鼠标离开 timeline 容器 → 清自己的 cursor (别人就看不到我的"幽灵光标")
+  const handleTracksMouseLeave = useCallback(() => {
+    if (!yjs || !currentUser) return;
+    try {
+      yjs.provider.awareness.setLocalStateField('timelineCursor', null);
+    } catch { /* ignore */ }
+  }, [yjs, currentUser]);
 
   const save = async () => {
     if (saving || !data) return;
@@ -444,34 +577,70 @@ export function CinemaTimeline({ projectId }: CinemaTimelineProps) {
         </div>
       </div>
 
-      {/* BGM Track */}
-      <TrackRow
-        title="BGM · 按幕段 · 拖动改时间 / 点 🔇 静音"
-        icon={<Music className="w-3 h-3" />}
-        segments={data.tracks.bgm}
-        totalDuration={data.totalDuration}
-        pxPerSec={pxPerSec}
-        trackType="bgm"
-        onMuteToggle={toggleMute}
-        onReset={resetSegment}
-        onDragStart={handleTrackDragStart}
-        accentColor="amber"
-      />
+      {/* v3.1.2 P4: BGM + Subtitle 轨道 + 实时光标 overlay 包成一个 ref 容器 */}
+      <div
+        ref={tracksContainerRef}
+        className="relative space-y-3"
+        onMouseMove={handleTracksMouseMove}
+        onMouseLeave={handleTracksMouseLeave}
+      >
+        {/* BGM Track — v3.1.2 加波形 + 双边沿 resize */}
+        <TrackRow
+          title="BGM · 按幕段 · 拖中间平移 / 拖边沿改时长 / 🔇 静音"
+          icon={<Music className="w-3 h-3" />}
+          segments={data.tracks.bgm}
+          totalDuration={data.totalDuration}
+          pxPerSec={pxPerSec}
+          trackType="bgm"
+          onMuteToggle={toggleMute}
+          onReset={resetSegment}
+          onDragStart={handleTrackDragStart}
+          showWaveform
+          accentColor="amber"
+        />
 
-      {/* Subtitle Track */}
-      <TrackRow
-        title="SUBTITLE · 字幕段 · 双击改文字 / 🔇 静音"
-        icon={<MessageSquare className="w-3 h-3" />}
-        segments={data.tracks.subtitle}
-        totalDuration={data.totalDuration}
-        pxPerSec={pxPerSec}
-        trackType="subtitle"
-        onMuteToggle={toggleMute}
-        onReset={resetSegment}
-        onDragStart={handleTrackDragStart}
-        onEditText={(seg) => setEditingSub({ segmentKey: seg.id, text: seg.label })}
-        accentColor="cyan"
-      />
+        {/* Subtitle Track — v3.1.2 加双边沿 resize 改时长 */}
+        <TrackRow
+          title="SUBTITLE · 字幕段 · 拖边沿改时长 / 双击改文字 / 🔇 静音"
+          icon={<MessageSquare className="w-3 h-3" />}
+          segments={data.tracks.subtitle}
+          totalDuration={data.totalDuration}
+          pxPerSec={pxPerSec}
+          trackType="subtitle"
+          onMuteToggle={toggleMute}
+          onReset={resetSegment}
+          onDragStart={handleTrackDragStart}
+          onEditText={(seg) => setEditingSub({ segmentKey: seg.id, text: seg.label })}
+          accentColor="cyan"
+        />
+
+        {/* v3.1.2 P4: 远端协作者光标 — 跨两条轨道画垂直线 + 名字标 */}
+        {remoteCursors.length > 0 && (
+          <div className="absolute inset-0 pointer-events-none z-20" aria-hidden="true">
+            {remoteCursors.map((c) => {
+              const left = c.timeSec * pxPerSec;
+              return (
+                <div
+                  key={c.userId}
+                  className="absolute top-0 bottom-0 flex flex-col items-start"
+                  style={{ left, transform: 'translateX(-1px)' }}
+                >
+                  <div
+                    className="w-0.5 h-full opacity-80"
+                    style={{ background: c.color, boxShadow: `0 0 4px ${c.color}` }}
+                  />
+                  <div
+                    className="absolute -top-1 left-1 px-1 py-0.5 rounded cinema-mono text-[9px] whitespace-nowrap"
+                    style={{ background: c.color, color: '#000' }}
+                  >
+                    {c.userName}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Subtitle 改写 modal */}
       {editingSub && (
@@ -512,17 +681,51 @@ interface TrackRowProps {
   trackType: 'bgm' | 'subtitle';
   onMuteToggle: (trackType: 'bgm' | 'subtitle', segment: TrackSegment) => void;
   onReset: (trackType: 'bgm' | 'subtitle', segment: TrackSegment) => void;
-  onDragStart: (e: React.MouseEvent, trackType: 'bgm' | 'subtitle', segment: TrackSegment) => void;
+  onDragStart: (
+    e: React.MouseEvent,
+    trackType: 'bgm' | 'subtitle',
+    segment: TrackSegment,
+    mode?: 'move' | 'resize-left' | 'resize-right',
+  ) => void;
   onEditText?: (segment: TrackSegment) => void;
+  /** v3.1.2 BGM 段下面画 procedural waveform */
+  showWaveform?: boolean;
   accentColor: 'amber' | 'cyan';
+}
+
+/**
+ * v3.1.2 procedural BGM 波形 — 用 segmentKey 做确定性 hash 出 SVG path.
+ * 不真去 decode mp3, 但视觉上跟 BGM 关联稳定 (同一段一直长同样).
+ * 真波形等以后接 Web Audio API decode (留 P3).
+ */
+function buildWaveformPath(seed: string, width: number, height: number, bars = 48): string {
+  // 简易 hash: char-code sum
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const cy = height / 2;
+  const barWidth = width / bars;
+  const path: string[] = [];
+  for (let i = 0; i < bars; i++) {
+    // 伪随机数 — Park-Miller LCG variant
+    h = (h * 16807) % 2147483647;
+    const norm = (h / 2147483647); // 0..1
+    // 越靠近段中部能量越强 (像真 BGM 的"高潮段")
+    const distFromMid = Math.abs(i - bars / 2) / (bars / 2);
+    const envelope = 1 - distFromMid * 0.5;
+    const amplitude = (0.2 + norm * 0.8) * envelope * (height * 0.4);
+    const x = i * barWidth + barWidth / 2;
+    path.push(`M${x.toFixed(1)},${(cy - amplitude).toFixed(1)} L${x.toFixed(1)},${(cy + amplitude).toFixed(1)}`);
+  }
+  return path.join(' ');
 }
 
 function TrackRow({
   title, icon, segments, totalDuration, pxPerSec,
-  trackType, onMuteToggle, onReset, onDragStart, onEditText, accentColor,
+  trackType, onMuteToggle, onReset, onDragStart, onEditText, showWaveform, accentColor,
 }: TrackRowProps) {
   const colorBg = accentColor === 'amber' ? 'rgba(212, 175, 55, 0.25)' : 'rgba(77, 224, 194, 0.22)';
   const colorBorder = accentColor === 'amber' ? 'rgba(212, 175, 55, 0.55)' : 'rgba(77, 224, 194, 0.50)';
+  const waveformColor = accentColor === 'amber' ? 'rgba(212, 175, 55, 0.6)' : 'rgba(77, 224, 194, 0.6)';
   const totalWidthPx = totalDuration * pxPerSec;
 
   return (
@@ -555,12 +758,41 @@ function TrackRow({
                   left, width,
                   background: colorBg,
                   borderColor: colorBorder,
-                  cursor: 'ew-resize',
+                  cursor: 'grab',
                 }}
-                onMouseDown={(e) => onDragStart(e, trackType, seg)}
+                onMouseDown={(e) => onDragStart(e, trackType, seg, 'move')}
                 onDoubleClick={() => onEditText?.(seg)}
               >
-                <div className="h-full flex items-center gap-1 px-1.5 overflow-hidden">
+                {/* v3.1.2 BGM 段下半部分画 procedural waveform — 视觉上能看出"这有声音"  */}
+                {showWaveform && width > 20 && (
+                  <svg
+                    className="absolute inset-0 pointer-events-none"
+                    width={width}
+                    height={48}
+                    viewBox={`0 0 ${width} 48`}
+                    preserveAspectRatio="none"
+                  >
+                    <path
+                      d={buildWaveformPath(seg.id, width, 48, Math.min(64, Math.max(12, Math.floor(width / 8))))}
+                      stroke={waveformColor}
+                      strokeWidth={1}
+                      fill="none"
+                    />
+                  </svg>
+                )}
+                {/* v3.1.2 左边沿 resize 手柄 — 改 startOffset + 同步缩短 duration 让 endSec 不变 */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 hover:bg-white/30 transition-colors"
+                  onMouseDown={(e) => onDragStart(e, trackType, seg, 'resize-left')}
+                  title="拖左边沿改起点 (右端固定)"
+                />
+                {/* v3.1.2 右边沿 resize 手柄 — 改 duration, startSec 不变 */}
+                <div
+                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 hover:bg-white/30 transition-colors"
+                  onMouseDown={(e) => onDragStart(e, trackType, seg, 'resize-right')}
+                  title="拖右边沿改时长 (起点固定)"
+                />
+                <div className="relative h-full flex items-center gap-1 px-2.5 overflow-hidden z-[1]">
                   <span className="cinema-mono text-[9px] truncate flex-1">
                     {seg.label}
                   </span>

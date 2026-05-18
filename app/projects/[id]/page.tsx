@@ -599,7 +599,10 @@ export default function ProjectDetailPage() {
 
           {/* v3.1 F: Cinema 时间线 MVP */}
           {activeTab === 'timeline' && (
-            <CinemaTimeline projectId={id} />
+            <CinemaTimeline
+              projectId={id}
+              currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.avatarUrl || null } : undefined}
+            />
           )}
 
           {/* v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议 */}
