@@ -120,47 +120,43 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🎬 Screenshots
 
-A real walk-through of the **v3.1.3** build — every panel below is the actual app, not a mockup. See [`docs/SCREENSHOTS.md`](docs/SCREENSHOTS.md) for the full module-by-module reshoot list.
+A real walk-through of the **v3.1.3** build — every panel below is **a real puppeteer capture of the running app** (run `node scripts/capture-screenshots.mjs` to refresh yourself).
 
 ### Workspace overview
-The 创作总览 dashboard with API quota banner (v2.17) and notification bell (v3.0 P0.1) wired in.
-<p align="center"><img src="assets/screenshot-dashboard.png" width="100%" /></p>
-
-### Creation pipeline
-Paste an idea, pick a story template (18 built-in: 霸总/重生/赛博/古装/儿童/纪实/科幻/恐怖 etc.), hit go. Story templates auto-fill duration / aspect ratio / camera-language defaults.
-<p align="center"><img src="assets/screenshot-create.png" width="100%" /></p>
-
-### Polish Studio Pro
-McKee + Field + Seger framework, multi-dimensional industry audit, before/after diff.
-<p align="center"><img src="assets/screenshot-polish.png" width="100%" /></p>
+The 创作总览 dashboard: 99 projects + 4 case studies + recent activity feed + system status (engines in use, model versions).
+<p align="center"><img src="assets/screenshot-dashboard-v3.1.3.png" width="100%" /></p>
 
 ### Asset library
-Characters / scenes / shots / videos / music / templates — cross-project reusable.
-<p align="center"><img src="assets/screenshot-assets.png" width="100%" /></p>
+Cross-project reusable: 角色 / 场景 / 视频 / 音乐 / 字幕 / 模板 — 1467 assets in this demo project.
+<p align="center"><img src="assets/screenshot-assets-v3.1.3.png" width="100%" /></p>
 
 ### Project library
-Every short film with auto-generated cinematic covers + ScoreDonut quality badge.
-<p align="center"><img src="assets/screenshot-projects.png" width="100%" /></p>
+Every short film with auto-generated cinematic covers + status badges + quality donut.
+<p align="center"><img src="assets/screenshot-projects-v3.1.3.png" width="100%" /></p>
+
+### Creation workspace
+Paste an idea, pick a story template (18 built-in: 霸总/重生/赛博/古装/儿童/纪实/科幻/恐怖 etc.), hit go. Story templates auto-fill duration / aspect ratio / camera-language defaults.
+<p align="center"><img src="assets/screenshot-create-v3.1.3.png" width="100%" /></p>
 
 ### Per-project storyboard
-Storyboard with Cameo retry score, Style Audit dimensions, regenerate-single-shot button.
-<p align="center"><img src="assets/screenshot-storyboard.png" width="100%" /></p>
+The original storyboard tab — every shot's script line, character lock state, Cameo retry score, Style Audit dimensions.
+<p align="center"><img src="assets/screenshot-storyboard-v3.1.3.png" width="100%" /></p>
 
-### 🆕 Cinema Timeline (v3.1.x — multi-track + collab)
-3-track layout (shots / BGM / subtitle), drag-to-retime, double-click subtitles to rewrite, drag edges to resize, real BGM waveform, live other-user cursors with name labels, segment lock indicators.
-<p align="center"><em>📸 reshoot needed — see <code>docs/SCREENSHOTS.md</code> for the new shot list.</em></p>
+### 🆕 Cinema Timeline (v3.1.1–v3.1.3 — multi-track + collab)
+3-track layout (SHOTS / BGM / SUBTITLE), drag-to-retime, double-click subtitles to rewrite, drag edges to resize, **real BGM waveform** (Web Audio decode), live other-user cursors with name labels, segment lock indicators.
+<p align="center"><img src="assets/screenshot-cinema-timeline-v3.1.3.png" width="100%" /></p>
 
 ### 🆕 Pacing Analysis (v2.21 P1.4)
-Per-shot conflict-score bar chart, reversal arrows, warnings + suggestions.
-<p align="center"><em>📸 reshoot needed.</em></p>
-
-### 🆕 Invite Collaborators (v3.x.1)
-Generate invite link with viewer/commenter/editor role + expiry, manage current collaborators.
-<p align="center"><em>📸 reshoot needed.</em></p>
+KPI: 平均冲突分 / 反转数 / 通过状态. Per-shot conflict-score bar chart with reversal arrows + emotional polarity icons. Color-coded green (≥7) / amber (4-6) / red (<4). Below: actionable warnings + suggestions.
+<p align="center"><img src="assets/screenshot-pacing-v3.1.3.png" width="100%" /></p>
 
 ### 🆕 Comments + @mentions (v3.0 P0.1)
-Per-project + per-shot threaded comments with @-autocomplete + notification bell.
-<p align="center"><em>📸 reshoot needed.</em></p>
+Project-level + per-shot threaded comments with @-autocomplete and notification bell. Each shot collapses for context.
+<p align="center"><img src="assets/screenshot-comments-v3.1.3.png" width="100%" /></p>
+
+### 🆕 Shot Workshop (v2.16 P1.4 + v2.23 P0.2)
+Per-shot "改 prompt 重生" (regenerate image with custom prompt + reference image upload) and "4K 重渲" (Kling Master 4K re-render, plan-gated).
+<p align="center"><img src="assets/screenshot-workshop-v3.1.3.png" width="100%" /></p>
 
 ---
 

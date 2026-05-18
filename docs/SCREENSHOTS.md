@@ -1,8 +1,11 @@
 # 📸 Screenshot Manifest · 实机截图清单
 
-> 截图本身是人工拍的, 不在 Claude 范围内生成. 这份清单告诉摄影师**拍什么 / 怎么拍**, 让营销资料一致.
+> **v3.1.3 自动化**: 跑 `node scripts/capture-screenshots.mjs` 一键 capture 9 张主要截图到 `assets/screenshot-*-v3.1.3.png`.
+> 前置: dev server 在 :3000 (`npm run dev`), demo 用户已 seed (`demo@qfmanju.ai / Qfmanju123`).
+> 自动化覆盖: home / dashboard / create / projects / assets / storyboard / cinema-timeline / pacing / comments / workshop (10 张).
+> **不在自动化里的**: 协作场景 (双窗口对照) / 邀请 popover / Notification bell dropdown — 这些需要人工拍 (双浏览器 + 弹层交互).
 >
-> 旧截图 (assets/screenshot-*.png) 是 v2.12 时代, 已过期. v3.1.3 之后所有模块都有新功能, 需要重拍.
+> 下文是 v3.1.3+ 仍需要人工拍的部分, 以及历史完整清单.
 
 ---
 

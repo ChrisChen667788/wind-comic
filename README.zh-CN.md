@@ -111,47 +111,43 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 
 ## 🎬 实机截图
 
-完整 v3.1.3 实拍 — 下面每张图都是真应用, 不是 mockup. 完整截图清单见 [`docs/SCREENSHOTS.md`](docs/SCREENSHOTS.md).
+完整 v3.1.3 puppeteer 实拍 — 下面每张图都是 `node scripts/capture-screenshots.mjs` 自动捕获的实跑界面, 不是 mockup.
 
 ### 创作总览
-顶部 API 配额告警 banner (v2.17) + 通知 bell (v3.0 P0.1).
-<p align="center"><img src="assets/screenshot-dashboard.png" width="100%" /></p>
+99 项目 + 4 案例 + 最近创作 feed + 系统状态 (当前引擎 / 模型版本).
+<p align="center"><img src="assets/screenshot-dashboard-v3.1.3.png" width="100%" /></p>
+
+### 素材库
+跨项目复用: 角色 / 场景 / 视频 / 音乐 / 字幕 / 模板 — 本 demo 项目里 1467 个素材.
+<p align="center"><img src="assets/screenshot-assets-v3.1.3.png" width="100%" /></p>
+
+### 我的项目
+所有短片 + 自动生成的电影感封面 + 状态徽章 + 质量 donut.
+<p align="center"><img src="assets/screenshot-projects-v3.1.3.png" width="100%" /></p>
 
 ### 创作工坊
 粘贴 idea, 选故事模板 (内置 18 个: 霸总 / 重生 / 赛博 / 古装 / 儿童 / 纪实 / 科幻 / 恐怖 等), 一键开机. 模板自动填时长 / 画幅 / 镜头语言默认值.
-<p align="center"><img src="assets/screenshot-create.png" width="100%" /></p>
-
-### Polish Studio Pro
-McKee + Field + Seger 三家框架结合, 多维行业审核 (打钩 = 过; 数字 = 分), 前后对比 diff.
-<p align="center"><img src="assets/screenshot-polish.png" width="100%" /></p>
-
-### 素材库
-角色 / 场景 / 分镜 / 视频 / 音乐 / 模板 — 跨项目复用.
-<p align="center"><img src="assets/screenshot-assets.png" width="100%" /></p>
-
-### 我的项目
-所有短片 + 自动生成的电影感封面 + ScoreDonut 质量徽章.
-<p align="center"><img src="assets/screenshot-projects.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-create-v3.1.3.png" width="100%" /></p>
 
 ### 分镜详情
-每镜 Cameo retry 分数 + Style Audit 4 维 + 单镜重生按钮.
-<p align="center"><img src="assets/screenshot-storyboard.png" width="100%" /></p>
+原版分镜 tab — 每镜剧本句 / 角色锁状态 / Cameo retry 分数 / Style Audit 维度.
+<p align="center"><img src="assets/screenshot-storyboard-v3.1.3.png" width="100%" /></p>
 
-### 🆕 Cinema 时间线 (v3.1.x — 多轨道 + 协作)
-3 轨布局 (分镜 / BGM / 字幕), 拖拽改时间, 双击字幕改文字, 拖边沿改时长, 真 BGM 波形, 实时其他用户光标 + 名字标, 段锁标识.
-<p align="center"><em>📸 待重拍 — 见 <code>docs/SCREENSHOTS.md</code> 新清单.</em></p>
+### 🆕 Cinema 时间线 (v3.1.1–v3.1.3 — 多轨道 + 协作)
+3 轨布局 (SHOTS / BGM / SUBTITLE), 拖拽改时间, 双击字幕改文字, 拖边沿改时长, **真 BGM 波形** (Web Audio decode), 实时其他用户光标 + 名字标, 段锁标识.
+<p align="center"><img src="assets/screenshot-cinema-timeline-v3.1.3.png" width="100%" /></p>
 
 ### 🆕 节奏分析 (v2.21 P1.4)
-每镜冲突分柱状图, 反转箭头, 警告 + 建议.
-<p align="center"><em>📸 待重拍.</em></p>
-
-### 🆕 邀请协作者 (v3.x.1)
-生成只读 / 可评论 / 可编辑 三档邀请链接 + 过期时间, 管理当前协作者.
-<p align="center"><em>📸 待重拍.</em></p>
+KPI 卡: 平均冲突分 / 反转数 / 通过状态. 每镜柱状图 + 反转 arrow + 极性 icon. 色码 绿 (≥7) / 琥珀 (4-6) / 红 (<4). 下方: actionable warnings + suggestions.
+<p align="center"><img src="assets/screenshot-pacing-v3.1.3.png" width="100%" /></p>
 
 ### 🆕 评论 + @ 提及 (v3.0 P0.1)
-项目级 + 每镜独立的嵌套评论, @ 自动补全, 通知 bell.
-<p align="center"><em>📸 待重拍.</em></p>
+项目级 + 每镜独立的嵌套评论, @ 自动补全, 通知 bell. 每镜可折叠.
+<p align="center"><img src="assets/screenshot-comments-v3.1.3.png" width="100%" /></p>
+
+### 🆕 镜头工坊 (v2.16 P1.4 + v2.23 P0.2)
+每镜独立的"改 prompt 重生" (用户改 prompt + 上传参考图重生) + "4K 重渲" (Kling Master 4K, plan-gate).
+<p align="center"><img src="assets/screenshot-workshop-v3.1.3.png" width="100%" /></p>
 
 ---
 

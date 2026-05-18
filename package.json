@@ -98,6 +98,7 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.1",
+    "puppeteer": "^25.0.4",
     "vitest": "^4.1.0"
   }
 }
