@@ -23,6 +23,8 @@ interface PresenceUser {
   name: string;
   avatarUrl: string | null;
   color: string;
+  /** v3.1.3 P3: 用户当前所在 tab (script/characters/.../comments). 未设时 undefined. */
+  activeTab?: string;
 }
 
 const AVATAR_COLORS = [
@@ -39,10 +41,25 @@ function pickColor(seed: string): string {
 export interface PresenceAvatarsProps {
   projectId: string;
   currentUser: { id: string; name: string; avatarUrl: string | null };
+  /** v3.1.3 P3: 当前用户激活的 tab key — 写入 awareness 让别人看到 */
+  activeTab?: string;
   maxVisible?: number;
 }
 
-export function PresenceAvatars({ projectId, currentUser, maxVisible = 5 }: PresenceAvatarsProps) {
+const TAB_LABEL: Record<string, string> = {
+  script: '剧本',
+  characters: '角色',
+  scenes: '场景',
+  storyboard: '分镜',
+  videos: '视频',
+  workshop: '镜头工坊',
+  pacing: '节奏',
+  comments: '评论',
+  play: '完整播放',
+  timeline: '时间线',
+};
+
+export function PresenceAvatars({ projectId, currentUser, activeTab, maxVisible = 5 }: PresenceAvatarsProps) {
   const yjs = useYjs(`project-${projectId}`);
   const [users, setUsers] = useState<PresenceUser[]>([]);
 
@@ -62,6 +79,13 @@ export function PresenceAvatars({ projectId, currentUser, maxVisible = 5 }: Pres
     };
   }, [yjs, currentUser.id, currentUser.name, currentUser.avatarUrl]);
 
+  // v3.1.3 P3: 切 tab 时更新 awareness — 别人看到"alice 在 镜头工坊"
+  useEffect(() => {
+    if (!yjs || !activeTab) return;
+    const aw = yjs.provider.awareness;
+    aw.setLocalStateField('activeTab', activeTab);
+  }, [yjs, activeTab]);
+
   // 监听 awareness 变化
   useEffect(() => {
     if (!yjs) return;
@@ -72,12 +96,14 @@ export function PresenceAvatars({ projectId, currentUser, maxVisible = 5 }: Pres
       for (const [clientId, state] of states) {
         const user = (state as any)?.user;
         if (!user || !user.id) continue;
+        const tabFromState = (state as any)?.activeTab;
         arr.push({
           clientId,
           id: String(user.id),
           name: String(user.name || '匿名'),
           avatarUrl: typeof user.avatarUrl === 'string' ? user.avatarUrl : null,
           color: String(user.color || '#999'),
+          activeTab: typeof tabFromState === 'string' ? tabFromState : undefined,
         });
       }
       // 同一 user 多端 (例如多 tab) 都算 1 个 — 按 id dedupe
@@ -103,22 +129,36 @@ export function PresenceAvatars({ projectId, currentUser, maxVisible = 5 }: Pres
     <div className="flex items-center -space-x-2" title={`${users.length} 人在线`}>
       {visible.map((u) => {
         const isSelf = u.id === currentUser.id;
+        const tabLabel = u.activeTab ? TAB_LABEL[u.activeTab] || u.activeTab : null;
+        const tooltip = isSelf
+          ? `${u.name} (你)${tabLabel ? ` · ${tabLabel}` : ''}`
+          : `${u.name}${tabLabel ? ` · 在 ${tabLabel}` : ''}`;
         return (
-          <div
-            key={u.clientId}
-            className={`w-7 h-7 rounded-full border-2 grid place-items-center overflow-hidden ${
-              isSelf ? 'border-[var(--cinema-amber)]' : 'border-[var(--cinema-surface)]'
-            }`}
-            style={{ background: u.color }}
-            title={isSelf ? `${u.name} (你)` : u.name}
-          >
-            {u.avatarUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="cinema-mono text-[10px] font-bold text-black">
-                {u.name.slice(0, 1)}
-              </span>
+          <div key={u.clientId} className="relative">
+            <div
+              className={`w-7 h-7 rounded-full border-2 grid place-items-center overflow-hidden ${
+                isSelf ? 'border-[var(--cinema-amber)]' : 'border-[var(--cinema-surface)]'
+              }`}
+              style={{ background: u.color }}
+              title={tooltip}
+            >
+              {u.avatarUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="cinema-mono text-[10px] font-bold text-black">
+                  {u.name.slice(0, 1)}
+                </span>
+              )}
+            </div>
+            {/* v3.1.3 P3: 头像底下 mini tab chip 显示对方在哪 — 自己不显示 */}
+            {!isSelf && tabLabel && (
+              <div
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 cinema-mono text-[8px] px-1 py-0.5 rounded whitespace-nowrap pointer-events-none"
+                style={{ background: u.color, color: '#000' }}
+              >
+                {tabLabel}
+              </div>
             )}
           </div>
         );

@@ -219,11 +219,13 @@ export default function ProjectDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* v3.0 P0.2: presence — 现在谁在看这个项目 (Yjs awareness) */}
+            {/* v3.0 P0.2: presence — 现在谁在看这个项目 (Yjs awareness)
+                v3.1.3 P3: 透传 activeTab → 别人头像下方显示"在 镜头工坊"等 chip */}
             {user && (
               <PresenceAvatars
                 projectId={id}
                 currentUser={{ id: user.id, name: user.name, avatarUrl: user.avatarUrl || null }}
+                activeTab={activeTab}
               />
             )}
             {/* v3.x P0.3 E.3: 审批状态 badge */}

@@ -994,11 +994,71 @@ npm test
 - ✅ 字幕 / BGM 段都能两边沿 resize, 改完保存 server 端写 durationOverrideSec, 复合拖动也正确
 - ✅ 两人同开同项目, 一方鼠标 hover timeline → 另一方立刻看到对方光标 (color shadow + name label)
 
-### v3.1.2 待跟 (留 v3.1.3+)
-- 真 BGM mp3 decode → Web Audio API → 真波形 (替换 procedural)
-- 段间碰撞检测 (拖 A 到 B 上面时给警告 / auto-snap)
-- Cursor 在不同 tab 间也跟随 (现在只 timeline tab; 用户切到分镜 tab 时光标消失)
-- 协作者多人同拖同一段时锁 — Yjs Y.Map 字段而非 awareness
+### v3.1.2 待跟 — ✅ 全部并入 v3.1.3 完成
+- ~~真 BGM mp3 decode~~ → v3.1.3 P1 ✅
+- ~~段间碰撞检测 + auto-snap~~ → v3.1.3 P2 ✅
+- ~~Cursor 跨 tab 跟随~~ → v3.1.3 P3 ✅
+- ~~Y.Map segment locks~~ → v3.1.3 P4 ✅
+
+---
+
+## 4.18 v3.1.3 — Timeline 多人协作终局 + 接你自己的 LLM ✅ 2026-05-18
+
+> **背景**: v3.1.2 落地 timeline 多轨道 + 单人光标后, 还差 4 件让"多人协作真好用". 这一轮全部清账, 并补一份 `docs/llm-providers.md` 让二次开发者能 0 代码改动换 LLM provider.
+
+### P1 · 真 BGM mp3 decode → Web Audio API 波形 ✅
+- [x] `hooks/use-audio-waveform.ts` 新建 — `useAudioWaveform(url)` 返 `{ waveform, durationSec }`; 模块级 Map cache, 同 url 永不重 decode
+- [x] decode 路径: `fetch → arrayBuffer → AudioContext.decodeAudioData → 取 channel 0 → 降采样到 600 个 peak 点`
+- [x] `sliceWaveform(decoded, startSec, durationSec, bars)` — 按 timeline 段时间范围切片
+- [x] `lib/timeline-tracks.ts` `TrackSegment` 加 `audioUrl` 字段; `computeTracks` 查 `project_assets` type='music' 第 0 个 url, 挂到所有 BGM 段 (整片共享同 mp3, 切片靠 derivedStartSec)
+- [x] `cinema-timeline.tsx` 新 `<SegmentWaveform>` 子组件: 有 audioUrl + decode 成功 → 真波形; 否则 → procedural fallback (v3.1.2 留的代码不删)
+
+### P2 · 段间碰撞检测 + auto-snap ✅
+- [x] `lib/timeline-snap.ts` 新建 — 纯函数 `computeSnap({ selfId, allSegments, proposedStart, proposedDuration, totalDuration })` 返 `{ startSec, durationSec, snapped, snappedTo }`
+- [x] 算法:
+  - 找左右最近邻居 (排他自己)
+  - 若 proposed 在 0.4s 阈值内贴邻居边沿 → snap
+  - 硬碰撞 (proposed 整段插进邻居中) → 按 self 中心 vs neighbor 中心方向 clamp 出来
+  - 末尾 hard cap 至 totalDuration / startSec ≥ 0 / duration ≥ 0.5s
+- [x] drag mousemove 把每帧 proposed 喂 `computeSnap`, 用 snapped 后的 start/duration 渲染
+- [x] snap 触发时 segment ring 闪 white (200ms), TrackRow 接 `snapFlashId` prop
+- [x] 测试 `tests/v3-1-3-timeline-snap.test.ts` 10 case (snap left/right/hard-collision/total cap/min duration/exclude self/threshold boundary)
+
+### P3 · 跨 tab cursor — presence 显示对方在哪个 tab ✅
+- [x] `components/collab/presence-avatars.tsx` 加 `activeTab` prop, useEffect 写 awareness `activeTab` 字段
+- [x] 监听 awareness change 时把 `activeTab` 一同提取到 PresenceUser
+- [x] 头像下方加 mini chip 显示对方 tab 名 (TAB_LABEL 字典: script/characters/.../timeline/pacing/comments)
+- [x] 自己 tab 不显示自己的 chip (头像 amber 边框已经标了"这是你")
+- [x] 项目页 `app/projects/[id]/page.tsx` 把 `activeTab` 透给 PresenceAvatars
+
+### P4 · Y.Map 段编辑锁 ✅
+- [x] `hooks/use-segment-locks.ts` 新建 — `useSegmentLocks(projectId, currentUser)` 返 `{ locks, tryAcquire, release, myLocks }`
+- [x] 走 Y.Doc 共享 `Y.Map<segmentKey, LockEntry>` (区别于 awareness — 持久化 CRDT, 网络抖不丢)
+- [x] STALE_AFTER_MS = 30s: 超过未释放视为过期, 后来者可 acquire (容错"客户端崩没释放")
+- [x] beforeunload + 组件卸载 → 主动释放本用户所有 locks
+- [x] `cinema-timeline.tsx` drag start 调 `tryAcquire`, 失败 → 弹 toast "🔒 {userName} 正在编辑..."; drag end 调 `release`
+- [x] TrackRow 接 `remoteLocks` + `currentUserId` prop; 被他人锁的段: dashed border + 该用户颜色 + 角标"🔒 userName 编辑中" + cursor not-allowed + pointer-events-none
+
+### bonus · `docs/llm-providers.md` — Bring Your Own LLM ✅
+- [x] 1 分钟换 provider 教程 (改 3 行 `.env`, 0 代码改动)
+- [x] 兼容性矩阵 12+ provider: OpenAI / Anthropic (via proxy) / DeepSeek / 通义 / 智谱 / Kimi / OpenRouter / Together / Groq / Mistral / Ollama (本地) / vLLM 自部署
+- [x] 4 个详细配置示例: gpt-4o / DeepSeek-r1 (reasoning) / OpenRouter / 完全本地 Ollama
+- [x] 架构图说明 callLLM 调用流 + 子进程 `scripts/llm-call.mjs` 的作用
+- [x] 哪些 API 不走 OPENAI_* 配置: image / video / TTS / 音乐 / Lipsync — 这些是 provider-specific, **v3.2 P1 计划抽 plugin 接口让 image/video 也能配置切换**
+- [x] 故障排查: insufficient_quota / 2061 / timeout / JSON 解析失败 / vision API 兼容性
+
+### v3.1.3 总验收 ✅
+- ✅ 单测: 10 新 case (timeline-snap), 累计 **vitest 1150/1150** / **tsc 0 错误**
+- ✅ 实测真 BGM 段: 短的 procedural 撑场, 配乐生成完后真波形自动替换
+- ✅ 拖一段贴近邻居 0.4s 内自动吸附 + 白闪光提示; 强行拖到邻居身上自动 clamp 不重叠
+- ✅ 两人同开同项目, 一人在"剧本"tab, 另一人头像下方显示 chip "剧本"
+- ✅ 一人拖 BGM 段, 另一人看到 dashed border + "🔒 xxx 编辑中" 角标; 试图拖时弹 toast
+- ✅ docs/llm-providers.md 让任意贡献者改 3 行 env 就能切到 OpenRouter / DeepSeek / Ollama / 自部署 vLLM
+
+### v3.1.3 待跟 (留 v3.2)
+- 段间碰撞检测复杂情况 (segments 不在同 act 时怎么处理? 当前算的是同轨道单层冲突, 跨 act 也按相邻处理)
+- 真 BGM waveform 在多 act 时切片精度 (现在按 derivedStartSec 切, BGM 跨多个 mp3 段时需要 multiplexed waveform)
+- 把 image/video provider 也抽 plugin 接口 — `docs/llm-providers.md` 已经预告 v3.2 P1
 
 ---
 

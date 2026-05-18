@@ -24,6 +24,9 @@ import {
 } from 'lucide-react';
 import { visibleRange, shouldVirtualize } from '@/lib/timeline-virtual';
 import { useYjs } from '@/hooks/use-yjs';
+import { useAudioWaveform, sliceWaveform } from '@/hooks/use-audio-waveform';
+import { computeSnap } from '@/lib/timeline-snap';
+import { useSegmentLocks, type LockEntry } from '@/hooks/use-segment-locks';
 
 interface TimelineShot {
   shotNumber: number;
@@ -47,6 +50,8 @@ interface TrackSegment {
   /** v3.1.2 server 返的派生默认值, client 算 offset 用 */
   derivedStartSec: number;
   derivedDurationSec: number;
+  /** v3.1.3 P1: BGM 段挂全片 mp3 URL, 切片画真波形 */
+  audioUrl?: string;
 }
 
 interface TimelineData {
@@ -135,6 +140,15 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
   /** v3.1.2 P4: 多人协作时间线光标 — 走 Yjs awareness */
   const yjs = useYjs(currentUser ? `project-${projectId}` : null);
   const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
+  /** v3.1.3 P2: snap 命中 — 当前正闪光的 segmentKey, 200ms 后清 */
+  const [snapFlash, setSnapFlash] = useState<string | null>(null);
+  /** v3.1.3 P4: 协作段锁 — 检测被别人锁的段, drag start 时也要 acquire */
+  const segLocks = useSegmentLocks(
+    currentUser ? projectId : null,
+    currentUser ? { id: currentUser.id, name: currentUser.name, color: pickColor(currentUser.id) } : null,
+  );
+  /** 试图拿锁失败时的提示 toast (3s 自动清) */
+  const [lockToast, setLockToast] = useState<{ segmentKey: string; lockedBy: string } | null>(null);
   /** 容器 ref — 计算 mouseX 相对位置, 反推 timeSec 写到 awareness */
   const tracksContainerRef = useRef<HTMLDivElement | null>(null);
   const cursorBroadcastThrottleRef = useRef<number>(0);
@@ -255,6 +269,14 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
   ) => {
     e.preventDefault();
     e.stopPropagation();
+    // v3.1.3 P4: 尝试 acquire 协作锁; 失败 → 别人在改, 弹 toast 不让本端拖
+    const acquired = segLocks.tryAcquire(segment.id);
+    if (!acquired) {
+      const lock = segLocks.locks[segment.id];
+      setLockToast({ segmentKey: segment.id, lockedBy: lock?.userName || '另一位用户' });
+      setTimeout(() => setLockToast(null), 3000);
+      return;
+    }
     setTrackDrag({
       trackType,
       segmentKey: segment.id,
@@ -275,27 +297,45 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
       setData((d) => {
         if (!d) return d;
         const tracks = { ...d.tracks };
-        tracks[trackDrag.trackType] = tracks[trackDrag.trackType].map((s) => {
-          if (s.id !== trackDrag.segmentKey) return s;
-          if (trackDrag.mode === 'move') {
-            // 整段平移
-            return {
-              ...s,
-              startSec: Math.max(0, trackDrag.initialStartSec + deltaSec),
-              isEdited: true,
-            };
-          }
-          if (trackDrag.mode === 'resize-right') {
-            // 拖右边沿 — 改 duration, startSec 不变
-            const newDur = Math.max(0.5, trackDrag.initialDurationSec + deltaSec);
-            return { ...s, durationSec: newDur, isEdited: true };
-          }
-          // resize-left — 改 startSec + 同步改 duration 让 endSec 不变
-          const proposedStart = trackDrag.initialStartSec + deltaSec;
+        const siblings = tracks[trackDrag.trackType];
+
+        // 1) 算 proposed (无 snap)
+        let proposedStart: number;
+        let proposedDuration: number;
+        if (trackDrag.mode === 'move') {
+          proposedStart = Math.max(0, trackDrag.initialStartSec + deltaSec);
+          proposedDuration = trackDrag.initialDurationSec;
+        } else if (trackDrag.mode === 'resize-right') {
+          proposedStart = trackDrag.initialStartSec;
+          proposedDuration = Math.max(0.5, trackDrag.initialDurationSec + deltaSec);
+        } else {
+          // resize-left
           const initialEnd = trackDrag.initialStartSec + trackDrag.initialDurationSec;
-          const clampedStart = Math.max(0, Math.min(initialEnd - 0.5, proposedStart));
-          const newDur = initialEnd - clampedStart;
-          return { ...s, startSec: clampedStart, durationSec: newDur, isEdited: true };
+          const clampedStart = Math.max(0, Math.min(initialEnd - 0.5, trackDrag.initialStartSec + deltaSec));
+          proposedStart = clampedStart;
+          proposedDuration = initialEnd - clampedStart;
+        }
+
+        // 2) v3.1.3 P2: snap to neighbors + 硬 clamp 防重叠
+        const snapInput = {
+          selfId: trackDrag.segmentKey,
+          allSegments: siblings.map((s) => ({ id: s.id, startSec: s.startSec, durationSec: s.durationSec })),
+          proposedStart,
+          proposedDuration,
+          totalDuration: d.totalDuration,
+        };
+        const snap = computeSnap(snapInput);
+        if (snap.snapped) {
+          setSnapFlash(trackDrag.segmentKey);
+          setTimeout(() => setSnapFlash((cur) => cur === trackDrag.segmentKey ? null : cur), 200);
+        }
+
+        tracks[trackDrag.trackType] = siblings.map((s) => {
+          if (s.id !== trackDrag.segmentKey) return s;
+          if (trackDrag.mode === 'resize-right') {
+            return { ...s, durationSec: snap.durationSec, isEdited: true };
+          }
+          return { ...s, startSec: snap.startSec, durationSec: snap.durationSec, isEdited: true };
         });
         return { ...d, tracks };
       });
@@ -307,7 +347,6 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
       const seg = trackArr.find((s) => s.id === trackDrag.segmentKey);
       if (seg) {
         // v3.1.2 修复: 用 derivedStartSec 算绝对 offset, 多次拖动也对.
-        // 即: server 端 offset = currentAbsoluteStart - derivedStart, 与拖动次数无关.
         const patch: Partial<PendingTrackEdit> = {};
         if (trackDrag.mode === 'move' || trackDrag.mode === 'resize-left') {
           patch.startOffsetSec = seg.startSec - trackDrag.derivedStartSec;
@@ -319,6 +358,8 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           stagePendingEdit(trackDrag.trackType, trackDrag.segmentKey, patch);
         }
       }
+      // v3.1.3 P4: 释放协作锁
+      if (trackDrag) segLocks.release(trackDrag.segmentKey);
       setTrackDrag(null);
     };
     window.addEventListener('mousemove', handleMove);
@@ -596,6 +637,9 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           onReset={resetSegment}
           onDragStart={handleTrackDragStart}
           showWaveform
+          snapFlashId={snapFlash}
+          remoteLocks={segLocks.locks}
+          currentUserId={currentUser?.id}
           accentColor="amber"
         />
 
@@ -611,6 +655,9 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           onReset={resetSegment}
           onDragStart={handleTrackDragStart}
           onEditText={(seg) => setEditingSub({ segmentKey: seg.id, text: seg.label })}
+          snapFlashId={snapFlash}
+          remoteLocks={segLocks.locks}
+          currentUserId={currentUser?.id}
           accentColor="cyan"
         />
 
@@ -641,6 +688,15 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           </div>
         )}
       </div>
+
+      {/* v3.1.3 P4: 锁冲突 toast — 用户试图拖被别人锁的段时弹出 */}
+      {lockToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 cinema-card-hi px-4 py-2 flex items-center gap-2 shadow-2xl border-[var(--cinema-amber)]/50">
+          <span className="cinema-mono text-[11px]">
+            🔒 <span className="text-[var(--cinema-amber)]">{lockToast.lockedBy}</span> 正在编辑这一段, 你需要等他/她改完
+          </span>
+        </div>
+      )}
 
       {/* Subtitle 改写 modal */}
       {editingSub && (
@@ -690,13 +746,85 @@ interface TrackRowProps {
   onEditText?: (segment: TrackSegment) => void;
   /** v3.1.2 BGM 段下面画 procedural waveform */
   showWaveform?: boolean;
+  /** v3.1.3 P2: 刚 snap 命中的 segmentKey, 闪光提示 */
+  snapFlashId?: string | null;
+  /** v3.1.3 P4: 远端协作锁 — segmentKey → 锁主 */
+  remoteLocks?: Record<string, LockEntry>;
+  /** 当前用户 id, 用来过滤掉自己的锁 */
+  currentUserId?: string;
   accentColor: 'amber' | 'cyan';
+}
+
+/**
+ * v3.1.3 P1: BGM 段波形渲染.
+ * 有 audioUrl + decode 成功 → 真波形 (Web Audio API decode + slice 段时间范围)
+ * 否则 → procedural fallback (segmentKey 做 hash 输出 SVG path)
+ *
+ * 注意: 必须放在循环外做 component, 不然 hook 顺序变.
+ */
+function SegmentWaveform({
+  seg, width, height, color,
+}: {
+  seg: TrackSegment;
+  width: number;
+  height: number;
+  color: string;
+}) {
+  const decoded = useAudioWaveform(seg.audioUrl);
+  const bars = Math.min(64, Math.max(12, Math.floor(width / 8)));
+  if (decoded) {
+    // 真波形: 切片 derivedStartSec..derivedDurationSec
+    const slice = sliceWaveform(decoded, seg.derivedStartSec, seg.derivedDurationSec, bars);
+    if (slice.length > 0) {
+      return (
+        <svg
+          className="absolute inset-0 pointer-events-none"
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="none"
+        >
+          {Array.from(slice).map((amp, i) => {
+            const x = (i + 0.5) * (width / slice.length);
+            const a = amp * (height * 0.4); // 振幅 0..1 → 0..h*0.4
+            const cy = height / 2;
+            return (
+              <line
+                key={i}
+                x1={x} y1={cy - a}
+                x2={x} y2={cy + a}
+                stroke={color}
+                strokeWidth={1}
+              />
+            );
+          })}
+        </svg>
+      );
+    }
+  }
+  // Fallback: procedural
+  return (
+    <svg
+      className="absolute inset-0 pointer-events-none"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+    >
+      <path
+        d={buildWaveformPath(seg.id, width, height, bars)}
+        stroke={color}
+        strokeWidth={1}
+        fill="none"
+      />
+    </svg>
+  );
 }
 
 /**
  * v3.1.2 procedural BGM 波形 — 用 segmentKey 做确定性 hash 出 SVG path.
  * 不真去 decode mp3, 但视觉上跟 BGM 关联稳定 (同一段一直长同样).
- * 真波形等以后接 Web Audio API decode (留 P3).
+ * 用作 fallback (audioUrl 缺失 / decode 失败).
  */
 function buildWaveformPath(seed: string, width: number, height: number, bars = 48): string {
   // 简易 hash: char-code sum
@@ -721,7 +849,8 @@ function buildWaveformPath(seed: string, width: number, height: number, bars = 4
 
 function TrackRow({
   title, icon, segments, totalDuration, pxPerSec,
-  trackType, onMuteToggle, onReset, onDragStart, onEditText, showWaveform, accentColor,
+  trackType, onMuteToggle, onReset, onDragStart, onEditText,
+  showWaveform, snapFlashId, remoteLocks, currentUserId, accentColor,
 }: TrackRowProps) {
   const colorBg = accentColor === 'amber' ? 'rgba(212, 175, 55, 0.25)' : 'rgba(77, 224, 194, 0.22)';
   const colorBorder = accentColor === 'amber' ? 'rgba(212, 175, 55, 0.55)' : 'rgba(77, 224, 194, 0.50)';
@@ -747,38 +876,43 @@ function TrackRow({
           ) : segments.map((seg) => {
             const left = seg.startSec * pxPerSec;
             const width = Math.max(40, seg.durationSec * pxPerSec);
+            // v3.1.3 P4: 检测是否被远端用户锁住 — 锁主不是自己时禁用拖动 + 显示锁标
+            const lockEntry = remoteLocks?.[seg.id];
+            const isLockedByOther = !!lockEntry && lockEntry.userId !== currentUserId;
+            const tooltip = isLockedByOther
+              ? `🔒 ${lockEntry.userName} 正在编辑这段, 等一下`
+              : `${seg.label} · ${seg.durationSec.toFixed(1)}s${seg.muted ? ' · 静音' : ''}${seg.isEdited ? ' · 已编辑' : ''}`;
             return (
               <div
                 key={seg.id}
-                title={`${seg.label} · ${seg.durationSec.toFixed(1)}s${seg.muted ? ' · 静音' : ''}${seg.isEdited ? ' · 已编辑' : ''}`}
+                title={tooltip}
                 className={`absolute top-1 bottom-1 rounded border group/seg ${
                   seg.muted ? 'opacity-40' : ''
-                } ${seg.isEdited ? 'ring-1 ring-[var(--cinema-amber)]/40' : ''}`}
+                } ${seg.isEdited ? 'ring-1 ring-[var(--cinema-amber)]/40' : ''} ${
+                  snapFlashId === seg.id ? 'ring-2 ring-white/80 transition-shadow' : ''
+                } ${isLockedByOther ? 'pointer-events-none' : ''}`}
                 style={{
                   left, width,
-                  background: colorBg,
-                  borderColor: colorBorder,
-                  cursor: 'grab',
+                  background: isLockedByOther ? `rgba(150, 150, 150, 0.2)` : colorBg,
+                  borderColor: isLockedByOther ? lockEntry.color : colorBorder,
+                  borderStyle: isLockedByOther ? 'dashed' : 'solid',
+                  cursor: isLockedByOther ? 'not-allowed' : 'grab',
                 }}
-                onMouseDown={(e) => onDragStart(e, trackType, seg, 'move')}
-                onDoubleClick={() => onEditText?.(seg)}
+                onMouseDown={(e) => !isLockedByOther && onDragStart(e, trackType, seg, 'move')}
+                onDoubleClick={() => !isLockedByOther && onEditText?.(seg)}
               >
-                {/* v3.1.2 BGM 段下半部分画 procedural waveform — 视觉上能看出"这有声音"  */}
-                {showWaveform && width > 20 && (
-                  <svg
-                    className="absolute inset-0 pointer-events-none"
-                    width={width}
-                    height={48}
-                    viewBox={`0 0 ${width} 48`}
-                    preserveAspectRatio="none"
+                {/* v3.1.3 P4: 远端锁标 — 角标显示谁在编辑 */}
+                {isLockedByOther && (
+                  <div
+                    className="absolute -top-2 left-1 cinema-mono text-[8px] px-1 py-0.5 rounded whitespace-nowrap pointer-events-auto z-30"
+                    style={{ background: lockEntry.color, color: '#000' }}
                   >
-                    <path
-                      d={buildWaveformPath(seg.id, width, 48, Math.min(64, Math.max(12, Math.floor(width / 8))))}
-                      stroke={waveformColor}
-                      strokeWidth={1}
-                      fill="none"
-                    />
-                  </svg>
+                    🔒 {lockEntry.userName} 编辑中
+                  </div>
+                )}
+                {/* v3.1.3 P1: BGM 真波形 (有 audioUrl decode 成功) or procedural fallback */}
+                {showWaveform && width > 20 && (
+                  <SegmentWaveform seg={seg} width={width} height={48} color={waveformColor} />
                 )}
                 {/* v3.1.2 左边沿 resize 手柄 — 改 startOffset + 同步缩短 duration 让 endSec 不变 */}
                 <div

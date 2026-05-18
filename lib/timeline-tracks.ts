@@ -35,6 +35,12 @@ export interface TrackSegment {
   derivedStartSec: number;
   /** v3.1.2: 派生默认时长 — 同上, 给 duration override 计算用 */
   derivedDurationSec: number;
+  /**
+   * v3.1.3 P1: 真音频 URL — 主要给 BGM 段, 让前端用 Web Audio API decode
+   * + 切片渲染真波形. 字幕段不挂.
+   * 多 BGM 段共用同一个 mp3 (整片合并的最终配乐), 切片靠 derivedStartSec/derivedDurationSec.
+   */
+  audioUrl?: string;
 }
 
 interface TrackEditRow {
@@ -155,15 +161,41 @@ function applyOverrides(
 }
 
 /**
+ * v3.1.3 P1: 查项目的 BGM 音频 URL (saveAsset(_, 'music', ...) 存在 media_urls[0]).
+ * 没有 → null, 前端走 procedural waveform fallback.
+ */
+function findProjectMusicUrl(projectId: string): string | null {
+  try {
+    const row = db.prepare(
+      `SELECT media_urls FROM project_assets
+       WHERE project_id = ? AND type = 'music'
+       ORDER BY created_at DESC LIMIT 1`,
+    ).get(projectId) as { media_urls: string } | undefined;
+    if (!row?.media_urls) return null;
+    const arr = JSON.parse(row.media_urls);
+    if (Array.isArray(arr) && typeof arr[0] === 'string') return arr[0];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 给项目算出 BGM + subtitle 完整轨道. UI 直接消费.
+ * v3.1.3 P1: BGM 段挂 audioUrl, 前端切片画真波形.
  */
 export function computeTracks(projectId: string, script: Script): { bgm: TrackSegment[]; subtitle: TrackSegment[] } {
   const shots = Array.isArray(script.shots) ? script.shots : [];
   const edits = readEdits(projectId);
   const bgmDerived = deriveBgmSegments(shots);
   const subDerived = deriveSubtitleSegments(shots);
+  const bgmSegments = applyOverrides('bgm', bgmDerived, edits);
+  const musicUrl = findProjectMusicUrl(projectId);
+  if (musicUrl) {
+    for (const seg of bgmSegments) seg.audioUrl = musicUrl;
+  }
   return {
-    bgm: applyOverrides('bgm', bgmDerived, edits),
+    bgm: bgmSegments,
     subtitle: applyOverrides('subtitle', subDerived, edits),
   };
 }
