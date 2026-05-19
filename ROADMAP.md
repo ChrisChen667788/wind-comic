@@ -1087,12 +1087,47 @@ npm test
 - ✅ orchestrator 启动日志多一行 `[ImageProviders] 4 built-ins registered`
 - ✅ 用户加新 provider 0 行 orchestrator 改动 — 写 1 个文件 import 一下, env 设 key 即注册即用
 
-### v3.2 待跟 (P2 + P3 候选)
-- P2 · 把 orchestrator.generateImage 主路径搬到 plugin chain (现在内置走老 image-router, plugin 是 last-resort fallback)
-- P2 · VideoProvider 同款接口 — Minimax/Veo/Kling/Vidu 适配
-- P2 · TTSProvider 同款接口
+### v3.2 待跟 (P3 候选) — P2 全部已并入 v3.2 P2 ✅
+- ~~VideoProvider 同款接口~~ → v3.2 P2.1 ✅
+- ~~TTSProvider 同款接口~~ → v3.2 P2.2 ✅
+- P3 · 把 orchestrator.generateImage / generateVideo / generateTTS 主路径搬到 plugin chain (现在内置仍走老 service class, plugin 是 last-resort fallback)
 - P3 · 跨 act snap + 多 mp3 segment waveform
 - P3 · GIF generator: pacing-reveal 在重项目页 CDP timeout — 已修但还需 fuzz 测试
+
+---
+
+## 4.20 v3.2 P2 — Video + TTS provider plugin 接口 ✅ 2026-05-19
+
+> **背景**: v3.2 P1 把 image 抽 plugin 后, video 和 TTS 的 API 形态差异比 image 还大 (Veo 多参考图 / Kling FLF / Minimax S2V / Vidu I2V-only / ElevenLabs cloning / OpenAI gpt-4o-mini-tts 等). 同样的 plugin 模板应该一次推到三件套, 把"二开者写 1 个文件接入新引擎"的承诺补完.
+
+### P2.1 · VideoProvider 接口 + 注册表 ✅
+- [x] `lib/video-providers/types.ts` — `VideoProvider` 9 个必填字段, 比 image 多 4 个 capability flag (supportsImage2Video / Text2Video / LastFrame / SubjectReference), 还有 `maxDurationSec` 用于过滤
+- [x] `lib/video-providers/registry.ts` — `selectProviders` 按 capability + duration 过滤, `dispatchVideoGenerate` 顺序 try, audioUrl 校验 http(s)/data:video
+- [x] `lib/video-providers/builtins.ts` — Veo(60) / Kling(70) / Minimax-Video(80) / Vidu(90) 4 内置, 各家独家能力 (Kling FLF / Minimax S2V) 走 capability flag 自动路由
+- [x] `lib/video-providers/example-runway.ts` — Runway Gen-3 Alpha 二开范本, ENV ENABLE_RUNWAY=1 即注册
+- [x] `services/hybrid-orchestrator.ts` constructor 加 video 异步注册 + 检 `VIDEO_PROVIDERS_DIR`
+- [x] `docs/video-providers.md` — 1 分钟接入 + API contract + 调度规则 + 4 内置表 + 自动发现 + 故障排查
+- [x] 19 单测覆盖 register / 5 个 capability filter / 6 种 dispatch fallback 路径
+
+### P2.2 · TTSProvider 接口 + 注册表 ✅
+- [x] `lib/tts-providers/types.ts` — `TTSProvider` 9 个必填字段, capability flag 包括 supportsEmotion / Cloning / Streaming / maxTextLen / supportedLanguages
+- [x] `lib/tts-providers/registry.ts` — `selectProviders` 按 capability + textLen + language 过滤; audioUrl 校验 http(s)/data:audio
+- [x] `lib/tts-providers/builtins.ts` — Minimax T2A-v2 (speech-2.8-hd) 内置, priority 100
+- [x] `lib/tts-providers/example-elevenlabs.ts` — ElevenLabs 二开范本 (有 cloning flag)
+- [x] `services/hybrid-orchestrator.ts` constructor 加 TTS 异步注册 + 检 `TTS_PROVIDERS_DIR`
+- [x] `docs/tts-providers.md` — 完整接入文档
+- [x] 17 单测覆盖 register / 5 个 capability filter / 5 种 dispatch fallback 路径
+
+### v3.2 P2 总验收 ✅
+- ✅ 36 新单测 (video 19 + tts 17), 累计 **vitest 1199/1199**
+- ✅ tsc 0 错误, 0 production 新依赖
+- ✅ orchestrator 启动 3 行日志: `[ImageProviders] 4 built-ins` + `[VideoProviders] 4 built-ins` + `[TTSProviders] 1 built-in`
+- ✅ 三件套 plugin 模板一致 (types / registry / builtins / example / docs / tests), 二开心智无差异
+
+### v3.2 P3 待跟
+- P3 · 把 orchestrator 三个主路径 (generateImage / generateVideo / generateTTS) 全切到 plugin chain, 而不是 fallback. 风险: 老 image-router/hybrid 主路径里有很多业务 quirk (consistency-policy, character DNA lock, MJ --cw 100 等), 直接换可能砸到老用户. 安全做法是先加 feature flag 双跑对照.
+- P3 · 跨 act snap + 多 mp3 segment waveform
+- P3 · GIF generator fuzz 测试
 
 ---
 

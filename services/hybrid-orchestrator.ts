@@ -609,6 +609,36 @@ export class HybridOrchestrator {
         console.warn('[Hybrid] image-provider init failed (non-fatal):', e instanceof Error ? e.message : e);
       }
     })();
+
+    // v3.2 P2: 注册内置 video providers + 自动加载 VIDEO_PROVIDERS_DIR.
+    void (async () => {
+      try {
+        await import('@/lib/video-providers/builtins');
+        const customDir = process.env.VIDEO_PROVIDERS_DIR;
+        if (customDir) {
+          const { autoDiscoverProviders } = await import('@/lib/video-providers/registry');
+          const n = await autoDiscoverProviders(customDir);
+          if (n > 0) console.log(`[Hybrid] auto-loaded ${n} custom video provider(s) from ${customDir}`);
+        }
+      } catch (e) {
+        console.warn('[Hybrid] video-provider init failed (non-fatal):', e instanceof Error ? e.message : e);
+      }
+    })();
+
+    // v3.2 P2: 注册内置 TTS providers + 自动加载 TTS_PROVIDERS_DIR.
+    void (async () => {
+      try {
+        await import('@/lib/tts-providers/builtins');
+        const customDir = process.env.TTS_PROVIDERS_DIR;
+        if (customDir) {
+          const { autoDiscoverProviders } = await import('@/lib/tts-providers/registry');
+          const n = await autoDiscoverProviders(customDir);
+          if (n > 0) console.log(`[Hybrid] auto-loaded ${n} custom tts provider(s) from ${customDir}`);
+        }
+      } catch (e) {
+        console.warn('[Hybrid] tts-provider init failed (non-fatal):', e instanceof Error ? e.message : e);
+      }
+    })();
   }
 
   private initializeAgents() {
