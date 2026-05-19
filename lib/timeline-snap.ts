@@ -25,6 +25,14 @@ export interface SnapInput {
   proposedDuration: number;
   /** 全片总时长 (作 hard upper bound, 段尾不能超) */
   totalDuration: number;
+  /**
+   * v3.2 P3.2: 跨幕 (cross-act) snap 用 — act 边界全局位置 (秒).
+   * 例: 4 幕 [act1 0-30s, act2 30-65s, act3 65-100s, act4 100-120s]
+   *      → actBoundaries = [0, 30, 65, 100, 120]
+   * 在 SNAP_THRESHOLD_SEC 内时段会贴 act 边界. snappedTo 用 "act:idx" 标识.
+   * 不传 / 传空数组 → 跟 v3.1.3 行为完全一致 (无 cross-act snap).
+   */
+  actBoundaries?: number[];
 }
 
 export interface SnapResult {
@@ -100,6 +108,34 @@ export function computeSnap(input: SnapInput): SnapResult {
     startSec += delta;
     snapped = true;
     snappedTo = rightNeighbor.id;
+  }
+
+  // v3.2 P3.2: cross-act snap — proposed start 或 end 离任一 act 边界 ≤ 阈值就贴.
+  // 优先级低于邻居 (已 snapped 时跳过), 避免抢走邻居 snap.
+  if (!snapped && input.actBoundaries && input.actBoundaries.length > 0) {
+    const sortedBoundaries = [...input.actBoundaries].sort((a, b) => a - b);
+    let bestDelta = Infinity;
+    let bestIdx = -1;
+    let bestKind: 'start' | 'end' = 'start';
+    for (let idx = 0; idx < sortedBoundaries.length; idx++) {
+      const b = sortedBoundaries[idx];
+      const ds = b - startSec;
+      const de = b - endSec;
+      if (Math.abs(ds) < Math.abs(bestDelta) && Math.abs(ds) <= SNAP_THRESHOLD_SEC) {
+        bestDelta = ds; bestIdx = idx; bestKind = 'start';
+      }
+      if (Math.abs(de) < Math.abs(bestDelta) && Math.abs(de) <= SNAP_THRESHOLD_SEC) {
+        bestDelta = de; bestIdx = idx; bestKind = 'end';
+      }
+    }
+    if (bestIdx >= 0 && Number.isFinite(bestDelta)) {
+      // start/end snap 都 shift 整段, 保持 duration
+      startSec += bestDelta;
+      endSec += bestDelta;
+      snapped = true;
+      snappedTo = `act:${bestIdx}`;
+      void bestKind;  // bestKind 仅给 debug, 不影响输出
+    }
   }
 
   // Hard collision — proposed 整段插进了某邻居中 → clamp 出来

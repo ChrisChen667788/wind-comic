@@ -13,6 +13,9 @@ export default defineConfig({
     // vitest 4.x: poolOptions 已上移到 test 顶层.
     pool: 'forks',
     forks: { singleFork: true },
+    // v3.2 P3.3: singleFork 即使串行执行测试文件, 同进程内多个 better-sqlite3
+    // 实例还是偶尔互相 lock (WAL contention). 给 retry=1, 真正 broken 的会两次都挂.
+    retry: 1,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

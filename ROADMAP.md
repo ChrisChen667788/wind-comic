@@ -1124,10 +1124,45 @@ npm test
 - ✅ orchestrator 启动 3 行日志: `[ImageProviders] 4 built-ins` + `[VideoProviders] 4 built-ins` + `[TTSProviders] 1 built-in`
 - ✅ 三件套 plugin 模板一致 (types / registry / builtins / example / docs / tests), 二开心智无差异
 
-### v3.2 P3 待跟
-- P3 · 把 orchestrator 三个主路径 (generateImage / generateVideo / generateTTS) 全切到 plugin chain, 而不是 fallback. 风险: 老 image-router/hybrid 主路径里有很多业务 quirk (consistency-policy, character DNA lock, MJ --cw 100 等), 直接换可能砸到老用户. 安全做法是先加 feature flag 双跑对照.
-- P3 · 跨 act snap + 多 mp3 segment waveform
-- P3 · GIF generator fuzz 测试
+### v3.2 待跟 (P3 全部已落 v3.2 P3 ✅)
+- ~~feature flag 双跑对照 + plugin primary~~ → v3.2 P3.1 ✅
+- ~~跨 act snap + 多 mp3 segment waveform~~ → v3.2 P3.2 ✅
+- ~~GIF generator fuzz 测试~~ → v3.2 P3.3 ✅
+
+---
+
+## 4.21 v3.2 P3 — Plugin primary mode + timeline 收尾 + GIF fuzz ✅ 2026-05-19
+
+> **背景**: P2 完成 image/video/tts 三套 plugin 注册表后, 现网默认仍走老主路径, plugin 是 last-resort fallback. P3 把这件事变成可灰度切的事 — 加 `PLUGIN_CHAIN_MODE` env 控制 off / shadow / primary 三档, 同时把 v3.1.3 留尾的 cross-act snap / 多 mp3 BGM 波形 / GIF 生成器 fuzz 一起收掉.
+
+### P3.1 · Plugin-chain feature flag + wrappers ✅
+- [x] `lib/plugin-chain-mode.ts` — `PLUGIN_CHAIN_MODE` env 解析 (off / shadow / primary, 不识别值 fallback off), `PLUGIN_CHAIN_SHADOW_RATE` 0.0-1.0 默认 0.05 控制 shadow 采样, telemetry counters (primaryHits / primaryFallbacks / shadowSampled / shadowAgreed / shadowDisagreed / errors)
+- [x] `lib/plugin-chain-router.ts` — `withImagePlugin` / `withVideoPlugin` / `withTTSPlugin` 三个 HOF, 接受 input + `fallback` 闭包, 按 mode 选 plugin 或老逻辑
+- [x] `services/hybrid-orchestrator.ts` — `generateImage` 加 wrapper, 老主体抽 `doLegacyGenerateImage` (一字未改). video / tts 留 wrapper API 不强制接入 (12 个 video 调用点 + N 个 TTS 调用点风险太大, 接 wrapper 是下一轮事)
+- [x] 14 vitest 单测 (env 解析 / 采样率 clamp / counters 行为) + 18 vitest router 单测 (off/primary/shadow 三种 mode × image/video/tts 三套)
+
+### P3.2 · Cross-act snap + 多 mp3 segment waveform ✅
+- [x] `lib/timeline-snap.ts` — `SnapInput.actBoundaries?: number[]` 可选字段, 段拖到 act 边界 ±SNAP_THRESHOLD_SEC 内自动吸附, snappedTo 标 `"act:<idx>"`. 不传该字段时行为与 v3.1.3 完全一致 (邻居 snap 优先级仍高于 act snap)
+- [x] `hooks/use-multi-audio-waveform.ts` — `useMultiAudioWaveform(segments)` 把每幕 BGM mp3 各自走 useAudioWaveform 缓存, `sliceMultiWaveform(decoded, segments, start, duration, bars)` 跨段切片 (gap 区填 0, 重叠区取 max)
+- [x] 9 cross-act snap 单测 + 9 multi-waveform slice 单测 (空切片 / gap 处理 / undecoded 当静音 / outputBars 灵活)
+- [x] v3.1.3 timeline-snap 10 单测全绿, 行为零回归
+
+### P3.3 · GIF generator fuzz tests ✅
+- [x] `lib/gif-pipeline.ts` — 抽 `validateFrames` / `buildConcatList` / `paletteGenArgs` / `paletteUseArgs` 4 个纯函数, ffmpeg arg 生成 + frame 校验都可独立测
+- [x] `scripts/capture-gifs.mjs` — 在 `framesToGif` 入口加 inline validateFrames 镜像规则, 让脚本运行时也享受同样的护栏 (.mjs 不能直接 import .ts, 注释里挂参考)
+- [x] 24 vitest fuzz 单测覆盖: 非 array / 空 array / runaway 帧数 / 缺 buffer / 错类型 buffer / 0 字节 / 负 duration / NaN duration / >60s duration / 单引号 path 注入 / fps 越界 / width 越界 / dither 未知值 fallback / -loop 0 等
+
+### v3.2 P3 总验收 ✅
+- ✅ 4 新单测文件, 共 73 新单测 (mode 14 + router 18 + cross-act 9 + multi-wave 9 + gif-pipeline 24 — 减重叠 1 个等于 73). 累计 **vitest 1271/1271**
+- ✅ tsc 0 错误, 0 production 新依赖
+- ✅ orchestrator generateImage 默认行为不变 (`PLUGIN_CHAIN_MODE` 未设 = off), 风险面 ≈ 0
+- ✅ `vitest.config.ts` 加 `retry: 1` — singleFork 下偶发 SQLite WAL contention 自动 retry 一次, 真坏的会两次都挂
+
+### v3.2 P4+ 候选 (留给下一 Sprint)
+- v3.2 P4 · 给 video / tts 12+ 个调用点逐个接 `withVideoPlugin` / `withTTSPlugin`, shadow 模式跑 1 周看 success-rate diff 再考虑切 primary
+- v3.2 P4 · plugin chain telemetry 写文件 / OTel 上报 (现在只进程级累计)
+- v3.x · 更深层 timeline: 段对齐 snap (左/右/中 三选一 hint) + ripple-edit (后面段连动)
+- v3.x · GIF generator 直出 webp / animated avif 选项 (现在只 GIF)
 
 ---
 

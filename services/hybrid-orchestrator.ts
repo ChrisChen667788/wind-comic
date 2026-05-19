@@ -877,6 +877,35 @@ export class HybridOrchestrator {
     cref?: string; sref?: string; cw?: number;
     referenceImages?: string[];
   }): Promise<string> {
+    // v3.2 P3.1: 通过 PLUGIN_CHAIN_MODE env 决定是否先试 plugin chain.
+    // off (默认) → 直接走老主路径, 行为完全不变.
+    // shadow     → 老主路径正常出结果, plugin 异步采样跑收集 telemetry.
+    // primary    → 先试 plugin, 失败才落老主路径.
+    // 老主路径整段塞进 doLegacyGenerateImage 闭包, 不动一行业务逻辑.
+    const { withImagePlugin } = await import('@/lib/plugin-chain-router');
+    return withImagePlugin(
+      {
+        prompt,
+        aspectRatio: opts?.aspectRatio as any,
+        cref: opts?.cref,
+        sref: opts?.sref,
+        cw: opts?.cw,
+        referenceImages: opts?.referenceImages,
+        label: opts?.label,
+      },
+      () => this.doLegacyGenerateImage(prompt, opts),
+    );
+  }
+
+  /**
+   * v3.2 P3.1: 老 `generateImage` 主体抽这里, 当作 plugin chain 的 fallback.
+   * 内容 一字未改 — 只是把外层函数 rename + 包了个 wrapper.
+   */
+  private async doLegacyGenerateImage(prompt: string, opts?: {
+    aspectRatio?: string; label?: string;
+    cref?: string; sref?: string; cw?: number;
+    referenceImages?: string[];
+  }): Promise<string> {
     const hasRefImages = !!(opts?.cref || opts?.sref || opts?.referenceImages?.length);
     const label = opts?.label || 'image';
     const veKey = API_CONFIG.openai.apiKey;

@@ -82,6 +82,20 @@ async function clickByText(page, text) {
  *   durationMs 是该帧应该停留多久 (用于变速 gif).
  */
 async function framesToGif(frames, outFile, opts = {}) {
+  // v3.2 P3.3: 输入校验. 规则同 lib/gif-pipeline.ts validateFrames (有 vitest 覆盖).
+  // 这段重复是因为脚本是 .mjs, .ts 在脚本运行时不能直接 import — 真要去重需要先 tsc 编译.
+  if (!Array.isArray(frames) || frames.length === 0) {
+    throw new Error('framesToGif: empty or non-array frames');
+  }
+  if (frames.length > 10_000) {
+    throw new Error(`framesToGif: too many frames (${frames.length}) — runaway capture loop?`);
+  }
+  for (let i = 0; i < frames.length; i++) {
+    const f = frames[i];
+    if (!f || !f.buffer || f.buffer.length === 0) {
+      throw new Error(`framesToGif: frame[${i}] missing/empty buffer`);
+    }
+  }
   const { fps = 10, width = 960 } = opts;
   const tmpDir = path.join('/tmp', `qf-gif-${Date.now()}`);
   fs.mkdirSync(tmpDir, { recursive: true });
