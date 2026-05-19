@@ -36,6 +36,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({
     id: row.id,
+    // v3.1.3 fix: 透传 user_id — 让前端 isOwner 判断生效 (InviteProjectButton 需要)
+    userId: row.user_id,
+    user_id: row.user_id,
     title: row.title,
     description: row.description,
     covers: JSON.parse(row.cover_urls || '[]'),

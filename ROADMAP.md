@@ -1055,10 +1055,44 @@ npm test
 - ✅ 一人拖 BGM 段, 另一人看到 dashed border + "🔒 xxx 编辑中" 角标; 试图拖时弹 toast
 - ✅ docs/llm-providers.md 让任意贡献者改 3 行 env 就能切到 OpenRouter / DeepSeek / Ollama / 自部署 vLLM
 
-### v3.1.3 待跟 (留 v3.2)
-- 段间碰撞检测复杂情况 (segments 不在同 act 时怎么处理? 当前算的是同轨道单层冲突, 跨 act 也按相邻处理)
-- 真 BGM waveform 在多 act 时切片精度 (现在按 derivedStartSec 切, BGM 跨多个 mp3 段时需要 multiplexed waveform)
-- 把 image/video provider 也抽 plugin 接口 — `docs/llm-providers.md` 已经预告 v3.2 P1
+### v3.1.3 待跟 — 部分并入 v3.2 P1
+- ~~把 image/video provider 也抽 plugin 接口~~ → v3.2 P1 ✅ (image 落地; video 留 v3.2 P2)
+- 段间碰撞检测复杂情况 (cross-act snap) — 留 v3.2 P3
+- 真 BGM 多 act mp3 切片 — 留 v3.2 P3
+
+---
+
+## 4.19 v3.2 P1 — Image provider plugin 接口 + 营销工具链 ✅ 2026-05-19
+
+> **背景**: `docs/llm-providers.md` 已经把 LLM 切换降到"改 3 行 env". image / video / TTS 各家 API 形态差异巨大 (MJ 用 `--cref/--sref`, Minimax 用 `subject_reference[]`, Vidu 用 multi-frame, Kling 用 `image_tail` 等), 不能纯 env 切换. v3.2 P1 抽出 plugin 接口让二次开发者写 1 个文件接入新 image provider.
+
+### P1 · ImageProvider 接口 + 注册表 ✅
+- [x] `lib/image-providers/types.ts` — 定义 `ImageProvider` / `ImageGenerateInput` / `ImageGenerateResult` 三件套. id / name / priority / supportsRefs / maxRefImages / available() / generate() 7 个必填字段
+- [x] `lib/image-providers/registry.ts` — `registerImageProvider` / `selectProviders` (按 priority + maxRefs + available 排 chain) / `dispatchImageGenerate` (顺序 try, fallback 完成) / `autoDiscoverProviders(dir)` (扫文件夹 dynamic import 副作用)
+- [x] `lib/image-providers/builtins.ts` — MJ / Minimax multi-ref / Minimax single / kontext 4 内置走同一注册表 (用 service class 适配, 不破坏 image-router.ts 主路径)
+- [x] `lib/image-providers/example-replicate.ts` — Replicate SDXL 范本, 给 PR 贡献者照搬
+- [x] `services/hybrid-orchestrator.ts` constructor 末尾异步 `await import('@/lib/image-providers/builtins')` 注册内置 + 检 `IMAGE_PROVIDERS_DIR` env 自动发现自定义
+- [x] `docs/image-providers.md` — 1 分钟接入教程 + API contract + 调度规则 + 内置 4 个 provider 表 + auto-discover + 故障排查
+
+### 营销工具链 (v3.1.3 配套, 让 README 截图与 modelscope 上架更顺) ✅
+- [x] `scripts/capture-screenshots.mjs` — 已发, 10 张 v3.1.3 主截图
+- [x] `scripts/capture-scenes.mjs` — 双 page + popover + dropdown 场景: invite-popover / notifications-dropdown / storyboard-regen-modal / cinema-timeline-collab
+- [x] `scripts/capture-gifs.mjs` — puppeteer 攒帧 + ffmpeg-static palette-gen GIF. 已实现 4 个 recipe (pipeline-flow / pacing-reveal / workshop-regen-modal / cinema-timeline-snap)
+- [x] `scripts/modelscope-upload-helper.mjs` — clipboard-based 半自动: 把 modelscope-profile.md 的 8 个章节顺序塞 pbcopy, 你浏览器 cmd+V 完事. 配 `--open` 自动 open 浏览器到对应 URL
+- [x] 项目 GET API bug 修 — `/api/projects/[id]` 终于把 `user_id` 透回去, InviteProjectButton 的 isOwner 判断从此生效
+
+### v3.2 P1 总验收 ✅
+- ✅ 13 新单测 (image provider registry: register / select / dispatch / fallback / 4 种边界), 累计 **vitest 1163/1163**
+- ✅ tsc 0 错误, 0 production 新依赖 (puppeteer 是 devDep)
+- ✅ orchestrator 启动日志多一行 `[ImageProviders] 4 built-ins registered`
+- ✅ 用户加新 provider 0 行 orchestrator 改动 — 写 1 个文件 import 一下, env 设 key 即注册即用
+
+### v3.2 待跟 (P2 + P3 候选)
+- P2 · 把 orchestrator.generateImage 主路径搬到 plugin chain (现在内置走老 image-router, plugin 是 last-resort fallback)
+- P2 · VideoProvider 同款接口 — Minimax/Veo/Kling/Vidu 适配
+- P2 · TTSProvider 同款接口
+- P3 · 跨 act snap + 多 mp3 segment waveform
+- P3 · GIF generator: pacing-reveal 在重项目页 CDP timeout — 已修但还需 fuzz 测试
 
 ---
 

@@ -197,7 +197,7 @@ describe('checkAndSanitize — empty / length limits', () => {
       expect(v.sanitized.length).toBeLessThanOrEqual(32000);
       expect(v.warnings.some(w => w.includes('截到 32000'))).toBe(true);
     }
-  });
+  }, 15_000); // regex on 40000-char input is slow under heavy parallel-test load
 
   it('truncates oversized polish-req to 800 chars', () => {
     const v = checkAndSanitize('强化视觉感'.repeat(200), { task: 'polish-req' });

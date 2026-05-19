@@ -593,6 +593,22 @@ export class HybridOrchestrator {
       ? (minimaxCaps.length > 0 ? minimaxCaps.join('+') : 'TTS-ONLY')
       : 'OFF';
     console.log(`[Hybrid] LLM: ${this.openai ? 'Claude' : 'OFF'}, MJ: ${this.mjService ? 'ON' : 'OFF'}, Minimax: ${minimaxLabel}, Veo: ${this.veoService ? 'ON' : 'OFF'}, Kling: ${this.klingService ? 'ON' : 'OFF'}, FalFlux: ${this.falFluxService ? 'ON' : 'OFF'}, ComfyUI: ${this.comfyuiService ? 'ON' : 'OFF'}, XVerse: ${this.xverseService ? (isXVersePrimary() ? 'PRIMARY' : 'FALLBACK') : 'OFF'}`);
+
+    // v3.2 P1: 注册内置 image providers + 自动加载 IMAGE_PROVIDERS_DIR.
+    // 异步 fire-and-forget — 不阻塞 orchestrator 创建.
+    void (async () => {
+      try {
+        await import('@/lib/image-providers/builtins');
+        const customDir = process.env.IMAGE_PROVIDERS_DIR;
+        if (customDir) {
+          const { autoDiscoverProviders } = await import('@/lib/image-providers/registry');
+          const n = await autoDiscoverProviders(customDir);
+          if (n > 0) console.log(`[Hybrid] auto-loaded ${n} custom image provider(s) from ${customDir}`);
+        }
+      } catch (e) {
+        console.warn('[Hybrid] image-provider init failed (non-fatal):', e instanceof Error ? e.message : e);
+      }
+    })();
   }
 
   private initializeAgents() {
