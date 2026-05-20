@@ -132,7 +132,7 @@
 
 | 版本 | 日期 | commit | 交付 |
 |---|---|---|---|
-| **v5.0** | 2026-05-21 | `(本次)` | i18n:真繁体中文 + 日本語全量翻译 + deep-merge 回退 + normalizeLocale/Accept-Language 解析 + useLocale hook + LocaleSwitcher(挂 dashboard) |
+| **v5.0** | 2026-05-21 | `567e68b` | i18n:真繁体中文 + 日本語全量翻译 + deep-merge 回退 + normalizeLocale/Accept-Language 解析 + useLocale hook + LocaleSwitcher(挂 dashboard) |
 
 ---
 
