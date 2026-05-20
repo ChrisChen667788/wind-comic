@@ -1191,6 +1191,30 @@ npm test
 
 ---
 
+## 4.23 v3.3 — Cinema Timeline 终局: ripple + 对齐 hint + undo/redo ✅ 2026-05-20
+
+> **背景**: v3.1.x 把 timeline 做到"能多轨道拖 + snap + 多人协作". v3.3 补齐专业剪辑三件套, 让"能拖"升级成"剪得顺手": 改一段牵连后段 (ripple)、Figma 式对齐参考线 (左/右/中)、撤销重做.
+
+### P1 · Ripple edit (后段连动) ✅
+- [x] `lib/timeline-ripple.ts` — `computeRipple` (改一段长度/位置, 锚点之后的段一起平移 delta, clamp 到 ≥0 + totalDuration 上界) + `computeRippleDelete` (删段补缝). 纯函数, 不 mutate 入参
+- [x] 9 单测 (下游平移 / 上游不动 / 负 delta 收缝 / 0 clamp / 时长上界 clamp / 删段补缝)
+
+### P2 · 对齐 hint (左 / 右 / 中 三选一) ✅
+- [x] `lib/timeline-align.ts` — `computeAlignHints` 算出当前段左沿/右沿/中线对齐到邻居 start/end/center 或额外参考线 (act 边界/playhead) 的全部候选, 按距离升序; `bestAlignHint` 取最近. UI 据此画 smart guides + 吸附
+- [x] 10 单测 (三种对齐基准 / 距离排序 / 阈值 / extraGuides / 不出负 start)
+
+### P3 · Undo / redo 栈 ✅
+- [x] `lib/timeline-history.ts` — `TimelineHistory<T>` 快照式撤销栈 (past/future 双栈, push 清 redo 分支, limit 上限丢最老, canUndo/canRedo/clear/depth)
+- [x] 9 单测 (undo/redo 往返 / null 边界 / push 作废 redo / limit 丢最老 / 多步链路)
+
+### v3.3 总验收 ✅
+- ✅ 3 纯函数 lib + 28 新单测, 累计 **vitest 1306/1306**
+- ✅ tsc 0 错误, 0 production 新依赖
+- ✅ 与 v3.1.3 timeline-snap 解耦, 可叠加用 (snap 防重叠 + align 对齐 + ripple 连动)
+- ⏭️ UI 接线 (cinema-timeline.tsx 绑 Ctrl+Z/Ctrl+Shift+Z + 画对齐参考线 + ripple 开关) 留 v3.3.1 — 与既往 timeline 分步交付 (F.1/F.2) 一致, 先稳 lib 再接 969 行组件
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |
