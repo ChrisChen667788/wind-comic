@@ -27,7 +27,7 @@ export const dynamic = 'force-dynamic';
 function resolveUserId(request: Request): string {
   const payload = getUserFromRequest(request);
   if (payload?.sub) return payload.sub;
-  const firstUser = db.prepare('SELECT id FROM users LIMIT 1').get() as
+  const firstUser = db.prepare('SELECT id FROM users ORDER BY created_at ASC LIMIT 1').get() as
     | { id: string }
     | undefined;
   return firstUser?.id || 'demo-user';

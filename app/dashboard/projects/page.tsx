@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { api } from '@/lib/api-client';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
 import { FolderKanban, Clock, CheckCircle2, Play, Film, Plus, Sparkles, Search, Wand2 } from 'lucide-react';
@@ -17,9 +18,10 @@ export default function ProjectsPage() {
   const [filter, setFilter] = useState<'all' | 'completed' | 'active' | 'draft'>('all');
 
   useEffect(() => {
-    fetch('/api/projects')
-      .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) setProjects(d); })
+    // v5.0.x fix: 走 api-client (带 Authorization), 解析真实登录用户而非 no-auth 兜底.
+    // 之前用裸 fetch 无 token → 命中 first-user 兜底; 测试用户污染 DB 后兜底解析错乱, 项目全空.
+    api.projects()
+      .then((d: any) => { if (Array.isArray(d)) setProjects(d); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

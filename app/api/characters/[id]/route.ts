@@ -36,7 +36,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   let userId = payload?.sub;
 
   if (!userId) {
-    const firstUser = db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string } | undefined;
+    const firstUser = db.prepare('SELECT id FROM users ORDER BY created_at ASC LIMIT 1').get() as { id: string } | undefined;
     userId = firstUser?.id || 'demo-user';
   }
 
@@ -103,7 +103,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   let userId = payload?.sub;
 
   if (!userId) {
-    const firstUser = db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string } | undefined;
+    const firstUser = db.prepare('SELECT id FROM users ORDER BY created_at ASC LIMIT 1').get() as { id: string } | undefined;
     userId = firstUser?.id || 'demo-user';
   }
 

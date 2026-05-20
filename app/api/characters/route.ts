@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
   // If no auth, fall back to the first user in the DB (single-user / demo mode)
   if (!userId) {
-    const firstUser = db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string } | undefined;
+    const firstUser = db.prepare('SELECT id FROM users ORDER BY created_at ASC LIMIT 1').get() as { id: string } | undefined;
     userId = firstUser?.id || 'demo-user';
   }
 
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
   // Fall back to first DB user in demo mode
   if (!userId) {
-    const firstUser = db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string } | undefined;
+    const firstUser = db.prepare('SELECT id FROM users ORDER BY created_at ASC LIMIT 1').get() as { id: string } | undefined;
     userId = firstUser?.id || 'demo-user';
   }
 

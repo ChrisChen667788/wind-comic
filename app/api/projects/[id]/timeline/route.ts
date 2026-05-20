@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic';
 function resolveUserId(request: Request): string | null {
   const payload = getUserFromRequest(request);
   if (payload?.sub) return payload.sub;
-  const fallback = db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string } | undefined;
+  const fallback = db.prepare('SELECT id FROM users ORDER BY created_at ASC LIMIT 1').get() as { id: string } | undefined;
   return fallback?.id || null;
 }
 

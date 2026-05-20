@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
         // 获取第一个可用用户ID（如果没有用户则创建一个）—— 提到 try 外, 后续阶段也要用
         let userId = 'WM-U2zcG9DmjuJ06NS9D9'; // 默认使用已存在的用户
         try {
-          const user = db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string } | undefined;
+          const user = db.prepare('SELECT id FROM users ORDER BY created_at ASC LIMIT 1').get() as { id: string } | undefined;
           if (user) {
             userId = user.id;
           } else {
