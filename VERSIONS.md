@@ -126,7 +126,7 @@
 | **v4.1.2** | 2026-05-21 | `1fd47a8` | Agent 编排可视化编辑器(`/workflow-studio`)+ 真 orchestrator runner 适配器(OrchestratorLike + upstreamByKind)+ 核心拆 client-safe |
 | **v4.2.2** | 2026-05-21 | `2db0089` | projects 域异步化:async project-repo(get/list/create/update/delete + owner 校验)+ projects POST 接通双驱动 |
 | **v4.1.3** | 2026-05-21 | `e857495` | 工作流接真 orchestrator:execute `mode:'real'` + runWorkflowReal(能力门 + per-call runner 并发安全)+ studio 真实运行按钮 |
-| **v4.2.3** | 2026-05-21 | `2db0089`* | assets 域异步化:async asset-repo + 项目详情 GET 接通;`npm run pg:smoke` 真连 PG 灰度试跑脚本 |
+| **v4.2.3** | 2026-05-21 | `48f6d23` | assets 域异步化:async asset-repo + 项目详情 GET 接通;`npm run pg:smoke` 真连 PG 灰度试跑脚本 |
 
 ---
 
