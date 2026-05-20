@@ -1158,11 +1158,36 @@ npm test
 - ✅ orchestrator generateImage 默认行为不变 (`PLUGIN_CHAIN_MODE` 未设 = off), 风险面 ≈ 0
 - ✅ `vitest.config.ts` 加 `retry: 1` — singleFork 下偶发 SQLite WAL contention 自动 retry 一次, 真坏的会两次都挂
 
-### v3.2 P4+ 候选 (留给下一 Sprint)
-- v3.2 P4 · 给 video / tts 12+ 个调用点逐个接 `withVideoPlugin` / `withTTSPlugin`, shadow 模式跑 1 周看 success-rate diff 再考虑切 primary
-- v3.2 P4 · plugin chain telemetry 写文件 / OTel 上报 (现在只进程级累计)
-- v3.x · 更深层 timeline: 段对齐 snap (左/右/中 三选一 hint) + ripple-edit (后面段连动)
-- v3.x · GIF generator 直出 webp / animated avif 选项 (现在只 GIF)
+### v3.2 P5+ 候选 (留给下一 Sprint)
+- v3.2 P5 · video retry/regen 兜底 3 处也接 wrapper (现在只主路径接了, 兜底路径触发率低先不动)
+- v3.2 P5 · plugin chain telemetry OTel 上报 (现在落 SQLite, admin API 聚合)
+
+---
+
+## 4.22 v3.2 P4 — Plugin 主路径接线 + 灰度遥测 ✅ 2026-05-20
+
+> **背景**: P3 把 plugin chain 做成可灰度切的 (off/shadow/primary), 但只有 image 真接进了 orchestrator, video/tts 还是老主路径. P4 把 video / tts 主路径也接上, 并补齐"双跑对照"真正需要的遥测落盘 + admin 面板, 让 shadow → primary 切换有数据支撑.
+
+### P4.1 · Plugin telemetry 持久化 + admin API ✅
+- [x] `lib/db.ts` — 新增 `plugin_chain_events` 表 (kind / mode / outcome / provider / latency_ms / error / created_at) + 2 索引
+- [x] `lib/plugin-chain-telemetry.ts` — `recordPluginEvent` (best-effort, 永不抛) + `aggregatePluginStats(sinceMs?)` (按 kind 聚合 primary 命中率 / shadow 一致率 / 平均 latency, 算 `cutoverReady`)
+- [x] `lib/plugin-chain-router.ts` — 三 wrapper 重构成共享 `runWithPlugin<T>` 泛型核, latency 计时 + 双写 (进程计数 + SQLite 遥测) 收口到一处
+- [x] `app/api/admin/plugin-stats` — admin-only, 返当前 mode/采样率 + 进程实时计数 + SQLite 聚合 (`?hours=N` 窗口)
+- [x] 7 单测 (真 SQLite, before/after 行数差断言抗污染)
+
+### P4.2 · Video 主路径接 withVideoPlugin ✅
+- [x] `services/hybrid-orchestrator.ts` — per-shot 引擎路由整段 (130 行: Veo/Minimax/Kling 路由 + 多主体 bundle + 进度事件 + 降级处理) 原样塞进 `legacyVideoGen` 闭包 (闭包内 shadow 同名 `videoUrl`, 业务零改动), 外层包 `withVideoPlugin`
+- [x] 覆盖 95%+ 视频流量; retry/regen 3 处兜底路径留 P5 (本就 fallback-of-fallback, 触发率低)
+
+### P4.3 · TTS 主路径接 withTTSPlugin + 切换 runbook ✅
+- [x] `services/hybrid-orchestrator.ts` — Editor 配音主循环的 `generateSpeech` 包 `withTTSPlugin`, fallback 闭包把老的 `audioUrl` 适配成 `TTSGenerateResult`, off 模式行为逐字节一致
+- [x] `docs/plugin-chain-cutover.md` — 完整切换 runbook (shadow 收数据 → 看 `cutoverReady` → 切 primary → 出问题 `PLUGIN_CHAIN_MODE=off` 秒滚回, 无需回滚代码)
+
+### v3.2 P4 总验收 ✅
+- ✅ 7 新单测, 累计 **vitest 1278/1278**
+- ✅ tsc 0 错误, 0 production 新依赖
+- ✅ `PLUGIN_CHAIN_MODE` 默认 off → image/video/tts 三主路径行为与老版本完全一致, 风险面 ≈ 0
+- ✅ 切换全靠 env, 出问题改一个环境变量即回滚, 不动代码
 
 ---
 

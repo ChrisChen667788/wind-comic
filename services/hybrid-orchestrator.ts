@@ -3128,6 +3128,13 @@ ${shots.map((s, i) => {
       const hasFirstFrame = firstFrameUrl && firstFrameUrl.startsWith('http');
       console.log(`[Video] Shot ${board.shotNumber}: charRef=${hasCharRef ? 'YES' : 'NO'}, firstFrame=${storyboardImage ? 'STORYBOARD' : hasFirstFrame ? 'SCENE' : 'NONE'}, promptLen=${enhancedPrompt.length}`);
 
+      // v3.2 P4.2: 整段视频引擎路由包进 withVideoPlugin.
+      //   off     → 直接跑 legacyVideoGen (老引擎循环, 行为完全不变)
+      //   primary → 先试 plugin chain, 失败落 legacyVideoGen
+      //   shadow  → legacyVideoGen 出结果给业务, plugin 异步采样比对 telemetry
+      // 老引擎块原样塞进闭包, 闭包内 shadow 同名 videoUrl, 一行业务逻辑没动.
+      const { withVideoPlugin } = await import('@/lib/plugin-chain-router');
+      const legacyVideoGen = async (): Promise<string> => {
       let videoUrl: string = '';
 
       // ═══════════════════════════════════════════════════════
@@ -3273,6 +3280,22 @@ ${shots.map((s, i) => {
         await sleep(1000);
         videoUrl = '';
       }
+      return videoUrl;
+      }; // ── end legacyVideoGen ──
+
+      const videoUrl: string = await withVideoPlugin(
+        {
+          prompt: enhancedPrompt,
+          firstFrameUrl: hasFirstFrame ? firstFrameUrl : undefined,
+          subjectReferences: mrBundle.subjectImages.length > 0
+            ? mrBundle.subjectImages.map((url, idx) => ({ imageUrl: url, name: mrBundle.characterNames[idx] }))
+            : undefined,
+          referenceImages: mrBundle.referenceImages?.length ? mrBundle.referenceImages : undefined,
+          durationSec: 8,
+          label: `shot-${board.shotNumber}`,
+        },
+        legacyVideoGen,
+      );
 
       const clip = { shotNumber: board.shotNumber, videoUrl, duration: 8, status: 'completed' as const };
 
@@ -3790,13 +3813,34 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
               emotionTemperature: t.emotionTemperature,
             });
             console.log(`[Editor] TTS prosody shot ${t.shotNumber}: emotion="${t.emotion}" temp=${t.emotionTemperature ?? 0} → speed=${prosody.speed} pitch=${prosody.pitch} vol=${prosody.vol}`);
-            const audioUrl = await this.minimaxService.generateSpeech(cleanedDialogue, {
-              emotion: t.emotion,
-              gender: t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male',
-              speed: prosody.speed,
-              pitch: prosody.pitch,
-              vol: prosody.vol,
-            });
+            const _gender = t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male';
+            // v3.2 P4.3: TTS 走 withTTSPlugin. off → 直接 generateSpeech (行为不变),
+            // primary → 先 plugin chain 失败落老 generateSpeech, shadow → 老逻辑出结果 + plugin 采样比对.
+            const { withTTSPlugin } = await import('@/lib/plugin-chain-router');
+            const _ttsResult = await withTTSPlugin(
+              {
+                text: cleanedDialogue,
+                voiceId: _gender === 'female' ? 'female-zh' : 'male-zh',
+                emotion: t.emotion,
+                speed: prosody.speed,
+                pitch: prosody.pitch,
+                volume: prosody.vol,
+                language: 'zh-CN',
+                label: `shot-${t.shotNumber}`,
+              },
+              async () => {
+                // 外层 `if (this.minimaxService)` 已守卫, 闭包内 TS 丢了 narrowing, 用 ! 断言
+                const audioUrl = await this.minimaxService!.generateSpeech(cleanedDialogue, {
+                  emotion: t.emotion,
+                  gender: _gender,
+                  speed: prosody.speed,
+                  pitch: prosody.pitch,
+                  vol: prosody.vol,
+                });
+                return { audioUrl, duration: 0, subtitle: [], provider: 'minimax-legacy' };
+              },
+            );
+            const audioUrl = _ttsResult.audioUrl;
             voiceoverClips.push({ shotNumber: t.shotNumber || 0, audioUrl });
             this.emit('agentTalk', {
               role: AgentRole.EDITOR,

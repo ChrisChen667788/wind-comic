@@ -487,6 +487,22 @@ CREATE TABLE IF NOT EXISTS yjs_docs (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_yjs_docs_updated ON yjs_docs(updated_at);
+
+-- v3.2 P4.1: plugin-chain 灰度遥测. 每次 plugin chain 调用 (primary 命中/回退,
+-- shadow 采样一致/不一致) 落一行, 让 admin 面板能看真实 success-rate diff,
+-- 决定 shadow → primary 切换时机. kind = image/video/tts, outcome 见 lib/plugin-chain-telemetry.ts.
+CREATE TABLE IF NOT EXISTS plugin_chain_events (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,                            -- 'image' | 'video' | 'tts'
+  mode TEXT NOT NULL,                            -- 'primary' | 'shadow'
+  outcome TEXT NOT NULL,                         -- 'primary_hit' | 'primary_fallback' | 'shadow_agree' | 'shadow_disagree'
+  provider TEXT,                                 -- 命中的 provider id (有则记)
+  latency_ms INTEGER,                            -- plugin chain 耗时
+  error TEXT,                                    -- 失败原因 (截断 200)
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_plugin_events_created ON plugin_chain_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_plugin_events_kind ON plugin_chain_events(kind, outcome);
 `);
 
 export const now = () => new Date().toISOString();
