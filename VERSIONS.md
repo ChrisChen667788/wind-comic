@@ -128,6 +128,12 @@
 | **v4.1.3** | 2026-05-21 | `e857495` | 工作流接真 orchestrator:execute `mode:'real'` + runWorkflowReal(能力门 + per-call runner 并发安全)+ studio 真实运行按钮 |
 | **v4.2.3** | 2026-05-21 | `48f6d23` | assets 域异步化:async asset-repo + 项目详情 GET 接通;`npm run pg:smoke` 真连 PG 灰度试跑脚本 |
 
+## 阶段七 · 国际化 (v5.x)
+
+| 版本 | 日期 | commit | 交付 |
+|---|---|---|---|
+| **v5.0** | 2026-05-21 | `(本次)` | i18n:真繁体中文 + 日本語全量翻译 + deep-merge 回退 + normalizeLocale/Accept-Language 解析 + useLocale hook + LocaleSwitcher(挂 dashboard) |
+
 ---
 
 ## 当前技术栈 (v4.2.1)

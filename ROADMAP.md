@@ -1401,13 +1401,27 @@ npm test
 
 ---
 
-## 5. Sprint D+ · 长期愿景(v4.x — v5.x)
+## 4.103 v5.0 — i18n 国际化 (v5.x 线开篇) ✅ 2026-05-21
+
+> **背景**: `lib/i18n.ts` 长期把 zh-TW / ja 用简中占位 (技术债清单挂着). v5.0 补齐真翻译 + 健壮回退 + locale 解析 + 切换器, 正式开 v5.x 国际化线.
+
+- [x] `lib/i18n.ts` — 真 **繁体中文** + **日本語** 全量翻译 (common/nav/create/projects 全 key); `getTranslations` 以简中为底 deep-merge 回退 (未来部分翻译也不崩); `t(locale, path)` 点路径取词 + 回退; `normalizeLocale` (zh-Hant/zh-HK→繁, en*/ja* 识别) + `resolveLocaleFromHeader` (按 Accept-Language q 权重) + `LOCALES` / `LOCALE_LABELS`
+- [x] `hooks/use-locale.ts` — 当前 locale hook: localStorage 持久化 + 同 tab 广播同步 + 设 `<html lang>`; 初值取 localStorage → navigator.language → zh-CN
+- [x] `components/locale-switcher.tsx` — 简/繁/英/日 下拉切换器, 挂 dashboard 顶栏
+- [x] 24 新单测 (4 locale key 完整性 + 真翻译非占位 + normalizeLocale 14 例 + Accept-Language q 权重 + t 回退), 累计 **vitest 1478/1478**
+- ⏭️ 各页 useTranslations 全量接 locale (现仅切换器 + 系统就绪) 留 v5.0.1
+
+---
+
+## 5. Sprint D+ · 长期愿景(v5.x+)
 
 | 方向 | 定位 | 预期周期 |
 |---|---|---|
 | ~~跨项目角色 IP 经济 (Sora-style cameo)~~ → v4.0 ✅ | 用户角色 token 化, 经授权可被其他用户复用, 创作者经济雏形 | ✅ 已交付 |
-| ~~LangGraph / Agent 编排 IDE~~ → v4.1 地基 ✅ (可视化编辑器 v4.1.1) | 用户拖拽自定义 agent 工作流 | 🚧 lib 已交付 |
-| ~~PG 迁移~~ → v4.2 迁移路径 ✅ (cutover v4.2.1+) | SQLite → Postgres 根治并发锁 | 🚧 path 已交付 |
+| ~~LangGraph / Agent 编排 IDE~~ → v4.1.x ✅ (编辑器 + 执行引擎 + 真 orchestrator) | 用户拖拽自定义 agent 工作流 | ✅ 已交付 |
+| ~~PG 迁移~~ → v4.2.x ✅ (path + auth/projects/assets 域 + PG 冒烟) | SQLite → Postgres 根治并发锁 | 🚧 三域已迁, 全量灰度待 PG 实例 |
+| ~~i18n 繁中 / 日文 / 英文~~ → v5.0 ✅ | 4 语言 + 回退 + 切换器 | ✅ 已交付 (全站接线 v5.0.1) |
+| 移动端原生 (Capacitor) | iOS 优先, 安卓次之 | v5.x — 长期 |
 | 端到端 LLM Vision Audit | 成片每镜过 GPT-4o Vision, 0-100 分"画面是否对得上剧本" | v3.x — 2 周 |
 | LangGraph / Agent 编排 IDE | 用户拖拽自定义 agent 工作流, 替换 Director / 并行 Cameo+Editor | v4.x — 1 个月 |
 | PG 迁移 + 多人协作 (Yjs CRDT) | SQLite → Postgres + 多人同编 + 评论 | v4.x — 2 周 |

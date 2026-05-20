@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { GlassCard } from '@/components/ui/glass-card';
 import { Sparkles, FolderKanban, Zap, BookOpen, ArrowRight, Clock, Film, TrendingUp } from 'lucide-react';
+import { LocaleSwitcher } from '@/components/locale-switcher';
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState({ projects: 0, generations: 0, cases: 0, uptime: 0 });
@@ -19,12 +20,18 @@ export default function DashboardPage() {
     <div className="max-w-6xl mx-auto">
       {/* Hero Header */}
       <div className="mb-8 animate-fade-up">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs text-emerald-400 font-medium">系统在线</span>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs text-emerald-400 font-medium">系统在线</span>
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">创作总览</h1>
+            <p className="text-sm text-[var(--muted)]">AI 多智能体协作引擎，从创意到成片的一站式漫剧生产线</p>
+          </div>
+          {/* v5.0: 语言切换 */}
+          <LocaleSwitcher />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">创作总览</h1>
-        <p className="text-sm text-[var(--muted)]">AI 多智能体协作引擎，从创意到成片的一站式漫剧生产线</p>
       </div>
 
       {/* Quick Action Banner */}
