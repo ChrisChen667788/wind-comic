@@ -1336,7 +1336,14 @@ npm test
 ### v4.1 总验收 ✅
 - ✅ 19 新单测 (校验全分支 + topo 分层/环 + 持久化 owner 校验), 累计 **vitest 1387/1387**
 - ✅ tsc 0 错误, 0 production 新依赖
-- ⏭️ 拖拽可视化编辑器 + 接 orchestrator 按 DAG 执行 留 v4.1.1 (执行引擎是独立大头)
+
+### v4.1.1 · 执行引擎 ✅ 2026-05-21
+- [x] `lib/workflow-engine.ts` `executeWorkflow(graph, opts)` — 按 topoSort 分层执行 (层间串行 / 层内 Promise.all 并行), 每节点跑 kind 对应 runner, 上游 outputs 注入下游 context; 依赖坏 → skip; 失败 abort (停整条) 或 continue (跳下游其余照跑); onStep 回调 + AbortSignal
+- [x] 可插拔 runner 注册表 `registerStepRunner` / `getStepRunner` / `clearStepRunners` — 引擎与具体步骤解耦
+- [x] `lib/workflow-builtins.ts` — 9 内置 dry-run runner (回显 kind/produces/依赖), 验证编排跑通; 真接 orchestrator 是清晰扩展点 (v4.1.2)
+- [x] `app/api/workflows/[id]/execute` — POST dry-run 执行, 返每步 status/output/耗时
+- [x] 11 新单测 (拓扑顺序 / 数据流注入 / 并行同层 / 缺 runner / abort / continue 跳下游 / 回调 / dry-run 端到端), 累计 **vitest 1421/1421**
+- ⏭️ 拖拽可视化编辑器 + 把 dry-run runner 换成真 orchestrator 适配器 留 v4.1.2
 
 ---
 
