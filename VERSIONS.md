@@ -1,0 +1,156 @@
+# Wind Comic · 完整版本历史 (VERSIONS)
+
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (v4.2.1)
+> 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
+>
+> 截至 v4.2.1:**vitest 1432/1432 通过,tsc 0 错误**。
+>
+> 仓库:https://github.com/ChrisChen667788/wind-comic
+
+---
+
+## 版本总览表
+
+| 阶段 | 版本区间 | 主题 |
+|---|---|---|
+| 公开发布 + 影院化 UI | v2.12 – v2.13.5 | 首发、Cinema 设计语言、安全闸门、Stripe 订阅 |
+| 引擎用满 + 质量 | v2.14 – v2.19 | S2V/FLF/长镜头、4K、用量监控、模板、prompt 质量、稳定性收尾 |
+| 漫剧核心 + 协作 | v2.20 – v3.1.3 | 风格圣经、节奏 audit、DNA、Yjs 实时协作、Cinema 多轨时间线 |
+| 引擎插件化 | v3.2 P1 – P4 | image/video/tts provider 注册表 + 灰度切换 + 遥测 |
+| 创作纵深 | v3.3 – v3.5 (+.1) | 时间线终局、成片 Vision 质检、多平台导出 |
+| 平台化 | v4.0 – v4.2 (+.1) | Cameo IP 经济、Agent 编排引擎、Postgres 迁移 |
+
+---
+
+## 阶段零 · 公开发布前 (v2.10 – v2.11)
+
+公开发布前的内部迭代(详见 ROADMAP §0):多智能体流水线主体(导演/编剧/角色/场景/分镜/视频/剪辑/制片 8 agent)、资产持久化、邀请码鉴权、Cameo 主角脸锁定 (P0)。
+
+---
+
+## 阶段一 · 公开发布 + 影院化 UI (v2.12 – v2.13.5)
+
+| 版本 | 日期 | commit | 交付 |
+|---|---|---|---|
+| **v2.12.0** | 2026-04-26 | `33748bb` | 🎉 Wind Comic 首个公开版本 |
+| v2.12 (screenshots) | 2026-04-26 | `d81cfb0` | 6 张真实 UI 截图替换 AI mockup |
+| v2.12 multi-char | 2026-04-26 | `203e461` | 多角色锁脸 Phase 1 + Hailuo-2.3-Fast 视频兜底 |
+| v2.12 fix | 2026-04-26 | `df9e001` | Hailuo-Fast 升到 Kling 之上 |
+| v2.12 Phase 2 | 2026-04-26 | `8b0d531` | 每镜多角色 cref 路由 |
+| Sprint A (Cameo) | 2026-04-27 | `7edab04` `b89aaf9` `8f658e6` `4b48188` | 每角色独立评分、分镜仪表盘柱状图、上传脸→6维特征、跨项目 Character Bible |
+| Sprint B (剪辑) | 2026-04-27 | `824fa3e` | j-cut/l-cut + 字幕动效 + beat 对齐 + 片头片尾 |
+| Sprint C.1 (U2V) | 2026-04-27 | `e3064cc` | 单图→视频独立工具 |
+| Sprint C.2 (计费) | 2026-04-27 | `d28ed72` | Stripe 4 档订阅端到端 |
+| **v2.13** | 2026-05-02 | `e38d2df` `8c20d9e` | Cinema 影院风重设计(区别于同类),剧本误判 + 视频空态修复 |
+| v2.13.1 | 2026-05-02 | `a00389c` | Cinema 主题铺到项目页 + 创建页 |
+| v2.13.2 | 2026-05-03 | `754b7c2` | 滚动/JSON 修复 + Cinema 铺到 CameoPanel/列表 |
+| v2.13.3 | 2026-05-03 | `b2c1d1e` | Tremor 风 Cameo 仪表盘 + Aceternity 特效(0 新依赖) |
+| **v2.13.4** | 2026-05-03 | `61c8067` `d8bb3fa` `397aa4a` | 🔒 Prompt 安全闸门 + scope 感知;MovingBorder/TextGenerate/Spotlight;评分甜甜圈 + 趋势线 |
+| v2.13.5 | 2026-05-04 | `6bf814e` `d09a4e6` `ba4d774` | 3 个流水线 bug 修复 + Radix Tabs/Tooltip/Popover + 竞品差距分析 |
+
+---
+
+## 阶段二 · 引擎用满 + 质量 + 稳定性 (v2.14 – v2.19)
+
+| 版本 | 日期 | commit | 交付 |
+|---|---|---|---|
+| **v2.14 P0** | 2026-05-04 | `580e4bf` | "已有引擎用满":S2V 多主体 + 镜头语言 + 首尾帧融合 + 5/6/10/15s 时长路由 |
+| v2.14 P1 | 2026-05-04 | `537c489` | 创建页镜头默认 + BGM 时长同步 + FLF 集成测试 |
+| **v2.15 P0** | 2026-05-09 | `0997755` | G9 剧本草稿对比 + G8 风格 LoRA 库 |
+| **v2.16 P0** | 2026-05-09 | `25f7486` | 10s/15s 视频计费 gate + 4K mp4 导出 (ffmpeg scale) |
+| v2.16 P1 | 2026-05-09 | `2fd4c49` | 按幕 BGM + 4K Kling Master 重生 + 镜头工坊 tab |
+| **v2.17 P0** | 2026-05-10 | `00f6360` | API 用量追踪 + 按 provider 配额耗尽告警 |
+| **v2.18 P0** | 2026-05-10 | `6bde0f4` | 6 新模板 + 角色/场景并行 + LLM idea normalizer |
+| v2.18 P1 | 2026-05-10 | `7296b99` | 模板库(搜索/筛选/克隆/个人)+ 试拍 1 镜预览 |
+| v2.18 P2 | 2026-05-10 | `da5baa9` | 预览限流 + 历史 + 模板分享链接(创作者经济雏形) |
+| v2.18.1–.6 | 2026-05-10~16 | `32179d3`…`b9d34ba` | 一连串稳定性修复:JSON 解析、maxTokens 调优、reasoning 模型支持、prompt 瘦身 |
+| **v2.19** | 2026-05-16 | `b8ff4e1` | 收尾:prompt slim + 试拍→第1镜复用 + 分享 OG/过期 + 模板 JSON 导入导出 + 图片兜底 |
+
+---
+
+## 阶段三 · 漫剧核心 + 实时协作 + Cinema 时间线 (v2.20 – v3.1.3)
+
+| 版本 | 日期 | commit | 交付 |
+|---|---|---|---|
+| **v3.0 P0.1** | 2026-05-17 | `fde1708` | 协作地基:评论 + @提及 + 通知 |
+| **v3.0 P0.2** | 2026-05-17 | `95bf241` | Yjs 实时层:WS server + 持久化 + presence |
+| **v2.20** | 2026-05-17 | `06be8ce` | 漫剧核心质量:全局风格圣经帧 + 短剧 tropes + 多图参考路由 |
+| **v2.21** | 2026-05-17 | `83db38d` | 节奏/反转密度 audit + Character DNA 数字签名 + Lipsync scaffold + 节奏图 |
+| v2.22 | 2026-05-17 | `1a91491` | 成片 mp4 404 + Minimax I2V-01 EOL + 图中中文修复 |
+| **v2.23** | 2026-05-17 | `dc4c77d` | 风格圣经 Vision 审计 + 单镜重生 + DNA 命中率监控 + 对话正反打 |
+| **v2.24 + v3.x + v3.1** | 2026-05-18 | `09d61b5` | 大批量:图表趋势 + 重生支持上传 + 协作 P0.3 + Cinema Timeline MVP + Lipsync providers |
+| **v3.1.1** | 2026-05-18 | `3a2aa26` | 多轨道 Cinema 时间线 + 虚拟滚动 + 项目协作邀请 |
+| v3.1.2 | 2026-05-18 | `871ef62` | 时间线打磨:拖动语义 + resize 手柄 + 波形 + Yjs 光标 |
+| **v3.1.3** | 2026-05-18~19 | `0d4ea69` `3bc0df5` `da51f87` | 真 BGM 波形 + 段碰撞 snap + 跨 tab 光标 + Y.Map 锁 + LLM provider 文档 + README 大改 + 真实截图 |
+
+---
+
+## 阶段四 · 引擎插件化 (v3.2 P1 – P4)
+
+| 版本 | 日期 | commit | 交付 |
+|---|---|---|---|
+| **v3.2 P1** | 2026-05-19 | `bcc3b37` | ImageProvider 接口 + 注册表(优先级链 + fallback)+ 营销截图/GIF/ModelScope 工具链 |
+| **v3.2 P2** | 2026-05-19 | `b115465` | VideoProvider + TTSProvider 注册表(三套 plugin 模板一致) |
+| **v3.2 P3** | 2026-05-19 | `7addd97` | Plugin 灰度开关 (off/shadow/primary) + 跨幕 snap + 多 mp3 波形 + GIF fuzz |
+| **v3.2 P4** | 2026-05-20 | `99d1adb` | video/tts 主路径接 plugin chain + SQLite 遥测 + admin 面板 + 切换 runbook |
+
+> 设计核心:`PLUGIN_CHAIN_MODE` env 一键灰度,默认 `off` 行为与老版完全一致,出问题改一个变量即回滚。
+
+---
+
+## 阶段五 · 创作纵深 (v3.3 – v3.5,含 .1 UI 接线)
+
+| 版本 | 日期 | commit | 交付 |
+|---|---|---|---|
+| **v3.3** | 2026-05-20 | `24ff3fb` | Cinema 时间线终局 lib:ripple 后段连动 + 左/右/中对齐 hint + undo/redo 栈 |
+| **v3.4** | 2026-05-20 | `d8e2099` | 端到端 LLM Vision Audit:每镜成片关键帧对剧本打 0–100 分 |
+| **v3.5** | 2026-05-20 | `41f0eee` | 导出/分发:横竖屏转换 + 5 平台字幕预设 + webp/avif 动图 |
+| **v3.3.1** | 2026-05-20 | `d6dddee` | 时间线 lib 接进 UI:Ctrl+Z/Ctrl+Shift+Z + 联动开关 + 拖动对齐参考线 |
+| **v3.4.1** | 2026-05-20 | `6ba452d` | Vision audit 接项目页:运行质检 endpoint + "成片质检" tab |
+| **v3.5.1** | 2026-05-20 | `36e677c` | 平台导出接 composer + 抖音/快手/小红书/YT/方形 一键导出 UI |
+
+---
+
+## 阶段六 · 平台化 (v4.0 – v4.2,含 .1 深化)
+
+| 版本 | 日期 | commit | 交付 |
+|---|---|---|---|
+| **v4.0** | 2026-05-20 | `ad69cd5` | Cameo IP 经济:角色 token 化 + 授权模型(owner/open/granted/pending/denied)+ grant 流程 + 市场页 |
+| **v4.1** | 2026-05-20 | `66c629d` | Agent 编排工作流:WorkflowGraph DAG + 校验(环/悬空/重复)+ topoSort 并行分层 + 持久化 |
+| **v4.2** | 2026-05-20 | `f532347` | Postgres 迁移路径:SQLite→PG 方言转换(占位符/DDL/upsert)+ schema 导出 + cutover runbook |
+| **v4.0.1** | 2026-05-21 | `2b10deb` | Cameo 复用闭环:授权角色一键导入自己角色库(带出处 + 幂等),接进创作流程 |
+| 🐞 collab fix | 2026-05-21 | `30b240c` | 修 `useYjs` 每 render 返新对象导致项目页 "Maximum update depth" 死循环 |
+| **v4.1.1** | 2026-05-21 | `85c1e80` | 工作流执行引擎:topoSort 分层执行(层间串行/层内并行)+ 可插拔 step runner + 失败 abort/continue + dry-run builtins |
+| **v4.2.1** | 2026-05-21 | `77747ad` | PG cutover 第一模块:DbDriver 抽象 + SQLite/PG 双驱动 + async user-repo + login 路由接通(auth 域试水) |
+
+---
+
+## 当前技术栈 (v4.2.1)
+
+| 层 | 选型 |
+|---|---|
+| 框架 | Next.js 16.2.1 + Turbopack + React 19 + Tailwind v4 |
+| 测试 | Vitest 4.1.0(forks singleFork + retry=1),**1432/1432** |
+| LLM | claude-sonnet-4 via vectorengine.ai(可经 `docs/llm-providers.md` 换任意 OpenAI 兼容 API) |
+| 图像 | MJ → Minimax → flux.1-kontext → fal/ComfyUI(v3.2 起插件化注册表) |
+| 视频 | Veo / Minimax Hailuo / Kling(v3.2 起插件化) |
+| TTS / 音乐 | Minimax speech-2.8-hd / music-2.6(v3.2 起插件化) |
+| 引擎灰度 | `PLUGIN_CHAIN_MODE` off/shadow/primary + SQLite 遥测 |
+| 成片质检 | LLM Vision Audit 每镜对剧本打分 |
+| 导出 | 横竖屏 + 平台字幕 + webp/avif |
+| 创作者经济 | Cameo IP token 化 + 授权复用市场 |
+| Agent 编排 | 自定义 DAG 工作流 + 执行引擎 |
+| 持久化 | SQLite(better-sqlite3),DbDriver 抽象就绪,Postgres 迁移进行中 |
+| 协作 | Yjs CRDT(WS :1234)+ awareness presence + 评论/通知 |
+
+---
+
+## 后续留尾 (v4.x.2+)
+
+- **v4.1.2** Agent 编排拖拽可视化编辑器 + dry-run runner 换真 orchestrator 适配器
+- **v4.2.2+** projects / assets / 协作域照 auth 域异步化,接 PgDriver 真连 PG 灰度
+- **v5.x** 移动端原生 (Capacitor)、i18n 繁中/日/英、LangGraph 深度编排
+
+---
+
+*本文档由 v4.2.1 收尾时自动整理。后续版本请在对应阶段追加行。*
