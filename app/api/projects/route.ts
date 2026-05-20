@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { nanoid } from 'nanoid';
-import { db, now } from '@/lib/db';
+import { db } from '@/lib/db';
 import { getUserFromRequest } from '../auth/lib';
+import { createProject } from '@/lib/repos/project-repo';
 
 export async function GET(request: Request) {
   const payload = getUserFromRequest(request);
@@ -55,11 +55,12 @@ export async function POST(request: Request) {
   const { title, description, covers } = body;
   if (!title) return NextResponse.json({ message: 'Missing title' }, { status: 400 });
 
-  const id = nanoid();
-  const ts = now();
-  db.prepare(`INSERT INTO projects (id, user_id, title, description, cover_urls, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-    id, payload.sub, title, description || '', JSON.stringify(covers || []), 'draft', ts, ts
-  );
+  // v4.2.2: 走 async project-repo (DbDriver), SQLite/PG 双驱动. 行为不变.
+  const p = await createProject({ userId: payload.sub, title, description: description || '', coverUrls: covers || [] });
 
-  return NextResponse.json({ id, title, description: description || '', covers: covers || [], status: 'draft', createdAt: ts, updatedAt: ts }, { status: 201 });
+  return NextResponse.json({
+    id: p.id, title: p.title, description: p.description || '',
+    covers: JSON.parse(p.cover_urls || '[]'), status: p.status,
+    createdAt: p.created_at, updatedAt: p.updated_at,
+  }, { status: 201 });
 }

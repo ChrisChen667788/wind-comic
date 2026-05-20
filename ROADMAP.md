@@ -1378,7 +1378,12 @@ npm test
 - [x] `app/api/auth/login` 接 `findUserByEmail` — 真路由跑通双驱动, 行为不变 (curl: 正确 200 / 错误 401)
 - [x] `pg` 用变量 specifier + `@vite-ignore`/`webpackIgnore` 避开打包器静态解析, 保持 0 硬依赖
 - [x] 11 新单测 (工厂选型 / SqliteDriver CRUD / user-repo 全流程 / 重复邮箱拒), 累计 **vitest 1432/1432**
-- ⏭️ projects / assets / 协作域照此异步化 + 接 PgDriver 真连 PG 灰度, 留 v4.2.2+
+
+### v4.2.2 · projects 域异步化 ✅ 2026-05-21
+- [x] `lib/repos/project-repo.ts` — 项目读写 async repo 走 DbDriver:get/getOwned/listByUser/create/updateStatus/updateMeta/delete, 全带 owner 校验, 统一 `?` 占位符两边跑
+- [x] `app/api/projects` POST 接 `createProject` — 真路由跑通双驱动 (curl 验证 201, 新 proj-id 格式)
+- [x] 5 新单测 (CRUD 全流程 + 归属校验 + owner-only 改/删), 累计 **vitest 1443/1443**
+- ⏭️ projects GET (含 latestPolish 子查询) + assets / 协作域 + 接 PgDriver 真连 PG 灰度, 留 v4.2.3+
 
 ---
 
