@@ -1332,12 +1332,34 @@ npm test
 
 ---
 
-## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
+## 4.102 v4.2 — Postgres 迁移路径 (方言转换 + schema 导出) ✅ 2026-05-20
+
+> **背景**: 全站 better-sqlite3 单文件, 并发写偶发 `database is locked`. 上量必迁 PG. 迁移最大工作量不是搬数据, 是 ~250 处同步 `db.prepare().get()` 改 PG 异步 (= cutover 本身, 留 v4.2.1+). v4.2 先交付**方言转换 + schema 导出 + runbook** (可测地基).
+
+### 核心 (lib/db-dialect.ts)
+- [x] `sqliteParamsToPg` — `?` → `$1,$2,...` (跳过字符串字面量内的 `?`, 处理转义 `''`)
+- [x] `translateDDL` — BLOB→BYTEA / DATETIME→TEXT / INTEGER PK AUTOINCREMENT→BIGSERIAL / 反引号→双引号 (TEXT PK / REAL / IF NOT EXISTS 等 PG 原生兼容不动)
+- [x] `translateUpsert` — `INSERT OR REPLACE`→`ON CONFLICT (...) DO UPDATE SET ... = EXCLUDED.*`, 单列退化 DO NOTHING
+- [x] `isSqliteOnlyStatement` — 标 PRAGMA/VACUUM 跳过
+
+### schema 导出 + runbook
+- [x] `lib/db-schema-export.ts` — `exportPostgresSchema` 读活 SQLite schema 输出 PG 建表脚本; `listUserTables` 列全表
+- [x] `docs/postgres-migration.md` — 同步/异步难点分析 + 三种迁移策略 (推荐分模块异步化) + cutover 7 步 + 注意事项 (时间戳/布尔/BLOB/并发)
+
+### v4.2 总验收 ✅
+- ✅ 19 新单测 (占位符/DDL/upsert 翻译 + 活 schema 导出), 累计 **vitest 1406/1406**
+- ✅ tsc 0 错误, 0 production 新依赖
+- ⏭️ DB driver 抽象层 + 250 调用点异步化 + 数据搬迁 = cutover 本身, 留 v4.2.1+ 分模块推进
+
+---
+
+## 5. Sprint D+ · 长期愿景(v4.x — v5.x)
 
 | 方向 | 定位 | 预期周期 |
 |---|---|---|
 | ~~跨项目角色 IP 经济 (Sora-style cameo)~~ → v4.0 ✅ | 用户角色 token 化, 经授权可被其他用户复用, 创作者经济雏形 | ✅ 已交付 |
 | ~~LangGraph / Agent 编排 IDE~~ → v4.1 地基 ✅ (可视化编辑器 v4.1.1) | 用户拖拽自定义 agent 工作流 | 🚧 lib 已交付 |
+| ~~PG 迁移~~ → v4.2 迁移路径 ✅ (cutover v4.2.1+) | SQLite → Postgres 根治并发锁 | 🚧 path 已交付 |
 | 端到端 LLM Vision Audit | 成片每镜过 GPT-4o Vision, 0-100 分"画面是否对得上剧本" | v3.x — 2 周 |
 | LangGraph / Agent 编排 IDE | 用户拖拽自定义 agent 工作流, 替换 Director / 并行 Cameo+Editor | v4.x — 1 个月 |
 | PG 迁移 + 多人协作 (Yjs CRDT) | SQLite → Postgres + 多人同编 + 评论 | v4.x — 2 周 |
