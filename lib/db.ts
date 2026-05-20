@@ -283,6 +283,10 @@ addColumnIfMissing('users', 'subscription_tier', "TEXT NOT NULL DEFAULT 'free'")
 addColumnIfMissing('users', 'subscription_status', 'TEXT');
 addColumnIfMissing('users', 'stripe_customer_id', 'TEXT');
 
+// v4.0.1: Cameo 复用闭环 — 从别人的 IP token 导入到自己 character_library 的角色,
+// 记来源 token (出处/版税归属), 同一用户同一 token 只导一次 (dedup).
+addColumnIfMissing('character_library', 'source_token_id', 'TEXT');
+
 // v2.11 #4 (2026-04-21): Writer-Editor 闭环 —— 成片后让 Editor 用 vision LLM
 // 对最终视频打 3 维分(连贯度/光影/脸相似),存进 project_quality_scores。
 // 下一次 Writer 生成台词时会读最近一次评分,对"分<70 的维度"注入针对性 cue

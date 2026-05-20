@@ -253,3 +253,54 @@ export function recordTokenUse(tokenId: string, userId: string): boolean {
   }
   return true;
 }
+
+// ─── v4.0.1: 复用闭环 — 把授权角色导入自己的 character_library ──────────────────
+
+export interface ImportCameoResult {
+  ok: boolean;
+  characterId?: string;
+  alreadyImported?: boolean;
+  error?: string;
+}
+
+/**
+ * 把一个有权访问的 cameo token 对应的角色, 复制进 userId 自己的 character_library,
+ * 之后就能像普通角色一样在创作流程里当参考图用 (闭环).
+ *
+ *   - 无访问权 → { ok:false }
+ *   - 源角色不存在 → { ok:false }
+ *   - 已导入过 (同 user + 同 source_token) → 返回现有 id, alreadyImported=true, 不重复计数
+ *   - 首次导入 → 复制 + recordTokenUse + 返回新 id
+ */
+export function importCameoToLibrary(tokenId: string, userId: string): ImportCameoResult {
+  const { level, token } = checkAccess(tokenId, userId);
+  if (!token) return { ok: false, error: 'token 不存在' };
+  if (!accessCanReuse(level)) return { ok: false, error: '无复用权限 (需作者授权)' };
+
+  // dedup: 同一用户同一 token 已导入过就直接返回
+  const existing = db
+    .prepare(`SELECT id FROM character_library WHERE user_id=? AND source_token_id=?`)
+    .get(userId, tokenId) as { id: string } | undefined;
+  if (existing) return { ok: true, characterId: existing.id, alreadyImported: true };
+
+  // 读源角色
+  const src = db.prepare(`SELECT * FROM character_library WHERE id=?`).get(token.characterId) as any;
+  if (!src) return { ok: false, error: '源角色已被删除' };
+
+  const id = nanoid();
+  const ts = now();
+  db.prepare(
+    `INSERT INTO character_library
+      (id, user_id, name, description, appearance, visual_tags, image_urls, style_keywords, usage_count, source_token_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+  ).run(
+    id, userId,
+    `${src.name} (联名)`,
+    src.description || '', src.appearance || '',
+    src.visual_tags || '[]', src.image_urls || '[]', src.style_keywords || '',
+    tokenId, ts, ts,
+  );
+
+  recordTokenUse(tokenId, userId);
+  return { ok: true, characterId: id, alreadyImported: false };
+}

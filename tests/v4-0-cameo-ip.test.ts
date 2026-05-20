@@ -19,7 +19,9 @@ import {
   listPendingGrantsForOwner,
   checkAccess,
   recordTokenUse,
+  importCameoToLibrary,
 } from '@/lib/cameo-ip';
+import { db, now } from '@/lib/db';
 
 // ─── 纯权限逻辑 ───────────────────────────────────────────────────────────
 
@@ -190,5 +192,82 @@ describe('v4.0 · grant flow', () => {
     const t = issueIpToken({ characterId: 'char-' + nanoid(), ownerId: 'owner-x', name: 'X', visibility: 'private', license: 'view' });
     expect(recordTokenUse(t.id, 'random')).toBe(false);
     expect(getIpToken(t.id)?.useCount).toBe(0);
+  });
+});
+
+// ─── v4.0.1 复用闭环: importCameoToLibrary ──────────────────────────────────
+
+describe('v4.0.1 · importCameoToLibrary', () => {
+  // character_library.user_id 有 FK → users(id), 先建真用户
+  function seedUser(prefix = 'u'): string {
+    const id = prefix + '-' + nanoid();
+    const ts = now();
+    db.prepare(
+      `INSERT INTO users (id, email, password_hash, name, role, created_at) VALUES (?, ?, ?, ?, 'user', ?)`,
+    ).run(id, `${id}@test.local`, 'x', id, ts);
+    return id;
+  }
+  // 建一个真的源角色到 character_library (owner 必须是真用户)
+  function seedCharacter(ownerId: string, name = '源角色'): string {
+    const id = 'char-' + nanoid();
+    const ts = now();
+    db.prepare(
+      `INSERT INTO character_library (id, user_id, name, description, appearance, visual_tags, image_urls, style_keywords, usage_count, created_at, updated_at)
+       VALUES (?, ?, ?, '', '美少女', '[]', '["https://x/a.png"]', 'anime', 0, ?, ?)`,
+    ).run(id, ownerId, name, ts, ts);
+    return id;
+  }
+
+  it('imports a public-remix cameo into grantee library + records use', () => {
+    const owner = seedUser('owner-imp');
+    const grantee = seedUser('grantee-imp');
+    const charId = seedCharacter(owner, '林晚');
+    const token = issueIpToken({ characterId: charId, ownerId: owner, name: '林晚', visibility: 'public', license: 'remix' });
+
+    const r = importCameoToLibrary(token.id, grantee);
+    expect(r.ok).toBe(true);
+    expect(r.alreadyImported).toBe(false);
+    expect(r.characterId).toBeTruthy();
+
+    // 新角色归属 grantee, 名字带联名, 带 source_token_id
+    const copy = db.prepare(`SELECT * FROM character_library WHERE id=?`).get(r.characterId) as any;
+    expect(copy.user_id).toBe(grantee);
+    expect(copy.name).toContain('联名');
+    expect(copy.source_token_id).toBe(token.id);
+    expect(JSON.parse(copy.image_urls)).toEqual(['https://x/a.png']);
+
+    // 复用计数 +1
+    expect(getIpToken(token.id)?.useCount).toBe(1);
+  });
+
+  it('dedup: second import returns same id, no double count', () => {
+    const owner = seedUser('owner-dd');
+    const grantee = seedUser('grantee-dd');
+    const charId = seedCharacter(owner);
+    const token = issueIpToken({ characterId: charId, ownerId: owner, name: 'D', visibility: 'public', license: 'remix' });
+    const r1 = importCameoToLibrary(token.id, grantee);
+    const r2 = importCameoToLibrary(token.id, grantee);
+    expect(r2.characterId).toBe(r1.characterId);
+    expect(r2.alreadyImported).toBe(true);
+    expect(getIpToken(token.id)?.useCount).toBe(1); // 只计一次
+  });
+
+  it('denies import without access', () => {
+    const owner = seedUser('owner-na');
+    const charId = seedCharacter(owner);
+    const token = issueIpToken({ characterId: charId, ownerId: owner, name: 'NA', visibility: 'private', license: 'view' });
+    const r = importCameoToLibrary(token.id, seedUser('stranger'));
+    expect(r.ok).toBe(false);
+  });
+
+  it('granted user can import after approval', () => {
+    const owner = seedUser('owner-ga');
+    const grantee = seedUser('grantee-ga');
+    const charId = seedCharacter(owner);
+    const token = issueIpToken({ characterId: charId, ownerId: owner, name: 'GA', visibility: 'unlisted', license: 'view' });
+    const g = requestGrant(token.id, grantee);
+    expect(importCameoToLibrary(token.id, grantee).ok).toBe(false); // pending
+    decideGrant(g.id, owner, true);
+    expect(importCameoToLibrary(token.id, grantee).ok).toBe(true);  // approved
   });
 });

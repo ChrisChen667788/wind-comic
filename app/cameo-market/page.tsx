@@ -44,7 +44,7 @@ export default function CameoMarketPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const requestGrant = useCallback(async (tokenId: string) => {
+  const callAction = useCallback(async (tokenId: string, action: 'request-grant' | 'import') => {
     setRequesting(tokenId);
     setMsg(null);
     try {
@@ -52,13 +52,17 @@ export default function CameoMarketPage() {
       const res = await fetch(`/api/cameo-ip/${encodeURIComponent(tokenId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ action: 'request-grant', message: '希望在我的项目里复用这个角色' }),
+        body: JSON.stringify({ action, message: '希望在我的项目里复用这个角色' }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
-      setMsg(body.grant?.status === 'pending' ? '已提交申请, 等作者审批' : '申请已记录');
+      if (action === 'import') {
+        setMsg(body.alreadyImported ? '该角色已在你的角色库中, 创作时可直接选用' : '已导入到你的角色库! 新建项目时即可选用此角色');
+      } else {
+        setMsg(body.grant?.status === 'pending' ? '已提交申请, 等作者审批' : '申请已记录');
+      }
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '申请失败');
+      setMsg(e instanceof Error ? e.message : '操作失败');
     } finally {
       setRequesting(null);
     }
@@ -112,16 +116,25 @@ export default function CameoMarketPage() {
                     <span>{t.royaltyCny > 0 ? `¥${t.royaltyCny}/次` : '免费'}</span>
                     <span>· 已复用 {t.useCount}</span>
                   </div>
-                  <button
-                    onClick={() => requestGrant(t.id)}
-                    disabled={requesting === t.id}
-                    className="mt-2 w-full cinema-btn !py-1.5 !text-[11px] inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  >
-                    {requesting === t.id
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : open ? <Check className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                    {open ? '可直接复用' : '申请授权'}
-                  </button>
+                  {open ? (
+                    <button
+                      onClick={() => callAction(t.id, 'import')}
+                      disabled={requesting === t.id}
+                      className="mt-2 w-full cinema-btn cinema-btn-primary !py-1.5 !text-[11px] inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {requesting === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      导入到角色库
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => callAction(t.id, 'request-grant')}
+                      disabled={requesting === t.id}
+                      className="mt-2 w-full cinema-btn !py-1.5 !text-[11px] inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {requesting === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Lock className="w-3 h-3" />}
+                      申请授权
+                    </button>
+                  )}
                 </div>
               </div>
             );

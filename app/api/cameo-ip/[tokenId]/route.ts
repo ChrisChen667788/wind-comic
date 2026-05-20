@@ -9,7 +9,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '../../auth/lib';
-import { getIpToken, checkAccess, requestGrant, revokeIpToken, recordTokenUse } from '@/lib/cameo-ip';
+import { getIpToken, checkAccess, requestGrant, revokeIpToken, recordTokenUse, importCameoToLibrary } from '@/lib/cameo-ip';
 
 export const runtime = 'nodejs';
 
@@ -37,6 +37,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       const ok = recordTokenUse(tokenId, payload.sub);
       if (!ok) return NextResponse.json({ error: '无复用权限' }, { status: 403 });
       return NextResponse.json({ ok: true });
+    }
+    if (action === 'import') {
+      // v4.0.1: 把授权角色导入自己的 character_library, 闭环到创作流程
+      const r = importCameoToLibrary(tokenId, payload.sub);
+      if (!r.ok) return NextResponse.json({ error: r.error || '导入失败' }, { status: 403 });
+      return NextResponse.json({ ok: true, characterId: r.characterId, alreadyImported: !!r.alreadyImported });
     }
     // default: 申请授权
     const grant = requestGrant(tokenId, payload.sub, typeof body?.message === 'string' ? body.message : '');

@@ -1308,6 +1308,14 @@ npm test
 - ✅ tsc 0 错误, 0 production 新依赖
 - ✅ 权限默认收紧 (private + view), 撤销/审批严格校验 owner 身份
 
+### v4.0.1 · 复用闭环接进创作流程 ✅ 2026-05-21
+- [x] `lib/cameo-ip.ts` `importCameoToLibrary(tokenId, userId)` — 校验访问权 → 复制源角色进 grantee 的 character_library (名字带"(联名)" + source_token_id 出处) → recordTokenUse. 同用户同 token 幂等 (dedup, 不重复计数)
+- [x] `lib/db.ts` — character_library 加 `source_token_id` 列 (出处/版税归属)
+- [x] `app/api/cameo-ip/[tokenId]` 加 `action:'import'` → 闭环到角色库 (之后创作选角色时直接可用)
+- [x] `app/cameo-market` — 可二创/可商用角色显"导入到角色库" (一键), 仅查看的显"申请授权"
+- [x] 4 新单测 (导入/dedup/无权拒/批准后可导), 累计 **vitest 1410/1410**
+- 🐞 顺带修: `useYjs` 每 render 返新对象导致项目页 "Maximum update depth exceeded" 死循环 (commit `30b240c`)
+
 ---
 
 ## 4.101 v4.1 — Agent 编排工作流 (拖拽 IDE 地基) ✅ 2026-05-20
