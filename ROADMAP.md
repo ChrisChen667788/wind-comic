@@ -1265,7 +1265,12 @@ npm test
 - ✅ 25 新单测 (export 12 + subtitle 13), 累计 **vitest 1346/1346**
 - ✅ tsc 0 错误, 0 production 新依赖
 - ✅ webp/avif 能力落 lib/video-export, services/video-composer 可直接消费做用户导出; 内部营销 GIF 脚本保持 GIF-only 避免 .mjs/.ts 重复
-- ⏭️ services/video-composer 接 buildAspectFilter + buildSubtitlesFilter 出多平台成片 + 导出 UI 选平台 留 v3.5.1
+
+### v3.5.1 · UI 接线 ✅ 2026-05-20
+- [x] `services/video-export-service.ts` — `exportForPlatform` additive 后处理 (不动 composeVideo 主流程): buildAspectFilter 横竖屏 + buildSubtitlesFilter 平台字幕 → ffmpeg 重编码出 mp4
+- [x] `app/api/projects/[id]/export-platform` — POST 读 final_video 资产解析本地路径, 跑 exportForPlatform, 返 serve-file URL
+- [x] `components/project/platform-export-dropdown.tsx` — 抖音/快手/小红书/YouTube/方形 5 预设一键导出, 挂项目页 nav
+- [x] tsc 0 错, vitest 1346/1346
 
 ---
 

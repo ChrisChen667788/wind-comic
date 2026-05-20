@@ -22,7 +22,7 @@ import { execSync } from 'child_process';
 // Turbopack 在 server bundle 时会把 ffmpeg-static 的路径重写为
 // "/ROOT/node_modules/ffmpeg-static/ffmpeg"（虚拟路径），导致 ENOENT。
 // 这里通过多种策略找到真实的 ffmpeg 二进制路径。
-function resolveFFmpegPath(): string {
+export function resolveFFmpegPath(): string {
   // 1. ffmpeg-static 默认导出（非 Turbopack 时正常工作）
   if (ffmpegPath && typeof ffmpegPath === 'string' && fs.existsSync(ffmpegPath)) {
     return ffmpegPath;

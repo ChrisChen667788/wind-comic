@@ -15,6 +15,7 @@ import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
 import { Eyebrow, TimecodeChip, FilmStripDivider } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
+import { PlatformExportDropdown } from '@/components/project/platform-export-dropdown';
 import { ShotWorkshopTab } from '@/components/project/shot-workshop-tab';
 import { CommentThread } from '@/components/collab/comment-thread';
 import { PresenceAvatars } from '@/components/collab/presence-avatars';
@@ -250,6 +251,8 @@ export default function ProjectDetailPage() {
             )}
             {/* v2.16 P0.2: 4K 导出 dropdown — 点开选分辨率, plan-gate 在 route 层最终校验 */}
             <ExportResolutionDropdown projectId={id} />
+            {/* v3.5.1: 平台导出 — 抖音/快手/小红书 横竖屏 + 平台字幕 */}
+            <PlatformExportDropdown projectId={id} />
           </div>
         </div>
       </nav>
