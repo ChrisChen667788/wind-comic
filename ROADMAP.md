@@ -1390,7 +1390,14 @@ npm test
 - [x] `lib/repos/project-repo.ts` — 项目读写 async repo 走 DbDriver:get/getOwned/listByUser/create/updateStatus/updateMeta/delete, 全带 owner 校验, 统一 `?` 占位符两边跑
 - [x] `app/api/projects` POST 接 `createProject` — 真路由跑通双驱动 (curl 验证 201, 新 proj-id 格式)
 - [x] 5 新单测 (CRUD 全流程 + 归属校验 + owner-only 改/删), 累计 **vitest 1443/1443**
-- ⏭️ projects GET (含 latestPolish 子查询) + assets / 协作域 + 接 PgDriver 真连 PG 灰度, 留 v4.2.3+
+
+### v4.2.3 · assets 域异步化 + PG 灰度试跑 ✅ 2026-05-21
+- [x] `lib/repos/asset-repo.ts` — project_assets 读写 async repo (list/listByType/get/create/update/delete/count), 走 DbDriver 双驱动
+- [x] `app/api/projects/[id]` GET 资产加载接 `listProjectAssets` — 真路由跑通 (curl 200, 5 资产)
+- [x] `scripts/pg-smoke.mjs` + `npm run pg:smoke` — 真连 DATABASE_URL 的 PG: 连接 → 建表 (TEXT PK + BIGSERIAL + BYTEA) → `$n` 参数化 CRUD → ON CONFLICT upsert → 清理. 没 PG/没 pg 时打印安装步骤 exit 0 (CI 友好)
+- [x] 5 新单测 (asset CRUD + JSON data 往返 + byType + count), 累计 **vitest 1454/1454**
+- 📌 本环境无 PG 实例 (pg 未装/5432 空/DATABASE_URL 未设), 真连灰度需用户提供 PG: `docker run postgres:16` + `npm i pg` + `DATABASE_URL=... npm run pg:smoke`
+- ⏭️ 协作域 (comments/notifications) 异步化 + DB_DRIVER=pg 全量灰度, 留 v4.2.4+
 
 ---
 

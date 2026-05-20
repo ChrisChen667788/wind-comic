@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
 import { getUserFromRequest } from '../../auth/lib';
 import { normalizeAssetRow } from '@/lib/asset-storage';
+import { listProjectAssets } from '@/lib/repos/asset-repo';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,8 +19,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   if (!row) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
-  // 加载项目资产
-  const assets = db.prepare('SELECT * FROM project_assets WHERE project_id = ? ORDER BY type, shot_number').all(id) as any[];
+  // 加载项目资产 — v4.2.3: 走 async asset-repo (DbDriver), SQLite/PG 双驱动
+  const assets = await listProjectAssets(id) as any[];
   const parsedAssets = assets.map(a => {
     const { mediaUrls, persistentUrl } = normalizeAssetRow(a);
     return {

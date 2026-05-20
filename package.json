@@ -22,7 +22,8 @@
     "typecheck": "tsc --noEmit",
     "generate:hero": "node scripts/generate-hero-cover.mjs",
     "generate:assets": "node scripts/generate-marketing-assets.mjs",
-    "release": "bash scripts/release.sh"
+    "release": "bash scripts/release.sh",
+    "pg:smoke": "node scripts/pg-smoke.mjs"
   },
   "keywords": [
     "ai",
