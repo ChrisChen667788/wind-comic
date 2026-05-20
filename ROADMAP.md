@@ -1238,6 +1238,42 @@ npm test
 
 ---
 
+## 4.25 v3.5 — 导出/分发: webp/avif 动图 + 字幕烧录预设 + 竖屏一键导出 ✅ 2026-05-20
+
+> **背景**: 成片做出来是 16:9, 但抖音/快手/小红书要 9:16 竖屏 + 平台风格字幕. v3.5 补齐"最后一公里": 横竖屏转换 (含模糊垫底)、平台字幕烧录预设、动图直出 webp/avif (体积比 GIF 小数倍). 让产出物能直接发主流短视频平台.
+
+### 横竖屏转换 + 动图格式 (lib/video-export.ts)
+- [x] `buildAspectFilter` — 16:9 / 9:16 / 1:1 / 4:5 四种目标比例 × contain (留黑边) / cover (裁切充满) / blur-pad (模糊背景垫底, 短视频标配) 三种 fit, 生成 ffmpeg `-vf` 或 `-filter_complex`
+- [x] `animFormatPlan` — gif (palette 2-pass) / webp (libwebp_anim) / avif (libaom-av1, quality→crf 映射), fps/width/quality clamp
+- [x] `ASPECT_DIMENSIONS` 平台分辨率表 (竖屏 1080×1920 等)
+
+### 字幕烧录预设 (lib/subtitle-burn.ts)
+- [x] 5 平台预设 (douyin 大白字粗黑边 / kuaishou 更粗下沉 / xiaohongshu 暖白精致 / youtube 规矩 / default), 各自字号/颜色/描边/边距/对齐
+- [x] `styleToForceStyle` → ASS force_style 串; `escapeSubtitlePath` 转义 filtergraph 特殊字符; `buildSubtitlesFilter` 一键出 `subtitles=...:force_style=...`; `getSubtitleStyleWithOverrides` 支持覆盖
+
+### v3.5 总验收 ✅
+- ✅ 25 新单测 (export 12 + subtitle 13), 累计 **vitest 1346/1346**
+- ✅ tsc 0 错误, 0 production 新依赖
+- ✅ webp/avif 能力落 lib/video-export, services/video-composer 可直接消费做用户导出; 内部营销 GIF 脚本保持 GIF-only 避免 .mjs/.ts 重复
+- ⏭️ services/video-composer 接 buildAspectFilter + buildSubtitlesFilter 出多平台成片 + 导出 UI 选平台 留 v3.5.1
+
+---
+
+## 4.99 v3.x 阶段性收官小结 (2026-05-20)
+
+| 版本 | 主题 | 形态 |
+|---|---|---|
+| v3.2 P1-P4 | Image/Video/TTS provider 插件化 + 灰度切换 + 遥测 | 注册表 + wrapper + 主路径接线 + admin 面板, env 一键灰度 |
+| v3.3 | Cinema Timeline 终局 | ripple / 对齐 hint / undo-redo 三套纯函数 lib |
+| v3.4 | 端到端 Vision Audit | 每镜画面对剧本打分 lib + DB + API + panel |
+| v3.5 | 导出/分发 | 横竖屏转换 + 平台字幕预设 + webp/avif lib |
+
+**3.x 全线累计**: vitest 1346/1346, tsc 0 错, 0 production 新依赖. 风险控制贯穿全程 — plugin 默认 off / vision 失败返 null / timeline 新 lib 与旧解耦, 老路径行为零回归.
+
+**3.x 留尾 (各版 .x.1, UI 接线为主, 不阻塞主线)**: timeline 三件套绑组件 / vision audit 接 orchestrator 自动触发 + 挂项目页 / video-composer 接导出预设 + 平台选择 UI / plugin video retry 兜底路径接 wrapper.
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |
@@ -1279,20 +1315,20 @@ npm test
 
 ---
 
-## 8. 测试覆盖现状
+## 8. 测试覆盖现状 (v3.5 截止)
 
 | 维度 | 数据 |
 |---|---|
-| Test files | 27 |
-| Tests passing | **313 / 313** ✅ |
+| Test files | 106 |
+| Tests passing | **1346 / 1346** ✅ |
 | TypeScript 错误 | **0** |
-| 关键集成测试 | polish-api (19), invite (26), 注册 (4) |
-| 关键单元测试 | text-diff (10), audit-markdown (17), polish-prompts, polish-parser, polish-json, character-manager, creation-wizard ... |
-| **下一个 Sprint 应补** | cameo-retry (Sprint A), composer-jcut (Sprint B), stripe-webhook (Sprint C) |
+| Vitest 配置 | pool=forks singleFork + retry=1 (SQLite WAL 偶发锁自愈) |
+| 近期新增覆盖 | plugin chain (mode/router/telemetry 46), timeline 终局 (ripple/align/history 28), vision audit (15), 导出预设 (export/subtitle 25) |
+| **下一轮应补** | video-composer 导出预设集成测试, vision-audit orchestrator 触发链路 e2e |
 
 ---
 
-## 9. 当前技术栈(v2.11 最终版)
+## 9. 当前技术栈(v3.5 最终版)
 
 | 层 | 选型 | 备注 |
 |---|---|---|
@@ -1307,29 +1343,26 @@ npm test
 | TTS | Minimax `speech-2.8-hd` | C.4 sprint 把 tts.service.ts 也对齐 |
 | 音乐 | Minimax `music-2.6` |  |
 | 本地合成 | ffmpeg via `services/video-composer.ts` | + `lib/audio-silence.ts` 兜底 |
+| **引擎插件化** (v3.2) | image/video/tts provider 注册表 + `PLUGIN_CHAIN_MODE` 灰度 | off/shadow/primary, SQLite 遥测 |
+| **成片质检** (v3.4) | LLM Vision Audit 每镜对剧本打分 | `lib/vision-audit.ts` |
+| **导出预设** (v3.5) | 横竖屏 + 平台字幕 + webp/avif | `lib/video-export.ts` / `lib/subtitle-burn.ts` |
 | 持久化 | SQLite + Drizzle | 计划迁 Postgres (Sprint D+) |
 | 鉴权 | JWT + bcrypt + 邀请码 |  |
-| 支付 | (待接) Stripe Checkout + Webhook | Sprint C.2 |
-| CI/CD | (待接) GitHub Actions | Sprint C.3 |
-| 监控 | Sentry (lazy lib/telemetry.ts) |  |
+| 监控 | Sentry (lazy lib/telemetry.ts) + plugin-chain telemetry |  |
 
 ---
 
-## 10. 建议执行顺序
+## 10. 建议执行顺序 (v3.5 后刷新)
 
 ```
-本周        │  v2.11 验收 §1 端到端 — 跑全新项目, 收集日志
+3.x 全线已交付 (v3.2 插件化 → v3.3 timeline → v3.4 vision audit → v3.5 导出)
             ↓
-v2.12 (1-2 周)│  Sprint A · 一致性深化 (用户痛点最深)
-              │  并行 C.4 TTS 对齐 (技术债, 顺手)
+3.x.1 收尾  │  各版 UI 接线 (timeline 三件套绑组件 / vision panel 挂项目页 /
+            │  video-composer 接导出预设 / plugin shadow 跑一周看数据切 primary)
             ↓
-v2.13 (1-2 周)│  Sprint B · 剪辑专业化
-              │  并行 C.3 CI/CD (1 天)
+v4.x (季度) │  Sprint D+ · Cameo IP 经济 / Agent 编排 IDE / PG 迁移 + 真多人协作
             ↓
-v3.0 (2-3 周)│  Sprint C 主体 · U2V + Stripe (商业化里程碑)
-              │  开始 PG 迁移规划
-            ↓
-v3.x → v4.x  │  Sprint D+ 长期愿景 · Cameo 经济 / Vision Audit / Agent IDE
+长期        │  移动端 Capacitor / i18n 繁中日英
 ```
 
 ---
