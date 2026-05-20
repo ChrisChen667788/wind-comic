@@ -122,6 +122,9 @@
 | 🐞 collab fix | 2026-05-21 | `30b240c` | 修 `useYjs` 每 render 返新对象导致项目页 "Maximum update depth" 死循环 |
 | **v4.1.1** | 2026-05-21 | `85c1e80` | 工作流执行引擎:topoSort 分层执行(层间串行/层内并行)+ 可插拔 step runner + 失败 abort/continue + dry-run builtins |
 | **v4.2.1** | 2026-05-21 | `77747ad` | PG cutover 第一模块:DbDriver 抽象 + SQLite/PG 双驱动 + async user-repo + login 路由接通(auth 域试水) |
+| 📄 version doc | 2026-05-21 | `509d52a` | 完整版本历史 VERSIONS.md |
+| **v4.1.2** | 2026-05-21 | `1fd47a8` | Agent 编排可视化编辑器(`/workflow-studio`)+ 真 orchestrator runner 适配器(OrchestratorLike + upstreamByKind)+ 核心拆 client-safe |
+| **v4.2.2** | 2026-05-21 | `2db0089` | projects 域异步化:async project-repo(get/list/create/update/delete + owner 校验)+ projects POST 接通双驱动 |
 
 ---
 
@@ -145,10 +148,10 @@
 
 ---
 
-## 后续留尾 (v4.x.2+)
+## 后续留尾 (v4.x.3+)
 
-- **v4.1.2** Agent 编排拖拽可视化编辑器 + dry-run runner 换真 orchestrator 适配器
-- **v4.2.2+** projects / assets / 协作域照 auth 域异步化,接 PgDriver 真连 PG 灰度
+- **v4.1.3** 工作流执行默认换真 orchestrator(需 project 上下文 + API key)+ 自定义步脚本
+- **v4.2.3+** projects GET 子查询 + assets / 协作域照 auth/projects 域异步化,接 PgDriver 真连 PG 灰度
 - **v5.x** 移动端原生 (Capacitor)、i18n 繁中/日/英、LangGraph 深度编排
 
 ---
