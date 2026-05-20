@@ -21,7 +21,7 @@
  *   - 同一 docName 多次 mount 共享同一 doc 实例 (避免重复连接)
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 
@@ -52,26 +52,28 @@ export interface UseYjsResult {
 
 export function useYjs(docName: string | null | undefined): UseYjsResult | null {
   const [status, setStatus] = useState<YjsStatus>('connecting');
-  const docRef = useRef<Y.Doc | null>(null);
-  const providerRef = useRef<WebsocketProvider | null>(null);
+  // v4.0.1 fix: 把 doc/provider 放进 state (而非 ref), 让 return 值能被 useMemo 稳定化.
+  // 之前每次 render 都返回新对象 {doc,provider,status} → 消费方 [yjs] deps 的 effect
+  // 每帧重跑 → setLocalStateField → awareness change → setState → 死循环
+  // (Maximum update depth exceeded). 现在只在 entry/status 真变时才换引用.
+  const [entry, setEntry] = useState<{ doc: Y.Doc; provider: WebsocketProvider } | null>(null);
 
   useEffect(() => {
-    if (!docName) return;
+    if (!docName) { setEntry(null); return; }
     // 进入注册表
-    let entry = registry.get(docName);
-    if (!entry) {
+    let reg = registry.get(docName);
+    if (!reg) {
       const doc = new Y.Doc();
       const provider = new WebsocketProvider(defaultWsUrl(), docName, doc, {
         connect: true,
       });
-      entry = { doc, provider, refCount: 0 };
-      registry.set(docName, entry);
+      reg = { doc, provider, refCount: 0 };
+      registry.set(docName, reg);
     }
-    entry.refCount++;
-    docRef.current = entry.doc;
-    providerRef.current = entry.provider;
+    reg.refCount++;
+    setEntry({ doc: reg.doc, provider: reg.provider });
 
-    const provider = entry.provider;
+    const provider = reg.provider;
     const updateStatus = () => {
       // y-websocket 3.x 的 provider 有 'status' 事件 + ws.readyState
       if (provider.wsconnected) setStatus('connected');
@@ -89,6 +91,7 @@ export function useYjs(docName: string | null | undefined): UseYjsResult | null 
       provider.off('status', onStatus);
       provider.off('connection-close', onStatus);
       provider.off('connection-error', onStatus);
+      setEntry(null);
       const e = registry.get(docName);
       if (!e) return;
       e.refCount--;
@@ -100,10 +103,9 @@ export function useYjs(docName: string | null | undefined): UseYjsResult | null 
     };
   }, [docName]);
 
-  if (!docRef.current || !providerRef.current) return null;
-  return {
-    doc: docRef.current,
-    provider: providerRef.current,
-    status,
-  };
+  // 稳定引用: 只有 entry (docName 变) 或 status 变时才换对象, 避免 render-loop
+  return useMemo<UseYjsResult | null>(() => {
+    if (!entry) return null;
+    return { doc: entry.doc, provider: entry.provider, status };
+  }, [entry, status]);
 }
