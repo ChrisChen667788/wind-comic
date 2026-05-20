@@ -1411,6 +1411,15 @@ npm test
 - [x] 24 新单测 (4 locale key 完整性 + 真翻译非占位 + normalizeLocale 14 例 + Accept-Language q 权重 + t 回退), 累计 **vitest 1478/1478**
 - ⏭️ 各页 useTranslations 全量接 locale (现仅切换器 + 系统就绪) 留 v5.0.1
 
+### v5.0.2 · U2V 生成进度环 + 失败可见 ✅ 2026-05-21
+> **背景**: 用户反馈"单图生视频总是失败无响应". 实查模型没问题 (Minimax I2V-01 EOL 早在 v2.22 改成 Hailuo-2.3), 真问题是 UX: 同步阻塞 1-3 分钟只转圈, 错误只弹 toast 易错过 → 体感"失败".
+- [x] `components/ui/circular-progress.tsx` — 通用 SVG 环形进度条 (value 0-100, 中心 % + 副文案, 渐变色)
+- [x] `app/dashboard/u2v` — 生成时显示**环形进度环** (时间估算: 渐近逼近 95%, 出片瞬间跳 100%, 显示已等待 mm:ss); 按钮显示 % + 计时
+- [x] 失败/超时**面板内明示 + 重试按钮** (不再静默转圈); 客户端 6 分钟 AbortController 硬超时防永久挂起
+- [x] 修正误导文案: 头部 + 结果区不再写死 "Minimax I2V-01" (实际按时长走 Minimax/Kling/Vidu)
+- [x] tsc 0 错, vitest 1478/1478, u2v 页 HTTP 200
+- 📌 真实进度 (SSE 推送上游 onProgress) 是更彻底方案, 留 v4.1.4/SSE
+
 ---
 
 ## 5. Sprint D+ · 长期愿景(v5.x+)

@@ -10,10 +10,18 @@
  *   4. 点生成 → 等 1-3 分钟 → 内嵌 video player + 下载按钮
  */
 
-import { useRef, useState } from 'react';
-import { Upload, Link as LinkIcon, Play, Download, Loader2, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Upload, Link as LinkIcon, Play, Download, Loader2, Sparkles, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useToast } from '@/components/ui/toast-provider';
 import { CameraLanguagePicker } from '@/components/create/camera-language-picker';
+import { CircularProgress } from '@/components/ui/circular-progress';
+
+// v5.0.2: 各时长档的预计耗时 (秒) — 给进度环做时间估算 (无真实进度事件时的兜底)
+const EXPECTED_SEC: Record<number, number> = { 5: 120, 6: 120, 10: 150, 15: 180 };
+function fmtMMSS(s: number): string {
+  const m = Math.floor(s / 60); const ss = Math.floor(s % 60);
+  return `${m}:${ss.toString().padStart(2, '0')}`;
+}
 
 // v2.14 P0.4: 长镜头档位 — 5/6s 走 Minimax I2V-01, 10s 走 Kling Master, 15s 走 Vidu Q3 Pro.
 // 客户端只看到统一选项, 后端 /api/u2v 根据 duration 自动选模型 (见 P0.4 路由).
@@ -41,8 +49,32 @@ export default function U2VPage() {
   const [cameraPreset, setCameraPreset] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState('');
+  // v5.0.2: 进度环 + 错误状态
+  const [progress, setProgress] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [errorMsg, setErrorMsg] = useState('');
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { showToast } = useToast();
   const isFlfMode = !!tailImageUrl;
+
+  // 清理计时器
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+
+  /** 启动时间估算进度: 渐近逼近 95%, 不会卡死在固定值. 真结果到达后由调用方拉到 100. */
+  const startProgressTimer = (durationSel: number) => {
+    const expected = EXPECTED_SEC[durationSel] || 120;
+    const t0 = Date.now();
+    if (timerRef.current) clearInterval(timerRef.current);
+    setProgress(2); setElapsed(0);
+    timerRef.current = setInterval(() => {
+      const sec = (Date.now() - t0) / 1000;
+      setElapsed(sec);
+      // 渐近曲线: 95*(1-e^(-t/(0.4*expected))) — 永远向 95 爬, 不停顿
+      const pct = 95 * (1 - Math.exp(-sec / (0.4 * expected)));
+      setProgress(Math.max(2, pct));
+    }, 250);
+  };
+  const stopProgressTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
 
   /**
    * 上传图片到 /api/upload/character-face, 拿到 URL 后塞回对应槽位 (first / tail).
@@ -104,6 +136,11 @@ export default function U2VPage() {
     }
     setGenerating(true);
     setResultUrl('');
+    setErrorMsg('');
+    startProgressTimer(duration);
+    // v5.0.2: 客户端硬超时 6 分钟 (服务端 maxDuration 300s) — 防永久转圈
+    const ctrl = new AbortController();
+    const hardTimeout = setTimeout(() => ctrl.abort(), 360_000);
     try {
       // v2.14 P0.3: 有尾帧 → 走 /api/u2v-flf 首尾帧融合; 否则走单图 /api/u2v
       const endpoint = isFlfMode ? '/api/u2v-flf' : '/api/u2v';
@@ -121,19 +158,31 @@ export default function U2VPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
+        signal: ctrl.signal,
       });
-      const body = await res.json();
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showToast({ title: body.error || '生成失败', type: 'error' });
+        const msg = body.error || `生成失败 (HTTP ${res.status})`;
+        setErrorMsg(msg);
+        showToast({ title: msg, type: 'error' });
         return;
       }
+      stopProgressTimer();
+      setProgress(100);
       setResultUrl(body.videoUrl);
       const modelHint = body.model ? ` · ${body.model}` : '';
       const warnHint = body.warning ? `(${body.warning.slice(0, 60)})` : '';
       showToast({ title: `生成成功!${modelHint} ${warnHint}`, type: 'success' });
     } catch (e) {
-      showToast({ title: e instanceof Error ? e.message : '生成失败', type: 'error' });
+      const aborted = e instanceof DOMException && e.name === 'AbortError';
+      const msg = aborted
+        ? '生成超时 (超过 6 分钟无响应)。上游可能繁忙或失败,请重试或换一张图。'
+        : (e instanceof Error ? e.message : '网络错误,生成失败');
+      setErrorMsg(msg);
+      showToast({ title: msg, type: 'error' });
     } finally {
+      clearTimeout(hardTimeout);
+      stopProgressTimer();
       setGenerating(false);
     }
   };
@@ -146,7 +195,7 @@ export default function U2VPage() {
           单图变视频(I2V)
         </h1>
         <p className="text-sm text-[var(--soft)] mt-1">
-          上传一张图,写一句描述 — Minimax I2V-01 给你 5-6s 视频。独立工具,不进项目管线。
+          上传一张图,写一句描述 — AI 给你 5-15s 视频(Minimax / Kling / Vidu 按时长自动选)。独立工具,不进项目管线。
         </p>
       </div>
 
@@ -314,7 +363,7 @@ export default function U2VPage() {
             {generating ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                生成中(1-3 分钟)...
+                生成中 {Math.round(progress)}% · {fmtMMSS(elapsed)}
               </>
             ) : (
               <>
@@ -332,9 +381,29 @@ export default function U2VPage() {
             {resultUrl ? (
               <video src={resultUrl} controls autoPlay loop className="w-full h-full object-contain" />
             ) : generating ? (
-              <div className="text-center text-[var(--soft)] text-sm">
-                <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin opacity-60" />
-                Minimax I2V-01 正在跑 — 通常 1-3 分钟
+              // v5.0.2: 环形进度条 — 时间估算, 渐近 95%, 出片瞬间到 100%
+              <div className="flex flex-col items-center justify-center gap-3">
+                <CircularProgress
+                  value={progress}
+                  sublabel={`已等待 ${fmtMMSS(elapsed)}`}
+                />
+                <div className="text-center text-[var(--soft)] text-xs">
+                  {DURATION_OPTIONS.find(o => o.value === duration)?.engineHint} 正在生成 — 通常 1-3 分钟
+                  <div className="text-[10px] opacity-50 mt-0.5">进度为时间估算,出片瞬间跳到 100%</div>
+                </div>
+              </div>
+            ) : errorMsg ? (
+              // v5.0.2: 失败不再静默转圈, 面板内明示 + 重试
+              <div className="text-center px-6">
+                <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-rose-400" />
+                <div className="text-sm text-rose-300 mb-1">生成失败</div>
+                <div className="text-[11px] text-white/50 mb-3">{errorMsg}</div>
+                <button
+                  onClick={generate}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs inline-flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> 重试
+                </button>
               </div>
             ) : (
               <div className="text-center text-[var(--soft)] text-sm opacity-60">
