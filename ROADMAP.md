@@ -1211,7 +1211,12 @@ npm test
 - ✅ 3 纯函数 lib + 28 新单测, 累计 **vitest 1306/1306**
 - ✅ tsc 0 错误, 0 production 新依赖
 - ✅ 与 v3.1.3 timeline-snap 解耦, 可叠加用 (snap 防重叠 + align 对齐 + ripple 连动)
-- ⏭️ UI 接线 (cinema-timeline.tsx 绑 Ctrl+Z/Ctrl+Shift+Z + 画对齐参考线 + ripple 开关) 留 v3.3.1 — 与既往 timeline 分步交付 (F.1/F.2) 一致, 先稳 lib 再接 969 行组件
+
+### v3.3.1 · UI 接线 ✅ 2026-05-20
+- [x] `cinema-timeline.tsx` 绑 undo/redo: `TimelineHistory` 栈 + 每次编辑前 `pushHistory` 快照 (drag 手势/时长/静音/重置/字幕/重排 6 处入口) + Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z 快捷键 (输入框内不拦) + 工具栏撤销/重做按钮
+- [x] ripple 联动开关: 工具栏 toggle, 开启后 move/resize-right 拖完用 `computeRipple` 推下游段并 stage 持久化
+- [x] 对齐参考线: 拖动中 `bestAlignHint` 算最近对齐线, 跨轨道画品红虚线; 松手清除
+- [x] 全量回归 vitest 1346/1346, tsc 0 错, 老 timeline 交互零破坏
 
 ---
 

@@ -20,12 +20,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Loader2, GripVertical, Clock, Save, Film, MessageSquare, Music,
-  Volume2, VolumeX, Pencil, RotateCcw,
+  Volume2, VolumeX, Pencil, RotateCcw, Undo2, Redo2, Magnet,
 } from 'lucide-react';
 import { visibleRange, shouldVirtualize } from '@/lib/timeline-virtual';
 import { useYjs } from '@/hooks/use-yjs';
 import { useAudioWaveform, sliceWaveform } from '@/hooks/use-audio-waveform';
 import { computeSnap } from '@/lib/timeline-snap';
+import { computeRipple } from '@/lib/timeline-ripple';
+import { bestAlignHint } from '@/lib/timeline-align';
+import { TimelineHistory } from '@/lib/timeline-history';
 import { useSegmentLocks, type LockEntry } from '@/hooks/use-segment-locks';
 
 interface TimelineShot {
@@ -154,6 +157,54 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
   const cursorBroadcastThrottleRef = useRef<number>(0);
   const [viewportWidth, setViewportWidth] = useState(800);
 
+  // ─── v3.3.1: undo/redo + ripple + 对齐参考线 ───────────────────────────────
+  /** 编辑历史栈 (data + pendingEdits + pendingResets 快照). */
+  const historyRef = useRef(new TimelineHistory<TimelineSnapshot>(50));
+  /** 强制重渲染 undo/redo 按钮可用态 (栈深变了 UI 要更新). */
+  const [historyTick, setHistoryTick] = useState(0);
+  /** ripple mode: 拖/改一段时, 后段连动. */
+  const [rippleMode, setRippleMode] = useState(false);
+  /** 拖动中的对齐参考线全局位置 (秒), null = 不画. */
+  const [alignGuideSec, setAlignGuideSec] = useState<number | null>(null);
+
+  type TimelineSnapshot = {
+    data: TimelineData | null;
+    pendingEdits: Map<string, PendingTrackEdit>;
+    pendingResets: Set<string>;
+  };
+
+  /** 抓当前可编辑状态的深拷贝快照. */
+  const snapshotNow = useCallback((): TimelineSnapshot => ({
+    data: data ? (typeof structuredClone === 'function'
+      ? structuredClone(data)
+      : JSON.parse(JSON.stringify(data))) : null,
+    pendingEdits: new Map(pendingEdits),
+    pendingResets: new Set(pendingResets),
+  }), [data, pendingEdits, pendingResets]);
+
+  /** 一次编辑前调: 把当前状态压入 undo 栈. */
+  const pushHistory = useCallback(() => {
+    historyRef.current.push(snapshotNow());
+    setHistoryTick((t) => t + 1);
+  }, [snapshotNow]);
+
+  const applySnapshot = useCallback((s: TimelineSnapshot) => {
+    setData(s.data);
+    setPendingEdits(new Map(s.pendingEdits));
+    setPendingResets(new Set(s.pendingResets));
+    setDirty(true);
+  }, []);
+
+  const doUndo = useCallback(() => {
+    const prev = historyRef.current.undo(snapshotNow());
+    if (prev) { applySnapshot(prev); setHistoryTick((t) => t + 1); }
+  }, [snapshotNow, applySnapshot]);
+
+  const doRedo = useCallback(() => {
+    const next = historyRef.current.redo(snapshotNow());
+    if (next) { applySnapshot(next); setHistoryTick((t) => t + 1); }
+  }, [snapshotNow, applySnapshot]);
+
   const refresh = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/timeline`);
@@ -198,6 +249,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
       setDragIndex(null); setDragOverIndex(null);
       return;
     }
+    pushHistory();
     const next = [...data.shots];
     const [moved] = next.splice(dragIndex, 1);
     next.splice(dragOverIndex, 0, moved);
@@ -208,6 +260,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
 
   const updateDuration = (shotNumber: number, duration: number) => {
     if (!data) return;
+    pushHistory();
     const next = data.shots.map((s) => s.shotNumber === shotNumber ? { ...s, duration } : s);
     const totalDuration = next.reduce((sum, s) => sum + (s.duration || 0), 0);
     setData({ ...data, shots: next, totalDuration });
@@ -227,6 +280,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
   };
 
   const toggleMute = (trackType: 'bgm' | 'subtitle', segment: TrackSegment) => {
+    pushHistory();
     stagePendingEdit(trackType, segment.id, { muted: !segment.muted });
     // 乐观更新本地 state
     if (!data) return;
@@ -238,6 +292,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
   };
 
   const resetSegment = (trackType: 'bgm' | 'subtitle', segment: TrackSegment) => {
+    pushHistory();
     setPendingResets((prev) => new Set(prev).add(`${trackType}:${segment.id}`));
     // 同时移除任何 pendingEdits 给该段
     setPendingEdits((prev) => {
@@ -251,6 +306,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
   // Subtitle 文本改写
   const commitSubText = () => {
     if (!editingSub || !data) return;
+    pushHistory();
     stagePendingEdit('subtitle', editingSub.segmentKey, { customText: editingSub.text });
     const tracks = { ...data.tracks };
     tracks.subtitle = tracks.subtitle.map((s) =>
@@ -277,6 +333,8 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
       setTimeout(() => setLockToast(null), 3000);
       return;
     }
+    // v3.3.1: 一次拖动手势压一个 undo 快照 (不是每个 mousemove)
+    pushHistory();
     setTrackDrag({
       trackType,
       segmentKey: segment.id,
@@ -330,6 +388,15 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           setTimeout(() => setSnapFlash((cur) => cur === trackDrag.segmentKey ? null : cur), 200);
         }
 
+        // v3.3.1: 对齐参考线 — 找最近的 left/right/center 对齐候选, 画竖线
+        const align = bestAlignHint({
+          selfId: trackDrag.segmentKey,
+          allSegments: siblings.map((s) => ({ id: s.id, startSec: s.startSec, durationSec: s.durationSec })),
+          proposedStart: snap.startSec,
+          durationSec: snap.durationSec,
+        });
+        setAlignGuideSec(align ? align.guideSec : null);
+
         tracks[trackDrag.trackType] = siblings.map((s) => {
           if (s.id !== trackDrag.segmentKey) return s;
           if (trackDrag.mode === 'resize-right') {
@@ -357,10 +424,46 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
         if (Object.keys(patch).length > 0) {
           stagePendingEdit(trackDrag.trackType, trackDrag.segmentKey, patch);
         }
+
+        // v3.3.1: ripple — 后段连动 (move / resize-right 才推下游)
+        if (rippleMode && (trackDrag.mode === 'move' || trackDrag.mode === 'resize-right')) {
+          const deltaSec = trackDrag.mode === 'resize-right'
+            ? seg.durationSec - trackDrag.initialDurationSec
+            : seg.startSec - trackDrag.initialStartSec;
+          const anchorSec = trackDrag.initialStartSec + trackDrag.initialDurationSec;
+          if (Math.abs(deltaSec) > 0.01) {
+            const ripple = computeRipple({
+              editedId: trackDrag.segmentKey,
+              allSegments: trackArr.map((s) => ({ id: s.id, startSec: s.startSec, durationSec: s.durationSec })),
+              deltaSec, anchorSec, totalDuration: data.totalDuration,
+            });
+            if (ripple.shiftedIds.length > 0) {
+              const shiftMap = new Map(ripple.segments.map((s) => [s.id, s]));
+              setData((d) => {
+                if (!d) return d;
+                const tracks = { ...d.tracks };
+                tracks[trackDrag.trackType] = d.tracks[trackDrag.trackType].map((s) => {
+                  const r = shiftMap.get(s.id);
+                  return r && ripple.shiftedIds.includes(s.id)
+                    ? { ...s, startSec: r.startSec, isEdited: true } : s;
+                });
+                return { ...d, tracks };
+              });
+              for (const id of ripple.shiftedIds) {
+                const shifted = shiftMap.get(id);
+                const orig = trackArr.find((s) => s.id === id);
+                if (shifted && orig) {
+                  stagePendingEdit(trackDrag.trackType, id, { startOffsetSec: shifted.startSec - orig.derivedStartSec });
+                }
+              }
+            }
+          }
+        }
       }
       // v3.1.3 P4: 释放协作锁
       if (trackDrag) segLocks.release(trackDrag.segmentKey);
       setTrackDrag(null);
+      setAlignGuideSec(null);
     };
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
@@ -368,7 +471,21 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
     };
-  }, [trackDrag, data, viewportWidth]);
+  }, [trackDrag, data, viewportWidth, rippleMode]);
+
+  // ─── v3.3.1: undo/redo 键盘快捷键 (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z / Ctrl+Y) ───
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); doRedo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [doUndo, doRedo]);
 
   // ─── v3.1.2 P4: Yjs awareness 时间线光标 ───────────────────────────────────
   // 本地: setLocalStateField('timelineCursor', { timeSec, color }) — 50ms 节流
@@ -519,6 +636,33 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {/* v3.3.1: undo / redo / ripple toggle */}
+          <button
+            onClick={doUndo}
+            disabled={!historyRef.current.canUndo()}
+            title="撤销 (Ctrl/Cmd+Z)"
+            className="cinema-btn !px-2 !py-1 !text-[11px] inline-flex items-center gap-1 disabled:opacity-30"
+          >
+            <Undo2 className="w-3 h-3" />
+          </button>
+          <button
+            onClick={doRedo}
+            disabled={!historyRef.current.canRedo()}
+            title="重做 (Ctrl/Cmd+Shift+Z)"
+            className="cinema-btn !px-2 !py-1 !text-[11px] inline-flex items-center gap-1 disabled:opacity-30"
+          >
+            <Redo2 className="w-3 h-3" />
+          </button>
+          <button
+            onClick={() => setRippleMode((v) => !v)}
+            title="联动模式: 拖/改一段时后段一起移动"
+            className={`cinema-btn !px-2 !py-1 !text-[11px] inline-flex items-center gap-1 ${rippleMode ? 'cinema-btn-primary' : ''}`}
+          >
+            <Magnet className="w-3 h-3" />
+            联动{rippleMode ? '开' : '关'}
+          </button>
+          {/* historyTick 触发按钮可用态重渲染 */}
+          <span className="hidden">{historyTick}</span>
           {dirty && (
             <span className="cinema-mono text-[10px] text-[var(--cinema-amber)]">● 未保存</span>
           )}
@@ -660,6 +804,18 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           currentUserId={currentUser?.id}
           accentColor="cyan"
         />
+
+        {/* v3.3.1: 对齐参考线 — 拖动中显示左/右/中对齐到的位置 */}
+        {alignGuideSec != null && trackDrag && (
+          <div
+            className="absolute top-0 bottom-0 pointer-events-none z-10"
+            style={{ left: alignGuideSec * pxPerSec, transform: 'translateX(-1px)' }}
+            aria-hidden="true"
+          >
+            <div className="w-px h-full bg-[var(--cinema-magenta,#e879f9)] opacity-80"
+              style={{ backgroundImage: 'repeating-linear-gradient(to bottom, currentColor 0 4px, transparent 4px 8px)', color: '#e879f9' }} />
+          </div>
+        )}
 
         {/* v3.1.2 P4: 远端协作者光标 — 跨两条轨道画垂直线 + 名字标 */}
         {remoteCursors.length > 0 && (
