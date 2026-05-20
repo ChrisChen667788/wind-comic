@@ -503,6 +503,24 @@ CREATE TABLE IF NOT EXISTS plugin_chain_events (
 );
 CREATE INDEX IF NOT EXISTS idx_plugin_events_created ON plugin_chain_events(created_at);
 CREATE INDEX IF NOT EXISTS idx_plugin_events_kind ON plugin_chain_events(kind, outcome);
+
+-- v3.4: 端到端 Vision Audit — 每镜成片关键帧对剧本的符合度评分.
+-- 一个 project × shot_number 一行 (重审 UPSERT 覆盖). 详见 lib/vision-audit.ts.
+CREATE TABLE IF NOT EXISTS shot_vision_audits (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  shot_number INTEGER NOT NULL,
+  score INTEGER NOT NULL,                        -- 0-100 综合
+  verdict TEXT NOT NULL,                         -- 'pass' | 'warn' | 'fail'
+  scene_match INTEGER,
+  action_match INTEGER,
+  mood_match INTEGER,
+  composition INTEGER,
+  issues TEXT,                                   -- JSON string array
+  reasoning TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_shot_audits_project ON shot_vision_audits(project_id, shot_number);
 `);
 
 export const now = () => new Date().toISOString();

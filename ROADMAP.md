@@ -1215,6 +1215,29 @@ npm test
 
 ---
 
+## 4.24 v3.4 — 端到端 LLM Vision Audit (画面对得上剧本吗) ✅ 2026-05-20
+
+> **背景**: 短剧最大痛点不是"画质", 是"AI 画了个不相干的东西" —— 剧本写雨夜街头, 出来个晴天室内. 用户得逐镜肉眼比对. v3.4 用一次便宜 vision 调用给每镜成片关键帧打 0-100 分 "对不对得上剧本", 标出跑题的镜, 把人从逐帧 review 解放出来. 这是和同类竞品拉开差距的纵深项.
+
+### 核心 (lib/vision-audit.ts)
+- [x] 复用 cameo-vision 的 `toVisionImageInput` / `safeParseJson` (导出共享, 不重复造轮子)
+- [x] `auditShotVsScript(shotImageUrl, ctx)` — 成片关键帧 + 该镜剧本 (场景/动作/台词/情绪) → Vision → 4 维度 (sceneMatch / actionMatch / moodMatch / composition) + issues + 0-100. 失败返 null 不阻塞
+- [x] 纯函数单独导出可测: `buildAuditPrompt` / `scoreToVerdict` (pass≥75 warn≥50 fail) / `normalizeAuditResult` (clamp + 防脏) / `aggregateFilmAudit` (平均分 + pass/warn/fail 统计 + 最差 N 镜 + 全片 verdict)
+
+### 持久化 + API + UI
+- [x] `lib/db.ts` — `shot_vision_audits` 表 (project × shot UPSERT) + 索引
+- [x] `saveShotAudit` / `getProjectAudits` 持久层
+- [x] `app/api/projects/[id]/vision-audit` — GET 读审核 + 全片 summary; POST 回写一批 (worker 算完回传)
+- [x] `components/project/vision-audit-panel.tsx` — 全片 verdict + 平均分 + pass/warn/fail + 最差镜快捷跳转 + 逐镜 4 维度条 + 问题标签 (纯展示, 父组件喂数据)
+
+### v3.4 总验收 ✅
+- ✅ 15 新单测 (纯函数 + 真 SQLite 持久化), 累计 **vitest 1321/1321**
+- ✅ tsc 0 错误, 0 production 新依赖 (复用既有 openai SDK)
+- ✅ Vision 失败 / 无 key → 返 null, 全程不阻塞主流程
+- ⏭️ orchestrator 成片后自动触发逐镜 audit + panel 挂进项目页 留 v3.4.1 (评分要真成片关键帧, 接编排是独立一步)
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |

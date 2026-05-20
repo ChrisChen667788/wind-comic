@@ -100,7 +100,7 @@ verdict 映射参考: >=85 excellent, >=70 good, >=50 fair, <50 poor`;
  * - data:image/... → 原样返回
  * - 其它本地绝对路径 → 读文件转 data: URI
  */
-async function toVisionImageInput(imageUrl: string): Promise<string | null> {
+export async function toVisionImageInput(imageUrl: string): Promise<string | null> {
   if (!imageUrl) return null;
 
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
@@ -352,7 +352,7 @@ export async function scoreShotConsistency(
   }
 }
 
-function safeParseJson(raw: string): any | null {
+export function safeParseJson(raw: string): any | null {
   try {
     return JSON.parse(raw);
   } catch {
