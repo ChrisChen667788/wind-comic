@@ -1343,7 +1343,14 @@ npm test
 - [x] `lib/workflow-builtins.ts` — 9 内置 dry-run runner (回显 kind/produces/依赖), 验证编排跑通; 真接 orchestrator 是清晰扩展点 (v4.1.2)
 - [x] `app/api/workflows/[id]/execute` — POST dry-run 执行, 返每步 status/output/耗时
 - [x] 11 新单测 (拓扑顺序 / 数据流注入 / 并行同层 / 缺 runner / abort / continue 跳下游 / 回调 / dry-run 端到端), 累计 **vitest 1421/1421**
-- ⏭️ 拖拽可视化编辑器 + 把 dry-run runner 换成真 orchestrator 适配器 留 v4.1.2
+
+### v4.1.2 · 可视化编辑器 + 真 orchestrator 适配 ✅ 2026-05-21
+- [x] `lib/agent-workflow-core.ts` — 把类型/STEP_CATALOG/validate/topoSort/defaultWorkflow 拆成 client-safe 纯核心 (不拖 better-sqlite3), `agent-workflow.ts` re-export 保持兼容
+- [x] `lib/workflow-orchestrator-runners.ts` — `OrchestratorLike` 接口 + `buildOrchestratorRunners` 把 9 个 StepKind 桥到真 `runDirector/runWriter/...` 方法, 按 kind 从上游取产出 (直接依赖 + `upstreamByKind` pipeline 共享)
+- [x] `lib/workflow-engine.ts` — StepContext 加 `depOutputs` + `upstreamByKind`, runner 能按 kind 找上游 (非靠节点 id)
+- [x] `app/workflow-studio/page.tsx` — 拖拽式编辑器: 调色板加步骤 / 选类型 / 勾依赖 / 实时校验 + 执行分层预览 / 保存 / dry-run 运行看每步结果
+- [x] 6 新单测 (mock orchestrator: director→writer 数据流 / 默认流水线端到端 / 缺依赖报错 / 缺方法报错 / custom 透传), 累计 **vitest 1438/1438**
+- ⏭️ 把 dry-run 默认换成真 orchestrator (需 project 上下文 + API key) 留 v4.1.3
 
 ---
 

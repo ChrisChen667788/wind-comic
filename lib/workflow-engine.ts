@@ -13,12 +13,23 @@
 
 import { validateWorkflow, topoSort, type WorkflowGraph, type WorkflowNode, type StepKind } from './agent-workflow';
 
+export interface DepOutput {
+  id: string;
+  kind: StepKind;
+  output: unknown;
+}
+
 export interface StepContext {
   node: WorkflowNode;
   /** 工作流级输入 (idea / projectId 等). */
   input: Record<string, unknown>;
   /** 已完成节点的产出, key = node.id. 含本节点所有依赖的输出. */
   outputs: Record<string, unknown>;
+  /** 本节点直接依赖的输出 (带 kind), 让 runner 能按 kind 找直接上游产出. */
+  depOutputs: DepOutput[];
+  /** 所有已完成节点按 kind 索引的产出 (同 kind 取最后一个). pipeline 数据共享: 即使
+   *  非直接依赖也能拿到 (如 producer 拿 writer 的 script). */
+  upstreamByKind: Partial<Record<StepKind, unknown>>;
   /** 取消信号. */
   signal?: AbortSignal;
 }
@@ -131,7 +142,17 @@ export async function executeWorkflow(
         return;
       }
       try {
-        const output = await runner({ node, input, outputs, signal: opts.signal });
+        const depOutputs: DepOutput[] = (node.dependsOn || []).map((depId) => ({
+          id: depId,
+          kind: (nodeById.get(depId)?.kind ?? 'custom') as StepKind,
+          output: outputs[depId],
+        }));
+        const upstreamByKind: Partial<Record<StepKind, unknown>> = {};
+        for (const [nid, out] of Object.entries(outputs)) {
+          const k = nodeById.get(nid)?.kind;
+          if (k) upstreamByKind[k] = out;
+        }
+        const output = await runner({ node, input, outputs, depOutputs, upstreamByKind, signal: opts.signal });
         outputs[id] = output;
         steps.push({ nodeId: id, kind: node.kind, status: 'done', output, ms: Date.now() - t0 });
         opts.onStepDone?.(id, output);
