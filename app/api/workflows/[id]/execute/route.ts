@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '../../../auth/lib';
 import { getWorkflow } from '@/lib/agent-workflow';
 import { executeWorkflow } from '@/lib/workflow-engine';
+import { runWorkflowReal, checkRealRunCapability } from '@/lib/workflow-real-runner';
 import '@/lib/workflow-builtins'; // 注册内置 dry-run runner
 
 export const runtime = 'nodejs';
@@ -30,6 +31,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try { body = await request.json(); } catch {}
   const onFailure = body?.onFailure === 'continue' ? 'continue' : 'abort';
   const input = body?.input && typeof body.input === 'object' ? body.input : {};
+  const mode = body?.mode === 'real' ? 'real' : 'dry-run';
+
+  // v4.1.3: real 模式真跑 orchestrator (需 project 上下文 + LLM key)
+  if (mode === 'real') {
+    const cap = checkRealRunCapability();
+    if (!cap.llm) {
+      return NextResponse.json({ error: cap.reason, capability: cap }, { status: 400 });
+    }
+    const idea = String(input.idea ?? '');
+    const result = await runWorkflowReal(wf.graph, { idea, projectId: input.projectId });
+    return NextResponse.json({ workflowId: id, dryRun: false, result });
+  }
 
   const result = await executeWorkflow(wf.graph, { input, onFailure });
   return NextResponse.json({ workflowId: id, dryRun: true, result });

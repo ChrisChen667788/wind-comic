@@ -1350,7 +1350,14 @@ npm test
 - [x] `lib/workflow-engine.ts` — StepContext 加 `depOutputs` + `upstreamByKind`, runner 能按 kind 找上游 (非靠节点 id)
 - [x] `app/workflow-studio/page.tsx` — 拖拽式编辑器: 调色板加步骤 / 选类型 / 勾依赖 / 实时校验 + 执行分层预览 / 保存 / dry-run 运行看每步结果
 - [x] 6 新单测 (mock orchestrator: director→writer 数据流 / 默认流水线端到端 / 缺依赖报错 / 缺方法报错 / custom 透传), 累计 **vitest 1438/1438**
-- ⏭️ 把 dry-run 默认换成真 orchestrator (需 project 上下文 + API key) 留 v4.1.3
+
+### v4.1.3 · 接真 orchestrator ✅ 2026-05-21
+- [x] `lib/workflow-engine.ts` — `ExecuteOptions.runners` per-call runner 覆盖 (优先全局注册表), 并发请求各用各的 orchestrator 不互相污染
+- [x] `lib/workflow-real-runner.ts` — `runWorkflowReal(graph, {idea, projectId}, injectedOrch?)`: 能力门 (无 LLM key 拒 real) + new HybridOrchestrator + buildOrchestratorRunners + per-call 执行; 单实例传所有 step 让 `this` 状态在 director→writer→… 累积 (与原单体一致)
+- [x] `app/api/workflows/[id]/execute` — `mode: 'real'|'dry-run'`, real 走真 orchestrator + 能力门 400
+- [x] `app/workflow-studio` — 加创意 idea 输入 + "真实运行"按钮 (旁边保留 dry-run)
+- [x] 6 新单测 (注入 mock orch 端到端 / idea 透传 / 空 idea 拒 / per-call runner 不漏全局 / 注入时跳能力门), 累计 **vitest 1449/1449**
+- ⏭️ 真实运行落盘到 project 资产 + 长任务进度流 (SSE) 留 v4.1.4
 
 ---
 

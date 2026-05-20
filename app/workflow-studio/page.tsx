@@ -27,6 +27,7 @@ export default function WorkflowStudioPage() {
   const [graph, setGraph] = useState<WorkflowGraph>(() => defaultWorkflow('我的工作流'));
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
+  const [ideaInput, setIdeaInput] = useState('一个都市悬疑短剧');
   const [msg, setMsg] = useState<string | null>(null);
   const [runSteps, setRunSteps] = useState<Array<{ nodeId: string; kind: string; status: string; ms: number; error?: string }> | null>(null);
   const [savedList, setSavedList] = useState<Array<{ id: string; name: string }>>([]);
@@ -82,18 +83,20 @@ export default function WorkflowStudioPage() {
     finally { setSaving(false); }
   };
 
-  const run = async () => {
+  const run = async (mode: 'dry-run' | 'real') => {
     setRunning(true); setMsg(null); setRunSteps(null);
     try {
       // 先存再跑 (execute 读持久化的)
       await fetch('/api/workflows', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(graph) });
       const res = await fetch(`/api/workflows/${encodeURIComponent(graph.id)}/execute`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ input: { idea: '示例创意' } }),
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ mode, input: { idea: ideaInput } }),
       });
       const b = await res.json();
       if (!res.ok) throw new Error(b?.error || `HTTP ${res.status}`);
       setRunSteps(b.result?.steps || []);
-      setMsg(b.result?.ok ? 'dry-run 执行完成 ✓' : 'dry-run 完成 (有失败步骤)');
+      const tag = mode === 'real' ? '真实运行' : 'dry-run';
+      setMsg(b.result?.ok ? `${tag} 执行完成 ✓` : `${tag} 完成 (有失败步骤)`);
     } catch (e) { setMsg('执行失败: ' + (e instanceof Error ? e.message : '')); }
     finally { setRunning(false); }
   };
@@ -107,8 +110,11 @@ export default function WorkflowStudioPage() {
           <button onClick={save} disabled={saving || !validation.valid} className="cinema-btn !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 保存
           </button>
-          <button onClick={run} disabled={running || !validation.valid} className="cinema-btn cinema-btn-primary !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40">
-            {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} 运行 (dry-run)
+          <button onClick={() => run('dry-run')} disabled={running || !validation.valid} className="cinema-btn !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40">
+            {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} dry-run
+          </button>
+          <button onClick={() => run('real')} disabled={running || !validation.valid} title="真跑 orchestrator (需配置 LLM key)" className="cinema-btn cinema-btn-primary !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40">
+            {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} 真实运行
           </button>
         </div>
       </div>
@@ -127,6 +133,9 @@ export default function WorkflowStudioPage() {
               </select>
             )}
           </div>
+
+          {/* 创意输入 (real 运行 / director 步用) */}
+          <input value={ideaInput} onChange={(e) => setIdeaInput(e.target.value)} className="cinema-input w-full !text-sm" placeholder="创意 idea (真实运行时喂给 AI 导演)" />
 
           {/* 调色板 */}
           <div className="flex flex-wrap gap-1.5">

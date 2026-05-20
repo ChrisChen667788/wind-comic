@@ -70,6 +70,9 @@ export interface ExecuteOptions {
   input?: Record<string, unknown>;
   /** 某步失败时: 'abort' 停整条 (默认) | 'continue' 跳过下游其余照跑. */
   onFailure?: 'abort' | 'continue';
+  /** 每次调用专属 runner 覆盖 (优先于全局注册表) — 真实运行注入自己的 orchestrator
+   *  runner, 避免并发请求互相覆盖全局注册表. */
+  runners?: Partial<Record<StepKind, StepRunner>>;
   onStepStart?: (nodeId: string, kind: StepKind) => void;
   onStepDone?: (nodeId: string, output: unknown) => void;
   onStepError?: (nodeId: string, error: string) => void;
@@ -131,7 +134,7 @@ export async function executeWorkflow(
         return;
       }
 
-      const runner = getStepRunner(node.kind);
+      const runner = opts.runners?.[node.kind] ?? getStepRunner(node.kind);
       const t0 = Date.now();
       opts.onStepStart?.(id, node.kind);
       if (!runner) {
