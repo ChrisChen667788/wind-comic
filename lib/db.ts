@@ -521,6 +521,41 @@ CREATE TABLE IF NOT EXISTS shot_vision_audits (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_shot_audits_project ON shot_vision_audits(project_id, shot_number);
+
+-- v4.0: Cameo IP 经济 — 把 character_library 里的角色 token 化, 经授权可被其他用户复用.
+-- 一个角色可发一个 IP token (UPSERT). 详见 lib/cameo-ip.ts.
+CREATE TABLE IF NOT EXISTS character_ip_tokens (
+  id TEXT PRIMARY KEY,                           -- token id (公开可分享)
+  character_id TEXT NOT NULL,                    -- FK character_library.id
+  owner_id TEXT NOT NULL,                        -- FK users.id
+  name TEXT NOT NULL,                            -- 角色名快照
+  cover_url TEXT,                                -- 封面图快照
+  visibility TEXT NOT NULL DEFAULT 'private',    -- 'public' | 'unlisted' | 'private'
+  license TEXT NOT NULL DEFAULT 'view',          -- 'view' | 'remix' | 'commercial'
+  terms TEXT DEFAULT '',                         -- 授权条款自由文本
+  royalty_cny REAL DEFAULT 0,                    -- 建议单次复用版税 (元), 0 = 免费
+  status TEXT NOT NULL DEFAULT 'active',         -- 'active' | 'revoked'
+  use_count INTEGER NOT NULL DEFAULT 0,          -- 累计被复用次数
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ip_tokens_owner ON character_ip_tokens(owner_id);
+CREATE INDEX IF NOT EXISTS idx_ip_tokens_visibility ON character_ip_tokens(visibility, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ip_tokens_character ON character_ip_tokens(character_id);
+
+-- 授权记录: 非 public-remix 的 token, 复用前要 grantee 申请 + owner 批准.
+CREATE TABLE IF NOT EXISTS character_ip_grants (
+  id TEXT PRIMARY KEY,
+  token_id TEXT NOT NULL,                        -- FK character_ip_tokens.id
+  grantee_id TEXT NOT NULL,                      -- FK users.id (申请复用的人)
+  status TEXT NOT NULL DEFAULT 'pending',        -- 'pending' | 'approved' | 'revoked'
+  use_count INTEGER NOT NULL DEFAULT 0,          -- 该授权下复用次数
+  message TEXT DEFAULT '',                       -- 申请留言
+  created_at TEXT NOT NULL,
+  decided_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ip_grants_token ON character_ip_grants(token_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ip_grants_token_grantee ON character_ip_grants(token_id, grantee_id);
 `);
 
 export const now = () => new Date().toISOString();

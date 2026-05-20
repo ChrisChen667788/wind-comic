@@ -1289,11 +1289,32 @@ npm test
 
 ---
 
+## 4.100 v4.0 — Cameo IP 经济 (角色 token 化 + 授权复用) ✅ 2026-05-20
+
+> **背景**: Sora-style cameo 的核心是"角色可被授权复用". v4.0 把 character_library 里的角色 token 化 — 作者发 IP token + 设授权级别 (仅查看/可二创/可商用) + 版税, 他人浏览市场申请复用. 创作者经济雏形.
+
+### 核心 (lib/cameo-ip.ts)
+- [x] 权限模型纯函数: `resolveAccess` (owner / open / granted / pending / denied) + `licenseAllowsReuse` + `accessCanReuse` — 单测核心, 不碰 DB
+- [x] Token 发行/撤销: `issueIpToken` (一角色一 token UPSERT, 非 owner 拒改) / `revokeIpToken` / `listMarketplaceTokens` (public+active) / `listOwnerTokens`
+- [x] Grant 流程: `requestGrant` (owner 自己拒申请, 重复申请幂等) / `decideGrant` (approve/reject, 仅 owner) / `listPendingGrantsForOwner` / `checkAccess` / `recordTokenUse` (按权计数, token+grant 双计)
+
+### DB + API + UI
+- [x] `lib/db.ts` — `character_ip_tokens` (一角色一 token UNIQUE) + `character_ip_grants` (token×grantee UNIQUE) 两表 + 索引
+- [x] `app/api/cameo-ip` (GET market/mine, POST issue) + `[tokenId]` (GET 详情+access, POST request-grant/use, DELETE revoke) + `grants` (GET pending, PATCH decide)
+- [x] `app/cameo-market/page.tsx` — 公开角色 IP 市场: 封面/授权级别/版税/复用数 + 申请授权按钮
+
+### v4.0 总验收 ✅
+- ✅ 22 新单测 (纯权限逻辑 + 真 SQLite grant 全流程), 累计 **vitest 1368/1368**
+- ✅ tsc 0 错误, 0 production 新依赖
+- ✅ 权限默认收紧 (private + view), 撤销/审批严格校验 owner 身份
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |
 |---|---|---|
-| 跨项目角色 IP 经济 (Sora-style cameo) | 用户角色 token 化, 经授权可被其他用户复用, 创作者经济雏形 | v3.x — 1 个月 |
+| ~~跨项目角色 IP 经济 (Sora-style cameo)~~ → v4.0 ✅ | 用户角色 token 化, 经授权可被其他用户复用, 创作者经济雏形 | ✅ 已交付 |
 | 端到端 LLM Vision Audit | 成片每镜过 GPT-4o Vision, 0-100 分"画面是否对得上剧本" | v3.x — 2 周 |
 | LangGraph / Agent 编排 IDE | 用户拖拽自定义 agent 工作流, 替换 Director / 并行 Cameo+Editor | v4.x — 1 个月 |
 | PG 迁移 + 多人协作 (Yjs CRDT) | SQLite → Postgres + 多人同编 + 评论 | v4.x — 2 周 |
