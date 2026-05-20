@@ -556,6 +556,17 @@ CREATE TABLE IF NOT EXISTS character_ip_grants (
 );
 CREATE INDEX IF NOT EXISTS idx_ip_grants_token ON character_ip_grants(token_id, status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ip_grants_token_grantee ON character_ip_grants(token_id, grantee_id);
+
+-- v4.1: Agent 编排工作流 — 用户自定义的 agent DAG (拖拽 IDE 地基). 详见 lib/agent-workflow.ts.
+CREATE TABLE IF NOT EXISTS agent_workflows (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  graph_json TEXT NOT NULL,                      -- WorkflowGraph JSON
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_workflows_user ON agent_workflows(user_id, updated_at);
 `);
 
 export const now = () => new Date().toISOString();

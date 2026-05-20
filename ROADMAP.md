@@ -1310,11 +1310,34 @@ npm test
 
 ---
 
+## 4.101 v4.1 — Agent 编排工作流 (拖拽 IDE 地基) ✅ 2026-05-20
+
+> **背景**: 现在 Director→Writer→...→Producer 流水线写死在 orchestrator. v4.1 把它抽成可配置 DAG, 用户能跳过某 agent / 并行某些步 / 插自定义步. 这一版交付"图定义 + 校验 + 拓扑排序 + 持久化" (可测核心), 可视化编辑器 + 执行引擎接入留 v4.1.1.
+
+### 核心 (lib/agent-workflow.ts)
+- [x] `WorkflowGraph` 数据模型 (节点 = StepKind + dependsOn + config) + `STEP_CATALOG` (9 内置 agent 步 + custom, 各带 produces/consumes 契约给 UI 调色板)
+- [x] `validateWorkflow` 纯函数: 空名/空节点/重复 id/未知 kind/自依赖/悬空依赖/环 全检
+- [x] `topoSort` (Kahn) 输出并行分层 levels — 同层可并发跑
+- [x] `defaultWorkflow` 默认流水线模板 (= 现写死顺序)
+
+### 持久化 + API
+- [x] `lib/db.ts` — `agent_workflows` 表 + 索引
+- [x] `saveWorkflow` (校验通过才存, owner 校验) / `getWorkflow` / `listWorkflows` / `deleteWorkflow`
+- [x] `app/api/workflows` (GET 列表+template, POST 校验保存) + `[id]` (GET 详情+执行分层, DELETE)
+
+### v4.1 总验收 ✅
+- ✅ 19 新单测 (校验全分支 + topo 分层/环 + 持久化 owner 校验), 累计 **vitest 1387/1387**
+- ✅ tsc 0 错误, 0 production 新依赖
+- ⏭️ 拖拽可视化编辑器 + 接 orchestrator 按 DAG 执行 留 v4.1.1 (执行引擎是独立大头)
+
+---
+
 ## 5. Sprint D+ · 长期愿景(v3.x — v4.x)
 
 | 方向 | 定位 | 预期周期 |
 |---|---|---|
 | ~~跨项目角色 IP 经济 (Sora-style cameo)~~ → v4.0 ✅ | 用户角色 token 化, 经授权可被其他用户复用, 创作者经济雏形 | ✅ 已交付 |
+| ~~LangGraph / Agent 编排 IDE~~ → v4.1 地基 ✅ (可视化编辑器 v4.1.1) | 用户拖拽自定义 agent 工作流 | 🚧 lib 已交付 |
 | 端到端 LLM Vision Audit | 成片每镜过 GPT-4o Vision, 0-100 分"画面是否对得上剧本" | v3.x — 2 周 |
 | LangGraph / Agent 编排 IDE | 用户拖拽自定义 agent 工作流, 替换 Director / 并行 Cameo+Editor | v4.x — 1 个月 |
 | PG 迁移 + 多人协作 (Yjs CRDT) | SQLite → Postgres + 多人同编 + 评论 | v4.x — 2 周 |
