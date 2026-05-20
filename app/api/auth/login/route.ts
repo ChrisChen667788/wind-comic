@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '@/lib/db';
 import { signToken } from '../lib';
+import { findUserByEmail } from '@/lib/repos/user-repo';
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -10,7 +10,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Missing credentials' }, { status: 400 });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+  // v4.2.1: 走 async user-repo (DbDriver), SQLite/PG 双驱动. 行为不变.
+  const user = await findUserByEmail(email);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
   }

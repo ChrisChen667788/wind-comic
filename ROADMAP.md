@@ -1364,7 +1364,14 @@ npm test
 ### v4.2 总验收 ✅
 - ✅ 19 新单测 (占位符/DDL/upsert 翻译 + 活 schema 导出), 累计 **vitest 1406/1406**
 - ✅ tsc 0 错误, 0 production 新依赖
-- ⏭️ DB driver 抽象层 + 250 调用点异步化 + 数据搬迁 = cutover 本身, 留 v4.2.1+ 分模块推进
+
+### v4.2.1 · cutover 第一个模块 — auth 域异步化试水 ✅ 2026-05-21
+- [x] `lib/db-driver.ts` — `DbDriver` 异步接口 (query/get/run) + `SqliteDriver` (包现有同步 better-sqlite3) + `PgDriver` (懒加载 `pg`, 软依赖, 没装报清晰错; 占位符 `?`→`$n` 自动转) + `getDbDriver` 工厂 (`DB_DRIVER` env 切换, 单例)
+- [x] `lib/repos/user-repo.ts` — 用户读写 async repo (findByEmail/findById/count/create/updatePassword), 统一 `?` 占位符两边跑
+- [x] `app/api/auth/login` 接 `findUserByEmail` — 真路由跑通双驱动, 行为不变 (curl: 正确 200 / 错误 401)
+- [x] `pg` 用变量 specifier + `@vite-ignore`/`webpackIgnore` 避开打包器静态解析, 保持 0 硬依赖
+- [x] 11 新单测 (工厂选型 / SqliteDriver CRUD / user-repo 全流程 / 重复邮箱拒), 累计 **vitest 1432/1432**
+- ⏭️ projects / assets / 协作域照此异步化 + 接 PgDriver 真连 PG 灰度, 留 v4.2.2+
 
 ---
 
