@@ -1239,7 +1239,12 @@ npm test
 - ✅ 15 新单测 (纯函数 + 真 SQLite 持久化), 累计 **vitest 1321/1321**
 - ✅ tsc 0 错误, 0 production 新依赖 (复用既有 openai SDK)
 - ✅ Vision 失败 / 无 key → 返 null, 全程不阻塞主流程
-- ⏭️ orchestrator 成片后自动触发逐镜 audit + panel 挂进项目页 留 v3.4.1 (评分要真成片关键帧, 接编排是独立一步)
+
+### v3.4.1 · UI 接线 ✅ 2026-05-20
+- [x] `app/api/projects/[id]/vision-audit/run` — POST 从 project_assets 拉 storyboard (图 + description) + timeline (台词/情绪), 并发 3 逐镜跑 `auditShotVsScript`, 持久化, 返 summary
+- [x] `components/project/vision-audit-tab.tsx` — 包 VisionAuditPanel + GET 历史 + "运行质检"按钮 (烧 token 故用户显式触发, 非生成流程自动跑)
+- [x] 项目页加"成片质检" tab (ScanEye 图标), 挂 VisionAuditTab
+- [x] tsc 0 错, vitest 1346/1346 不回归
 
 ---
 

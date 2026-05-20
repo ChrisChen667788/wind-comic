@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
   Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle, BarChart3,
-  Clapperboard,
+  Clapperboard, ScanEye,
 } from 'lucide-react';
 import { CameoPanel } from '@/components/CameoPanel';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
@@ -23,6 +23,7 @@ import { useAuth } from '@/components/auth-provider';
 import { PacingChart } from '@/components/project/pacing-chart';
 import { ReviewStatusBadge } from '@/components/project/review-status-badge';
 import { CinemaTimeline } from '@/components/project/cinema-timeline';
+import { VisionAuditTab } from '@/components/project/vision-audit-tab';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 
 function isVideoUrl(url: string): boolean {
@@ -196,6 +197,8 @@ export default function ProjectDetailPage() {
     { key: 'timeline', label: 'Cinema 时间线', icon: Clapperboard, count: script?.shots?.length || 0 },
     // v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议
     { key: 'pacing', label: '节奏分析', icon: BarChart3, count: script?.pacingReport?.warnings?.length || 0 },
+    // v3.4.1: 成片质检 — 每镜画面对剧本的 Vision 评分
+    { key: 'vision-audit', label: '成片质检', icon: ScanEye, count: 0 },
     // v3.0 P0.1: 评论协作 — 项目级讨论 + 提及通知
     { key: 'comments', label: '评论协作', icon: MessageCircle, count: 0 },
     { key: 'play', label: '完整播放', icon: Play, count: 0 },
@@ -619,6 +622,11 @@ export default function ProjectDetailPage() {
                 styleAuditReason: sb.styleAuditReason ?? sb.data?.styleAuditReason,
               }))}
             />
+          )}
+
+          {/* v3.4.1: 成片质检 — Vision 看画面对不对得上剧本 */}
+          {activeTab === 'vision-audit' && (
+            <VisionAuditTab projectId={id} />
           )}
 
           {/* v3.0 P0.1: 评论协作 — 项目级讨论 + 每个镜头独立线程 */}
