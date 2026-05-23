@@ -9,17 +9,27 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-// 测试隔离: vitest / NODE_ENV=test 下用独立 DB 文件, 永不碰生产 qfmj.db.
-// 此前测试直接写 data/qfmj.db, 灌进上百个 @test.local 用户, 触发过 "项目全空"
-// (非确定性 LIMIT 1) 等怪象. 每次跑测试前清掉旧 test DB → 可复现的干净起点.
 const isTestEnv = !!process.env.VITEST || process.env.NODE_ENV === 'test';
-const dbFile = isTestEnv ? 'qfmj.test.db' : 'qfmj.db';
+// 测试隔离: 每个测试文件用一个"全新、独占"的随机库文件 —— 永不碰生产 qfmj.db,
+// 也永不与别的连接/进程共用同一个测试库文件.
+// (此前测试直接写 data/qfmj.db, 灌进上百个 @test.local 用户, 触发过 "项目全空"
+//  这类非确定性 LIMIT 1 怪象; 测试库独立后彻底隔离.)
+//
+// 为什么不能共用单个 qfmj.test.db 再每次 unlink+重建:
+//   vitest isolate:true 会"按每个测试文件"重新求值本模块, 每个文件因此新开一个
+//   better-sqlite3 连接. 若所有文件共用同一路径并在每次求值时 unlink 旧文件再建,
+//   就会与上一个文件"尚未释放的连接"(WAL 的 -wal/-shm 句柄) 以及 e2e 的 ws-server
+//   子进程竞争同一文件, 偶发抛 "disk I/O error" / "database is locked"(全量跑概率性
+//   挂, 隔离单跑必过 —— 经典共享文件竞争). 试过"重建前关上一个连接 / 每次清理其它
+//   文件 / 进程内只清一次"等基于 globalThis、process.env 标记的方案, 但这些标记在
+//   vitest 的文件隔离下并不可靠保留, 仍会偶发. 改成"一个文件一个独占库"后, 当前库
+//   从不被别的连接/进程触碰 → 确定性干净起点.
+//
+//   旧库文件不在这里清理(避免删到仍被占用的文件); 由 tests/global-setup.ts 在整批
+//   测试开始前、于主进程一次性清掉 data/qfmj.test.* 残留. e2e 的 ws-server 子进程通过
+//   QFMJ_DB_PATH 复用本进程这一文件 (见 scripts/ws-server.mjs).
+const dbFile = isTestEnv ? `qfmj.test.${process.pid}.${nanoid(10)}.db` : 'qfmj.db';
 const dbPath = path.join(dataDir, dbFile);
-if (isTestEnv) {
-  for (const suffix of ['', '-wal', '-shm']) {
-    try { if (fs.existsSync(dbPath + suffix)) fs.unlinkSync(dbPath + suffix); } catch { /* ignore */ }
-  }
-}
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
@@ -645,4 +655,6 @@ export function seed() {
 
 seed();
 
-export { db };
+// dbPath 导出供 e2e 测试把"本进程实际使用的库文件"路径透传给 ws-server 子进程
+// (QFMJ_DB_PATH), 让子进程与测试进程读写同一个库. 生产环境即 data/qfmj.db.
+export { db, dbPath };
