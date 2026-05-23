@@ -1481,6 +1481,15 @@ npm test
 - [x] `app/dashboard/profile/page.tsx` — 用户中心/角色/语言/视觉偏好/协作空间 接词
 - [x] `tests/v5-0-3-i18n-pages.test.ts`(4 例):四段 81 key 四语非空 + 真翻译 + 简繁有别;全量 **vitest 1517/1517**,tsc 0 错,/settings /profile /cases HTTP 200
 
+### v5.0.4 · 收尾页接 i18n ✅ 2026-05-24
+> **背景**: v5.0.1/v5.0.3 接完功能页, 主站门面页 (首页/定价/帮助/示例) 仍写死中文. v5.0.4 收尾, 至此 i18n 覆盖主站全部公开页.
+- [x] `lib/i18n.ts` 字典新增四段 (四语全量): `home`(hero/feature/agents/lens/frame/vibe/cases/CTA + frameSteps 数组)、`pricing`(定价卡/FAQ 5 条数组/联系)、`help`(导航/搜索/guides 3 条 + faqs 6 条数组/联系)、`examples`(标题/CTA)
+- [x] `app/page.tsx` — 首页全段接词 (英雄文案/各 SectionTitle/三步卡/CTA);数据卡 (home-data) 保持不变
+- [x] `app/pricing/page.tsx` — TierCard + FAQ(5)+ 联系全接词;`FAQ_ITEMS` 常量并入字典
+- [x] `app/help/page.tsx` — 导航/搜索/快速指南(3)/FAQ(6)/联系;`guides`/`faqs` 常量并入字典(仅留 icon/color 展示元数据)
+- [x] `app/examples/page.tsx` — 导航/标题/CTA 接词;题材筛选(作为筛选键)与示例 mock 卡保持不变
+- [x] `tests/v5-0-4-i18n-final-pages.test.ts`(5 例):标量 key 四语非空 + 数组(frameSteps/faq/guides/faqs)长度一致且逐条非空 + 真翻译;全量 **vitest 1519/1519**,tsc 0 错,/ /pricing /help /examples HTTP 200
+
 ---
 
 ## 5. Sprint D+ · 长期愿景(v5.x+)

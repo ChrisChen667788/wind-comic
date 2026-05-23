@@ -7,6 +7,7 @@ import { Sparkles, Play, Eye, Heart, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useLocale } from "@/hooks/use-locale"
 
 const examples = [
   {
@@ -74,6 +75,7 @@ const examples = [
 const genres = ["全部", "科幻", "古风", "惊悚", "青春", "奇幻", "爱情"]
 
 export default function ExamplesPage() {
+  const { t } = useLocale()
   const [selectedGenre, setSelectedGenre] = React.useState("全部")
 
   const filteredExamples = selectedGenre === "全部"
@@ -90,15 +92,15 @@ export default function ExamplesPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-[#E8C547] to-[#D4A830] rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="text-xl font-bold">AI 漫剧工作室</span>
+              <span className="text-xl font-bold">{t.brand.studio}</span>
             </Link>
 
             <div className="flex items-center gap-4">
               <Link href="/pricing">
-                <Button variant="ghost">定价</Button>
+                <Button variant="ghost">{t.nav.pricing}</Button>
               </Link>
               <Link href="/auth">
-                <Button>开始创作</Button>
+                <Button>{t.nav.create}</Button>
               </Link>
             </div>
           </div>
@@ -115,11 +117,11 @@ export default function ExamplesPage() {
           >
             <h1 className="text-5xl font-bold mb-4">
               <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                精选作品
+                {t.examples.title}
               </span>
             </h1>
             <p className="text-xl text-neutral-400 max-w-2xl mx-auto">
-              探索由 AI 创作的精彩漫剧作品
+              {t.examples.subtitle}
             </p>
           </motion.div>
 
@@ -206,14 +208,14 @@ export default function ExamplesPage() {
             transition={{ delay: 0.5 }}
             className="text-center mt-16"
           >
-            <h2 className="text-3xl font-bold mb-4">准备好创作你的作品了吗？</h2>
+            <h2 className="text-3xl font-bold mb-4">{t.examples.ctaTitle}</h2>
             <p className="text-neutral-400 mb-6">
-              加入数千位创作者，开始你的 AI 漫剧创作之旅
+              {t.examples.ctaDesc}
             </p>
             <Link href="/create">
               <Button size="lg">
                 <Sparkles className="w-5 h-5 mr-2" />
-                立即开始创作
+                {t.examples.ctaButton}
               </Button>
             </Link>
           </motion.div>

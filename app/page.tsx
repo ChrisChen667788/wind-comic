@@ -8,8 +8,10 @@ import { GlassCard } from '@/components/ui/glass-card';
 import { heroStats, featureHighlights, agentCards, vibeShots } from '@/lib/home-data';
 import { IMG_FEATURE_MAIN, IMG_LENS_MAIN, IMG_BG_TEXTURE } from '@/lib/placeholder-images';
 import { useEffect, useState } from 'react';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function Home() {
+  const { t } = useLocale();
   const [cases, setCases] = useState<any[]>([]);
   // 英雄封面资产探测:
   //   - /hero-loop.mp4  运行 `npm run generate:hero` 生成的循环动画
@@ -100,13 +102,13 @@ export default function Home() {
             className="text-white/85 text-[clamp(15px,1.6vw,20px)] max-w-[640px] leading-relaxed mb-2 font-light"
             style={{ textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}
           >
-            / 情绪渲染专家 · 史诗收束
+            {t.home.heroTagline1}
           </p>
           <p
             className="text-white/65 text-[clamp(13px,1.3vw,16px)] max-w-[640px] leading-relaxed mb-10 font-light"
             style={{ textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}
           >
-            从静立蓄势，到壮阔全景 — 一支 AI 团队，三段式升格把故事搬上银幕
+            {t.home.heroTagline2}
           </p>
 
           <div className="flex gap-4 items-center flex-wrap justify-center">
@@ -114,13 +116,13 @@ export default function Home() {
               href="/dashboard/create"
               className="btn-primary px-8 py-4 rounded-2xl text-sm inline-flex items-center gap-2 shadow-2xl shadow-[#E8C547]/20 hover:scale-[1.03] transition-transform"
             >
-              开始创作 →
+              {t.home.heroCtaCreate}
             </Link>
             <Link
               href="/cases"
               className="px-8 py-4 rounded-2xl text-sm inline-flex items-center gap-2 text-white/90 hover:text-white bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/15 hover:border-white/30 transition-all"
             >
-              查看作品
+              {t.home.heroCtaCases}
             </Link>
           </div>
 
@@ -152,7 +154,7 @@ export default function Home() {
 
         {/* Feature */}
         <section className="relative z-[1] px-[5vw] py-20">
-          <SectionTitle title="像导演一样掌控节奏" subtitle="脚本、分镜、动画、音效全流程可视化协作。" />
+          <SectionTitle title={t.home.featureTitle} subtitle={t.home.featureSubtitle} />
           <div className="flex justify-center">
             <div className="grid grid-cols-1 md:grid-cols-[minmax(280px,700px)_280px] gap-8 items-center">
               <div className="relative rounded-[30px] overflow-hidden bg-[var(--foreground)] border border-[var(--border)] group">
@@ -177,7 +179,7 @@ export default function Home() {
 
         {/* Agents */}
         <section className="relative z-[1] px-[5vw] py-20">
-          <SectionTitle title="一支 AI 动画 Agent 团队" subtitle="每一个角色都在实时协作。" />
+          <SectionTitle title={t.home.agentsTitle} subtitle={t.home.agentsSubtitle} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {agentCards.map((agent) => (
               <GlassCard key={agent.title} className="group cursor-default">
@@ -199,11 +201,11 @@ export default function Home() {
               <div className="border-[3px] border-[var(--primary)] rounded-[40px] p-[18px] bg-[var(--foreground)]">
                 <img src={IMG_LENS_MAIN} alt="Lens" className="rounded-[30px] h-[320px] w-full object-cover" />
               </div>
-              <p className="mt-4 text-[var(--soft)] text-sm">镜头盒：自定义镜头运动、焦段、视角</p>
+              <p className="mt-4 text-[var(--soft)] text-sm">{t.home.lensCaption}</p>
             </div>
             <div>
-              <h2 className="text-[clamp(28px,3vw,46px)] font-bold mb-3 brand-gradient">镜头语言统一到每一帧</h2>
-              <p className="text-[var(--muted)] mb-5">统一风格、色彩与镜头运动规则。</p>
+              <h2 className="text-[clamp(28px,3vw,46px)] font-bold mb-3 brand-gradient">{t.home.lensTitle}</h2>
+              <p className="text-[var(--muted)] mb-5">{t.home.lensDesc}</p>
               <div className="flex gap-3 flex-wrap">
                 <span className="px-3.5 py-2 rounded-full bg-[rgba(255,255,255,0.1)] text-xs">35mm / Dolly / Wide</span>
                 <span className="px-3.5 py-2 rounded-full bg-[rgba(255,255,255,0.1)] text-xs">Low angle</span>
@@ -215,21 +217,21 @@ export default function Home() {
 
         {/* Frame */}
         <section className="relative z-[1] px-[5vw] py-20 text-center">
-          <SectionTitle title="分镜由 AI 快速生成" subtitle="从一句话出发，得到可编辑的多镜头序列。" />
+          <SectionTitle title={t.home.frameTitle} subtitle={t.home.frameSubtitle} />
           <div className="flex gap-5 justify-center flex-wrap mb-8">
             {[
-              { num: '01', title: '脚本结构', desc: '智能拆解剧情节奏', tilt: '-rotate-6' },
-              { num: '02', title: '镜头拆解', desc: '自动生成多镜头分镜', tilt: '' },
-              { num: '03', title: '角色设定', desc: '保持角色与风格一致', tilt: 'rotate-6' },
-            ].map((item) => (
+              { num: '01', tilt: '-rotate-6' },
+              { num: '02', tilt: '' },
+              { num: '03', tilt: 'rotate-6' },
+            ].map((item, i) => (
               <GlassCard key={item.num} className={`w-[240px] text-center ${item.tilt}`}>
                 <div className="w-12 h-12 rounded-2xl bg-[rgba(255,255,255,0.1)] grid place-items-center mx-auto mb-5 text-lg font-bold">{item.num}</div>
-                <p className="font-semibold mb-1.5">{item.title}</p>
-                <span className="text-[var(--soft)] text-[13px]">{item.desc}</span>
+                <p className="font-semibold mb-1.5">{t.home.frameSteps[i].title}</p>
+                <span className="text-[var(--soft)] text-[13px]">{t.home.frameSteps[i].desc}</span>
               </GlassCard>
             ))}
           </div>
-          <Link href="/dashboard/create" className="btn-primary px-6 py-3 rounded-2xl text-sm inline-block">生成分镜</Link>
+          <Link href="/dashboard/create" className="btn-primary px-6 py-3 rounded-2xl text-sm inline-block">{t.home.frameCta}</Link>
         </section>
 
         {/* Vibe */}
@@ -244,9 +246,9 @@ export default function Home() {
               ))}
             </div>
             <div>
-              <p className="text-[var(--soft)] uppercase tracking-[0.2em] text-xs mb-2">氛围板：实时更新视觉和音效</p>
-              <h2 className="text-[clamp(28px,3vw,46px)] font-bold mb-3 brand-gradient">氛围与节奏实时预览</h2>
-              <p className="text-[var(--muted)] mb-5">画面、镜头、配乐同时驱动情绪。</p>
+              <p className="text-[var(--soft)] uppercase tracking-[0.2em] text-xs mb-2">{t.home.vibeKicker}</p>
+              <h2 className="text-[clamp(28px,3vw,46px)] font-bold mb-3 brand-gradient">{t.home.vibeTitle}</h2>
+              <p className="text-[var(--muted)] mb-5">{t.home.vibeDesc}</p>
               <div className="flex gap-3 flex-wrap">
                 <span className="px-3.5 py-2 rounded-full bg-[rgba(255,255,255,0.1)] text-xs">Ambient 75%</span>
                 <span className="px-3.5 py-2 rounded-full bg-[rgba(255,255,255,0.1)] text-xs">Tempo 110</span>
@@ -258,10 +260,10 @@ export default function Home() {
 
         {/* Cases */}
         <section className="relative z-[1] px-[5vw] py-20 text-center">
-          <SectionTitle title="案例精选" subtitle="来自青枫漫剧合作伙伴与创作者。" />
+          <SectionTitle title={t.home.casesTitle} subtitle={t.home.casesSubtitle} />
           <div className="flex justify-between items-center gap-3 px-5 py-3 rounded-lg bg-[rgba(232,197,71,0.08)] border border-[rgba(232,197,71,0.2)] text-[rgba(232,197,71,0.9)] text-[13px] mb-6">
             <span>QingFeng Manju Studio · AI Animation Agent Team</span>
-            <span className="font-bold text-[#E8C547] underline cursor-pointer">立即体验</span>
+            <span className="font-bold text-[#E8C547] underline cursor-pointer">{t.home.casesTryNow}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
             {(cases.length ? cases : featureHighlights.map((f, i) => ({ id: String(i), title: f.title, coverUrl: f.image, category: 'AI Short' }))).map((item: any) => (
@@ -277,17 +279,17 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <Link href="/cases" className="btn-ghost px-5 py-2.5 rounded-2xl text-sm inline-block">查看全部</Link>
+          <Link href="/cases" className="btn-ghost px-5 py-2.5 rounded-2xl text-sm inline-block">{t.common.viewAll}</Link>
         </section>
 
         {/* CTA */}
         <section className="relative z-[1] px-[5vw] py-20 pb-[120px]">
           <div className="flex flex-col md:flex-row items-center justify-between gap-5 p-10 rounded-[20px] bg-[linear-gradient(120deg,rgba(232,197,71,0.08),rgba(200,67,42,0.06))] border-[1.5px] border-[var(--border)]">
             <div>
-              <h2 className="text-[clamp(28px,3vw,42px)] font-bold mb-2">把故事变成动画</h2>
-              <p className="text-[var(--muted)]">现在就开始你的第一部 AI 漫剧</p>
+              <h2 className="text-[clamp(28px,3vw,42px)] font-bold mb-2">{t.home.ctaTitle}</h2>
+              <p className="text-[var(--muted)]">{t.home.ctaDesc}</p>
             </div>
-            <Link href="/dashboard" className="btn-primary px-8 py-3.5 rounded-2xl text-sm shrink-0">进入工作台</Link>
+            <Link href="/dashboard" className="btn-primary px-8 py-3.5 rounded-2xl text-sm shrink-0">{t.home.ctaButton}</Link>
           </div>
         </section>
       </main>
