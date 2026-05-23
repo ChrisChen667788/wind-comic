@@ -69,6 +69,44 @@ describe('v4.2.1 · SqliteDriver query/get/run', () => {
   });
 });
 
+describe('v4.2.5 · SqliteDriver.transaction', () => {
+  it('commits on success', async () => {
+    const d = getDbDriver();
+    const id = nanoid();
+    await d.transaction(async (tx) => {
+      await tx.run(
+        `INSERT INTO users (id, email, password_hash, name, role, created_at) VALUES (?, ?, ?, ?, 'user', ?)`,
+        [id, `tx-ok-${id}@test.local`, 'h', 'TxOK', new Date().toISOString()],
+      );
+    });
+    const row = await d.get(`SELECT id FROM users WHERE id = ?`, [id]);
+    expect(row).not.toBeNull();
+  });
+
+  it('rolls back on throw — no partial write', async () => {
+    const d = getDbDriver();
+    const id = nanoid();
+    await expect(
+      d.transaction(async (tx) => {
+        await tx.run(
+          `INSERT INTO users (id, email, password_hash, name, role, created_at) VALUES (?, ?, ?, ?, 'user', ?)`,
+          [id, `tx-rb-${id}@test.local`, 'h', 'TxRB', new Date().toISOString()],
+        );
+        throw new Error('boom mid-transaction');
+      }),
+    ).rejects.toThrow(/boom/);
+    // 回滚后该 user 不应存在
+    const row = await d.get(`SELECT id FROM users WHERE id = ?`, [id]);
+    expect(row).toBeNull();
+  });
+
+  it('returns fn result', async () => {
+    const d = getDbDriver();
+    const r = await d.transaction(async () => 42);
+    expect(r).toBe(42);
+  });
+});
+
 describe('v4.2.1 · user-repo (async, через driver)', () => {
   it('createUser + findByEmail + findById round-trip', async () => {
     const email = `repo-${nanoid()}@test.local`;

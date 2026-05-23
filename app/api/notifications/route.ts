@@ -13,12 +13,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../auth/lib';
+// v4.2.5: 读 + 写全走 async repo (DbDriver 双驱动), 不再依赖同步 lib/notifications
 import {
+  listNotifications,
+  countUnread as countUnreadAsync,
   markRead,
   markAllRead,
-} from '@/lib/notifications';
-// v4.2.4: GET 读路径走 async repo (DbDriver 双驱动); POST 写仍用同步 lib/notifications
-import { listNotifications, countUnread as countUnreadAsync } from '@/lib/repos/notification-repo';
+} from '@/lib/repos/notification-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,11 +59,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === 'markAllRead' || !body?.id) {
-    const n = markAllRead(userId);
+    const n = await markAllRead(userId);
     return NextResponse.json({ updated: n });
   }
 
   const id = String(body.id);
-  const ok = markRead(id, userId);
+  const ok = await markRead(id, userId);
   return NextResponse.json({ updated: ok ? 1 : 0 });
 }

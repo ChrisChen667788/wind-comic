@@ -23,14 +23,24 @@ export interface DbRunResult {
   lastInsertRowid?: number | bigint;
 }
 
-export interface DbDriver {
-  readonly dialect: DbDialect;
+/** 查询执行器 (事务内/外通用接口). */
+export interface DbExecutor {
   /** SELECT 多行. */
   query<T = any>(sql: string, params?: unknown[]): Promise<T[]>;
   /** SELECT 单行 (无则 null). */
   get<T = any>(sql: string, params?: unknown[]): Promise<T | null>;
   /** INSERT / UPDATE / DELETE. */
   run(sql: string, params?: unknown[]): Promise<DbRunResult>;
+}
+
+export interface DbDriver extends DbExecutor {
+  readonly dialect: DbDialect;
+  /**
+   * v4.2.5: 原子事务. fn 抛错则全回滚. fn 收到一个 tx 作用域的 executor —
+   * 写事务逻辑 (如注册: 插 user + 消费邀请码) 必须用它, 不能混用全局 driver.
+   * SQLite: BEGIN/COMMIT 同连接; PG: 从池 checkout 单 client 全程跑.
+   */
+  transaction<T>(fn: (tx: DbExecutor) => Promise<T>): Promise<T>;
 }
 
 // ─── SQLite driver (包现有同步 db) ──────────────────────────────────────────
@@ -58,6 +68,19 @@ class SqliteDriver implements DbDriver {
     const db = await this.db();
     const r = db.prepare(sql).run(...params);
     return { changes: r.changes, lastInsertRowid: r.lastInsertRowid };
+  }
+  async transaction<T>(fn: (tx: DbExecutor) => Promise<T>): Promise<T> {
+    const db = await this.db();
+    // better-sqlite3 同步, BEGIN…COMMIT 同连接顺序执行即原子 (fn 内只做 DB + 同步计算)
+    db.prepare('BEGIN').run();
+    try {
+      const result = await fn(this);
+      db.prepare('COMMIT').run();
+      return result;
+    } catch (e) {
+      try { db.prepare('ROLLBACK').run(); } catch { /* ignore */ }
+      throw e;
+    }
   }
 }
 
@@ -102,6 +125,30 @@ class PgDriver implements DbDriver {
     const pool = await this.pool();
     const r = await pool.query(sqliteParamsToPg(sql), params);
     return { changes: r.rowCount ?? 0 };
+  }
+  async transaction<T>(fn: (tx: DbExecutor) => Promise<T>): Promise<T> {
+    const pool = await this.pool();
+    const client = await pool.connect();
+    // tx 作用域 executor — 全程同一 client (池里别的连接拿不到这个事务)
+    const tx: DbExecutor = {
+      query: async <U = any>(sql: string, params: unknown[] = []) =>
+        (await client.query(sqliteParamsToPg(sql), params)).rows as U[],
+      get: async <U = any>(sql: string, params: unknown[] = []) =>
+        ((await client.query(sqliteParamsToPg(sql), params)).rows[0] ?? null) as U | null,
+      run: async (sql: string, params: unknown[] = []) =>
+        ({ changes: (await client.query(sqliteParamsToPg(sql), params)).rowCount ?? 0 }),
+    };
+    try {
+      await client.query('BEGIN');
+      const result = await fn(tx);
+      await client.query('COMMIT');
+      return result;
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 }
 

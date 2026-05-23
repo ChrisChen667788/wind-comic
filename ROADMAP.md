@@ -1426,7 +1426,14 @@ npm test
 - [x] `app/api/notifications` GET 读路径接 async repo (DbDriver 双驱动), 真路由 200; POST 写仍同步 (渐进迁移)
 - [x] 6 新单测 (评论软删/计数排除已删 + 通知未读计数/标记/排序限制), 累计 **vitest 1493/1493**
 - ✅ PG 迁移已覆盖 4 域: auth / projects / assets / collab —— 全量 `DB_DRIVER=pg` 灰度待用户提供 PG 实例 (`npm run pg:smoke` 验证)
-- ⏭️ 剩余同步调用点逐步迁 + POST/写路径异步化, 留 v4.2.5+
+
+### v4.2.5 · 写路径异步化 + 事务原语 ✅ 2026-05-21
+- [x] `lib/db-driver.ts` — 加 `DbExecutor` 接口 + `DbDriver.transaction(fn)` 原子事务: SQLite BEGIN/COMMIT 同连接, PG 从池 checkout 单 client 全程跑, 抛错回滚; fn 收 tx 作用域 executor
+- [x] `app/api/notifications` POST (markRead/markAllRead) 也接 async repo, 彻底移除该路由对同步 `lib/notifications` 的依赖 (读写全 DbDriver)
+- [x] 3 新事务单测 (commit / 抛错回滚无残留 / 返回值) + notifications GET/POST 真路由 200
+- [x] 累计 **vitest 1501/1501**, tsc 0 错
+- 📌 register (插 user + 消费邀请码事务) / comments (mention+通知+附件逻辑) 暂留同步: 它们需把 `consumeInviteCode` / comments 服务也异步化才能安全迁 —— 现事务原语已就绪, 解锁这步留 v4.2.6
+- ✅ PG 全量切清单: 这些剩余同步写点迁完 (v4.2.6) + 用户验 PG → `DB_DRIVER=pg`
 
 ---
 
