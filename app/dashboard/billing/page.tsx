@@ -17,10 +17,12 @@ import { Loader2, Check, Star, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { PRICING_TIERS } from '@/lib/pricing';
 import { useToast } from '@/components/ui/toast-provider';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function BillingPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLocale();
   const params = useSearchParams();
   const [currentTier, setCurrentTier] = useState<string>('free');
   const [busy, setBusy] = useState<string | null>(null);
@@ -47,9 +49,9 @@ export default function BillingPage() {
     const status = params.get('status');
     if (status === 'success') {
       const tier = params.get('tier');
-      showToast({ title: `🎉 已升级到 ${tier || '新档位'}!订阅已激活`, type: 'success' });
+      showToast({ title: `🎉 ${t.billing.upgradedPrefix} ${tier || ''}${t.billing.upgradedSuffix}`, type: 'success' });
     } else if (status === 'canceled') {
-      showToast({ title: '已取消支付', type: 'info' });
+      showToast({ title: t.billing.paymentCanceled, type: 'info' });
     }
   }, [params, showToast]);
 
@@ -68,13 +70,13 @@ export default function BillingPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        showToast({ title: data.error || 'Checkout 失败', type: 'error' });
+        showToast({ title: data.error || t.billing.checkoutFailed, type: 'error' });
         return;
       }
       // 跳到 Stripe Checkout 页
       window.location.href = data.url;
     } catch (e) {
-      showToast({ title: e instanceof Error ? e.message : 'Checkout 失败', type: 'error' });
+      showToast({ title: e instanceof Error ? e.message : t.billing.checkoutFailed, type: 'error' });
     } finally {
       setBusy(null);
     }
@@ -83,11 +85,11 @@ export default function BillingPage() {
   return (
     <div className="max-w-6xl mx-auto py-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold">订阅管理</h1>
+        <h1 className="text-2xl font-bold">{t.billing.title}</h1>
         <p className="text-sm text-[var(--soft)] mt-1">
-          当前档位:<span className="text-[#E8C547] font-semibold">{tierLabel(currentTier)}</span>
+          {t.billing.currentTier}<span className="text-[#E8C547] font-semibold">{tierLabel(currentTier)}</span>
           <span className="text-white/30 mx-2">·</span>
-          支付走 Stripe Checkout(国际版),取消 / 改卡走 Stripe Customer Portal
+          {t.billing.paymentNote}
         </p>
       </div>
 
@@ -110,12 +112,12 @@ export default function BillingPage() {
               {tier.recommended && !isCurrent && (
                 <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-[#E8C547] text-black text-[10px] font-bold flex items-center gap-1">
                   <Star className="w-2.5 h-2.5 fill-current" />
-                  推荐
+                  {t.billing.recommended}
                 </div>
               )}
               {isCurrent && (
                 <div className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold">
-                  当前档位
+                  {t.billing.currentBadge}
                 </div>
               )}
               <div className="mb-3">
@@ -126,11 +128,11 @@ export default function BillingPage() {
               </div>
               <div className="mb-4">
                 {isCustom ? (
-                  <div className="text-2xl font-bold">联系我们</div>
+                  <div className="text-2xl font-bold">{t.billing.contactUs}</div>
                 ) : (
                   <>
                     <span className="text-3xl font-bold tabular-nums">¥{tier.price}</span>
-                    <span className="text-sm text-[var(--soft)] ml-1">/月</span>
+                    <span className="text-sm text-[var(--soft)] ml-1">{t.billing.perMonth}</span>
                   </>
                 )}
               </div>
@@ -154,15 +156,15 @@ export default function BillingPage() {
                 }`}
               >
                 {isCurrent ? (
-                  <>✓ 已是此档位</>
+                  <>✓ {t.billing.alreadyThis}</>
                 ) : isFree ? (
-                  <>免费 · 无需购买</>
+                  <>{t.billing.freeNoPurchase}</>
                 ) : busy === tier.id ? (
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                 ) : isCustom ? (
-                  <>商务洽谈</>
+                  <>{t.billing.businessTalk}</>
                 ) : (
-                  <>升级到 {tier.name}</>
+                  <>{t.billing.upgradeTo} {tier.name}</>
                 )}
               </button>
             </div>
@@ -171,10 +173,9 @@ export default function BillingPage() {
       </div>
 
       <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
-        <h2 className="text-sm font-semibold mb-2">订阅管理</h2>
+        <h2 className="text-sm font-semibold mb-2">{t.billing.title}</h2>
         <p className="text-xs text-[var(--soft)] leading-relaxed">
-          升级、降级、取消订阅、修改支付方式 都在 Stripe Customer Portal 里完成 —
-          点下方按钮跳转(自托管时需配置 <code className="text-[#E8C547]">STRIPE_PORTAL_LINK</code>)。
+          {t.billing.portalNote}
         </p>
         {process.env.NEXT_PUBLIC_STRIPE_PORTAL_LINK && (
           <a
@@ -184,7 +185,7 @@ export default function BillingPage() {
             className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs"
           >
             <ExternalLink className="w-3 h-3" />
-            打开 Stripe Customer Portal
+            {t.billing.openPortal}
           </a>
         )}
       </div>

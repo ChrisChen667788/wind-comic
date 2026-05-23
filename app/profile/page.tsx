@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar } from "@/components/ui/avatar"
 import { useToast } from "@/components/ui/toast-provider"
+import { useLocale } from "@/hooks/use-locale"
 
 export default function ProfilePage() {
   const [name, setName] = React.useState("张三")
@@ -17,13 +18,14 @@ export default function ProfilePage() {
   const [bio, setBio] = React.useState("热爱创作的 AI 漫剧制作人")
   const [loading, setLoading] = React.useState(false)
   const { showToast } = useToast()
+  const { t } = useLocale()
 
   const handleSave = async () => {
     setLoading(true)
     setTimeout(() => {
       showToast({
-        title: "保存成功",
-        description: "个人资料已更新",
+        title: t.profile.saveSuccess,
+        description: t.profile.saveSuccessDesc,
         type: "success"
       })
       setLoading(false)
@@ -40,15 +42,15 @@ export default function ProfilePage() {
               <div className="w-8 h-8 bg-gradient-to-br from-[#E8C547] to-[#D4A830] rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="text-xl font-bold">AI 漫剧工作室</span>
+              <span className="text-xl font-bold">{t.brand.studio}</span>
             </Link>
 
             <div className="flex items-center gap-4">
               <Link href="/projects">
-                <Button variant="ghost">我的项目</Button>
+                <Button variant="ghost">{t.nav.projects}</Button>
               </Link>
               <Link href="/settings">
-                <Button variant="ghost">设置</Button>
+                <Button variant="ghost">{t.nav.settings}</Button>
               </Link>
             </div>
           </div>
@@ -61,14 +63,14 @@ export default function ProfilePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className="text-4xl font-bold mb-2">个人资料</h1>
-            <p className="text-neutral-400 mb-8">管理你的个人信息和偏好设置</p>
+            <h1 className="text-4xl font-bold mb-2">{t.profile.title}</h1>
+            <p className="text-neutral-400 mb-8">{t.profile.subtitle}</p>
 
             <div className="grid md:grid-cols-3 gap-6">
               {/* Avatar Section */}
               <Card className="md:col-span-1">
                 <CardHeader>
-                  <CardTitle>头像</CardTitle>
+                  <CardTitle>{t.profile.avatar}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center">
                   <div className="relative group">
@@ -82,7 +84,7 @@ export default function ProfilePage() {
                     </button>
                   </div>
                   <Button variant="outline" className="mt-4 w-full">
-                    上传头像
+                    {t.profile.uploadAvatar}
                   </Button>
                 </CardContent>
               </Card>
@@ -90,12 +92,12 @@ export default function ProfilePage() {
               {/* Profile Info */}
               <Card className="md:col-span-2">
                 <CardHeader>
-                  <CardTitle>基本信息</CardTitle>
-                  <CardDescription>更新你的个人资料</CardDescription>
+                  <CardTitle>{t.profile.basicInfo}</CardTitle>
+                  <CardDescription>{t.profile.basicInfoDesc}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm text-neutral-400">用户名</label>
+                    <label className="text-sm text-neutral-400">{t.profile.username}</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
                       <Input
@@ -107,7 +109,7 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm text-neutral-400">邮箱</label>
+                    <label className="text-sm text-neutral-400">{t.profile.email}</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
                       <Input
@@ -120,12 +122,12 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm text-neutral-400">个人简介</label>
+                    <label className="text-sm text-neutral-400">{t.profile.bio}</label>
                     <Textarea
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       rows={4}
-                      placeholder="介绍一下你自己..."
+                      placeholder={t.profile.bioPlaceholder}
                     />
                   </div>
 
@@ -135,7 +137,7 @@ export default function ProfilePage() {
                     className="w-full"
                   >
                     <Save className="w-4 h-4 mr-2" />
-                    {loading ? "保存中..." : "保存更改"}
+                    {loading ? t.common.saving : t.common.saveChanges}
                   </Button>
                 </CardContent>
               </Card>
@@ -143,25 +145,25 @@ export default function ProfilePage() {
               {/* Stats */}
               <Card className="md:col-span-3">
                 <CardHeader>
-                  <CardTitle>创作统计</CardTitle>
+                  <CardTitle>{t.profile.stats}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center p-4 bg-white/5 rounded-lg">
                       <div className="text-3xl font-bold text-[#E8C547]">12</div>
-                      <div className="text-sm text-neutral-400 mt-1">总项目数</div>
+                      <div className="text-sm text-neutral-400 mt-1">{t.profile.totalProjects}</div>
                     </div>
                     <div className="text-center p-4 bg-white/5 rounded-lg">
                       <div className="text-3xl font-bold text-pink-400">8</div>
-                      <div className="text-sm text-neutral-400 mt-1">已完成</div>
+                      <div className="text-sm text-neutral-400 mt-1">{t.projects.filterCompleted}</div>
                     </div>
                     <div className="text-center p-4 bg-white/5 rounded-lg">
                       <div className="text-3xl font-bold text-blue-400">4</div>
-                      <div className="text-sm text-neutral-400 mt-1">进行中</div>
+                      <div className="text-sm text-neutral-400 mt-1">{t.profile.inProgress}</div>
                     </div>
                     <div className="text-center p-4 bg-white/5 rounded-lg">
                       <div className="text-3xl font-bold text-green-400">156</div>
-                      <div className="text-sm text-neutral-400 mt-1">总镜头数</div>
+                      <div className="text-sm text-neutral-400 mt-1">{t.profile.totalShots}</div>
                     </div>
                   </div>
                 </CardContent>

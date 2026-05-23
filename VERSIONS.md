@@ -143,6 +143,7 @@
 | **v5.0** | 2026-05-21 | `567e68b` | i18n:真繁体中文 + 日本語全量翻译 + deep-merge 回退 + normalizeLocale/Accept-Language 解析 + useLocale hook + LocaleSwitcher(挂 dashboard) |
 | **v5.0.1** | 2026-05-23 | `e2c83c1` | 全站页面接 i18n:字典四语扩展(brand/nav 扩/dashboard 段/create.badge/projects 扩/common 扩)+ dashboard/projects/create/nav(site-header)全走 useLocale;死的 LanguageToggle → 真 LocaleSwitcher;projects/create 顶栏挂语言切换 |
 | **v5.0.2** | 2026-05-21 | `04b8529` | U2V 环形进度条 + 失败/超时面板内可见 + 重试(修"单图生视频失败无响应"体感) |
+| **v5.0.3** | 2026-05-23 | `(本次)` | 剩余页面接 i18n:字典新增 settings/profile/billing/cases 四段 + common 扩(四语全量);settings/profile/billing/cases(公开+dashboard)全走 useLocale;**settings 语言下拉真驱动 setLocale** |
 
 ---
 

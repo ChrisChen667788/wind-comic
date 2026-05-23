@@ -9,36 +9,43 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select } from "@/components/ui/select"
 import { useToast } from "@/components/ui/toast-provider"
 import { useSettings } from "@/hooks/useSettings"
+import { useLocale } from "@/hooks/use-locale"
+import type { Locale } from "@/lib/i18n"
 
 export default function SettingsPage() {
   const { settings, updateSettings, isLoading } = useSettings()
   const { showToast } = useToast()
+  const { t, locale, setLocale } = useLocale()
 
-  const language = settings.language
   const theme = settings.theme
   const notifications = settings.notifications.email
 
-  const setLanguage = (value: string) => updateSettings({ language: value })
+  // 语言下拉直接驱动真 i18n locale(同时同步到 useSettings)
+  const setLanguage = (value: string) => {
+    setLocale(value as Locale)
+    updateSettings({ language: value })
+  }
   const setTheme = (value: string) => updateSettings({ theme: value })
   const setNotifications = (value: boolean) =>
     updateSettings({ notifications: { ...settings.notifications, email: value } })
 
   const handleSave = () => {
     showToast({
-      title: "设置已保存",
-      description: "你的偏好设置已更新",
+      title: t.settings.saved,
+      description: t.settings.savedDesc,
       type: "success"
     })
   }
 
   const handleReset = () => {
+    setLocale('zh-CN')
     updateSettings({
       language: 'zh-CN',
       theme: 'dark',
       notifications: { email: true, push: true, updates: true },
       privacy: { profilePublic: false, showActivity: true },
     })
-    showToast({ title: "设置已重置", type: "info" })
+    showToast({ title: t.settings.resetDone, type: "info" })
   }
 
   return (
@@ -51,15 +58,15 @@ export default function SettingsPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-[#E8C547] to-[#D4A830] rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="text-xl font-bold">AI 漫剧工作室</span>
+              <span className="text-xl font-bold">{t.brand.studio}</span>
             </Link>
 
             <div className="flex items-center gap-4">
               <Link href="/profile">
-                <Button variant="ghost">个人资料</Button>
+                <Button variant="ghost">{t.nav.profile}</Button>
               </Link>
               <Link href="/projects">
-                <Button variant="ghost">我的项目</Button>
+                <Button variant="ghost">{t.nav.projects}</Button>
               </Link>
             </div>
           </div>
@@ -72,8 +79,8 @@ export default function SettingsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className="text-4xl font-bold mb-2">设置</h1>
-            <p className="text-neutral-400 mb-8">管理你的应用偏好和账户设置</p>
+            <h1 className="text-4xl font-bold mb-2">{t.settings.title}</h1>
+            <p className="text-neutral-400 mb-8">{t.settings.subtitle}</p>
 
             <div className="space-y-6">
               {/* General Settings */}
@@ -82,16 +89,16 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <Globe className="w-5 h-5 text-[#E8C547]" />
                     <div>
-                      <CardTitle>通用设置</CardTitle>
-                      <CardDescription>语言和地区偏好</CardDescription>
+                      <CardTitle>{t.settings.general}</CardTitle>
+                      <CardDescription>{t.settings.generalDesc}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm text-neutral-400">语言</label>
+                    <label className="text-sm text-neutral-400">{t.settings.language}</label>
                     <Select
-                      value={language}
+                      value={locale}
                       onChange={(e) => setLanguage(e.target.value)}
                     >
                       <option value="zh-CN">简体中文</option>
@@ -109,21 +116,21 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <Palette className="w-5 h-5 text-pink-400" />
                     <div>
-                      <CardTitle>外观</CardTitle>
-                      <CardDescription>自定义界面主题</CardDescription>
+                      <CardTitle>{t.settings.appearance}</CardTitle>
+                      <CardDescription>{t.settings.appearanceDesc}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm text-neutral-400">主题</label>
+                    <label className="text-sm text-neutral-400">{t.settings.theme}</label>
                     <Select
                       value={theme}
                       onChange={(e) => setTheme(e.target.value)}
                     >
-                      <option value="dark">深色模式</option>
-                      <option value="light">浅色模式</option>
-                      <option value="auto">跟随系统</option>
+                      <option value="dark">{t.settings.themeDark}</option>
+                      <option value="light">{t.settings.themeLight}</option>
+                      <option value="auto">{t.settings.themeAuto}</option>
                     </Select>
                   </div>
                 </CardContent>
@@ -135,16 +142,16 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <Bell className="w-5 h-5 text-blue-400" />
                     <div>
-                      <CardTitle>通知</CardTitle>
-                      <CardDescription>管理通知偏好</CardDescription>
+                      <CardTitle>{t.settings.notifications}</CardTitle>
+                      <CardDescription>{t.settings.notificationsDesc}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium">项目完成通知</div>
-                      <div className="text-sm text-neutral-400">当项目创作完成时接收通知</div>
+                      <div className="font-medium">{t.settings.projectDone}</div>
+                      <div className="text-sm text-neutral-400">{t.settings.projectDoneDesc}</div>
                     </div>
                     <button
                       onClick={() => setNotifications(!notifications)}
@@ -168,18 +175,18 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <Zap className="w-5 h-5 text-yellow-400" />
                     <div>
-                      <CardTitle>性能</CardTitle>
-                      <CardDescription>优化应用性能</CardDescription>
+                      <CardTitle>{t.settings.performance}</CardTitle>
+                      <CardDescription>{t.settings.performanceDesc}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm text-neutral-400">视频质量</label>
+                    <label className="text-sm text-neutral-400">{t.settings.videoQuality}</label>
                     <Select defaultValue="high">
-                      <option value="high">高质量</option>
-                      <option value="medium">中等质量</option>
-                      <option value="low">低质量（节省流量）</option>
+                      <option value="high">{t.settings.qualityHigh}</option>
+                      <option value="medium">{t.settings.qualityMedium}</option>
+                      <option value="low">{t.settings.qualityLow}</option>
                     </Select>
                   </div>
                 </CardContent>
@@ -191,20 +198,20 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <Shield className="w-5 h-5 text-green-400" />
                     <div>
-                      <CardTitle>隐私与安全</CardTitle>
-                      <CardDescription>保护你的账户安全</CardDescription>
+                      <CardTitle>{t.settings.privacy}</CardTitle>
+                      <CardDescription>{t.settings.privacyDesc}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Button variant="outline" className="w-full justify-start">
-                    修改密码
+                    {t.settings.changePassword}
                   </Button>
                   <Button variant="outline" className="w-full justify-start">
-                    启用两步验证
+                    {t.settings.enable2fa}
                   </Button>
                   <Button variant="outline" className="w-full justify-start">
-                    管理已登录设备
+                    {t.settings.manageDevices}
                   </Button>
                 </CardContent>
               </Card>
@@ -215,24 +222,24 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <CreditCard className="w-5 h-5 text-orange-400" />
                     <div>
-                      <CardTitle>账单与订阅</CardTitle>
-                      <CardDescription>管理你的订阅计划</CardDescription>
+                      <CardTitle>{t.settings.billing}</CardTitle>
+                      <CardDescription>{t.settings.billingDesc}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="p-4 bg-[#E8C547]/10 border border-[#E8C547]/50 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold">免费计划</div>
-                      <div className="text-sm text-[#E8C547]">当前计划</div>
+                      <div className="font-semibold">{t.settings.freePlan}</div>
+                      <div className="text-sm text-[#E8C547]">{t.settings.currentPlan}</div>
                     </div>
                     <div className="text-sm text-neutral-400">
-                      每月 10 个项目额度
+                      {t.settings.freeQuota}
                     </div>
                   </div>
                   <Link href="/pricing">
                     <Button className="w-full">
-                      升级到专业版
+                      {t.settings.upgradePro}
                     </Button>
                   </Link>
                 </CardContent>
@@ -241,10 +248,10 @@ export default function SettingsPage() {
               {/* Save Button */}
               <div className="flex justify-end gap-3">
                 <Button variant="ghost" onClick={handleReset}>
-                  重置
+                  {t.common.reset}
                 </Button>
                 <Button onClick={handleSave}>
-                  保存更改
+                  {t.common.saveChanges}
                 </Button>
               </div>
             </div>

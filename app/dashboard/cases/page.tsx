@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Copy, Check, Play, Eye, Heart, Sparkles } from 'lucide-react';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function CasesPage() {
+  const { t } = useLocale();
   const [cases, setCases] = useState<any[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const router = useRouter();
@@ -36,8 +38,8 @@ export default function CasesPage() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold">案例库</h2>
-        <p className="text-sm text-[var(--muted)] mt-1">来自青枫漫剧合作伙伴与创作者 · 点击一键复用创意</p>
+        <h2 className="text-2xl font-bold">{t.cases.title}</h2>
+        <p className="text-sm text-[var(--muted)] mt-1">{t.cases.subtitleReuse}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -57,14 +59,14 @@ export default function CasesPage() {
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 text-xs text-white transition-all border border-white/10"
                   >
                     {copiedId === c.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                    {copiedId === c.id ? '已复制' : '复制提示词'}
+                    {copiedId === c.id ? t.cases.copied : t.cases.copyPrompt}
                   </button>
                   <button
                     onClick={(e) => handleUsePrompt(c, e)}
                     className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#E8C547]/80 hover:bg-[#E8C547] text-xs text-white transition-all"
                   >
                     <Sparkles className="w-3 h-3" />
-                    用这个创作
+                    {t.cases.usePrompt}
                   </button>
                 </div>
               </div>

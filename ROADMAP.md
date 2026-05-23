@@ -1471,6 +1471,16 @@ npm test
 - [x] tsc 0 错, vitest 1478/1478, u2v 页 HTTP 200
 - 📌 真实进度 (SSE 推送上游 onProgress) 是更彻底方案, 留 v4.1.4/SSE
 
+### v5.0.3 · 剩余页面接 i18n ✅ 2026-05-23
+> **背景**: v5.0.1 接了 dashboard/projects/create/nav, 但 settings/profile/billing/cases 仍写死中文. v5.0.3 把这批补齐, 国际化覆盖到主要功能页.
+- [x] `lib/i18n.ts` 字典新增四段 (四语全量): `settings`(37 词条:语言/外观/通知/性能/隐私/账单)、`profile`(20 词条)、`billing`(17 词条)、`cases`(7 词条);`common` 扩 saveChanges/saving/reset
+- [x] `app/settings/page.tsx` — 全页接词;**语言下拉从只写 useSettings 改成真驱动 `setLocale`**(同时同步 useSettings),重置也回退 zh-CN
+- [x] `app/profile/page.tsx` — 导航/头像/基本信息/统计/toast 全接词
+- [x] `app/dashboard/billing/page.tsx` — 档位卡/按钮态(已是此档位/免费/升级到 X/商务洽谈)/Stripe 文案/toast 接词
+- [x] `app/cases/page.tsx`(公开) + `app/dashboard/cases/page.tsx` — 标题/副标/复制提示词/用这个创作 接词
+- [x] `app/dashboard/profile/page.tsx` — 用户中心/角色/语言/视觉偏好/协作空间 接词
+- [x] `tests/v5-0-3-i18n-pages.test.ts`(4 例):四段 81 key 四语非空 + 真翻译 + 简繁有别;全量 **vitest 1517/1517**,tsc 0 错,/settings /profile /cases HTTP 200
+
 ---
 
 ## 5. Sprint D+ · 长期愿景(v5.x+)

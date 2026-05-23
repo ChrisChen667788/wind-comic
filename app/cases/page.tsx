@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { SectionTitle } from '@/components/ui/section-title';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function CasesPublicPage() {
+  const { t } = useLocale();
   const [cases, setCases] = useState<any[]>([]);
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function CasesPublicPage() {
     <div className="min-h-screen">
       <SiteHeader />
       <main className="px-[5vw] py-20">
-        <SectionTitle title="案例精选" subtitle="来自青枫漫剧合作伙伴与创作者" />
+        <SectionTitle title={t.cases.titlePublic} subtitle={t.cases.subtitle} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {cases.map((c) => (
             <div key={c.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-[20px] overflow-hidden group transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
