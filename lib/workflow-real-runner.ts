@@ -33,14 +33,23 @@ export function checkRealRunCapability(): RealRunCapability {
   return hasLlm ? { llm: true } : { llm: false, reason: '未配置 LLM API key (.env.local 的 OPENAI_API_KEY)' };
 }
 
+/** v4.1.5: 执行期回调 (推 SSE 进度用), 透传给引擎. */
+export interface RealRunHooks {
+  onStepStart?: (nodeId: string, kind: string) => void;
+  onStepDone?: (nodeId: string, output: unknown) => void;
+  onStepError?: (nodeId: string, error: string) => void;
+}
+
 /**
  * 真跑工作流. injectedOrch 给测试注入 mock; 生产不传则 new HybridOrchestrator().
  * 无能力且没注入 → 返回 ok:false (不抛, 让路由返 400).
+ * hooks: v4.1.5 执行期回调, 透传给引擎驱动 SSE.
  */
 export async function runWorkflowReal(
   graph: WorkflowGraph,
   input: RealRunInput,
   injectedOrch?: OrchestratorLike,
+  hooks?: RealRunHooks,
 ): Promise<ExecuteResult & { mode: 'real' }> {
   if (!injectedOrch) {
     const cap = checkRealRunCapability();
@@ -64,6 +73,9 @@ export async function runWorkflowReal(
     input: { idea: input.idea, projectId: input.projectId },
     onFailure: 'abort',
     runners,
+    onStepStart: hooks?.onStepStart,
+    onStepDone: hooks?.onStepDone,
+    onStepError: hooks?.onStepError,
   });
 
   // v4.1.4: 真实运行落盘 — 给了 projectId 就把结果摘要存成项目资产 (best-effort)

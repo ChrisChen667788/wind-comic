@@ -99,3 +99,39 @@ describe('v4.1.4 · runWorkflowReal 落盘 project', () => {
     expect(r.ok).toBe(true); // 不抛, 正常返回
   });
 });
+
+describe('v4.1.5 · runWorkflowReal hooks (SSE 进度回调)', () => {
+  it('fires onStepStart/onStepDone for each node', async () => {
+    const starts: string[] = [];
+    const dones: string[] = [];
+    const r = await runWorkflowReal(
+      defaultWorkflow(),
+      { idea: 'x' },
+      mockOrch(),
+      {
+        onStepStart: (nodeId) => starts.push(nodeId),
+        onStepDone: (nodeId) => dones.push(nodeId),
+      },
+    );
+    expect(r.ok).toBe(true);
+    // 默认流水线 9 步全部 start + done
+    expect(starts.length).toBe(9);
+    expect(dones.length).toBe(9);
+    expect(starts).toContain('director');
+    expect(dones).toContain('producer');
+  });
+
+  it('fires onStepError when a step fails', async () => {
+    const errs: Array<{ id: string; e: string }> = [];
+    const orch = mockOrch();
+    orch.runWriter = async () => { throw new Error('writer-boom'); };
+    const r = await runWorkflowReal(
+      defaultWorkflow(),
+      { idea: 'x' },
+      orch,
+      { onStepError: (nodeId, e) => errs.push({ id: nodeId, e }) },
+    );
+    expect(r.ok).toBe(false);
+    expect(errs.some((x) => x.e.includes('writer-boom'))).toBe(true);
+  });
+});

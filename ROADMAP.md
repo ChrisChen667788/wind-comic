@@ -1373,7 +1373,13 @@ npm test
 - [x] `app/dashboard/u2v` — 单图走 SSE 真实进度 (进度环从"估算"变"真实生命周期"), FLF 仍同步; 进度环 + 失败可见 (v5.0.2) 复用
 - [x] `lib/workflow-real-runner.ts` — 真实运行给了 projectId 就把结果摘要落 `workflow-run` 资产 (best-effort)
 - [x] 12 新单测 (SSE format/parse 往返 + 跨 chunk 半帧 + 真实运行落盘资产), 累计 **vitest 1490/1490**; curl 实测 SSE 实时推进度帧
-- ⏭️ 工作流执行也接 SSE 进度流 (现 U2V 接了) 留 v4.1.5
+
+### v4.1.5 · 工作流执行 SSE 进度流 ✅ 2026-05-21
+- [x] `app/api/workflows/[id]/execute/stream` — SSE 版执行: 实时推 start → step-start/step-done/step-error → done{result} (dry-run + real 双模式), 复用引擎已有 onStep 回调
+- [x] `lib/workflow-real-runner.ts` — `runWorkflowReal` 加 `hooks` 参数 (onStepStart/Done/Error) 透传引擎, real 模式也能流式
+- [x] `app/workflow-studio` — run 改走 SSE: 每节点初始 pending → 边跑边亮 running/done/failed (spinner/勾/叉), 不必等整条跑完
+- [x] 2 新单测 (hooks 逐节点 fire + 失败 onStepError), 累计 **vitest 1495/1495**; curl 实测 stream 逐帧推 step-start/done
+- ✅ 至此 SSE 进度覆盖 U2V (v4.1.4) + 工作流 (v4.1.5) 两条长任务
 
 ---
 

@@ -84,19 +84,47 @@ export default function WorkflowStudioPage() {
   };
 
   const run = async (mode: 'dry-run' | 'real') => {
-    setRunning(true); setMsg(null); setRunSteps(null);
+    setRunning(true); setMsg(null);
+    // v4.1.5: 初始化每步为 pending, SSE 边跑边亮
+    setRunSteps(graph.nodes.map((n) => ({ nodeId: n.id, kind: n.kind, status: 'pending', ms: 0 })));
+    const tag = mode === 'real' ? '真实运行' : 'dry-run';
     try {
-      // 先存再跑 (execute 读持久化的)
+      // 先存再跑 (stream 读持久化的)
       await fetch('/api/workflows', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(graph) });
-      const res = await fetch(`/api/workflows/${encodeURIComponent(graph.id)}/execute`, {
+      const { parseSSEChunk } = await import('@/lib/sse');
+      const res = await fetch(`/api/workflows/${encodeURIComponent(graph.id)}/execute/stream`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ mode, input: { idea: ideaInput } }),
       });
-      const b = await res.json();
-      if (!res.ok) throw new Error(b?.error || `HTTP ${res.status}`);
-      setRunSteps(b.result?.steps || []);
-      const tag = mode === 'real' ? '真实运行' : 'dry-run';
-      setMsg(b.result?.ok ? `${tag} 执行完成 ✓` : `${tag} 完成 (有失败步骤)`);
+      if (!res.ok || !res.body) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b?.error || `HTTP ${res.status}`);
+      }
+      const setStatus = (nodeId: string, status: string) =>
+        setRunSteps((prev) => (prev || []).map((s) => s.nodeId === nodeId ? { ...s, status } : s));
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finished = false;
+      while (!finished) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parsed = parseSSEChunk(buffer);
+        buffer = parsed.rest;
+        for (const ev of parsed.events) {
+          if (ev.event === 'step-start') setStatus(ev.data.nodeId, 'running');
+          else if (ev.event === 'step-done') setStatus(ev.data.nodeId, 'done');
+          else if (ev.event === 'step-error') setStatus(ev.data.nodeId, 'failed');
+          else if (ev.event === 'done') {
+            if (Array.isArray(ev.data?.result?.steps)) setRunSteps(ev.data.result.steps);
+            setMsg(ev.data?.result?.ok ? `${tag} 执行完成 ✓` : `${tag} 完成 (有失败步骤)`);
+            finished = true;
+          } else if (ev.event === 'error') {
+            throw new Error(ev.data?.error || '执行失败');
+          }
+        }
+      }
     } catch (e) { setMsg('执行失败: ' + (e instanceof Error ? e.message : '')); }
     finally { setRunning(false); }
   };
@@ -207,10 +235,14 @@ export default function WorkflowStudioPage() {
                 {runSteps.map((s) => (
                   <div key={s.nodeId} className="flex items-center justify-between text-[11px]">
                     <span className="inline-flex items-center gap-1.5">
-                      {s.status === 'done' ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : s.status === 'failed' ? <XCircle className="w-3 h-3 text-rose-400" /> : <AlertTriangle className="w-3 h-3 text-white/30" />}
+                      {s.status === 'done' ? <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        : s.status === 'failed' ? <XCircle className="w-3 h-3 text-rose-400" />
+                        : s.status === 'running' ? <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
+                        : s.status === 'skipped' ? <AlertTriangle className="w-3 h-3 text-amber-400/60" />
+                        : <span className="w-3 h-3 inline-block rounded-full border border-white/20" />}
                       {graph.nodes.find((n) => n.id === s.nodeId)?.label || s.nodeId}
                     </span>
-                    <span className="text-white/40 tabular-nums">{s.ms}ms</span>
+                    <span className="text-white/40 tabular-nums">{s.ms ? `${s.ms}ms` : ''}</span>
                   </div>
                 ))}
               </div>
