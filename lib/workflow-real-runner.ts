@@ -65,5 +65,28 @@ export async function runWorkflowReal(
     onFailure: 'abort',
     runners,
   });
+
+  // v4.1.4: 真实运行落盘 — 给了 projectId 就把结果摘要存成项目资产 (best-effort)
+  if (input.projectId) {
+    try {
+      const { createAsset } = await import('./repos/asset-repo');
+      await createAsset({
+        projectId: input.projectId,
+        type: 'workflow-run',
+        name: `工作流运行 · ${graph.name}`,
+        data: {
+          workflowId: graph.id,
+          ok: result.ok,
+          idea: input.idea,
+          steps: result.steps.map((s) => ({ nodeId: s.nodeId, kind: s.kind, status: s.status, ms: s.ms })),
+          outputs: result.outputs,
+          ranAt: new Date().toISOString(),
+        },
+      });
+    } catch (e) {
+      console.warn('[workflow-real] 落盘 project 失败 (non-fatal):', e instanceof Error ? e.message : e);
+    }
+  }
+
   return { mode: 'real', ...result };
 }

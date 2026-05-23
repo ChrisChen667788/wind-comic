@@ -70,3 +70,32 @@ describe('v4.1.3 · checkRealRunCapability', () => {
     expect(typeof cap.llm).toBe('boolean');
   });
 });
+
+describe('v4.1.4 · runWorkflowReal 落盘 project', () => {
+  it('persists a workflow-run asset when projectId given', async () => {
+    const { db, now } = await import('@/lib/db');
+    const { countProjectAssets, listAssetsByType } = await import('@/lib/repos/asset-repo');
+    const { nanoid } = await import('nanoid');
+    // 建真 user + project (FK)
+    const uid = 'u-' + nanoid();
+    db.prepare(`INSERT INTO users (id, email, password_hash, name, role, created_at) VALUES (?, ?, ?, ?, 'user', ?)`)
+      .run(uid, `${uid}@test.local`, 'x', uid, now());
+    const pid = 'proj-' + nanoid();
+    db.prepare(`INSERT INTO projects (id, user_id, title, description, cover_urls, status, created_at, updated_at) VALUES (?, ?, 'wf', '', '[]', 'draft', ?, ?)`)
+      .run(pid, uid, now(), now());
+
+    const before = await countProjectAssets(pid);
+    const r = await runWorkflowReal(defaultWorkflow(), { idea: '都市', projectId: pid }, mockOrch());
+    expect(r.ok).toBe(true);
+    const after = await countProjectAssets(pid);
+    expect(after).toBe(before + 1);
+    const runs = await listAssetsByType(pid, 'workflow-run');
+    expect(runs.length).toBe(1);
+    expect(JSON.parse(runs[0].data).ok).toBe(true);
+  });
+
+  it('no projectId → no persist (just returns result)', async () => {
+    const r = await runWorkflowReal(defaultWorkflow(), { idea: 'x' }, mockOrch());
+    expect(r.ok).toBe(true); // 不抛, 正常返回
+  });
+});

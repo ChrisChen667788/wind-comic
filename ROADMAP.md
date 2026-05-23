@@ -1357,7 +1357,15 @@ npm test
 - [x] `app/api/workflows/[id]/execute` — `mode: 'real'|'dry-run'`, real 走真 orchestrator + 能力门 400
 - [x] `app/workflow-studio` — 加创意 idea 输入 + "真实运行"按钮 (旁边保留 dry-run)
 - [x] 6 新单测 (注入 mock orch 端到端 / idea 透传 / 空 idea 拒 / per-call runner 不漏全局 / 注入时跳能力门), 累计 **vitest 1449/1449**
-- ⏭️ 真实运行落盘到 project 资产 + 长任务进度流 (SSE) 留 v4.1.4
+
+### v4.1.4 · SSE 真实进度流 + 真实运行落盘 ✅ 2026-05-21
+- [x] `lib/sse.ts` — SSE 工具: `formatSSE` / `parseSSEChunk` (流式分帧, 半帧留 buffer) / `createSSEResponse` (ReadableStream 包 handler, 自动 error 帧 + 关流)
+- [x] `app/api/u2v/stream` — SSE 版单图生视频: 实时推 submit→rendering→done/error 帧; done/error **即时到达** (不必等阻塞 fetch 整返); Kling 真实 onProgress 映射进度环, minimax/vidu 服务端时间估算兜底
+- [x] `app/api/u2v/route.ts` — `routeVideoByDuration` 加 onProgress 参数, 透传给 Kling (真实进度); export 供 stream 复用
+- [x] `app/dashboard/u2v` — 单图走 SSE 真实进度 (进度环从"估算"变"真实生命周期"), FLF 仍同步; 进度环 + 失败可见 (v5.0.2) 复用
+- [x] `lib/workflow-real-runner.ts` — 真实运行给了 projectId 就把结果摘要落 `workflow-run` 资产 (best-effort)
+- [x] 12 新单测 (SSE format/parse 往返 + 跨 chunk 半帧 + 真实运行落盘资产), 累计 **vitest 1490/1490**; curl 实测 SSE 实时推进度帧
+- ⏭️ 工作流执行也接 SSE 进度流 (现 U2V 接了) 留 v4.1.5
 
 ---
 

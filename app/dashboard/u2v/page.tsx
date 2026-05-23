@@ -137,52 +137,91 @@ export default function U2VPage() {
     setGenerating(true);
     setResultUrl('');
     setErrorMsg('');
+    setProgress(2);
+    setElapsed(0);
+    // v4.1.4: 单图 (非 FLF) 走 SSE 真实进度流; FLF 仍走同步 (尚未流式化)
+    if (!isFlfMode) {
+      await generateViaSSE();
+      return;
+    }
     startProgressTimer(duration);
-    // v5.0.2: 客户端硬超时 6 分钟 (服务端 maxDuration 300s) — 防永久转圈
     const ctrl = new AbortController();
     const hardTimeout = setTimeout(() => ctrl.abort(), 360_000);
     try {
-      // v2.14 P0.3: 有尾帧 → 走 /api/u2v-flf 首尾帧融合; 否则走单图 /api/u2v
-      const endpoint = isFlfMode ? '/api/u2v-flf' : '/api/u2v';
-      const requestBody = isFlfMode
-        ? {
-            firstFrameUrl: imageUrl,
-            lastFrameUrl: tailImageUrl,
-            prompt,
-            // FLF 路径 Kling 上限 10s
-            duration: duration === 5 || duration === 6 ? 5 : 10,
-            cameraPreset,
-          }
-        : { imageUrl, prompt, duration, cameraPreset };
-      const res = await fetch(endpoint, {
+      const res = await fetch('/api/u2v-flf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          firstFrameUrl: imageUrl, lastFrameUrl: tailImageUrl, prompt,
+          duration: duration === 5 || duration === 6 ? 5 : 10, cameraPreset,
+        }),
         signal: ctrl.signal,
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = body.error || `生成失败 (HTTP ${res.status})`;
-        setErrorMsg(msg);
-        showToast({ title: msg, type: 'error' });
+        setErrorMsg(msg); showToast({ title: msg, type: 'error' });
         return;
       }
-      stopProgressTimer();
-      setProgress(100);
-      setResultUrl(body.videoUrl);
-      const modelHint = body.model ? ` · ${body.model}` : '';
-      const warnHint = body.warning ? `(${body.warning.slice(0, 60)})` : '';
-      showToast({ title: `生成成功!${modelHint} ${warnHint}`, type: 'success' });
+      stopProgressTimer(); setProgress(100); setResultUrl(body.videoUrl);
+      showToast({ title: `生成成功!${body.model ? ' · ' + body.model : ''}`, type: 'success' });
     } catch (e) {
       const aborted = e instanceof DOMException && e.name === 'AbortError';
-      const msg = aborted
-        ? '生成超时 (超过 6 分钟无响应)。上游可能繁忙或失败,请重试或换一张图。'
-        : (e instanceof Error ? e.message : '网络错误,生成失败');
+      const msg = aborted ? '生成超时 (超过 6 分钟无响应)。' : (e instanceof Error ? e.message : '网络错误,生成失败');
+      setErrorMsg(msg); showToast({ title: msg, type: 'error' });
+    } finally {
+      clearTimeout(hardTimeout); stopProgressTimer(); setGenerating(false);
+    }
+  };
+
+  /** v4.1.4: SSE 真实进度流 — 边生成边收 progress/done/error 帧, 实时驱动进度环. */
+  const generateViaSSE = async () => {
+    const t0 = Date.now();
+    const ctrl = new AbortController();
+    const hardTimeout = setTimeout(() => ctrl.abort(), 380_000);
+    try {
+      const { parseSSEChunk } = await import('@/lib/sse');
+      const res = await fetch('/api/u2v/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl, prompt, duration, cameraPreset }),
+        signal: ctrl.signal,
+      });
+      if (!res.ok || !res.body) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error || `HTTP ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let done = false;
+      while (!done) {
+        const { value, done: rdone } = await reader.read();
+        if (rdone) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parsed = parseSSEChunk(buffer);
+        buffer = parsed.rest;
+        for (const ev of parsed.events) {
+          if (ev.event === 'progress') {
+            if (typeof ev.data?.pct === 'number') setProgress(ev.data.pct);
+            setElapsed((Date.now() - t0) / 1000);
+          } else if (ev.event === 'done') {
+            setProgress(100);
+            setResultUrl(ev.data.videoUrl);
+            showToast({ title: `生成成功!${ev.data.model ? ' · ' + ev.data.model : ''}`, type: 'success' });
+            done = true;
+          } else if (ev.event === 'error') {
+            throw new Error(ev.data?.error || '生成失败');
+          }
+        }
+      }
+    } catch (e) {
+      const aborted = e instanceof DOMException && e.name === 'AbortError';
+      const msg = aborted ? '生成超时 (超过 6 分钟无响应)。' : (e instanceof Error ? e.message : '网络错误,生成失败');
       setErrorMsg(msg);
       showToast({ title: msg, type: 'error' });
     } finally {
       clearTimeout(hardTimeout);
-      stopProgressTimer();
       setGenerating(false);
     }
   };

@@ -38,10 +38,11 @@ export const maxDuration = 300; // 上限 5 分钟,Minimax I2V 通常 1-3 分钟
  *   15s   → Vidu Q3 Pro    (16s 上限内最接近)
  * 每档若主模型挂掉, 自动降级链: Kling/Vidu → Minimax 5s 兜底, 让用户至少拿到一段视频。
  */
-async function routeVideoByDuration(
+export async function routeVideoByDuration(
   imageUrl: string,
   prompt: string,
   duration: number,
+  onProgress?: (pct: number, msg?: string) => void,  // v4.1.4: Kling 真实进度回调
 ): Promise<{ videoUrl: string; model: string }> {
   // 5/6s → Minimax 主路径
   if (duration === 5 || duration === 6) {
@@ -54,7 +55,7 @@ async function routeVideoByDuration(
     if (API_CONFIG.keling.apiKey && !API_CONFIG.keling.apiKey.startsWith('your_')) {
       try {
         const k = new KlingService();
-        const v = await k.generateVideo(imageUrl, prompt, { duration: 10, mode: 'professional' });
+        const v = await k.generateVideo(imageUrl, prompt, { duration: 10, mode: 'professional', onProgress });
         return { videoUrl: v, model: 'Kling-Master-10s' };
       } catch (e) {
         console.warn('[U2V] Kling 10s failed, falling back to Minimax 6s:', e instanceof Error ? e.message : e);
@@ -78,7 +79,7 @@ async function routeVideoByDuration(
     if (API_CONFIG.keling.apiKey && !API_CONFIG.keling.apiKey.startsWith('your_')) {
       try {
         const k = new KlingService();
-        const v = await k.generateVideo(imageUrl, prompt, { duration: 10, mode: 'professional' });
+        const v = await k.generateVideo(imageUrl, prompt, { duration: 10, mode: 'professional', onProgress });
         return { videoUrl: v, model: 'Kling-Master-10s-fallback' };
       } catch (e) {
         console.warn('[U2V] Kling 10s also failed, falling back to Minimax 6s:', e instanceof Error ? e.message : e);
