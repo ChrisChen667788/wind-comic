@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { nanoid } from 'nanoid';
-import { db, now } from '@/lib/db';
+import { now } from '@/lib/db';
+import { getDbDriver } from '@/lib/db-driver';
 import { signToken } from '../lib';
 import {
-  consumeInviteCode,
+  consumeInviteCodeTx,
   isInviteRequired,
   type InviteCodeError,
 } from '@/lib/invite-codes';
+import { findUserByEmail } from '@/lib/repos/user-repo';
 
 const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" rx="40" fill="#2d1b69"/><circle cx="40" cy="30" r="14" fill="rgba(255,255,255,0.3)"/><ellipse cx="40" cy="68" rx="22" ry="18" fill="rgba(255,255,255,0.2)"/></svg>`)}`;
 
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existing = await findUserByEmail(email);
   if (existing) {
     return NextResponse.json({ message: '该邮箱已被注册' }, { status: 409 });
   }
@@ -54,40 +56,24 @@ export async function POST(request: Request) {
   const passwordHash = bcrypt.hashSync(password, 10);
   const userId = nanoid();
 
-  // 原子性执行：先插 user（邀请码的 used_by_user_id FK 依赖 user 已存在），
-  // 再消费邀请码；若码无效则整个事务回滚，user 也不会真正写入。
-  const tx = db.transaction(() => {
-    db.prepare(
-      `INSERT INTO users (id, email, password_hash, name, role, avatar_url, locale, created_at, invite_code_used)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      userId,
-      email,
-      passwordHash,
-      name,
-      'member',
-      DEFAULT_AVATAR,
-      'zh',
-      now(),
-      null, // 稍后 UPDATE
-    );
-
-    let consumedCode: string | undefined;
-    if (inviteRequired) {
-      const result = consumeInviteCode(String(inviteCode), userId);
-      if (!result.ok) {
-        const msg = INVITE_ERROR_MESSAGES[result.error ?? 'INVALID'];
-        throw Object.assign(new Error(msg), { kind: 'invite', code: result.error });
-      }
-      consumedCode = result.invite!.code;
-      db.prepare('UPDATE users SET invite_code_used = ? WHERE id = ?').run(consumedCode, userId);
-    }
-
-    return consumedCode;
-  });
-
+  // v4.2.6: 走 DbDriver.transaction (SQLite/PG 双驱动) — 原子性: 先插 user
+  // (邀请码 used_by_user_id FK 依赖 user 已存在), 再消费邀请码; 码无效整个事务回滚.
   try {
-    tx();
+    await getDbDriver().transaction(async (tx) => {
+      await tx.run(
+        `INSERT INTO users (id, email, password_hash, name, role, avatar_url, locale, created_at, invite_code_used)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, email, passwordHash, name, 'member', DEFAULT_AVATAR, 'zh', now(), null],
+      );
+      if (inviteRequired) {
+        const result = await consumeInviteCodeTx(tx, String(inviteCode), userId);
+        if (!result.ok) {
+          const msg = INVITE_ERROR_MESSAGES[result.error ?? 'INVALID'];
+          throw Object.assign(new Error(msg), { kind: 'invite', code: result.error });
+        }
+        await tx.run('UPDATE users SET invite_code_used = ? WHERE id = ?', [result.invite!.code, userId]);
+      }
+    });
   } catch (e) {
     const err = e as Error & { kind?: string; code?: string };
     if (err.kind === 'invite') {

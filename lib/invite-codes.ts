@@ -173,6 +173,34 @@ export function validateInviteCode(code: string): ValidateResult {
 }
 
 /**
+ * v4.2.6: 事务作用域版消费邀请码 — 在调用方的 DbDriver 事务内执行 (用 tx executor),
+ * 让 "插 user + 消费邀请码" 真正原子. 逻辑与 consumeInviteCode 等价, 但走异步驱动.
+ * 注意: 不自己开/提交事务, 由调用方 transaction(fn) 包裹.
+ */
+export async function consumeInviteCodeTx(
+  tx: import('@/lib/db-driver').DbExecutor,
+  code: string,
+  userId: string,
+): Promise<ValidateResult> {
+  const c = code ? code.trim().toUpperCase() : '';
+  if (!c) return { ok: false, error: 'INVALID' };
+  const row = await tx.get<InviteCodeRow>('SELECT * FROM invite_codes WHERE code = ?', [c]);
+  if (!row) return { ok: false, error: 'NOT_FOUND' };
+  if (row.status === 'used') return { ok: false, error: 'ALREADY_USED' };
+  if (row.status === 'revoked') return { ok: false, error: 'REVOKED' };
+  if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
+    await tx.run('UPDATE invite_codes SET status = ? WHERE code = ?', ['expired', c]);
+    return { ok: false, error: 'EXPIRED' };
+  }
+  await tx.run(
+    `UPDATE invite_codes SET status = ?, used_by_user_id = ?, used_at = ? WHERE code = ? AND status = 'unused'`,
+    ['used', userId, now(), c],
+  );
+  const updated = await tx.get<InviteCodeRow>('SELECT * FROM invite_codes WHERE code = ?', [c]);
+  return { ok: true, invite: rowToInvite(updated!) };
+}
+
+/**
  * 原子性消费邀请码：校验 + 占用 + 绑定 userId
  * 用 transaction 保证并发安全。
  */

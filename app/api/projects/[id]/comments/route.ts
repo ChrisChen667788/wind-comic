@@ -22,9 +22,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest, getUserById } from '../../../auth/lib';
 import {
-  createComment,
-  listComments,
-  deleteComment,
+  createCommentAsync,
+  listCommentsAsync,
+  deleteCommentAsync,
   type CommentTargetType,
 } from '@/lib/comments';
 import { broadcastNewComment, broadcastDeleteComment } from '@/lib/yjs-broadcast';
@@ -64,7 +64,7 @@ export async function GET(
     return NextResponse.json({ error: `invalid targetType: ${targetType}` }, { status: 400 });
   }
 
-  const comments = listComments({
+  const comments = await listCommentsAsync({
     projectId,
     targetType: targetType || undefined,
     targetId: targetId || undefined,
@@ -107,7 +107,7 @@ export async function POST(
   if (content.length > 2000) return NextResponse.json({ error: '评论超过 2000 字' }, { status: 400 });
 
   try {
-    const result = createComment({
+    const result = await createCommentAsync({
       projectId,
       targetType,
       targetId,
@@ -138,7 +138,7 @@ export async function DELETE(
   const commentId = request.nextUrl.searchParams.get('commentId');
   if (!commentId) return NextResponse.json({ error: '缺 commentId' }, { status: 400 });
 
-  const ok = deleteComment(commentId, user.id);
+  const ok = await deleteCommentAsync(commentId, user.id);
   if (!ok) return NextResponse.json({ error: '不存在或无权删除' }, { status: 403 });
   // v3.0 P0.2: 广播软删, 在线 client 把 row 上的 deletedAt 标位置
   void broadcastDeleteComment(projectId, commentId, new Date().toISOString());

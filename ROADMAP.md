@@ -1432,8 +1432,14 @@ npm test
 - [x] `app/api/notifications` POST (markRead/markAllRead) 也接 async repo, 彻底移除该路由对同步 `lib/notifications` 的依赖 (读写全 DbDriver)
 - [x] 3 新事务单测 (commit / 抛错回滚无残留 / 返回值) + notifications GET/POST 真路由 200
 - [x] 累计 **vitest 1501/1501**, tsc 0 错
-- 📌 register (插 user + 消费邀请码事务) / comments (mention+通知+附件逻辑) 暂留同步: 它们需把 `consumeInviteCode` / comments 服务也异步化才能安全迁 —— 现事务原语已就绪, 解锁这步留 v4.2.6
-- ✅ PG 全量切清单: 这些剩余同步写点迁完 (v4.2.6) + 用户验 PG → `DB_DRIVER=pg`
+### v4.2.6 · register + comments 事务迁移 ✅ 2026-05-21
+- [x] `lib/invite-codes.ts` — `consumeInviteCodeTx(tx, code, userId)` 事务作用域版 (异步, 用 tx executor); 同步版保留兼容
+- [x] `app/api/auth/register` — 走 `DbDriver.transaction`: 插 user + `consumeInviteCodeTx` + 回写 invite_code_used 全原子, 码无效整体回滚 (find 重邮箱走 user-repo)
+- [x] `lib/comments.ts` — `createCommentAsync` (事务: comment + @mention 解析 + 通知扇出, 邮件事务外 best-effort) / `listCommentsAsync` / `deleteCommentAsync`; 同步版保留
+- [x] `app/api/projects/[id]/comments` GET/POST/DELETE 全切 async 版
+- [x] 8 新单测 (邀请码原子提交/坏码回滚/已用拒 + 评论 mention 通知/reply 通知/自 @ 不通知/软删) + register 403 gate + comments POST/GET 真路由 200
+- [x] 累计 **vitest 1509/1509**, tsc 0 错
+- ✅ **PG 全量切就绪**: 主要写路径 (auth/projects/assets/collab) 均已 async + 事务; 剩 `DB_DRIVER=pg` 仅待用户 PG 实例 (`npm run pg:smoke` 验证)
 
 ---
 

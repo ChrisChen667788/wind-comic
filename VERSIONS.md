@@ -132,6 +132,7 @@
 | **v4.1.5** | 2026-05-21 | `b978f4c` | 工作流执行 SSE 进度流:`/execute/stream` 推 step-start/done/error;workflow-studio 边跑边亮每个节点状态(pending→running→done/failed) |
 | **v4.2.4** | 2026-05-21 | `2b20b5c` | 协作域异步化:comment-repo + notification-repo(DbDriver 双驱动);notifications GET 接通。PG 迁移已覆盖 auth/projects/assets/collab 四域 |
 | **v4.2.5** | 2026-05-21 | `c1649a5` | 写路径异步化 + 事务原语:`DbDriver.transaction`(SQLite/PG 双实现,抛错回滚);notifications POST 接 async repo。解锁 register/comments 事务迁移(v4.2.6) |
+| **v4.2.6** | 2026-05-23 | `(本次)` | register(插 user + 消费邀请码原子事务,`consumeInviteCodeTx`)+ comments(create/list/delete async,mention/reply 通知扇出)全迁 DbDriver。**写路径全清**,PG 全量切就绪,仅待 PG 实例 |
 | 🔧 fix | 2026-05-21 | `eae56af` | 历史项目全空修复(兜底用户解析非确定性 + 列表页未带 auth) |
 | 🔧 fix | 2026-05-21 | `b58d268` | 测试 DB 隔离(`qfmj.test.db`,根治测试污染生产库) |
 

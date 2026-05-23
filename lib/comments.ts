@@ -337,3 +337,132 @@ export function groupByThread(comments: CommentRow[]): CommentThread[] {
   }
   return roots.map((r) => ({ root: r, replies: replyOf.get(r.id) || [] }));
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// v4.2.6 · async / DbDriver 版本 (SQLite/PG 双驱动). 逻辑与上面同步版等价.
+// 写路径 (createCommentAsync) 走 DbDriver.transaction 保证 comment + notifications 原子.
+// 同步版保留 (其他调用方 + 向后兼容); route 切到 async 版.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** async 版创建评论 + @mention 解析 + 通知扇出 (单事务). */
+export async function createCommentAsync(input: CreateCommentInput): Promise<CreateCommentResult> {
+  const content = (input.content || '').trim();
+  const attachments: CommentAttachment[] = Array.isArray(input.attachments)
+    ? input.attachments
+        .filter((a) => a && typeof a.url === 'string' && a.url.startsWith('http'))
+        .filter((a) => ['image', 'video', 'file'].includes(a.type))
+        .slice(0, 6)
+    : [];
+  if (!content && attachments.length === 0) throw new Error('comment content empty');
+  if (content.length > 2000) throw new Error('comment content too long (max 2000)');
+
+  const { getDbDriver } = await import('@/lib/db-driver');
+  const preview = content.length > 200 ? content.slice(0, 200) + '...' : content;
+
+  const result = await getDbDriver().transaction(async (tx) => {
+    // parentId 校验 (同 project)
+    let parentId: string | null = null;
+    if (input.parentId) {
+      const parent = await tx.get<{ id: string; project_id: string }>(
+        `SELECT id, project_id, deleted_at FROM comments WHERE id = ?`, [input.parentId]);
+      if (parent && parent.project_id === input.projectId) parentId = parent.id;
+    }
+    // @mention 解析 → user_id (服务端唯一真理)
+    const rawNames = uniqueMentions(parseMentionNames(content));
+    const mentions: Array<{ userId: string; name: string }> = [];
+    for (const name of rawNames) {
+      const u = await tx.get<{ id: string; name: string }>(
+        'SELECT id, name FROM users WHERE LOWER(name) = LOWER(?) LIMIT 1', [name]);
+      if (u && u.id !== input.authorUserId) mentions.push({ userId: u.id, name: u.name });
+    }
+    const id = nanoid();
+    const ts = now();
+    await tx.run(
+      `INSERT INTO comments
+        (id, project_id, target_type, target_id, author_user_id, author_name, author_avatar_url, content, mentions, attachments, parent_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, input.projectId, input.targetType, input.targetId, input.authorUserId, input.authorName,
+       input.authorAvatarUrl || null, content, JSON.stringify(mentions), JSON.stringify(attachments), parentId, ts],
+    );
+    // 通知扇出: mention + reply→parent 作者
+    const notifyIds = new Set<string>();
+    for (const m of mentions) notifyIds.add(m.userId);
+    if (parentId) {
+      const parentRow = await tx.get<{ author_user_id: string }>(
+        'SELECT author_user_id FROM comments WHERE id = ?', [parentId]);
+      if (parentRow && parentRow.author_user_id !== input.authorUserId) notifyIds.add(parentRow.author_user_id);
+    }
+    for (const recipient of notifyIds) {
+      const isReply = parentId && mentions.every((m) => m.userId !== recipient);
+      await tx.run(
+        `INSERT INTO notifications
+          (id, recipient_user_id, type, source_user_id, source_user_name, project_id, comment_id, preview, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nanoid(), recipient, isReply ? 'reply' : 'mention', input.authorUserId, input.authorName, input.projectId, id, preview, ts],
+      );
+    }
+    const row = await tx.get<CommentDbRow>('SELECT * FROM comments WHERE id = ?', [id]);
+    const notifyRecords = Array.from(notifyIds).map((rid) => ({
+      recipientUserId: rid,
+      type: (parentId && mentions.every((m) => m.userId !== rid)) ? 'reply' as const : 'mention' as const,
+      preview,
+    }));
+    return { comment: rowToComment(row!), notifiedUserIds: Array.from(notifyIds), notifyRecords };
+  });
+
+  // 事务外 best-effort 邮件 (与同步版一致)
+  void (async () => {
+    try {
+      const { sendCommentNotificationEmail, isEmailEnabled } = await import('@/lib/email-sender');
+      if (!isEmailEnabled()) return;
+      let projectTitle: string | undefined;
+      try {
+        const { getDbDriver } = await import('@/lib/db-driver');
+        const p = await getDbDriver().get<{ title?: string }>('SELECT title FROM projects WHERE id = ?', [input.projectId]);
+        projectTitle = p?.title;
+      } catch { /* ignore */ }
+      for (const rec of result.notifyRecords) {
+        await sendCommentNotificationEmail({
+          recipientUserId: rec.recipientUserId,
+          sourceUserName: input.authorName,
+          projectId: input.projectId,
+          projectTitle,
+          commentId: result.comment.id,
+          preview: rec.preview,
+          type: rec.type,
+        }).catch((e) => console.warn('[email-notify] send failed:', e instanceof Error ? e.message : e));
+      }
+    } catch (e) {
+      console.warn('[email-notify] block failed:', e instanceof Error ? e.message : e);
+    }
+  })();
+
+  return { comment: result.comment, notifiedUserIds: result.notifiedUserIds };
+}
+
+/** async 版按 project 拉评论. */
+export async function listCommentsAsync(opts: ListCommentsOptions): Promise<CommentRow[]> {
+  const { getDbDriver } = await import('@/lib/db-driver');
+  const where: string[] = ['project_id = ?'];
+  const args: any[] = [opts.projectId];
+  if (opts.targetType) { where.push('target_type = ?'); args.push(opts.targetType); }
+  if (opts.targetId) { where.push('target_id = ?'); args.push(opts.targetId); }
+  if (opts.includeDeleted === false) where.push('deleted_at IS NULL');
+  const limit = Math.min(500, Math.max(1, opts.limit || 200));
+  args.push(limit);
+  const rows = await getDbDriver().query<CommentDbRow>(
+    `SELECT * FROM comments WHERE ${where.join(' AND ')} ORDER BY created_at ASC LIMIT ?`, args);
+  return rows.map(rowToComment);
+}
+
+/** async 版软删 (作者本人, 幂等). */
+export async function deleteCommentAsync(id: string, requesterUserId: string): Promise<boolean> {
+  const { getDbDriver } = await import('@/lib/db-driver');
+  const row = await getDbDriver().get<{ author_user_id: string; deleted_at: string | null }>(
+    'SELECT author_user_id, deleted_at FROM comments WHERE id = ?', [id]);
+  if (!row) return false;
+  if (row.author_user_id !== requesterUserId) return false;
+  if (row.deleted_at) return true;
+  await getDbDriver().run('UPDATE comments SET deleted_at = ? WHERE id = ?', [now(), id]);
+  return true;
+}
