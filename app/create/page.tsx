@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { validateIdea, sanitizeInput } from '@/lib/validation';
 import { useToast } from '@/components/ui/toast-provider';
+import { LocaleSwitcher } from '@/components/locale-switcher';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function CreatePage() {
   const [idea, setIdea] = useState('');
@@ -32,6 +34,7 @@ export default function CreatePage() {
   const resetConsistency = useAgentStore((s) => s.resetConsistency);
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useLocale();
 
   const handleCameoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -209,16 +212,19 @@ export default function CreatePage() {
               <div className="w-8 h-8 bg-gradient-to-br from-[#E8C547] to-[#D4A830] rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="text-xl font-bold">AI 漫剧工作室</span>
+              <span className="text-xl font-bold">{t.brand.studio}</span>
             </Link>
 
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>返回首页</span>
-            </Link>
+            <div className="flex items-center gap-4">
+              <LocaleSwitcher compact />
+              <Link
+                href="/"
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span>{t.common.backHome}</span>
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
@@ -235,17 +241,17 @@ export default function CreatePage() {
               <div className="text-center space-y-4">
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#E8C547]/10 border border-[#E8C547]/20 rounded-full text-sm">
                   <Wand2 className="w-4 h-4 text-[#E8C547]" />
-                  <span className="text-[#D4A830]">AI 创作工作台</span>
+                  <span className="text-[#D4A830]">{t.create.badge}</span>
                 </div>
 
                 <h1 className="text-5xl font-bold">
                   <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                    开始你的创作之旅
+                    {t.create.title}
                   </span>
                 </h1>
 
                 <p className="text-gray-400 text-lg">
-                  描述你的故事创意，AI 团队将为你打造完整的漫剧作品
+                  {t.create.subtitle}
                 </p>
               </div>
 
@@ -255,7 +261,7 @@ export default function CreatePage() {
                   {/* 创意输入 */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-3">
-                      故事创意
+                      {t.create.ideaLabel}
                     </label>
                     <textarea
                       value={idea}
@@ -336,7 +342,7 @@ export default function CreatePage() {
                   {/* 视频引擎选择 */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-3">
-                      视频生成引擎
+                      {t.create.videoProviderLabel}
                     </label>
                     <div className="grid grid-cols-3 gap-4">
                       <button
@@ -399,7 +405,7 @@ export default function CreatePage() {
                     className="w-full h-14 bg-gradient-to-r from-[#E8C547] to-[#D4A830] rounded-xl font-semibold text-lg hover:shadow-2xl hover:shadow-[#E8C547]/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all flex items-center justify-center gap-2"
                   >
                     <Wand2 className="w-5 h-5" />
-                    开始创作
+                    {t.create.startButton}
                   </button>
                 </div>
               </div>

@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/components/auth-provider';
-import { LanguageToggle } from '@/components/language-toggle';
+import { LocaleSwitcher } from '@/components/locale-switcher';
+import { useLocale } from '@/hooks/use-locale';
 
 export function SiteHeader({ variant = 'default' }: { variant?: 'default' | 'compact' | 'overlay' }) {
   const { user } = useAuth();
+  const { t } = useLocale();
 
   // overlay: 叠在全屏英雄图上,无底色,文字靠 text-shadow 维持可读
   const wrapperClass =
@@ -24,22 +26,22 @@ export function SiteHeader({ variant = 'default' }: { variant?: 'default' | 'com
         </Link>
 
         <nav className="hidden md:flex gap-7 text-sm text-white/70">
-          <Link href="/dashboard/create" className="hover:text-white transition-colors duration-200 tracking-wide">开始创作</Link>
-          <Link href="/dashboard/polish" className="hover:text-white transition-colors duration-200 tracking-wide">剧本润色</Link>
-          <Link href="/dashboard/projects" className="hover:text-white transition-colors duration-200 tracking-wide">项目资产</Link>
-          <Link href="/dashboard" className="hover:text-white transition-colors duration-200 tracking-wide">工作台</Link>
-          <Link href="/cases" className="hover:text-white transition-colors duration-200 tracking-wide">作品案例</Link>
+          <Link href="/dashboard/create" className="hover:text-white transition-colors duration-200 tracking-wide">{t.nav.create}</Link>
+          <Link href="/dashboard/polish" className="hover:text-white transition-colors duration-200 tracking-wide">{t.nav.polish}</Link>
+          <Link href="/dashboard/projects" className="hover:text-white transition-colors duration-200 tracking-wide">{t.nav.projects}</Link>
+          <Link href="/dashboard" className="hover:text-white transition-colors duration-200 tracking-wide">{t.nav.workbench}</Link>
+          <Link href="/cases" className="hover:text-white transition-colors duration-200 tracking-wide">{t.nav.cases}</Link>
         </nav>
 
         <div className="flex gap-3 items-center">
-          <LanguageToggle />
+          <LocaleSwitcher compact />
           {user ? (
             <Link href="/dashboard" className="btn-primary text-sm px-4 py-2 rounded-xl inline-block">
-              用户中心
+              {t.nav.userCenter}
             </Link>
           ) : (
             <Link href="/dashboard/create" className="btn-primary text-sm px-5 py-2 rounded-xl inline-block">
-              开始创作
+              {t.nav.create}
             </Link>
           )}
         </div>

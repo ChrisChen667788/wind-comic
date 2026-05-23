@@ -6,8 +6,10 @@ import { api } from '@/lib/api-client';
 import { GlassCard } from '@/components/ui/glass-card';
 import { Sparkles, FolderKanban, Zap, BookOpen, ArrowRight, Clock, Film, TrendingUp } from 'lucide-react';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function DashboardPage() {
+  const { t } = useLocale();
   const [metrics, setMetrics] = useState({ projects: 0, generations: 0, cases: 0, uptime: 0 });
   const [generations, setGenerations] = useState<any[]>([]);
 
@@ -24,10 +26,10 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-emerald-400 font-medium">系统在线</span>
+              <span className="text-xs text-emerald-400 font-medium">{t.dashboard.systemOnline}</span>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">创作总览</h1>
-            <p className="text-sm text-[var(--muted)]">AI 多智能体协作引擎，从创意到成片的一站式漫剧生产线</p>
+            <h1 className="text-3xl font-bold text-white mb-2">{t.dashboard.title}</h1>
+            <p className="text-sm text-[var(--muted)]">{t.dashboard.subtitle}</p>
           </div>
           {/* v5.0: 语言切换 */}
           <LocaleSwitcher />
@@ -46,8 +48,8 @@ export default function DashboardPage() {
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
-              <div className="text-white font-semibold text-lg">开始创作</div>
-              <div className="text-[var(--muted)] text-sm">输入创意，AI 七人团队自动接力创作</div>
+              <div className="text-white font-semibold text-lg">{t.dashboard.quickStartTitle}</div>
+              <div className="text-[var(--muted)] text-sm">{t.dashboard.quickStartSubtitle}</div>
             </div>
           </div>
           <ArrowRight className="w-5 h-5 text-[var(--muted)] group-hover:text-white group-hover:translate-x-1 transition-all" />
@@ -57,9 +59,9 @@ export default function DashboardPage() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
-          { label: '我的项目', value: metrics.projects, icon: FolderKanban, color: 'rose', sub: '创作中的漫剧项目' },
-          { label: '生成次数', value: metrics.generations, icon: Zap, color: 'pink', sub: '累计 AI 生成调用' },
-          { label: '案例库', value: metrics.cases, icon: BookOpen, color: 'cyan', sub: '可参考的模版案例' },
+          { label: t.dashboard.statProjects, value: metrics.projects, icon: FolderKanban, color: 'rose', sub: t.dashboard.statProjectsSub },
+          { label: t.dashboard.statGenerations, value: metrics.generations, icon: Zap, color: 'pink', sub: t.dashboard.statGenerationsSub },
+          { label: t.dashboard.statCases, value: metrics.cases, icon: BookOpen, color: 'cyan', sub: t.dashboard.statCasesSub },
         ].map((c, i) => {
           const colorMap: Record<string, string> = {
             purple: 'from-[#E8C547]/15 to-[#E8C547]/05 border-[#E8C547]/10',
@@ -98,10 +100,10 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <Film className="w-4 h-4 text-[#E8C547]" />
-                <h3 className="font-semibold text-white">最近创作</h3>
+                <h3 className="font-semibold text-white">{t.dashboard.recentCreations}</h3>
               </div>
               <Link href="/dashboard/projects" className="text-xs text-[var(--muted)] hover:text-white transition-colors flex items-center gap-1">
-                查看全部 <ArrowRight className="w-3 h-3" />
+                {t.common.viewAll} <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
             <div className="space-y-3">
@@ -120,15 +122,15 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2 mt-1.5">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${
                         item.status === 'completed' ? 'badge-completed' : item.status === 'active' ? 'badge-active' : 'badge-draft'
-                      }`}>{item.status === 'completed' ? '已完成' : item.status === 'active' ? '创作中' : '草稿'}</span>
+                      }`}>{item.status === 'completed' ? t.dashboard.statusCompleted : item.status === 'active' ? t.dashboard.statusCreating : t.dashboard.statusDraft}</span>
                     </div>
                   </div>
                 </div>
               )) : (
                 <div className="text-center py-10 text-[var(--soft)]">
                   <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">还没有创作记录</p>
-                  <Link href="/dashboard/create" className="text-xs text-[#E8C547] hover:text-[#D4A830] mt-1 inline-block">开始第一次创作 →</Link>
+                  <p className="text-sm">{t.dashboard.noRecords}</p>
+                  <Link href="/dashboard/create" className="text-xs text-[#E8C547] hover:text-[#D4A830] mt-1 inline-block">{t.dashboard.startFirst}</Link>
                 </div>
               )}
             </div>
@@ -140,7 +142,7 @@ export default function DashboardPage() {
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="w-4 h-4 text-emerald-400" />
-              <h3 className="font-semibold text-white text-sm">系统状态</h3>
+              <h3 className="font-semibold text-white text-sm">{t.dashboard.systemStatus}</h3>
             </div>
             <div className="space-y-3">
               {[
@@ -162,7 +164,7 @@ export default function DashboardPage() {
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
               <Clock className="w-4 h-4 text-amber-400" />
-              <h3 className="font-semibold text-white text-sm">最近动态</h3>
+              <h3 className="font-semibold text-white text-sm">{t.dashboard.recentActivity}</h3>
             </div>
             <div className="space-y-2">
               {[

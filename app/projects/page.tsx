@@ -5,8 +5,11 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Sparkles, Plus, Clock, CheckCircle2, Loader2 } from 'lucide-react';
 import { ProjectSearch } from '@/components/project-search';
+import { LocaleSwitcher } from '@/components/locale-switcher';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function ProjectsPage() {
+  const { t } = useLocale();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -72,16 +75,19 @@ export default function ProjectsPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-[#E8C547] to-[#D4A830] rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="text-xl font-bold">AI 漫剧工作室</span>
+              <span className="text-xl font-bold">{t.brand.studio}</span>
             </Link>
 
-            <Link
-              href="/create"
-              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#E8C547] to-[#D4A830] rounded-full font-medium hover:shadow-lg hover:shadow-[#E8C547]/40 transition-all"
-            >
-              <Plus className="w-5 h-5" />
-              <span>新建项目</span>
-            </Link>
+            <div className="flex items-center gap-3">
+              <LocaleSwitcher compact />
+              <Link
+                href="/create"
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#E8C547] to-[#D4A830] rounded-full font-medium hover:shadow-lg hover:shadow-[#E8C547]/40 transition-all"
+              >
+                <Plus className="w-5 h-5" />
+                <span>{t.nav.newProject}</span>
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
@@ -96,11 +102,11 @@ export default function ProjectsPage() {
           >
             <h1 className="text-5xl font-bold mb-4">
               <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                我的项目
+                {t.projects.title}
               </span>
             </h1>
             <p className="text-xl text-gray-400">
-              管理你的所有 AI 漫剧创作
+              {t.projects.subtitle}
             </p>
           </motion.div>
 
@@ -139,12 +145,12 @@ export default function ProjectsPage() {
                         {project.status === 'completed' ? (
                           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-full text-sm">
                             <CheckCircle2 className="w-4 h-4 text-green-400" />
-                            <span className="text-green-300">已完成</span>
+                            <span className="text-green-300">{t.projects.filterCompleted}</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-sm">
                             <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
-                            <span className="text-yellow-300">创作中</span>
+                            <span className="text-yellow-300">{t.projects.filterCreating}</span>
                           </div>
                         )}
                       </div>
@@ -165,7 +171,7 @@ export default function ProjectsPage() {
                           <span>{project.createdAt}</span>
                         </div>
                         <div className="text-gray-500">
-                          {project.shots} 个镜头
+                          {project.shots} {t.projects.shotsUnit}
                         </div>
                       </div>
                     </div>
@@ -176,7 +182,7 @@ export default function ProjectsPage() {
 
             {filteredProjects.length === 0 && (
               <div className="col-span-full text-center py-12">
-                <p className="text-gray-400 text-lg">没有找到匹配的项目</p>
+                <p className="text-gray-400 text-lg">{t.projects.noResults}</p>
               </div>
             )}
 
@@ -194,7 +200,7 @@ export default function ProjectsPage() {
                       <Plus className="w-8 h-8 text-[#E8C547]" />
                     </div>
                     <p className="text-gray-400 group-hover:text-white transition-colors">
-                      创建新项目
+                      {t.projects.createNew}
                     </p>
                   </div>
                 </div>

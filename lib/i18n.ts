@@ -14,6 +14,11 @@ export interface Translations {
     loading: string;
     error: string;
     success: string;
+    viewAll: string;
+    backHome: string;
+  };
+  brand: {
+    studio: string;
   };
   nav: {
     home: string;
@@ -22,8 +27,14 @@ export interface Translations {
     pricing: string;
     profile: string;
     settings: string;
+    polish: string;
+    workbench: string;
+    cases: string;
+    userCenter: string;
+    newProject: string;
   };
   create: {
+    badge: string;
     title: string;
     subtitle: string;
     ideaLabel: string;
@@ -40,6 +51,29 @@ export interface Translations {
     filterCreating: string;
     filterFailed: string;
     noResults: string;
+    createNew: string;
+    shotsUnit: string;
+  };
+  dashboard: {
+    systemOnline: string;
+    title: string;
+    subtitle: string;
+    quickStartTitle: string;
+    quickStartSubtitle: string;
+    statProjects: string;
+    statProjectsSub: string;
+    statGenerations: string;
+    statGenerationsSub: string;
+    statCases: string;
+    statCasesSub: string;
+    recentCreations: string;
+    noRecords: string;
+    startFirst: string;
+    systemStatus: string;
+    recentActivity: string;
+    statusCompleted: string;
+    statusCreating: string;
+    statusDraft: string;
   };
 }
 
@@ -55,6 +89,11 @@ const zhCN: Translations = {
     loading: '加载中...',
     error: '错误',
     success: '成功',
+    viewAll: '查看全部',
+    backHome: '返回首页',
+  },
+  brand: {
+    studio: 'AI 漫剧工作室',
   },
   nav: {
     home: '首页',
@@ -63,8 +102,14 @@ const zhCN: Translations = {
     pricing: '定价',
     profile: '个人资料',
     settings: '设置',
+    polish: '剧本润色',
+    workbench: '工作台',
+    cases: '作品案例',
+    userCenter: '用户中心',
+    newProject: '新建项目',
   },
   create: {
+    badge: 'AI 创作工作台',
     title: '开始你的创作之旅',
     subtitle: '描述你的故事创意，AI 团队将为你打造完整的漫剧作品',
     ideaLabel: '故事创意',
@@ -81,6 +126,29 @@ const zhCN: Translations = {
     filterCreating: '创作中',
     filterFailed: '失败',
     noResults: '没有找到匹配的项目',
+    createNew: '创建新项目',
+    shotsUnit: '个镜头',
+  },
+  dashboard: {
+    systemOnline: '系统在线',
+    title: '创作总览',
+    subtitle: 'AI 多智能体协作引擎，从创意到成片的一站式漫剧生产线',
+    quickStartTitle: '开始创作',
+    quickStartSubtitle: '输入创意，AI 七人团队自动接力创作',
+    statProjects: '我的项目',
+    statProjectsSub: '创作中的漫剧项目',
+    statGenerations: '生成次数',
+    statGenerationsSub: '累计 AI 生成调用',
+    statCases: '案例库',
+    statCasesSub: '可参考的模版案例',
+    recentCreations: '最近创作',
+    noRecords: '还没有创作记录',
+    startFirst: '开始第一次创作 →',
+    systemStatus: '系统状态',
+    recentActivity: '最近动态',
+    statusCompleted: '已完成',
+    statusCreating: '创作中',
+    statusDraft: '草稿',
   },
 };
 
@@ -96,6 +164,11 @@ const en: Translations = {
     loading: 'Loading...',
     error: 'Error',
     success: 'Success',
+    viewAll: 'View all',
+    backHome: 'Back to Home',
+  },
+  brand: {
+    studio: 'AI Comic Studio',
   },
   nav: {
     home: 'Home',
@@ -104,8 +177,14 @@ const en: Translations = {
     pricing: 'Pricing',
     profile: 'Profile',
     settings: 'Settings',
+    polish: 'Script Polish',
+    workbench: 'Workbench',
+    cases: 'Showcase',
+    userCenter: 'Dashboard',
+    newProject: 'New Project',
   },
   create: {
+    badge: 'AI Creation Studio',
     title: 'Start Your Creative Journey',
     subtitle: 'Describe your story idea, and our AI team will create a complete comic drama for you',
     ideaLabel: 'Story Idea',
@@ -122,6 +201,29 @@ const en: Translations = {
     filterCreating: 'Creating',
     filterFailed: 'Failed',
     noResults: 'No matching projects found',
+    createNew: 'Create New Project',
+    shotsUnit: 'shots',
+  },
+  dashboard: {
+    systemOnline: 'System Online',
+    title: 'Creation Overview',
+    subtitle: 'Multi-agent AI engine — an end-to-end comic production line from idea to finished film',
+    quickStartTitle: 'Start Creating',
+    quickStartSubtitle: 'Enter an idea and a 7-agent AI team creates it for you',
+    statProjects: 'My Projects',
+    statProjectsSub: 'Comic projects in progress',
+    statGenerations: 'Generations',
+    statGenerationsSub: 'Total AI generation calls',
+    statCases: 'Showcase',
+    statCasesSub: 'Reference template cases',
+    recentCreations: 'Recent Creations',
+    noRecords: 'No creations yet',
+    startFirst: 'Start your first creation →',
+    systemStatus: 'System Status',
+    recentActivity: 'Recent Activity',
+    statusCompleted: 'Completed',
+    statusCreating: 'Creating',
+    statusDraft: 'Draft',
   },
 };
 
@@ -130,11 +232,17 @@ const zhTW: Translations = {
   common: {
     create: '建立', save: '儲存', cancel: '取消', delete: '刪除', edit: '編輯',
     share: '分享', download: '下載', loading: '載入中...', error: '錯誤', success: '成功',
+    viewAll: '查看全部', backHome: '返回首頁',
+  },
+  brand: {
+    studio: 'AI 漫劇工作室',
   },
   nav: {
     home: '首頁', projects: '我的專案', create: '開始創作', pricing: '定價', profile: '個人資料', settings: '設定',
+    polish: '劇本潤色', workbench: '工作台', cases: '作品案例', userCenter: '使用者中心', newProject: '新增專案',
   },
   create: {
+    badge: 'AI 創作工作台',
     title: '開始你的創作之旅',
     subtitle: '描述你的故事創意，AI 團隊將為你打造完整的漫劇作品',
     ideaLabel: '故事創意',
@@ -145,6 +253,28 @@ const zhTW: Translations = {
   projects: {
     title: '我的專案', subtitle: '管理你所有的 AI 漫劇創作', searchPlaceholder: '搜尋專案標題或描述...',
     filterAll: '全部', filterCompleted: '已完成', filterCreating: '創作中', filterFailed: '失敗', noResults: '沒有找到符合的專案',
+    createNew: '建立新專案', shotsUnit: '個鏡頭',
+  },
+  dashboard: {
+    systemOnline: '系統在線',
+    title: '創作總覽',
+    subtitle: 'AI 多智能體協作引擎，從創意到成片的一站式漫劇生產線',
+    quickStartTitle: '開始創作',
+    quickStartSubtitle: '輸入創意，AI 七人團隊自動接力創作',
+    statProjects: '我的專案',
+    statProjectsSub: '創作中的漫劇專案',
+    statGenerations: '生成次數',
+    statGenerationsSub: '累計 AI 生成呼叫',
+    statCases: '案例庫',
+    statCasesSub: '可參考的範本案例',
+    recentCreations: '最近創作',
+    noRecords: '還沒有創作記錄',
+    startFirst: '開始第一次創作 →',
+    systemStatus: '系統狀態',
+    recentActivity: '最近動態',
+    statusCompleted: '已完成',
+    statusCreating: '創作中',
+    statusDraft: '草稿',
   },
 };
 
@@ -153,11 +283,17 @@ const ja: Translations = {
   common: {
     create: '作成', save: '保存', cancel: 'キャンセル', delete: '削除', edit: '編集',
     share: '共有', download: 'ダウンロード', loading: '読み込み中...', error: 'エラー', success: '成功',
+    viewAll: 'すべて見る', backHome: 'ホームに戻る',
+  },
+  brand: {
+    studio: 'AI コミックスタジオ',
   },
   nav: {
     home: 'ホーム', projects: 'マイプロジェクト', create: '作成', pricing: '料金', profile: 'プロフィール', settings: '設定',
+    polish: '脚本推敲', workbench: 'ワークベンチ', cases: '作品事例', userCenter: 'マイページ', newProject: '新規プロジェクト',
   },
   create: {
+    badge: 'AI 創作スタジオ',
     title: 'あなたの創作の旅を始めよう',
     subtitle: 'ストーリーのアイデアを入力すると、AIチームが完全なコミックドラマを作成します',
     ideaLabel: 'ストーリーのアイデア',
@@ -168,6 +304,28 @@ const ja: Translations = {
   projects: {
     title: 'マイプロジェクト', subtitle: 'すべてのAIコミックドラマ作品を管理', searchPlaceholder: 'プロジェクトのタイトルや説明を検索...',
     filterAll: 'すべて', filterCompleted: '完了', filterCreating: '作成中', filterFailed: '失敗', noResults: '一致するプロジェクトが見つかりません',
+    createNew: '新しいプロジェクトを作成', shotsUnit: 'ショット',
+  },
+  dashboard: {
+    systemOnline: 'システム稼働中',
+    title: '創作概要',
+    subtitle: 'AIマルチエージェント協調エンジン — アイデアから完成作品までのワンストップ制作ライン',
+    quickStartTitle: '作成を始める',
+    quickStartSubtitle: 'アイデアを入力すると、7人のAIチームが自動で創作します',
+    statProjects: 'マイプロジェクト',
+    statProjectsSub: '制作中のコミックプロジェクト',
+    statGenerations: '生成回数',
+    statGenerationsSub: 'AI生成呼び出しの累計',
+    statCases: '事例ライブラリ',
+    statCasesSub: '参考になるテンプレート事例',
+    recentCreations: '最近の創作',
+    noRecords: 'まだ創作記録がありません',
+    startFirst: '最初の創作を始める →',
+    systemStatus: 'システム状態',
+    recentActivity: '最近の動き',
+    statusCompleted: '完了',
+    statusCreating: '作成中',
+    statusDraft: '下書き',
   },
 };
 

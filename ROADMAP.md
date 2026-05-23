@@ -1451,7 +1451,16 @@ npm test
 - [x] `hooks/use-locale.ts` — 当前 locale hook: localStorage 持久化 + 同 tab 广播同步 + 设 `<html lang>`; 初值取 localStorage → navigator.language → zh-CN
 - [x] `components/locale-switcher.tsx` — 简/繁/英/日 下拉切换器, 挂 dashboard 顶栏
 - [x] 24 新单测 (4 locale key 完整性 + 真翻译非占位 + normalizeLocale 14 例 + Accept-Language q 权重 + t 回退), 累计 **vitest 1478/1478**
-- ⏭️ 各页 useTranslations 全量接 locale (现仅切换器 + 系统就绪) 留 v5.0.1
+- [x] 各页 useTranslations 全量接 locale → **v5.0.1 已交付** (见下)
+
+### v5.0.1 · 全站页面接 i18n ✅ 2026-05-23
+> **背景**: v5.0 把 i18n 基建 (字典/回退/解析/切换器) 搭好, 但页面文案仍写死中文. v5.0.1 把字典扩到各页实际用词, 并让关键页面真正走 `useLocale()`.
+- [x] `lib/i18n.ts` 字典扩展 (四语全量): `brand` 段 + `nav` 扩 (polish/workbench/cases/userCenter/newProject) + `dashboard` 段 (19 词条) + `create.badge` + `projects` 扩 (createNew/shotsUnit) + `common` 扩 (viewAll/backHome)
+- [x] `components/site-header.tsx` — 主导航全量接 `useLocale()`; 删掉只切 useState 不持久化的死组件 `LanguageToggle`, 换成真 `LocaleSwitcher`
+- [x] `app/dashboard/page.tsx` — hero / 快捷入口 / 三张统计卡 / 区块标题 / 状态徽章全走 `t.dashboard.*`
+- [x] `app/projects/page.tsx` — 标题/副标/状态/镜头数/空态/新建卡 接词; 顶栏挂 `LocaleSwitcher`
+- [x] `app/create/page.tsx` — badge/标题/副标/创意标签/视频引擎标签/开始按钮 接词; 顶栏挂 `LocaleSwitcher`
+- [x] `tests/v5-0-1-i18n-wiring.test.ts` (4 例): 新 key 四语非空 + 不回退成 path + 关键词条真翻译 + 简繁有别; 全量 **vitest 1513/1513**, tsc 0 错, /create /projects HTTP 200
 
 ### v5.0.2 · U2V 生成进度环 + 失败可见 ✅ 2026-05-21
 > **背景**: 用户反馈"单图生视频总是失败无响应". 实查模型没问题 (Minimax I2V-01 EOL 早在 v2.22 改成 Hailuo-2.3), 真问题是 UX: 同步阻塞 1-3 分钟只转圈, 错误只弹 toast 易错过 → 体感"失败".
