@@ -9,7 +9,18 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const dbPath = path.join(dataDir, 'qfmj.db');
+// 测试隔离: vitest / NODE_ENV=test 下用独立 DB 文件, 永不碰生产 qfmj.db.
+// 此前测试直接写 data/qfmj.db, 灌进上百个 @test.local 用户, 触发过 "项目全空"
+// (非确定性 LIMIT 1) 等怪象. 每次跑测试前清掉旧 test DB → 可复现的干净起点.
+const isTestEnv = !!process.env.VITEST || process.env.NODE_ENV === 'test';
+const dbFile = isTestEnv ? 'qfmj.test.db' : 'qfmj.db';
+const dbPath = path.join(dataDir, dbFile);
+if (isTestEnv) {
+  for (const suffix of ['', '-wal', '-shm']) {
+    try { if (fs.existsSync(dbPath + suffix)) fs.unlinkSync(dbPath + suffix); } catch { /* ignore */ }
+  }
+}
+
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 // 当多个 worker(vitest 并行 / Next.js dev 多进程) 同时写同一个 sqlite 文件时,

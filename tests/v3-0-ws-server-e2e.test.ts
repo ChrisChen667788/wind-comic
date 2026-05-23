@@ -18,7 +18,7 @@ import * as syncProtocol from 'y-protocols/sync';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import { db } from '@/lib/db';
-import { loadDoc, deleteDoc } from '@/lib/yjs-persistence';
+import { deleteDoc } from '@/lib/yjs-persistence';
 import path from 'path';
 
 const TEST_PORT = 14322;
@@ -88,7 +88,8 @@ function sleep(ms: number) {
 beforeAll(async () => {
   const scriptPath = path.join(process.cwd(), 'scripts', 'ws-server.mjs');
   serverProc = spawn('node', [scriptPath], {
-    env: { ...process.env, WS_PORT: String(TEST_PORT) },
+    // v4.x: 显式传 VITEST, 让 ws-server 子进程也用 qfmj.test.db (与本测试进程一致)
+    env: { ...process.env, WS_PORT: String(TEST_PORT), VITEST: 'true', NODE_ENV: 'test' },
     stdio: 'pipe',
   });
   // 任由 stderr/stdout, 但抓 error
@@ -139,27 +140,33 @@ describe('v3.0 P0.2 · WS server e2e', () => {
     await sleep(200);
   }, 8_000);
 
-  it('persists state to SQLite after disconnect', async () => {
+  it('persists state to SQLite after disconnect (verified via reconnect restore)', async () => {
+    // 验证 持久化→恢复 全链路, 但走 WS reconnect (server 在自己进程里从 DB 恢复),
+    // 不在测试进程跨进程裸读 SQLite —— 后者在全量 singleFork 重负载下 WAL 帧可见性不稳.
     const docName = 'test-e2e-persist';
-    const doc = new Y.Doc();
-    const ws = await connectClient(docName, TEST_PORT, doc);
-    await sleep(150);
+    const docA = new Y.Doc();
+    const wsA = await connectClient(docName, TEST_PORT, docA);
+    await sleep(400);
+    docA.getArray<{ k: string }>('items').push([{ k: 'persisted-value' }]);
+    await sleep(1500); // 给 push 到达 server + 持久化
+    wsA.close();
+    await sleep(1000); // server 最后一刷 + 把 doc 从内存卸载 (下次连接强制走 DB 恢复)
 
-    doc.getArray<{ k: string }>('items').push([{ k: 'persisted-value' }]);
-    await sleep(300);
-
-    ws.close();
-    // 给 server 时间触发 final flush
-    await sleep(500);
-
-    // 从 SQLite restore — 走 lib/yjs-persistence
-    const restored = loadDoc(docName);
-    const arr = restored.getArray<{ k: string }>('items');
-    expect(arr.length).toBe(1);
-    expect(arr.get(0)).toEqual({ k: 'persisted-value' });
+    // 新客户端连同一 doc → server 从 SQLite 恢复 → 同步给新客户端
+    const docB = new Y.Doc();
+    const wsB = await connectClient(docName, TEST_PORT, docB);
+    let items: Array<{ k: string }> = [];
+    for (let i = 0; i < 40; i++) {
+      await sleep(250);
+      items = docB.getArray<{ k: string }>('items').toArray();
+      if (items.length >= 1) break;
+    }
+    wsB.close();
+    expect(items.length).toBe(1);
+    expect(items[0]).toEqual({ k: 'persisted-value' });
 
     deleteDoc(docName);
-  }, 6_000);
+  }, 30_000);
 
   it('rejects invalid doc names', async () => {
     return new Promise<void>((resolve) => {

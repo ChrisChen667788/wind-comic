@@ -1358,6 +1358,14 @@ npm test
 - [x] `app/workflow-studio` — 加创意 idea 输入 + "真实运行"按钮 (旁边保留 dry-run)
 - [x] 6 新单测 (注入 mock orch 端到端 / idea 透传 / 空 idea 拒 / per-call runner 不漏全局 / 注入时跳能力门), 累计 **vitest 1449/1449**
 
+### 工程卫生 · 测试 DB 隔离 ✅ 2026-05-21
+> **背景**: 测试一直直接写生产 `data/qfmj.db`, 灌进 198 个 @test.local 用户, 触发过"项目全空"(非确定性 LIMIT 1) 等怪象. 根治: 测试用独立库.
+- [x] `lib/db.ts` — VITEST/NODE_ENV=test 下用 `data/qfmj.test.db`, 每次跑测试前清空 (含 -wal/-shm) → 可复现干净起点; 生产 qfmj.db 永不被测试触碰
+- [x] `scripts/ws-server.mjs` — e2e 子进程同样认 VITEST → qfmj.test.db; 补 `busy_timeout=5000` (此前缺失, 并发写静默丢持久化)
+- [x] `tests/v3-0-ws-server-e2e.test.ts` — 持久化测试改走 **WS reconnect 恢复** 验证 (server 自己进程内从 DB 恢复), 不再跨进程裸读 SQLite (重负载下 WAL 帧可见性不稳)
+- [x] `.gitignore` — qfmj.test.db 不入库
+- [x] 验收: 连跑两遍 **vitest 1490/1490**, 生产 DB 用户数 198→198 全程不变
+
 ### v4.1.4 · SSE 真实进度流 + 真实运行落盘 ✅ 2026-05-21
 - [x] `lib/sse.ts` — SSE 工具: `formatSSE` / `parseSSEChunk` (流式分帧, 半帧留 buffer) / `createSSEResponse` (ReadableStream 包 handler, 自动 error 帧 + 关流)
 - [x] `app/api/u2v/stream` — SSE 版单图生视频: 实时推 submit→rendering→done/error 帧; done/error **即时到达** (不必等阻塞 fetch 整返); Kling 真实 onProgress 映射进度环, minimax/vidu 服务端时间估算兜底

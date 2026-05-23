@@ -36,9 +36,15 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 
 // ── SQLite (复用主库) ──────────────────────────────────────────────────────────
-const dbPath = path.join(projectRoot, 'data', 'qfmj.db');
+// 测试隔离: VITEST/NODE_ENV=test 下用 qfmj.test.db, 与 lib/db.ts 的测试库一致,
+// e2e 子进程不再写生产库 (lib/db.ts 已在测试进程启动时清过该文件).
+const isTestEnv = !!process.env.VITEST || process.env.NODE_ENV === 'test';
+const dbPath = path.join(projectRoot, 'data', isTestEnv ? 'qfmj.test.db' : 'qfmj.db');
 const sqlite = new Database(dbPath);
 sqlite.pragma('journal_mode = WAL');
+// Next.js 主进程 + 本 ws-server 同时写同一 sqlite, 不设 busy_timeout 时并发写直接抛
+// SQLITE_BUSY (yjs_docs 持久化静默失败). 等最多 5s 拿锁, 与 lib/db.ts 一致.
+sqlite.pragma('busy_timeout = 5000');
 
 const SELECT_DOC = sqlite.prepare('SELECT state, update_count FROM yjs_docs WHERE doc_name = ?');
 const INSERT_DOC = sqlite.prepare(
@@ -61,6 +67,7 @@ function persistStateToDb(docName, state) {
   } else {
     INSERT_DOC.run(docName, Buffer.from(state), ts, ts);
   }
+  if (process.env.WS_DEBUG) console.error(`[ws-debug] persisted ${docName} → ${dbPath} (${state.length}b)`);
 }
 
 // ── Yjs 协议常量 ───────────────────────────────────────────────────────────────
