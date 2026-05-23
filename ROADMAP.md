@@ -1413,7 +1413,14 @@ npm test
 - [x] `scripts/pg-smoke.mjs` + `npm run pg:smoke` — 真连 DATABASE_URL 的 PG: 连接 → 建表 (TEXT PK + BIGSERIAL + BYTEA) → `$n` 参数化 CRUD → ON CONFLICT upsert → 清理. 没 PG/没 pg 时打印安装步骤 exit 0 (CI 友好)
 - [x] 5 新单测 (asset CRUD + JSON data 往返 + byType + count), 累计 **vitest 1454/1454**
 - 📌 本环境无 PG 实例 (pg 未装/5432 空/DATABASE_URL 未设), 真连灰度需用户提供 PG: `docker run postgres:16` + `npm i pg` + `DATABASE_URL=... npm run pg:smoke`
-- ⏭️ 协作域 (comments/notifications) 异步化 + DB_DRIVER=pg 全量灰度, 留 v4.2.4+
+
+### v4.2.4 · 协作域异步化 ✅ 2026-05-21
+- [x] `lib/repos/comment-repo.ts` — 评论 async repo (list/get/create/softDelete/count), 软删保留占位避免 reply 孤儿, 仅作者可删
+- [x] `lib/repos/notification-repo.ts` — 通知 async repo (list/countUnread/create/markRead/markAllRead), 仅接收者可标记
+- [x] `app/api/notifications` GET 读路径接 async repo (DbDriver 双驱动), 真路由 200; POST 写仍同步 (渐进迁移)
+- [x] 6 新单测 (评论软删/计数排除已删 + 通知未读计数/标记/排序限制), 累计 **vitest 1493/1493**
+- ✅ PG 迁移已覆盖 4 域: auth / projects / assets / collab —— 全量 `DB_DRIVER=pg` 灰度待用户提供 PG 实例 (`npm run pg:smoke` 验证)
+- ⏭️ 剩余同步调用点逐步迁 + POST/写路径异步化, 留 v4.2.5+
 
 ---
 

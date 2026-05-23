@@ -128,11 +128,17 @@
 | **v4.1.3** | 2026-05-21 | `e857495` | 工作流接真 orchestrator:execute `mode:'real'` + runWorkflowReal(能力门 + per-call runner 并发安全)+ studio 真实运行按钮 |
 | **v4.2.3** | 2026-05-21 | `48f6d23` | assets 域异步化:async asset-repo + 项目详情 GET 接通;`npm run pg:smoke` 真连 PG 灰度试跑脚本 |
 
+| **v4.1.4** | 2026-05-21 | `14f1c1a` | SSE 真实进度流:`lib/sse` + `/api/u2v/stream` 实时推 submit→rendering→done/error;U2V 进度环从估算→真实;真实运行落盘 project 资产 |
+| **v4.2.4** | 2026-05-21 | `(本次)` | 协作域异步化:comment-repo + notification-repo(DbDriver 双驱动);notifications GET 接通。PG 迁移已覆盖 auth/projects/assets/collab 四域 |
+| 🔧 fix | 2026-05-21 | `eae56af` | 历史项目全空修复(兜底用户解析非确定性 + 列表页未带 auth) |
+| 🔧 fix | 2026-05-21 | `b58d268` | 测试 DB 隔离(`qfmj.test.db`,根治测试污染生产库) |
+
 ## 阶段七 · 国际化 (v5.x)
 
 | 版本 | 日期 | commit | 交付 |
 |---|---|---|---|
 | **v5.0** | 2026-05-21 | `567e68b` | i18n:真繁体中文 + 日本語全量翻译 + deep-merge 回退 + normalizeLocale/Accept-Language 解析 + useLocale hook + LocaleSwitcher(挂 dashboard) |
+| **v5.0.2** | 2026-05-21 | `04b8529` | U2V 环形进度条 + 失败/超时面板内可见 + 重试(修"单图生视频失败无响应"体感) |
 
 ---
 

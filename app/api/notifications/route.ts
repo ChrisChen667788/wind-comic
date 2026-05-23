@@ -14,11 +14,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../auth/lib';
 import {
-  listForUser,
-  countUnread,
   markRead,
   markAllRead,
 } from '@/lib/notifications';
+// v4.2.4: GET 读路径走 async repo (DbDriver 双驱动); POST 写仍用同步 lib/notifications
+import { listNotifications, countUnread as countUnreadAsync } from '@/lib/repos/notification-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
   const limitStr = request.nextUrl.searchParams.get('limit');
   const limit = limitStr ? parseInt(limitStr, 10) : 30;
 
-  const notifications = listForUser({ recipientUserId: userId, unreadOnly, limit });
-  const unreadCount = countUnread(userId);
+  const notifications = await listNotifications(userId, { unreadOnly, limit });
+  const unreadCount = await countUnreadAsync(userId);
 
   return NextResponse.json({ notifications, unreadCount });
 }
