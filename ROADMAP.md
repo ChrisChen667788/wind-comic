@@ -1574,9 +1574,14 @@ npm test
   - [x] **v6.1.3 生成前实时预览 / 就绪度评分**: `lib/prompt-readiness`(确定性加权评分 + 检查清单,
     6 单测)+ `components/prompt-readiness`(实时随创意/参考变化算就绪度),接进 create 提交按钮上方;
     复用 cameo-vision 试穿评分(cameoScore 透传)+ style 资产引用(呼应 style-audit 画风统一)
-- [ ] **v6.2 · 长篇智能拆解 + 叙事模式 (Story Intake)** [对标 万镜 智能解析]
-  - 长篇小说/剧本 → 自动分集 + 每集分镜(orchestrator 多 agent 扩展)
-  - 叙事模式: 对白 / 第一人称解说 / 旁白 → 注入 TTS(`tts-prosody`)+ 字幕(`subtitle-burn`)管线
+- [~] **v6.2 · 长篇智能拆解 + 叙事模式 (Story Intake)** [对标 万镜 智能解析]
+  - [x] **核心 `lib/story-intake.ts`(v6.2, 13 单测, client-safe)**: `splitIntoEpisodes`
+    (章节标记优先 第X章/Chapter N/markdown,否则按 targetChars 贪心打包 + 句子降级 + 末集并入 +
+    maxEpisodes 限制 + 开篇保留)+ 叙事模式 `NARRATION_MODES`(对白/第一人称/旁白:directive +
+    ttsRole + 是否生成解说音轨)+ `getNarrationMode`/`buildNarrationDirective`;
+    `POST /api/story-intake/split` 拆解概览契约
+  - [ ] v6.2.1 UI + 编排: 粘贴长文 → 分集预览 + 叙事模式选择;每集走 orchestrator 出分镜,
+    叙事 directive 注入剧本生成 + 解说音轨接 `tts-prosody`/`subtitle-burn`
 - [ ] **v6.3 · 风格模板画廊 (Style Gallery)** [对标 万镜 风格]
   - 命名风格预设画廊(逼真 3D / 科幻漫画 / 国风动漫 / 电影写实…), 基于 `style-presets`/`style-bible`
   - 一键套用 + 全片风格锁定(`style-audit` 已有)
