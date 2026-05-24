@@ -44,7 +44,7 @@ interface TimelineShot {
 
 interface TrackSegment {
   id: string;
-  type: 'bgm' | 'subtitle';
+  type: 'bgm' | 'subtitle' | 'narration';
   startSec: number;
   durationSec: number;
   label: string;
@@ -60,7 +60,7 @@ interface TrackSegment {
 interface TimelineData {
   shots: TimelineShot[];
   totalDuration: number;
-  tracks: { bgm: TrackSegment[]; subtitle: TrackSegment[] };
+  tracks: { bgm: TrackSegment[]; subtitle: TrackSegment[]; narration?: TrackSegment[] };
 }
 
 interface PendingTrackEdit {
@@ -108,6 +108,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [narrating, setNarrating] = useState(false); // v6.2.4 解说音轨生成中
   const [saving, setSaving] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -211,7 +212,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
       // tracks 兼容老版本 (没 tracks 字段时空)
-      const tracks = body.tracks || { bgm: [], subtitle: [] };
+      const tracks = body.tracks || { bgm: [], subtitle: [], narration: [] };
       setData({ ...body, tracks });
       setError(null);
       setDirty(false);
@@ -225,6 +226,24 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
   }, [projectId]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // v6.2.4: 由分镜旁白文本真出解说音轨 → 落盘 + 串进时间线, 然后刷新
+  const genNarration = useCallback(async () => {
+    if (!data) return;
+    const text = data.shots
+      .map((s) => s.sceneDescription || s.action || s.dialogue || '')
+      .filter(Boolean)
+      .join('\n');
+    setNarrating(true);
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(projectId)}/narration`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text || '本集旁白。', mode: 'narrator' }),
+      });
+      await refresh();
+    } catch { /* ignore */ }
+    finally { setNarrating(false); }
+  }, [data, projectId, refresh]);
 
   // 监听 viewport resize 给 virtual scroll 用
   useEffect(() => {
@@ -804,6 +823,47 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           currentUserId={currentUser?.id}
           accentColor="cyan"
         />
+
+        {/* v6.2.4: 生成 / 重生解说音轨 (由分镜旁白真出 TTS + 落盘 + 串进时间线) */}
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={genNarration}
+            disabled={narrating}
+            className="px-2.5 py-1 rounded-md text-[10px] font-medium bg-violet-500/15 text-violet-200 border border-violet-500/30 hover:bg-violet-500/25 transition-all disabled:opacity-50 inline-flex items-center gap-1"
+          >
+            🎙 {narrating ? '生成中…' : (data.tracks.narration && data.tracks.narration.length > 0 ? '重生解说音轨' : '生成解说音轨')}
+          </button>
+          <span className="text-[10px] text-[var(--soft)]">由分镜旁白真出 TTS + 落盘 + 串进时间线 (字幕并入 SUBTITLE)</span>
+        </div>
+
+        {/* v6.2.4: 解说音轨 (只读) — 真出落盘音频; 字幕已并入 SUBTITLE 轨可烧录 */}
+        {data.tracks.narration && data.tracks.narration.length > 0 && (() => {
+          const narr = data.tracks.narration;
+          const narrEnd = narr.reduce((m, s) => Math.max(m, s.startSec + s.durationSec), 0);
+          const laneWidth = Math.max(data.totalDuration, narrEnd) * pxPerSec;
+          return (
+            <div className="mt-1.5">
+              <div className="flex items-center gap-1.5 text-[10px] text-violet-300/80 mb-1 px-1">
+                <span>🎙</span><span>NARRATION · 解说音轨 (只读) · 字幕已并入 SUBTITLE 轨</span>
+              </div>
+              <div className="relative h-9 rounded-md bg-violet-500/[0.04] border border-violet-500/15" style={{ width: laneWidth }}>
+                {narr.map((seg) => (
+                  <div
+                    key={seg.id}
+                    className="absolute top-1 bottom-1 rounded bg-violet-500/20 border border-violet-400/30 px-1.5 flex items-center gap-1 overflow-hidden"
+                    style={{ left: seg.startSec * pxPerSec, width: Math.max(10, seg.durationSec * pxPerSec) }}
+                    title={seg.label}
+                  >
+                    {seg.audioUrl && (
+                      <a href={seg.audioUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-violet-200 hover:text-white text-[10px]" title="播放 / 下载">▶</a>
+                    )}
+                    <span className="text-[10px] text-violet-100/90 truncate">{seg.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* v3.3.1: 对齐参考线 — 拖动中显示左/右/中对齐到的位置 */}
         {alignGuideSec != null && trackDrag && (

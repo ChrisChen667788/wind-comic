@@ -15,7 +15,7 @@ import { db, now } from '@/lib/db';
 import { nanoid } from 'nanoid';
 import type { Script, ScriptShot } from '@/types/agents';
 
-export type TrackType = 'bgm' | 'subtitle';
+export type TrackType = 'bgm' | 'subtitle' | 'narration';
 
 export interface TrackSegment {
   id: string;              // 稳定 id (segment_key) — 供 UI dedupe + 写 override 用
@@ -181,10 +181,34 @@ function findProjectMusicUrl(projectId: string): string | null {
 }
 
 /**
- * 给项目算出 BGM + subtitle 完整轨道. UI 直接消费.
- * v3.1.3 P1: BGM 段挂 audioUrl, 前端切片画真波形.
+ * v6.2.4: 读项目落库的解说音轨 (project_assets type='narration', data 为
+ * RenderedNarrationLike). 没有 → null.
  */
-export function computeTracks(projectId: string, script: Script): { bgm: TrackSegment[]; subtitle: TrackSegment[] } {
+function loadNarration(projectId: string): { narration: TrackSegment[]; subtitle: TrackSegment[] } | null {
+  try {
+    const row = db.prepare(
+      `SELECT data FROM project_assets WHERE project_id = ? AND type = 'narration' ORDER BY updated_at DESC LIMIT 1`,
+    ).get(projectId) as { data: string } | undefined;
+    if (!row?.data) return null;
+    const data = JSON.parse(row.data);
+    if (!Array.isArray(data?.segments)) return null;
+    // 动态 import 避免在该 server 模块顶部引入 (narration-timeline 为 client-safe 纯逻辑)
+    const { narrationToTimelineSegments } = require('./narration-timeline') as typeof import('./narration-timeline');
+    return narrationToTimelineSegments(data);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 给项目算出 BGM + subtitle (+ v6.2.4 narration) 完整轨道. UI 直接消费.
+ * v3.1.3 P1: BGM 段挂 audioUrl, 前端切片画真波形.
+ * v6.2.4: 若有落库解说音轨 → 增 narration 轨 + 把解说字幕并入 subtitle 轨 (可烧录).
+ */
+export function computeTracks(
+  projectId: string,
+  script: Script,
+): { bgm: TrackSegment[]; subtitle: TrackSegment[]; narration: TrackSegment[] } {
   const shots = Array.isArray(script.shots) ? script.shots : [];
   const edits = readEdits(projectId);
   const bgmDerived = deriveBgmSegments(shots);
@@ -194,10 +218,15 @@ export function computeTracks(projectId: string, script: Script): { bgm: TrackSe
   if (musicUrl) {
     for (const seg of bgmSegments) seg.audioUrl = musicUrl;
   }
-  return {
-    bgm: bgmSegments,
-    subtitle: applyOverrides('subtitle', subDerived, edits),
-  };
+  const subtitle = applyOverrides('subtitle', subDerived, edits);
+
+  const narr = loadNarration(projectId);
+  if (narr) {
+    // 解说字幕并入字幕轨 (烧录时一起出); 解说音频单列 narration 轨
+    subtitle.push(...narr.subtitle);
+    return { bgm: bgmSegments, subtitle, narration: narr.narration };
+  }
+  return { bgm: bgmSegments, subtitle, narration: [] };
 }
 
 export interface SegmentOverride {

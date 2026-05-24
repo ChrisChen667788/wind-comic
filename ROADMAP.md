@@ -1624,6 +1624,16 @@ npm test
     story-intake 页「整季并行解说音轨」按钮 + 逐集结果面板(已出音频 / 计划就绪待配置 TTS)
   - 13 单测;dev 验证:真打 MiniMax(无余额时 status 2054 → 优雅降级 rendered=false 保留计划)
 
+- [x] **v6.2.4 · 解说真音频落盘 + 字幕烧录串进时间线** ✅ 2026-05-24
+  - `lib/narration-timeline`(纯逻辑:`srtTimestamp`/`cuesToSrt`(SRT 烧录文件)+
+    `narrationToTimelineSegments`(解说轨 → narration 音轨 + subtitle 字幕轨),10 单测)
+  - `timeline-tracks` 扩 `'narration'` TrackType + `computeTracks` 读落库解说资产 → 增 narration 轨 +
+    解说字幕并入 subtitle 轨(烧录时一起出)
+  - `POST/GET /api/projects/[id]/narration`:真出 TTS → 每段音频 `persistAsset` 落盘 + 字幕 SRT 落盘 →
+    存 `project_assets` type='narration' → computeTracks 自动并进时间线
+  - cinema-timeline 加「生成/重生解说音轨」按钮(由分镜旁白真出)+ 只读 narration 轨(段挂落盘 audio ▶)
+  - dev 验证:POST → 3 段 + SRT 落盘(serve-file 200)+ timeline narration 轨 3 段 + subtitle 含解说 cue(已清理)
+
 - [x] **v6.4.1 · 单环节真重跑端点** ✅ 2026-05-24
   - `lib/pipeline-stages` 扩:`StageAsset` 加 `id`/`stale` + `derivePipelineStages` honor 显式失效标记
     (上游重跑后直接 stale, 不再只靠时间比较)+ `stageOfType` + `buildRerunPlan`(target + 失效下游 +
