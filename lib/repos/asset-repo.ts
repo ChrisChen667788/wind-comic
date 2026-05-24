@@ -17,13 +17,20 @@ export interface AssetRow {
   name: string;
   data: string;
   media_urls: string | null;
+  /**
+   * v2.9 资产持久化副本 URL (/api/serve-file?key=...). 外链/tmp 会过期,
+   * 这一列指向本地落盘的稳定副本; normalizeAssetRow 会优先用它。
+   * ⚠️ 必须 SELECT 出来 —— v4.2.3 异步化时漏选此列, 导致历史项目图片/视频
+   * 回退到已过期的 media_urls → 404 无法查看 (regression, 见 tests/v6-0-1).
+   */
+  persistent_url: string | null;
   shot_number: number | null;
   version: number;
   created_at: string;
   updated_at: string;
 }
 
-const COLS = 'id, project_id, type, name, data, media_urls, shot_number, version, created_at, updated_at';
+const COLS = 'id, project_id, type, name, data, media_urls, persistent_url, shot_number, version, created_at, updated_at';
 
 export async function listProjectAssets(projectId: string): Promise<AssetRow[]> {
   return getDbDriver().query<AssetRow>(
