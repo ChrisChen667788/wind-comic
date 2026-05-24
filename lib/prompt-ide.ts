@@ -152,3 +152,18 @@ export function compilePrompt(text: string, assets: MentionableAsset[]): Compile
   out += text.slice(cursor);
   return { prompt: out, used, unresolved };
 }
+
+/**
+ * 在补全下拉选中某资产后, 把当前正在敲的 @token 替换成完整的 `@name `(末尾加空格便于继续敲).
+ * 返回新文本 + 新光标位置 (供组件 setSelectionRange). 纯函数.
+ */
+export function insertMention(
+  text: string,
+  active: { start: number; end: number },
+  assetName: string,
+): { text: string; caret: number } {
+  const before = text.slice(0, active.start);
+  const after = text.slice(active.end);
+  const insert = `@${assetName} `;
+  return { text: before + insert + after, caret: (before + insert).length };
+}

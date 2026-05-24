@@ -13,6 +13,7 @@ import { validateIdea, sanitizeInput } from '@/lib/validation';
 import { useToast } from '@/components/ui/toast-provider';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { useLocale } from '@/hooks/use-locale';
+import { PromptEditor } from '@/components/prompt-editor';
 
 export default function CreatePage() {
   const [idea, setIdea] = useState('');
@@ -263,12 +264,13 @@ export default function CreatePage() {
                     <label className="block text-sm font-medium text-gray-300 mb-3">
                       {t.create.ideaLabel}
                     </label>
-                    <textarea
+                    {/* v6.1.1: 智能提示词编辑器 (@ 引用资产补全 + 编译预览) */}
+                    <PromptEditor
                       value={idea}
-                      onChange={(e) => setIdea(e.target.value)}
-                      placeholder={"支持两种输入方式：\n\n方式一：简短创意（50-500字）\n例如：一个关于时间旅行者的爱情故事，主角是一位物理学家...\n\n方式二：完整剧本（直接粘贴）\n支持标准剧本格式：场景标头、角色对白、△画面描述等，系统将自动解析并忠实改编"}
-                      className="w-full min-h-[200px] bg-black/50 border border-white/10 rounded-2xl p-6 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/50 focus:border-[#E8C547]/50 transition-all resize-y"
+                      onChange={setIdea}
+                      placeholder={"支持两种输入方式：\n\n方式一：简短创意（50-500字）\n例如：一个关于时间旅行者的爱情故事，主角是一位物理学家...\n\n方式二：完整剧本（直接粘贴）\n支持标准剧本格式：场景标头、角色对白、△画面描述等，系统将自动解析并忠实改编\n\n输入 @ 可引用角色 / 场景 / 风格资产"}
                       rows={12}
+                      className="w-full min-h-[200px] bg-black/50 border border-white/10 rounded-2xl p-6 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/50 focus:border-[#E8C547]/50 transition-all resize-y"
                     />
                     <div className="mt-2 flex items-center justify-between text-sm">
                       <span className={`${idea.length > 500 ? 'text-[#E8C547]' : 'text-gray-500'}`}>

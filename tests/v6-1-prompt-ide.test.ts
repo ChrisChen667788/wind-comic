@@ -9,6 +9,7 @@ import {
   suggestAssets,
   resolveMentions,
   compilePrompt,
+  insertMention,
   type MentionableAsset,
 } from '@/lib/prompt-ide';
 
@@ -107,5 +108,22 @@ describe('v6.1 · compilePrompt', () => {
   });
   it('无引用原样返回', () => {
     expect(compilePrompt('纯文本 prompt', ASSETS).prompt).toBe('纯文本 prompt');
+  });
+});
+
+describe('v6.1 · insertMention (补全选中后回填)', () => {
+  it('把正在敲的 @token 替换成完整 @name + 空格, 光标落到空格后', () => {
+    const text = '开场 @林小';                 // 光标在末尾
+    const active = activeMention(text, text.length)!;
+    const r = insertMention(text, active, '林小满');
+    expect(r.text).toBe('开场 @林小满 ');
+    expect(r.caret).toBe(r.text.length);
+  });
+  it('保留 token 后面的文本', () => {
+    const text = '@林 走进庭院';
+    const active = { start: 0, end: 2 };       // "@林"
+    const r = insertMention(text, active, '林小满');
+    expect(r.text).toBe('@林小满  走进庭院');  // 插入 "@林小满 " 再接原来的 " 走进庭院"
+    expect(r.caret).toBe('@林小满 '.length);
   });
 });

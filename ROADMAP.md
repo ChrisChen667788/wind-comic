@@ -1567,7 +1567,7 @@ npm test
     (排除 email 形态)+ 光标补全触发 `activeMention` + 候选排序 `suggestAssets`(全等>前缀>子串)+
     精确解析 `resolveMentions` + 编译展开 `compilePrompt`(@引用→资产 expansion, 未命中降级裸名);
     `GET /api/prompt-ide/assets` 出可引用资产(角色库身份块 + global_assets 视觉锚)
-  - [ ] v6.1.1 编辑器 UI: textarea + `@` 下拉补全 + 编译预览,接进 create 页
+  - [x] **v6.1.1 编辑器 UI**: `components/prompt-editor.tsx`(textarea + `@` 下拉补全 + ↑↓/Enter 键盘导航 + 编译预览面板:展开 prompt + 引用 chip + 未匹配告警),接进 `app/create` 创意输入;`insertMention` 纯 helper +2 单测
   - [ ] v6.1.2 多模态参考: 图(已有)+ **新增 音频/视频** 作为生成参考
   - [ ] v6.1.3 生成前实时预览 / 试穿评分(复用 `cameo-vision` + `style-audit`)
 - [ ] **v6.2 · 长篇智能拆解 + 叙事模式 (Story Intake)** [对标 万镜 智能解析]

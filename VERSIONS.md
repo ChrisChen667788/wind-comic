@@ -156,6 +156,7 @@
 | **v6.0.1** | 2026-05-24 | `1eddaf9` | 角色资产中心后端接线:`character_library.profile` 列 + character-studio 接线层(行↔档案 + 序列化)+ `GET/POST /api/characters/[id]/studio`(dry-run 出档案落库 / `generate` 真出图)。UI 收尾留 v6.0.2 |
 | **v6.0.2** | 2026-05-24 | `a751555` | 角色资产中心 UI 收尾:角色库详情弹窗加「生成角色档案 / 生成设定图」按钮 + 档案展示面板(小传 + 绑定音色 + 多视角 turnaround 缩略图);打开自动载入已落库档案。**阶段八 v6.0 角色资产中心收官** |
 | **v6.1** | 2026-05-24 | `77d0916` | 智能提示词工作台核心 `lib/prompt-ide`(client-safe,16 单测):`@` 引用解析(排 email)+ 光标补全 + 候选排序 + 解析 + 编译展开(@→资产 expansion,未命中降级裸名)+ `GET /api/prompt-ide/assets`(角色库身份块 + global_assets 视觉锚)。编辑器 UI / 多模态参考 / 实时预览留 v6.1.x |
+| **v6.1.1** | 2026-05-24 | `(本次)` | 智能提示词编辑器 UI `components/prompt-editor`:textarea + `@` 下拉补全(↑↓/Enter/Esc 键盘导航)+ 编译预览(展开 prompt + 引用 chip + 未匹配告警),接进 create 创意输入;`insertMention` 纯 helper +2 单测 |
 
 ---
 
