@@ -86,6 +86,14 @@ export default function DashboardCreatePage() {
         sessionStorage.removeItem('qfmj-create-seed');
       }
     } catch { /* ignore */ }
+    // v6.3: 风格画廊「套用此风格」经 sessionStorage 传入风格名
+    try {
+      const styleSeed = sessionStorage.getItem('qfmj-create-style');
+      if (styleSeed) {
+        setStyle(styleSeed);
+        sessionStorage.removeItem('qfmj-create-style');
+      }
+    } catch { /* ignore */ }
   }, [searchParams]);
   const [duration, setDuration] = useState(durationOptions[1]); // 默认5秒
   const [aspect, setAspect] = useState(aspectOptions[0]);

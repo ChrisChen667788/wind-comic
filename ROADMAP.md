@@ -1588,9 +1588,12 @@ npm test
     进度);story-intake 每集显示旁白估算(句数/时长/音色)+「整季批量」可续跑队列(localStorage 持久化,
     逐集送入创作 + 进度条)
   - 📌 后续候选:解说轨真出音频(接 tts 引擎)+ N 集并行编排
-- [ ] **v6.3 · 风格模板画廊 (Style Gallery)** [对标 万镜 风格]
-  - 命名风格预设画廊(逼真 3D / 科幻漫画 / 国风动漫 / 电影写实…), 基于 `style-presets`/`style-bible`
-  - 一键套用 + 全片风格锁定(`style-audit` 已有)
+- [x] **v6.3 · 风格模板画廊 (Style Gallery)** ✅ 2026-05-24 [对标 万镜 风格]
+  - `lib/style-presets` 扩展(10 单测): `STYLE_CATEGORIES`(写实/动漫/艺术/复古/实验)+
+    `categoryLabel` + `searchStyles`(名/英文名/分类/中文标签/promptFragment 关键词)
+  - `app/dashboard/styles` 画廊: 60 预设 grid(缩略图 + 中英名 + 分类徽章 + 流行度 + 推荐引擎)+
+    搜索 + 分类 tab + 侧栏入口;「套用此风格」经 sessionStorage 把风格名传给 `/dashboard/create`
+    (创作工坊 style 状态接收 → 注入 orchestrator);全片风格锁定沿用既有 `style-audit`
 - [ ] **v6.4 · 导演级全链路编辑 (Director Console)** [对标 火山 控片]
   - 主创作流每节点(剧本/资产/分镜/成片)开放编辑 + **单节点重跑**(复用 `workflow-studio` + SSE)
 - [ ] **v6.5 · 团队工作区 + 积分额度分配 (Team Workspace)** [对标 火山 团队协作]

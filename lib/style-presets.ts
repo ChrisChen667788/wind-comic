@@ -639,3 +639,32 @@ export function getStyleRecommendedEngine(styleId?: string) {
   if (!styleId) return undefined;
   return getStyleById(styleId)?.recommendedEngine;
 }
+
+// ============ v6.3 风格画廊 ============
+
+/** 分类有序列表 + 中文标签 (画廊 tab 用). */
+export const STYLE_CATEGORIES: { id: StylePreset['category']; label: string }[] = [
+  { id: 'realistic', label: '写实' },
+  { id: 'anime', label: '动漫' },
+  { id: 'artistic', label: '艺术' },
+  { id: 'retro', label: '复古' },
+  { id: 'experimental', label: '实验' },
+];
+
+/** 分类中文标签 (兜底原值). */
+export function categoryLabel(category: string): string {
+  return STYLE_CATEGORIES.find((c) => c.id === category)?.label ?? category;
+}
+
+/** 风格搜索: 名 / 英文名 / 分类 / promptFragment 关键词 (大小写不敏感). 空 query 返全部. */
+export function searchStyles(query: string, presets: StylePreset[] = STYLE_PRESETS): StylePreset[] {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) return presets;
+  return presets.filter((p) =>
+    p.name.toLowerCase().includes(q) ||
+    p.nameEn.toLowerCase().includes(q) ||
+    p.category.toLowerCase().includes(q) ||
+    categoryLabel(p.category).includes(q) ||
+    (p.promptFragment || '').toLowerCase().includes(q),
+  );
+}

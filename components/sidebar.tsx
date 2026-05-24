@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import {
   LayoutDashboard, FolderKanban, Sparkles, BookOpen, User,
-  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText,
+  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText, Palette,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -21,6 +21,8 @@ const navItems = [
   { href: '/dashboard/u2v', label: '单图变视频', icon: Film },
   { href: '/dashboard/assets', label: '素材库', icon: Package },
   { href: '/dashboard/characters', label: '角色库', icon: Users },
+  // v6.3: 风格模板画廊
+  { href: '/dashboard/styles', label: '风格画廊', icon: Palette },
   { href: '/dashboard/cases', label: '灵感库', icon: BookOpen },
   { href: '/dashboard/profile', label: '账户', icon: User },
   // v2.12 Sprint C.2: Stripe 4 档订阅管理
