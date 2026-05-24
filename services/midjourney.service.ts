@@ -1,8 +1,8 @@
 // Midjourney is consumed via any OpenAI/MJ-compatible aggregator.
 // Set MJ_BASE_URL to your provider (e.g. https://api.vectorengine.ai, https://api.qingyuntop.top).
-// Falls back to a safe default; keys are read from MJ_API_KEY (preferred) or BANANA_API_KEY (legacy).
+// Key read from MJ_API_KEY; falls back to a safe default base URL.
 const MJ_BASE_URL = process.env.MJ_BASE_URL || 'https://api.vectorengine.ai';
-const MJ_API_KEY = process.env.MJ_API_KEY || process.env.BANANA_API_KEY || '';
+const MJ_API_KEY = process.env.MJ_API_KEY || '';
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 

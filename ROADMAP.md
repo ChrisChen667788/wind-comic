@@ -1668,6 +1668,18 @@ npm test
     `pg:verify` 三组断言全绿。代码侧 cutover 就绪, 仅剩生产 PG 实例 + 数据搬迁
   - 文档:`docs/postgres-migration.md` 补「v6.6 一键本地验证」三命令流程
 
+### 5.9.3 运维可观测性 (v6.7)
+
+- [x] **v6.7 · 移除 banana 死配置 + API 健康仪表盘** ✅ 2026-05-25
+  - 清理:删 `services/banana.service.ts`(无引用)+ `lib/config.ts` banana 块 + demo-orchestrator 未用变量 +
+    midjourney `BANANA_API_KEY` legacy fallback(banana.dev 已停运)
+  - `lib/provider-health`(纯逻辑:`classifyHttp`/`classifyMinimax`/`extractGatewayBalance`/`overallHealth`/
+    `isPlaceholder`,19 单测)—— 把探针响应归一成 正常/额度用尽/鉴权失败/配置缺失/不可达/未配置
+  - `GET /api/health/providers`(服务端实时探测 MiniMax LLM+TTS / qingyuntop / vectorengine,60s 缓存,
+    **永不回传 key**;网关读 OpenAI 风格 billing 端点出余额)+ `/dashboard/health` 仪表盘(状态卡 + 余额 +
+    处置建议「去充值/补配置」+ 重新探测)+ 侧栏入口
+  - 实测:qingyuntop 换新 key 后恢复 ok(剩余 $30)、MiniMax TTS 标记「配置缺失(GroupId 未设)」、整体 warning
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。

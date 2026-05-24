@@ -12,13 +12,6 @@ export const API_CONFIG = {
     }
   },
 
-  banana: {
-    apiKey: process.env.BANANA_API_KEY || '',
-    modelKey: process.env.BANANA_MODEL_KEY || '',
-    baseURL: 'https://api.banana.dev',
-    pricing: 0.0005  // $/秒
-  },
-
   minimax: {
     apiKey: process.env.MINIMAX_API_KEY || '',
     groupId: process.env.MINIMAX_GROUP_ID || '',

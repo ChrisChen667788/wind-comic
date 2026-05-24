@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import {
   LayoutDashboard, FolderKanban, Sparkles, BookOpen, User,
-  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText, Palette, UsersRound,
+  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText, Palette, UsersRound, Activity,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -27,6 +27,8 @@ const navItems = [
   { href: '/dashboard/profile', label: '账户', icon: User },
   // v6.5: 团队工作区 — 主账号按成员分配积分额度
   { href: '/dashboard/team', label: '团队', icon: UsersRound },
+  // v6.7: API 健康仪表盘 — 一眼看各网关欠费/掉线
+  { href: '/dashboard/health', label: 'API 健康', icon: Activity },
   // v2.12 Sprint C.2: Stripe 4 档订阅管理
   { href: '/dashboard/billing', label: '订阅 / 计费', icon: CreditCard },
 ];

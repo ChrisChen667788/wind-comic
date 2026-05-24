@@ -7,7 +7,6 @@ vi.mock('@/lib/config', () => ({
     // 给 minimax 一个非空 key, 让 hybrid-orchestrator 实例化 MinimaxService,
     // 这样下面 vi.mock 的 generateVideo 桩才会真正生效
     minimax: { apiKey: 'test-key', groupId: 'test-group', baseURL: 'https://test.local' },
-    banana: { apiKey: 'test-key', modelKey: '' },
     veo: { apiKey: '', baseURL: '', model: '', format: 'openai' },
     keling: { apiKey: '', baseURL: '' },
     vidu: { apiKey: '', baseURL: '' },

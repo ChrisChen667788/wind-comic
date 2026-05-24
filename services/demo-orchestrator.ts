@@ -4,7 +4,6 @@ import {
 
 // Check if real API keys are configured
 const hasOpenAI = process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('your_');
-const hasBanana = process.env.BANANA_MODEL_KEY && !process.env.BANANA_MODEL_KEY.startsWith('your_');
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
