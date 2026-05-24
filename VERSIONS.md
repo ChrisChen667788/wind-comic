@@ -165,7 +165,7 @@
 | **v6.3** | 2026-05-24 | `66d949c` | 风格模板画廊(对标万镜风格):`style-presets` 扩 `STYLE_CATEGORIES`/`categoryLabel`/`searchStyles`(10 单测)+ `/dashboard/styles` 画廊(60 预设 grid + 搜索 + 分类 tab + 侧栏入口);「套用此风格」经 sessionStorage 传风格名给创作工坊。**阶段八 v6.3 收官** |
 | **v6.4** | 2026-05-24 | `386f22a` | 导演级全链路编辑(对标火山控片):`lib/pipeline-stages`(4 环节模型 + 按 updatedAt 推 空/就绪/待更新 stale + 下游失效分析,8 单测)+ 项目页「导演台」tab(`director-console`:流水线可视化 + 进度 + 跳节点编辑 + 重跑下游影响);项目 API 补 updatedAt |
 | **v6.5** | 2026-05-24 | `ea346b7` | 团队工作区 + 积分额度分配(对标火山团队协作):`lib/team-credits`(额度数学 + 分配校验 + RBAC,12 单测)+ `team_allocations` 表 + `GET/PUT /api/team/allocations`(超额拒绝)+ `/dashboard/team`(池总览 + 成员额度编辑 + 添加/移除)+ 侧栏入口。**阶段八对标六版全交付** |
-| **v6.2.3** | 2026-05-24 | `(本次)` | 解说音轨接真 TTS + N 集并行编排:`lib/season-orchestrator`(`runPool` 有界并发池 + `orchestrateSeason`)+ `lib/narration-synth`(解说计划真出音频 → 按真实时长重排时轴 + 字幕,单段失败降级,synth 注入可单测,13 单测)+ `POST /api/narration/synthesize` + `POST /api/season/narrate`(整季有界并发)+ story-intake「整季并行解说音轨」按钮 + 逐集结果面板 |
+| **v6.2.3** | 2026-05-24 | `1bd634e` | 解说音轨接真 TTS + N 集并行编排:`lib/season-orchestrator`(`runPool` 有界并发池 + `orchestrateSeason`)+ `lib/narration-synth`(解说计划真出音频 → 按真实时长重排时轴 + 字幕,单段失败降级,synth 注入可单测,13 单测)+ `POST /api/narration/synthesize` + `POST /api/season/narrate`(整季有界并发)+ story-intake「整季并行解说音轨」按钮 + 逐集结果面板 |
 
 ---
 
