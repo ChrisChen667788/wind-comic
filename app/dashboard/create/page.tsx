@@ -76,7 +76,16 @@ export default function DashboardCreatePage() {
     const ideaParam = searchParams.get('idea');
     if (ideaParam) {
       setIdea(decodeURIComponent(ideaParam));
+      return;
     }
+    // v6.2.1: 长篇拆解的某一集经 sessionStorage 传入 (长文本避免超 URL 长度上限)
+    try {
+      const seed = sessionStorage.getItem('qfmj-create-seed');
+      if (seed) {
+        setIdea(seed);
+        sessionStorage.removeItem('qfmj-create-seed');
+      }
+    } catch { /* ignore */ }
   }, [searchParams]);
   const [duration, setDuration] = useState(durationOptions[1]); // 默认5秒
   const [aspect, setAspect] = useState(aspectOptions[0]);
