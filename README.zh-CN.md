@@ -2,11 +2,11 @@
   <img src="assets/banner.png" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v3.1.3</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v6.7</sup></sub></h1>
 
 <p align="center">
-  <b>一句话进, 整片短剧出.</b><br/>
-  多 Agent AI 流水线 · 电影级分镜 · 视频成片 · 实时多人协作 · 自带 LLM API.
+  <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
+  多 Agent AI 创作工作室 · 可复用角色 · 长篇小说→自动分集 · 导演级控片台 · 实时协作 · 自带 LLM.
 </p>
 
 <p align="center">
@@ -34,6 +34,51 @@
    + 接你自己的 LLM (3 行 .env, 0 改代码)
    + 图像/视频 provider 可换 (内置 12+ 可选)
 ```
+
+---
+
+## 🆕 v6 新增 —— 从「能跑的 demo」进化成「能用的工作室」
+
+> v3 交付了流水线;**v6 把它做成了一个生产级工作室。** 可复用角色库、提示词 IDE、长篇小说→自动分集 + 真配音、60 套风格画廊、导演级控片台、团队积分预算、Postgres 就绪后端,以及一块实时 API 健康看板 —— 下方每一张都是**运行中产品的真实截图**。
+
+<p align="center">
+  <img src="assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 巡览 —— API 健康 · 导演台 · 长篇拆解 · 风格画廊 · 时间线" width="100%" />
+</p>
+
+| 版本 | 新增能力 |
+|---|---|
+| **v6.0 · 角色资产中心** | 可复用角色 —— 多视角设定图(正 / 四分之三 / 正侧 / 背)+ 8 字段 DNA 身份锁 + 自动绑定专属音色 + 确定性小传。跨项目复用走 Cameo IP 经济。 |
+| **v6.1 · 提示词工作台** | 在提示词里 `@` 引用任意资产、实时补全、把引用展开的编译预览、生成前就绪度评分。 |
+| **v6.2 · 长篇智能拆解** | 粘贴整本小说 → 按章节自动分集 → 选叙事模式(对白 / 第一人称 / 旁白)。**v6.2.3** 解说接**真 TTS** + 整季并行编排;**v6.2.4** 音频**落盘** + **字幕 SRT 烧入时间线**。 |
+| **v6.3 · 风格模板画廊** | 60 套电影级预设、5 大分类、即时搜索、一键**套用到创作工坊**。 |
+| **v6.4 · 导演级控片台** | 全流程抽象成 4 环节(剧本→资产→分镜→成片),自动标记**待更新**、一键**单环节重跑** + 下游影响分析。 |
+| **v6.5 · 团队工作区** | 主账号管理积分池、按成员分配额度 + RBAC、**真·多用户邀请**(token 链接)、成员消费按额度扣减。 |
+| **v6.6 · Postgres 就绪** | SQLite→Postgres 全量切换路径,**已在本地 Postgres 端到端验证**(schema bootstrap + async repo 往返,迁移幂等)。 |
+| **v6.7 · API 健康看板** | 一屏看清每个网关 正常 / **额度用尽** / 配置缺失 / 不可达,带实时余额读数 —— 再不会生成到一半撞上欠费。 |
+
+### 🎬 导演级控片台 —— 整部片就是一个控制室 *(v6.4)*
+一眼看清每个环节:哪些就绪、哪些因上游改动变「待更新」,以及一键重跑(自动算出会让哪些下游失效)。
+<p align="center"><img src="assets/v6/director-console.png" width="100%" /></p>
+
+### 📖 长篇小说 → 整季,带真配音 *(v6.2)*
+粘贴整本小说;按章节标记(或目标字数)自动分集,选叙事模式,可为整季并行生成真解说音轨 + 可烧录字幕。
+<p align="center"><img src="assets/v6/story-intake.png" width="100%" /></p>
+
+### 🎨 风格画廊 —— 60 套电影质感,一键套用 *(v6.3)*
+生成前先锁住统一画风。搜索、按分类筛选,任选预设直接送进创作工坊。
+<p align="center"><img src="assets/v6/styles.png" width="100%" /></p>
+
+### 🩺 API 健康看板 —— 别再被一个死 key 打断 *(v6.7)*
+每个模型 / 网关实时状态:正常 / 额度用尽 / 配置缺失 / 不可达,带真实余额读数和「去充值 / 补配置」建议。Key 永不存储、永不回传。
+<p align="center"><img src="assets/v6/health.png" width="100%" /></p>
+
+### 👥 团队工作区 *(v6.5)*  ·  🎞️ 时间线 + 解说轨 *(v6.2.4)*
+<table>
+<tr>
+<td width="50%"><img src="assets/v6/team.png" /><br/><sub>积分池 + 按成员分配额度,RBAC,真邀请链接。</sub></td>
+<td width="50%"><img src="assets/v6/cinema-timeline.png" /><br/><sub>多轨时间线;解说音频 + 字幕已烧入。</sub></td>
+</tr>
+</table>
 
 ---
 
@@ -84,7 +129,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **1150 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **1708 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -111,7 +156,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 
 ## 🎬 实机截图
 
-完整 v3.1.3 puppeteer 实拍 — 下面每张图都是 `node scripts/capture-screenshots.mjs` 自动捕获的实跑界面, 不是 mockup.
+下面是 **v3 基础流水线** 的实拍(v6 工作室新界面见上方 [v6 新增](#-v6-新增--从能跑的-demo-进化成能用的工作室) 一节)。每张图都是 `node scripts/capture-screenshots.mjs` / `node scripts/capture-v6.mjs` 自动捕获的实跑界面, 不是 mockup.
 
 ### 创作总览
 99 项目 + 4 案例 + 最近创作 feed + 系统状态 (当前引擎 / 模型版本).
@@ -189,7 +234,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 1150/1150 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 1708/1708 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CLAUDE.md`](CLAUDE.md) — 仓库的"代码风格"和 agent 设计笔记.
 
@@ -200,7 +245,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 - [`docs/llm-providers.md`](docs/llm-providers.md) — 3 行 env 换 LLM provider
 - [`docs/SCREENSHOTS.md`](docs/SCREENSHOTS.md) — 模块截图清单
 - [`docs/MARKETING-zh.md`](docs/MARKETING-zh.md) · [`docs/MARKETING-en.md`](docs/MARKETING-en.md) — 营销文案
-- [`ROADMAP.md`](ROADMAP.md) — 完整 sprint changelog (v2.10 → v3.1.3)
+- [`ROADMAP.md`](ROADMAP.md) — 完整 sprint changelog (v2.10 → v6.7) · [`VERSIONS.md`](VERSIONS.md) — 版本历史总表
 - [`docs/COMPETITIVE-GAP-2026-05.md`](docs/COMPETITIVE-GAP-2026-05.md) — vs Sora/Kling/Vidu/Higgsfield 诚实分析
 
 ---

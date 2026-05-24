@@ -2,18 +2,18 @@
   <img src="assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v3.1.3</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v6.7</sup></sub></h1>
 
 <p align="center">
-  <b>One sentence in. Full short-form drama out.</b><br/>
-  Multi-agent AI pipeline · cinematic storyboards · video output · real-time collaboration · bring-your-own LLM.
+  <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
+  Multi-agent AI studio · reusable characters · novel→season splitting · director's control room · real-time collab · bring-your-own LLM.
 </p>
 
 <p align="center">
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-1150%2F1150-2ea44f" alt="1150 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-1708%2F1708-2ea44f" alt="1708 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -43,6 +43,51 @@ It works because it doesn't try to be one giant model. It's an **honest multi-ag
    + Bring-your-own LLM (3 env vars, 0 code change)
    + Plug-in image/video providers (12+ supported)
 ```
+
+---
+
+## 🆕 New in v6 — from *demo* to *studio*
+
+> v3 shipped the pipeline. **v6 turns it into a production studio.** Reusable characters, a prompt IDE, novel→season auto-splitting with real voiceover, a 60-style gallery, a director's control room, team credit budgets, a Postgres-ready backend, and a live API health board — every screen below is a **real capture of the running app**.
+
+<p align="center">
+  <img src="assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 tour — API health · director console · novel splitting · style gallery · cinema timeline" width="100%" />
+</p>
+
+| Version | What landed |
+|---|---|
+| **v6.0 · Character Studio** | Reusable cast assets — multi-view turnaround sheets (front / ¾ / profile / back) with an 8-field DNA identity lock, auto-bound voice timbre, deterministic bio. Reuse any character across projects via the Cameo IP economy. |
+| **v6.1 · Prompt Workbench** | `@`-mention any asset right in your prompt, live autocomplete, a compile-preview that expands every reference, and a pre-generation readiness score. |
+| **v6.2 · Long-form Intake** | Paste a whole novel → auto-split into episodes (chapter-aware) → choose a narration mode (dialogue / first-person / narrator). **v6.2.3** renders narration to **real TTS** with N-episode parallel orchestration; **v6.2.4** persists the audio + burns **SRT subtitles into the timeline**. |
+| **v6.3 · Style Gallery** | 60 cinematic presets across 5 categories, instant search, one-click **apply-to-workshop**. |
+| **v6.4 · Director Console** | The whole pipeline as 4 stages (script → assets → storyboard → final) with ready / **stale** detection, one-click **single-stage rerun**, and downstream-impact analysis. |
+| **v6.5 · Team Workspace** | Owner-managed credit pool, per-member allocations + RBAC, **real multi-user invites** (token links), per-member consumption metering. |
+| **v6.6 · Postgres-ready** | Full SQLite→Postgres cutover path, **verified end-to-end on a local Postgres** (schema bootstrap + async-repo round-trip, idempotent migrate). |
+| **v6.7 · API Health Board** | One screen to see which gateway is healthy / **out-of-credits** / misconfigured — with live balance read-out, so you never hit a dead generation mid-flow again. |
+
+### 🎬 Director Console — the whole film as one control room *(v6.4)*
+Every stage at a glance — what's ready, what's gone stale because you changed something upstream, and a one-click rerun that knows exactly which downstream stages it invalidates.
+<p align="center"><img src="assets/v6/director-console.png" width="100%" /></p>
+
+### 📖 Novel → season, with real voiceover *(v6.2)*
+Paste a full novel; Wind Comic splits it into episodes by chapter markers (or by target length), picks a narration mode, and can render a real narration track + burnable subtitles for the whole season in parallel.
+<p align="center"><img src="assets/v6/story-intake.png" width="100%" /></p>
+
+### 🎨 Style Gallery — 60 cinematic looks, one click *(v6.3)*
+Lock a consistent visual identity before you generate. Search, filter by category, and apply any preset straight into the creation workshop.
+<p align="center"><img src="assets/v6/styles.png" width="100%" /></p>
+
+### 🩺 API Health Board — never get surprised by a dead key *(v6.7)*
+Live status for every model and gateway: 正常 / 额度用尽 / 配置缺失 / 不可达, with real balance read-out and a "去充值 / 补配置" hint. Keys are never stored or returned.
+<p align="center"><img src="assets/v6/health.png" width="100%" /></p>
+
+### 👥 Team Workspace *(v6.5)*  ·  🎞️ Cinema Timeline + narration track *(v6.2.4)*
+<table>
+<tr>
+<td width="50%"><img src="assets/v6/team.png" /><br/><sub>Credit pool + per-member allocations, RBAC, real invite links.</sub></td>
+<td width="50%"><img src="assets/v6/cinema-timeline.png" /><br/><sub>Multi-track timeline; narration audio + subtitles burned in.</sub></td>
+</tr>
+</table>
 
 ---
 
@@ -93,7 +138,7 @@ After Writer finishes, we score each shot 0-10 on a Chinese-conflict-word dictio
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **1150 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **1708 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -120,7 +165,7 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🎬 Screenshots
 
-A real walk-through of the **v3.1.3** build — every panel below is **a real puppeteer capture of the running app** (run `node scripts/capture-screenshots.mjs` to refresh yourself).
+Below is the **foundational v3 pipeline** (the v6 studio screens are in the [New in v6](#-new-in-v6--from-demo-to-studio) section above). Every panel is **a real puppeteer capture of the running app** (run `node scripts/capture-screenshots.mjs` / `node scripts/capture-v6.mjs` to refresh).
 
 ### Workspace overview
 The 创作总览 dashboard: 99 projects + 4 case studies + recent activity feed + system status (engines in use, model versions).
@@ -181,6 +226,14 @@ Per-shot "改 prompt 重生" (regenerate image with custom prompt + reference im
 | **API quota tracker** | Per-provider failure tracking + dashboard banner | `lib/api-usage-tracker.ts` |
 | **18 project templates** | 霸总/重生/穿越/古装/科幻/儿童/纪实/恐怖/喜剧 etc. | `lib/story-templates.ts` |
 | **BYO LLM docs** | 12-provider config matrix, 0-code swap | `docs/llm-providers.md` |
+| 🆕 **Character Studio** | Multi-view turnaround + DNA lock + auto-bound voice + bio | `lib/character-studio.ts` |
+| 🆕 **Prompt Workbench** | `@`-mention assets, autocomplete, compile-preview, readiness score | `lib/prompt-ide.ts` + `components/prompt-editor.tsx` |
+| 🆕 **Long-form Intake** | Novel→episodes + narration modes + real TTS + season parallel | `lib/story-intake.ts` + `lib/narration-synth.ts` + `lib/season-orchestrator.ts` |
+| 🆕 **Style Gallery** | 60 presets, 5 categories, one-click apply | `lib/style-presets.ts` + `app/dashboard/styles` |
+| 🆕 **Director Console** | 4-stage pipeline model + stale detection + single-stage rerun | `lib/pipeline-stages.ts` + `components/director-console.tsx` |
+| 🆕 **Team Workspace** | Credit pool + per-member allocations + RBAC + real invites | `lib/team-credits.ts` + `lib/team-invite.ts` |
+| 🆕 **Postgres cutover** | SQLite→PG dual-driver, schema bootstrap, async repos | `lib/db-driver.ts` + `scripts/pg-migrate.ts` |
+| 🆕 **API Health Board** | Live model/gateway status + balance + out-of-credits detection | `lib/provider-health.ts` + `app/dashboard/health` |
 
 ---
 
@@ -222,7 +275,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 1150/1150 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 1708/1708 must stay green. Add tests for new lib/service files.
 
 See [`CLAUDE.md`](CLAUDE.md) for the repo's "house style" + agent design notes.
 
@@ -233,7 +286,7 @@ See [`CLAUDE.md`](CLAUDE.md) for the repo's "house style" + agent design notes.
 - [`docs/llm-providers.md`](docs/llm-providers.md) — Swap LLM provider in 3 env vars
 - [`docs/SCREENSHOTS.md`](docs/SCREENSHOTS.md) — Module-by-module screenshot manifest
 - [`docs/MARKETING-en.md`](docs/MARKETING-en.md) · [`docs/MARKETING-zh.md`](docs/MARKETING-zh.md) — Pitch deck copy
-- [`ROADMAP.md`](ROADMAP.md) — Full sprint-by-sprint changelog (v2.10 → v3.1.3)
+- [`ROADMAP.md`](ROADMAP.md) — Full sprint-by-sprint changelog (v2.10 → v6.7) · [`VERSIONS.md`](VERSIONS.md) — version history table
 - [`docs/COMPETITIVE-GAP-2026-05.md`](docs/COMPETITIVE-GAP-2026-05.md) — Honest analysis vs Sora/Kling/Vidu/Higgsfield
 
 ---

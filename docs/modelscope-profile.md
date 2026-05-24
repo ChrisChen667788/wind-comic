@@ -4,29 +4,63 @@
 
 ---
 
+## 〇. v6 产品介绍页 (ModelScope「介绍」可直接粘贴 · 图片走 GitHub raw 绝对链)
+
+> **Wind Comic 🌬️ 风之漫剧 —— 一句话进,整片短剧出。**
+> 不是再给你一个 5 秒片段,而是一条**诚实的多 Agent 流水线** + 一个**生产级创作工作室**:剧本 → 角色 → 分镜 → 配音 → 多轨时间线 → 成片 mp4,全部从同一句创意开始。MIT 开源,**1708 单测全过**,所有功能都在 `main` 里跑得起来,不是 PPT。
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 巡览" width="100%" />
+</p>
+
+**v6 把它从「能跑的 demo」做成了「能用的工作室」——**
+
+- 🎭 **角色资产中心**:多视角设定图 + 8 字段 DNA 身份锁 + 自动绑定专属音色,跨项目复用
+- 📖 **长篇小说→自动分集 + 真配音**:粘贴整本小说,按章节拆集,选叙事模式,整季并行出真 TTS 解说 + 字幕烧入时间线
+- 🎬 **导演级控片台**:全流程 4 环节可视化,自动标「待更新」+ 一键单环节重跑 + 下游影响分析
+- 🎨 **风格画廊**:60 套电影级预设,一键套用锁画风
+- 👥 **团队工作区**:积分池 + 按成员分配额度 + RBAC + 真·多用户邀请
+- 🩺 **API 健康看板**:一屏看清每个网关 正常 / 额度用尽 / 配置缺失,带实时余额
+- 🔌 **自带 LLM**:3 行环境变量换任意 OpenAI 兼容模型,0 改代码;Postgres 全量切换就绪
+
+<table>
+<tr>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/director-console.png" /><br/><sub>🎬 导演级控片台 —— 整部片一个控制室</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/story-intake.png" /><br/><sub>📖 长篇小说 → 整季分集 + 叙事模式</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/styles.png" /><br/><sub>🎨 风格画廊 —— 60 套电影质感一键套用</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/health.png" /><br/><sub>🩺 API 健康看板 —— 别再被死 key 打断</sub></td>
+</tr>
+</table>
+
+> 🔗 GitHub(完整代码 + 文档 + 截图):**github.com/ChrisChen667788/wind-comic** · 🪪 MIT · ⭐ 觉得有用点个 Star
+
+---
+
 ## 一. 个人主页"简介" (Bio · 约 200 字以内)
 
 ### 中文版
 
 > **Wind Comic 🌬️ — 开源多 Agent AI 漫剧 / 短剧流水线作者**
 >
-> 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 + 锁画风 + 中文字幕真烧入 + Logic Pro 风时间线 + 实时多人协作 + 接你自己的 LLM. MIT 开源, 1150 单测全过.
+> 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 + 锁画风 + 中文字幕真烧入 + Logic Pro 风时间线 + 实时多人协作 + 接你自己的 LLM. MIT 开源, 1708 单测全过.
 >
 > 🔗 GitHub: github.com/ChrisChen667788/wind-comic
 > 🎬 适合: 竖屏短剧创作者 · 内容营销团队 · 漫画/漫剧工作室 · 独立电影人 · AI 开源开发者
 >
-> 持续迭代中, 已发布到 v3.1.3.
+> 持续迭代中, 已发布到 v6.7.
 
 ### English version
 
 > **Wind Comic 🌬️ — Author of the open-source multi-agent AI short-drama pipeline**
 >
-> One sentence in. Finished short drama out. 8-agent pipeline · character DNA lock · style bible · real CJK subtitles · Logic Pro-style timeline · real-time multiplayer · BYO LLM. MIT licensed. 1150 tests passing.
+> One sentence in. Finished short drama out. 8-agent pipeline · character DNA lock · style bible · real CJK subtitles · Logic Pro-style timeline · real-time multiplayer · BYO LLM. MIT licensed. 1708 tests passing.
 >
 > 🔗 GitHub: github.com/ChrisChen667788/wind-comic
 > 🎬 Built for: vertical-drama creators · content marketing teams · comic/manhua studios · indie filmmakers · open-source builders
 >
-> Current release: v3.1.3 (continuously shipping).
+> Current release: v6.7 (continuously shipping).
 
 ---
 
@@ -81,7 +115,7 @@
 - **我们是: 多 Agent + 开源 + 中文优先 + 自部署 + 你自己的 LLM + 实时协作**
 
 **为什么相信我们**:
-- 1150 个单测全过
+- 1708 个单测全过
 - TypeScript 严格模式
 - 21 个 sprint 迭代 (v2.0 → v3.1.3)
 - 完整 changelog 见 ROADMAP.md
@@ -118,7 +152,7 @@ Repo: github.com/ChrisChen667788/wind-comic
 
 **vs Competitors**: Sora 2 (one model) · Kling (no subtitle burn) · Vidu (CJK garbled) · Higgsfield (closed + $30/mo) · Runway Gen-4 (weak Chinese) → **We are multi-agent + open + Chinese-first + self-host + your LLM + real-time collab**.
 
-**Trust signals**: 1150 vitest tests · TypeScript strict · 21 sprints (v2.0 → v3.1.3) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
+**Trust signals**: 1708 vitest tests · TypeScript strict · 21 sprints (v2.0 → v3.1.3) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
 
 ---
 
@@ -218,7 +252,7 @@ Wind Comic 走相反路线: **流水线 + 多 Agent + 严格契约**. 每个 age
 - LLM 接入文档: `docs/llm-providers.md`
 - 竞品对照: `docs/COMPETITIVE-GAP-2026-05.md`
 
-⭐ MIT 开源, 1150 单测, 持续迭代中.
+⭐ MIT 开源, 1708 单测, 持续迭代中.
 
 ### English version
 
@@ -266,7 +300,7 @@ Wind Comic takes the opposite approach: **pipeline + multi-agent + strict contra
 - LLM swap docs: `docs/llm-providers.md`
 - Competitive self-audit: `docs/COMPETITIVE-GAP-2026-05.md`
 
-⭐ MIT licensed. 1150 tests passing. Shipping continuously.
+⭐ MIT licensed. 1708 tests passing. Shipping continuously.
 
 ---
 
