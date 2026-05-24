@@ -162,7 +162,7 @@
 | **v6.2** | 2026-05-24 | `576ac0a` | 长篇智能拆解 + 叙事模式核心 `lib/story-intake`(client-safe,13 单测):`splitIntoEpisodes`(章节标记优先,否则按字数贪心打包 + 句子降级 + maxEpisodes)+ `NARRATION_MODES`(对白/第一人称/旁白:directive + ttsRole + 解说音轨)+ `POST /api/story-intake/split`。UI + 编排接线留 v6.2.1 |
 | **v6.2.1** | 2026-05-24 | `a8a000f` | 长篇拆解 UI + 编排接线:`/dashboard/story-intake`(粘贴长文 → 分集预览 + 叙事模式选择 + 目标字数)+ 侧栏入口;「用此集创作」经 sessionStorage 把 该集 + 叙事 directive 交给创作工坊。**v6.2 收官** |
 | **v6.2.2** | 2026-05-24 | `86ebc49` | 解说音轨 + 整季批量:`lib/narration-track`(正文抽旁白句 → 估时长 → 绑音色 + 字幕,对白模式不出轨)+ `lib/season-batch`(整季 job 计划 + 进度,10 单测);story-intake 每集旁白估算 +「整季批量」localStorage 续跑队列(逐集送入 + 进度条) |
-| **v6.3** | 2026-05-24 | `(本次)` | 风格模板画廊(对标万镜风格):`style-presets` 扩 `STYLE_CATEGORIES`/`categoryLabel`/`searchStyles`(10 单测)+ `/dashboard/styles` 画廊(60 预设 grid + 搜索 + 分类 tab + 侧栏入口);「套用此风格」经 sessionStorage 传风格名给创作工坊。**阶段八 v6.3 收官** |
+| **v6.3** | 2026-05-24 | `66d949c` | 风格模板画廊(对标万镜风格):`style-presets` 扩 `STYLE_CATEGORIES`/`categoryLabel`/`searchStyles`(10 单测)+ `/dashboard/styles` 画廊(60 预设 grid + 搜索 + 分类 tab + 侧栏入口);「套用此风格」经 sessionStorage 传风格名给创作工坊。**阶段八 v6.3 收官** |
 
 ---
 
