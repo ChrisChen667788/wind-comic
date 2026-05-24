@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ScrollText, Sparkles, ChevronRight, Layers, Mic, Volume2, ListChecks, RotateCcw } from 'lucide-react';
+import { ScrollText, Sparkles, ChevronRight, Layers, Mic, Volume2, ListChecks, RotateCcw, AudioLines, Loader2, CheckCircle2 } from 'lucide-react';
 import {
   splitIntoEpisodes, NARRATION_MODES, getNarrationMode,
   type Episode, type NarrationMode,
@@ -29,6 +29,9 @@ export default function StoryIntakePage() {
   const [episodes, setEpisodes] = useState<Episode[] | null>(null);
   // v6.2.2: 整季批量 (持久化到 localStorage, 跨页面续跑)
   const [batch, setBatch] = useState<SeasonBatchPlan | null>(null);
+  // v6.2.3: N 集并行解说音轨编排
+  const [narrating, setNarrating] = useState(false);
+  const [narrateReport, setNarrateReport] = useState<any | null>(null);
 
   useEffect(() => {
     try {
@@ -64,6 +67,24 @@ export default function StoryIntakePage() {
   const startBatch = () => {
     if (!episodes || episodes.length === 0) return;
     persistBatch(buildSeasonBatch(episodes, { mode }));
+  };
+
+  // v6.2.3: 整季并行真出解说音轨 (后端 orchestrateSeason 有界并发)
+  const narrateSeason = async () => {
+    if (!episodes || episodes.length === 0) return;
+    setNarrating(true); setNarrateReport(null);
+    try {
+      const res = await fetch('/api/season/narrate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ episodes, mode, concurrency: 3 }),
+      });
+      const d = await res.json();
+      setNarrateReport(res.ok ? d : { error: d?.message || '生成失败' });
+    } catch (e: any) {
+      setNarrateReport({ error: e?.message || '生成失败' });
+    } finally {
+      setNarrating(false);
+    }
   };
 
   const sendNextBatch = () => {
@@ -180,13 +201,70 @@ export default function StoryIntakePage() {
             <>
               <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
                 <p className="text-sm font-medium text-white">拆出 {episodes.length} 集 · 叙事:{getNarrationMode(mode).label}</p>
-                <button
-                  onClick={startBatch}
-                  className="px-3.5 py-1.5 rounded-xl text-[12px] font-medium bg-violet-500/15 text-violet-200 border border-violet-500/30 hover:bg-violet-500/25 transition-all inline-flex items-center gap-1.5"
-                >
-                  <ListChecks className="w-3.5 h-3.5" />整季批量创作
-                </button>
+                <div className="flex items-center gap-2">
+                  {getNarrationMode(mode).generatesNarrationTrack && (
+                    <button
+                      onClick={narrateSeason}
+                      disabled={narrating}
+                      className="px-3.5 py-1.5 rounded-xl text-[12px] font-medium bg-sky-500/15 text-sky-200 border border-sky-500/30 hover:bg-sky-500/25 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {narrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <AudioLines className="w-3.5 h-3.5" />}
+                      整季并行解说音轨
+                    </button>
+                  )}
+                  <button
+                    onClick={startBatch}
+                    className="px-3.5 py-1.5 rounded-xl text-[12px] font-medium bg-violet-500/15 text-violet-200 border border-violet-500/30 hover:bg-violet-500/25 transition-all inline-flex items-center gap-1.5"
+                  >
+                    <ListChecks className="w-3.5 h-3.5" />整季批量创作
+                  </button>
+                </div>
               </div>
+
+              {/* v6.2.3: 整季并行解说音轨结果 */}
+              {narrateReport && (
+                <div className="mb-4 rounded-2xl border border-sky-500/30 bg-sky-500/[0.06] p-4">
+                  {narrateReport.error ? (
+                    <p className="text-[12px] text-rose-300">⚠ {narrateReport.error}</p>
+                  ) : (() => {
+                    const r = narrateReport.report;
+                    const anyRendered = r.results.some((x: any) => x.output?.rendered);
+                    return (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-medium text-white flex items-center gap-1.5"><AudioLines className="w-4 h-4 text-sky-300" />解说音轨编排 · 并发 {narrateReport.concurrency}</p>
+                          <span className="text-[11px] text-[var(--muted)]">成功 {r.ok}/{r.total} 集{r.failed ? ` · 失败 ${r.failed}` : ''}</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {r.results.map((x: any) => (
+                            <div key={x.episodeIndex} className="rounded-xl border border-[var(--border)] bg-black/20 px-3 py-2">
+                              <div className="flex items-center gap-1.5 text-[12px] text-white">
+                                {x.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <RotateCcw className="w-3.5 h-3.5 text-rose-400" />}
+                                <span className="text-sky-300">EP{x.episodeIndex}</span>
+                                <span className="truncate">{x.title}</span>
+                              </div>
+                              {x.output && (
+                                <p className="mt-1 text-[10px] text-[var(--muted)]">
+                                  {x.output.segments} 句 · ~{x.output.durationSec}s · {x.output.voiceLabel}
+                                  {x.output.rendered
+                                    ? <span className="text-emerald-400"> · 已出音频 {x.output.okCount}</span>
+                                    : <span className="text-amber-400"> · 计划就绪 (待配置 TTS)</span>}
+                                </p>
+                              )}
+                              {x.error && <p className="mt-1 text-[10px] text-rose-300/90">{x.error}</p>}
+                            </div>
+                          ))}
+                        </div>
+                        {!anyRendered && (
+                          <p className="mt-2 text-[10px] text-[var(--soft)]">
+                            📌 解说音轨计划已并行编排完成;配置 <code className="text-amber-300">MINIMAX_API_KEY</code> 后将真出 mp3 音频。
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {episodes.map((ep) => (
                   <div key={ep.index} className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 flex flex-col">

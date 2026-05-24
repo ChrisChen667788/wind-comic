@@ -1612,6 +1612,18 @@ npm test
 > v6.4 导演台 · v6.5 团队工作区),对标火山剧创 / 万镜一刻 的缺口闭环;差异化护城河
 > (Cameo IP 经济 / Agent 编排 IDE / 每镜 Vision 质检 / 4 语言 i18n)持续保留。
 
+### 5.9.1 阶段八跟进 · 把"逻辑层"接成"可运行" (v6.2.3 / v6.4.1 / v6.5.1)
+
+- [x] **v6.2.3 · 解说音轨接真 TTS + N 集并行编排** ✅ 2026-05-24
+  - `lib/season-orchestrator`(`runPool` 有界并发执行池:结果按 index 排 + continueOnError 续跑/中止 +
+    onSettle 进度 + skipped 计数;`orchestrateSeason` 套壳带回 episode 元信息)
+  - `lib/narration-synth`(把 v6.2.2 的解说"计划"真出音频:每段并发送 TTS 引擎 → 取真实时长
+    `retimeFromDurations` 重排时轴 + 字幕;单段失败降级回估算时长 ok=false,不拖垮整轨;
+    默认合成器走 tts-providers 注册表链,synth 注入 → 纯单测)
+  - `POST /api/narration/synthesize`(单集)+ `POST /api/season/narrate`(整季有界并发)+
+    story-intake 页「整季并行解说音轨」按钮 + 逐集结果面板(已出音频 / 计划就绪待配置 TTS)
+  - 13 单测;dev 验证:真打 MiniMax(无余额时 status 2054 → 优雅降级 rendered=false 保留计划)
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。
