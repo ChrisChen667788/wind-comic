@@ -14,10 +14,14 @@ import { useToast } from '@/components/ui/toast-provider';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { useLocale } from '@/hooks/use-locale';
 import { PromptEditor } from '@/components/prompt-editor';
+import { MultimodalRefShelf } from '@/components/multimodal-ref-shelf';
+import type { ReferenceAsset } from '@/lib/multimodal-ref';
 
 export default function CreatePage() {
   const [idea, setIdea] = useState('');
   const [videoProvider, setVideoProvider] = useState('minimax');
+  // v6.1.2: 多模态参考 (图/音/视频), 随创作请求一起提交
+  const [references, setReferences] = useState<ReferenceAsset[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [result, setResult] = useState<any>(null);
@@ -129,6 +133,8 @@ export default function CreatePage() {
           // v2.9 P0 Cameo: 如果用户上传了主角脸,以 data URI 形式发给后端
           // 后端会 persistAsset 落盘并写入 projects.primary_character_ref
           primaryCharacterRef: cameoPreview || undefined,
+          // v6.1.2: 多模态参考 (图/音/视频). 图片参考可被 cref 消费; 音/视频前向兼容载荷.
+          references: references.length ? references : undefined,
         }),
       });
 
@@ -340,6 +346,9 @@ export default function CreatePage() {
                       </div>
                     )}
                   </div>
+
+                  {/* v6.1.2: 多模态参考 (图/音/视频) */}
+                  <MultimodalRefShelf refs={references} onChange={setReferences} />
 
                   {/* 视频引擎选择 */}
                   <div>

@@ -1568,7 +1568,9 @@ npm test
     精确解析 `resolveMentions` + 编译展开 `compilePrompt`(@引用→资产 expansion, 未命中降级裸名);
     `GET /api/prompt-ide/assets` 出可引用资产(角色库身份块 + global_assets 视觉锚)
   - [x] **v6.1.1 编辑器 UI**: `components/prompt-editor.tsx`(textarea + `@` 下拉补全 + ↑↓/Enter 键盘导航 + 编译预览面板:展开 prompt + 引用 chip + 未匹配告警),接进 `app/create` 创意输入;`insertMention` 纯 helper +2 单测
-  - [ ] v6.1.2 多模态参考: 图(已有)+ **新增 音频/视频** 作为生成参考
+  - [x] **v6.1.2 多模态参考**: `lib/multimodal-ref`(classify/validate/summarize, 9 单测)+
+    `components/multimodal-ref-shelf`(文件/URL 加图音视频, 类型自动判定 + 每类上限 + chip 预览),
+    接进 create;创作载荷新增 `references`(图片可被 cref 消费, 音/视频前向兼容)
   - [ ] v6.1.3 生成前实时预览 / 试穿评分(复用 `cameo-vision` + `style-audit`)
 - [ ] **v6.2 · 长篇智能拆解 + 叙事模式 (Story Intake)** [对标 万镜 智能解析]
   - 长篇小说/剧本 → 自动分集 + 每集分镜(orchestrator 多 agent 扩展)
