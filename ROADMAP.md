@@ -1549,7 +1549,7 @@ npm test
 
 ### v6.x 迭代计划(映射到代码)
 
-- [~] **v6.0 · 角色资产中心 (Character Studio)** [对标 万镜 主体创作 + 火山 虚拟人像库]
+- [x] **v6.0 · 角色资产中心 (Character Studio)** ✅ 2026-05-24 [对标 万镜 主体创作 + 火山 虚拟人像库]
   - [x] **纯逻辑核心 `lib/character-studio.ts`(v6.0, 16 单测)**: 多视角设定图 prompt 合成
     (turnaround 正/四分之三/正侧/背, 注入 `character-dna` 身份锁 + model-sheet 一致性约束);
     按 `character-traits` 性别/年龄确定性绑定专属音色(`VOICE_CATALOG` → tts VOICE_PROFILES);
@@ -1558,7 +1558,9 @@ npm test
     (`traitsFromLibraryRow`/`buildProfileFromLibraryRow`/`serializeProfile`/`parseProfile`)+
     `POST/GET /api/characters/[id]/studio`(dry-run 出 prompt+小传+音色并落库; `generate:true`
     逐视图调 `dispatchImageGenerate` 真出图并并入 `image_urls`)
-  - [ ] v6.0.2 接线收尾: 角色库 UI「生成设定图/档案」按钮 + 档案展示面板;跨项目复用走 `cameo-ip` 经济闭环
+  - [x] **v6.0.2 接线收尾**: 角色库详情弹窗加「生成角色档案 / 生成设定图」按钮 + 档案展示面板
+    (小传 + 绑定音色 + 多视角 turnaround 缩略图/prompt); 打开自动载入已落库档案。跨项目复用沿用
+    `cameo-ip` 经济闭环 (character_library 行即可发 IP token 复用)
   - ⛔ **明确不做"真人人像库"**: 采集/存储真人面部触红线(肖像权 + 安全规则), 仅做**经授权的虚拟 cameo**
 - [ ] **v6.1 · 智能提示词工作台 (Prompt IDE)** [对标 火山剧创]
   - `@` 引用项目资产(角色/场景/风格, 取自 `character_library`/`global_assets`)+ 自动补全(`prompt-templates`)
