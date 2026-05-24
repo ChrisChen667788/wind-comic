@@ -1599,7 +1599,7 @@ npm test
     (按资产 + updatedAt 推 空/就绪/**待更新 stale**:下游比上游旧)+ `downstreamStages`/`rerunPlan`/`pipelineProgress`
   - `components/director-console` + 项目页「导演台」tab: 4 环节流水线可视化(状态徽章 + 进度条)+
     进入任意节点编辑/重生(跳对应 tab)+ **重跑下游影响提示**;项目详情 API 补 `updatedAt` 供 stale 判定
-  - 📌 后续候选:每环节真·单节点 orchestrator 重跑端点(目前重跑跳到环节 tab 走既有重生)
+  - ✅ 已交付 (v6.4.1):每环节真·单节点重跑端点 `POST /api/projects/[id]/rerun`(标记下游失效 + 派发既有管线)
 - [x] **v6.5 · 团队工作区 + 积分额度分配 (Team Workspace)** ✅ 2026-05-24 [对标 火山 团队协作]
   - `lib/team-credits`(12 单测): 额度数学(remaining/totals/poolSummary)+ 分配校验
     (canSetAllocation 不超池/不低于已用)+ 消费判定(canConsume)+ RBAC(canManageMembers/
@@ -1623,6 +1623,16 @@ npm test
   - `POST /api/narration/synthesize`(单集)+ `POST /api/season/narrate`(整季有界并发)+
     story-intake 页「整季并行解说音轨」按钮 + 逐集结果面板(已出音频 / 计划就绪待配置 TTS)
   - 13 单测;dev 验证:真打 MiniMax(无余额时 status 2054 → 优雅降级 rendered=false 保留计划)
+
+- [x] **v6.4.1 · 单环节真重跑端点** ✅ 2026-05-24
+  - `lib/pipeline-stages` 扩:`StageAsset` 加 `id`/`stale` + `derivePipelineStages` honor 显式失效标记
+    (上游重跑后直接 stale, 不再只靠时间比较)+ `stageOfType` + `buildRerunPlan`(target + 失效下游 +
+    受影响资产 id + 执行序)
+  - `project_assets.stale` 列 + `pipeline_reruns` 审计表 + `POST /api/projects/[id]/rerun`(算计划 →
+    事务清 target stale / 置下游受影响资产 stale / 记审计 → 尽力派发活跃 orchestrator 走既有管线重生,
+    无活跃实例则仅标记 dispatched=false)+ 项目 GET 透传 `stale`
+  - 导演台「重跑」按钮真调端点(确认重跑此环节 + 重跑后刷新)+ 末环节也可重跑
+  - 8 单测;dev 验证:400/404 + 重跑分镜 → 4 个成片资产置 stale + 审计落库 + final 推 stale(已清理)
 
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐

@@ -34,28 +34,47 @@ export interface PipelineStage extends StageDef {
   newest: string;
 }
 
-export interface StageAsset { type: string; updatedAt?: string }
+export interface StageAsset {
+  type: string;
+  updatedAt?: string;
+  /** v6.4.1: 资产 id (重跑端点用来标记/失效具体资产) */
+  id?: string;
+  /** v6.4.1: 显式失效标记 (上游重跑后端点置位 → 本环节直接 stale, 不依赖时间比较) */
+  stale?: boolean;
+}
 
 /**
  * 由项目资产推 4 个环节状态.
- *   empty = 无资产; ready = 有且不旧; stale = 有但比某个上游环节旧 (上游改过, 本环节该重跑).
+ *   empty = 无资产; ready = 有且不旧;
+ *   stale = 有但 (a) 被显式标记失效 (v6.4.1 重跑), 或 (b) 比某个上游环节旧 (上游改过, 本环节该重跑).
  */
 export function derivePipelineStages(assets: StageAsset[]): PipelineStage[] {
   const raw = PIPELINE_STAGES.map((s) => {
     const mine = assets.filter((a) => s.assetTypes.includes(a.type));
     const newest = mine.reduce((m, a) => (a.updatedAt && a.updatedAt > m ? a.updatedAt : m), '');
-    return { def: s, count: mine.length, newest };
+    const flagged = mine.some((a) => a.stale);
+    return { def: s, count: mine.length, newest, flagged };
   });
 
   return raw.map((s, i) => {
     let status: StageStatus = s.count > 0 ? 'ready' : 'empty';
     if (status === 'ready') {
-      for (let j = 0; j < i; j++) {
-        if (raw[j].newest && s.newest && raw[j].newest > s.newest) { status = 'stale'; break; }
+      if (s.flagged) {
+        status = 'stale';
+      } else {
+        for (let j = 0; j < i; j++) {
+          if (raw[j].newest && s.newest && raw[j].newest > s.newest) { status = 'stale'; break; }
+        }
       }
     }
     return { ...s.def, count: s.count, status, newest: s.newest };
   });
+}
+
+/** 资产 type → 所属环节 id (没归属返回 null). */
+export function stageOfType(type: string): StageId | null {
+  const s = PIPELINE_STAGES.find((st) => st.assetTypes.includes(type));
+  return s ? s.id : null;
 }
 
 /** 重跑某环节会让其下游环节失效 (顺序在它之后的). */
@@ -68,6 +87,33 @@ export function downstreamStages(id: StageId): StageId[] {
 /** 重跑计划: 目标环节 + 会被影响 (需重生) 的下游环节. */
 export function rerunPlan(id: StageId): { target: StageId; invalidates: StageId[] } {
   return { target: id, invalidates: downstreamStages(id) };
+}
+
+export interface RerunPlan {
+  target: StageId;
+  /** 重跑 target 后需失效/重生的下游环节 */
+  invalidates: StageId[];
+  /** 下游环节里需要被标记失效的具体资产 id (有 id 的才算) */
+  affectedAssetIds: string[];
+  /** 执行序: 先 target 再逐个下游 */
+  sequence: StageId[];
+}
+
+/**
+ * v6.4.1: 由当前项目资产 + 目标环节算一份"重跑计划".
+ * 重跑某环节 → 它本身重生 + 所有下游环节失效 (其资产需重新生成).
+ */
+export function buildRerunPlan(assets: StageAsset[], target: StageId): RerunPlan {
+  const invalidates = downstreamStages(target);
+  const invSet = new Set<StageId>(invalidates);
+  const affectedAssetIds = assets
+    .filter((a) => {
+      if (!a.id) return false;
+      const st = stageOfType(a.type);
+      return st != null && invSet.has(st);
+    })
+    .map((a) => a.id!);
+  return { target, invalidates, affectedAssetIds, sequence: [target, ...invalidates] };
 }
 
 /** 整体进度: 已就绪 (ready+stale 都算"有产物") / 总环节. */

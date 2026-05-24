@@ -320,6 +320,24 @@ db.exec(`CREATE TABLE IF NOT EXISTS team_allocations (
   updated_at TEXT NOT NULL
 );`);
 
+// v6.4.1: 导演台单环节重跑 — 资产显式失效标记. 上游环节重跑后, 下游环节资产被 POST
+// /api/projects/[id]/rerun 置 stale=1; 重生该环节时新资产 stale=0. 兼容老数据 (默认 0).
+addColumnIfMissing('project_assets', 'stale', 'INTEGER NOT NULL DEFAULT 0');
+
+// v6.4.1: 重跑审计 — 每次单环节重跑记一条 (谁/哪个项目/哪个环节/失效了哪些下游/是否真派发到
+// 活跃 orchestrator). 留痕方便排查 "为什么这集突然要重生".
+db.exec(`CREATE TABLE IF NOT EXISTS pipeline_reruns (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  invalidates TEXT NOT NULL DEFAULT '[]',     -- JSON StageId[]
+  affected_asset_ids TEXT NOT NULL DEFAULT '[]', -- JSON string[]
+  dispatched INTEGER NOT NULL DEFAULT 0,      -- 是否真派发到活跃 orchestrator
+  note TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pipeline_reruns_project ON pipeline_reruns(project_id, created_at);`);
+
 // v2.11 #4 (2026-04-21): Writer-Editor 闭环 —— 成片后让 Editor 用 vision LLM
 // 对最终视频打 3 维分(连贯度/光影/脸相似),存进 project_quality_scores。
 // 下一次 Writer 生成台词时会读最近一次评分,对"分<70 的维度"注入针对性 cue

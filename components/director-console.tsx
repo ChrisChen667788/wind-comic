@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { FileText, Users, Clapperboard, Film, Pencil, RefreshCw, AlertTriangle, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
+import { FileText, Users, Clapperboard, Film, Pencil, RefreshCw, AlertTriangle, ChevronRight, CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import {
   derivePipelineStages, downstreamStages, pipelineProgress,
   PIPELINE_STAGES, type StageAsset, type StageId, type StageStatus,
@@ -25,13 +25,47 @@ const stageLabel = (id: StageId) => PIPELINE_STAGES.find((s) => s.id === id)?.la
 export function DirectorConsole({
   assets,
   onEditStage,
+  projectId,
+  onReran,
 }: {
   assets: StageAsset[];
   onEditStage: (tab: string) => void;
+  /** v6.4.1: 提供后「重跑」按钮真调 /api/projects/[id]/rerun */
+  projectId?: string;
+  /** v6.4.1: 重跑落库后回调 (刷新项目数据) */
+  onReran?: () => void;
 }) {
   const stages = derivePipelineStages(assets);
   const prog = pipelineProgress(stages);
   const [impact, setImpact] = useState<StageId | null>(null);
+  const [rerunning, setRerunning] = useState<StageId | null>(null);
+  const [rerunMsg, setRerunMsg] = useState('');
+
+  const doRerun = async (sid: StageId) => {
+    if (!projectId) return;
+    setRerunning(sid); setRerunMsg('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/rerun`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: sid }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || '重跑失败');
+      const n = d.plan?.invalidates?.length ?? 0;
+      setRerunMsg(
+        d.dispatched
+          ? `✓ 已重跑「${stageLabel(sid)}」并派发管线重生`
+          : `✓ 已标记「${stageLabel(sid)}」重跑${n ? `,下游 ${n} 环节置为待更新` : ''}`,
+      );
+      setImpact(null);
+      onReran?.();
+    } catch (e: any) {
+      setRerunMsg(e?.message || '重跑失败');
+    } finally {
+      setRerunning(null);
+      setTimeout(() => setRerunMsg(''), 4000);
+    }
+  };
 
   return (
     <div className="cinema-card p-5">
@@ -44,9 +78,10 @@ export function DirectorConsole({
       </div>
 
       {/* 进度条 */}
-      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden mb-5">
+      <div className={`h-1.5 rounded-full bg-white/10 overflow-hidden ${rerunMsg ? 'mb-2' : 'mb-5'}`}>
         <div className="h-full bg-gradient-to-r from-[#E8C547] to-[#D4A830] transition-all" style={{ width: `${prog.pct}%` }} />
       </div>
+      {rerunMsg && <p className="text-[11px] text-amber-300 mb-4">{rerunMsg}</p>}
 
       {/* 环节流水线 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -90,10 +125,10 @@ export function DirectorConsole({
                 >
                   <Pencil className="w-3 h-3" />{s.status === 'empty' ? '生成' : '编辑'}
                 </button>
-                {down.length > 0 && (
+                {s.status !== 'empty' && (
                   <button
                     onClick={() => setImpact(impact === s.id ? null : s.id)}
-                    title="重跑此环节的下游影响"
+                    title="重跑此环节"
                     className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] bg-amber-500/10 text-amber-300 border border-amber-500/25 hover:bg-amber-500/20 transition-all"
                   >
                     <RefreshCw className="w-3 h-3" />重跑
@@ -101,10 +136,24 @@ export function DirectorConsole({
                 )}
               </div>
 
-              {impact === s.id && down.length > 0 && (
-                <p className="mt-2 text-[10px] text-amber-300/90 leading-relaxed">
-                  重跑「{s.label}」后,下游需重新生成:{down.map(stageLabel).join(' → ')}
-                </p>
+              {impact === s.id && s.status !== 'empty' && (
+                <div className="mt-2 rounded-lg bg-amber-500/5 border border-amber-500/20 p-2">
+                  <p className="text-[10px] text-amber-300/90 leading-relaxed">
+                    {down.length > 0
+                      ? <>重跑「{s.label}」后,下游需重新生成:{down.map(stageLabel).join(' → ')}</>
+                      : <>重跑「{s.label}」(末环节,无下游影响)</>}
+                  </p>
+                  {projectId && (
+                    <button
+                      onClick={() => doRerun(s.id)}
+                      disabled={rerunning === s.id}
+                      className="mt-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-amber-500/20 text-amber-200 border border-amber-500/30 hover:bg-amber-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {rerunning === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      确认重跑此环节
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );

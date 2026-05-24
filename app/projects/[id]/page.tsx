@@ -330,7 +330,14 @@ export default function ProjectDetailPage() {
         <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           {/* v6.4: 导演台 — 全链路环节总览 */}
           {activeTab === 'director' && (
-            <DirectorConsole assets={assets} onEditStage={(tab) => setActiveTab(tab)} />
+            <DirectorConsole
+              assets={assets}
+              onEditStage={(tab) => setActiveTab(tab)}
+              projectId={id}
+              onReran={() => {
+                fetch(`/api/projects/${id}`).then((r) => r.json()).then((d) => { if (d?.id) setProject(d); }).catch(() => {});
+              }}
+            />
           )}
 
           {/* 剧本 */}
