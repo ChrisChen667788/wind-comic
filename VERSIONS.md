@@ -146,6 +146,12 @@
 | **v5.0.3** | 2026-05-23 | `29eff9f` | 剩余页面接 i18n:字典新增 settings/profile/billing/cases 四段 + common 扩(四语全量);settings/profile/billing/cases(公开+dashboard)全走 useLocale;**settings 语言下拉真驱动 setLocale** |
 | **v5.0.4** | 2026-05-24 | `815bf34` | 收尾页接 i18n:字典新增 home/pricing/help/examples 四段(含 frameSteps/faq/guides 数组,四语全量);首页/定价/帮助/示例全走 useLocale;**i18n 覆盖主站全部公开页** |
 
+## 阶段八 · 对标顶级平台 (v6.x,对标火山剧创 / 万镜一刻)
+
+| 版本 | 日期 | commit | 交付 |
+|---|---|---|---|
+| **v6.0** | 2026-05-24 | `(本次)` | 角色资产中心纯逻辑核心 `lib/character-studio`:多视角设定图 prompt 合成(turnaround 正/四分之三/正侧/背,注入 character-dna 身份锁)+ 按 traits 性别/年龄绑定专属音色 + 确定性小传 + `CharacterProfile` 打包。明确不做真人人像库 |
+
 ---
 
 ## 当前技术栈 (v4.2.1)
