@@ -75,6 +75,50 @@ export function canConsume(m: MemberAllocation, cost: number): boolean {
   return cost >= 0 && remaining(m) >= cost;
 }
 
+// ── v6.5.1: 消费按额度扣减 (随生成成本计入 used) ─────────────────────────────
+
+/** 各类生成的积分成本 (单位成本, 调用方按 units 乘). */
+export const GENERATION_COST: Record<string, number> = {
+  image: 1,
+  shot_image: 1,
+  storyboard: 3,
+  narration_tts: 2,
+  video: 5,
+  full_episode: 12,
+};
+
+/** 由生成类型 + 份数算积分成本 (未知类型按 1/份). */
+export function costOf(kind: string, units = 1): number {
+  const base = GENERATION_COST[kind] ?? 1;
+  return Math.max(0, Math.ceil(base * Math.max(0, units)));
+}
+
+export interface ConsumeResult {
+  ok: boolean;
+  reason?: string;
+  members?: MemberAllocation[];
+  member?: MemberAllocation;
+}
+
+/**
+ * 成员消费 cost: 校验剩余够 → 不可变地把 cost 计入该成员 used.
+ * 失败 (成员不存在 / 负数 / 余额不足) 返回 ok:false + reason, 不改原数组.
+ */
+export function consume(members: MemberAllocation[], memberId: string, cost: number): ConsumeResult {
+  const m = members.find((x) => x.id === memberId);
+  if (!m) return { ok: false, reason: '成员不存在' };
+  if (!Number.isFinite(cost) || cost < 0) return { ok: false, reason: '消费额需为非负数' };
+  if (!canConsume(m, cost)) return { ok: false, reason: `额度不足 (剩余 ${remaining(m)}, 需 ${cost})` };
+  const next = members.map((x) => (x.id === memberId ? { ...x, used: x.used + cost } : x));
+  return { ok: true, members: next, member: next.find((x) => x.id === memberId) };
+}
+
+/** 把期望额度收敛到团队池剩余可分 (接受邀请时防超额): min(desired, 剩余可分, 不为负). */
+export function capAllocationToPool(pool: number, members: MemberAllocation[], desired: number): number {
+  const unallocated = Math.max(0, pool - totalAllocated(members));
+  return Math.max(0, Math.min(Math.floor(desired), unallocated));
+}
+
 // ── RBAC ──────────────────────────────────────────────────────────────
 export function canManageMembers(role: TeamRole): boolean {
   return role === 'owner' || role === 'admin';

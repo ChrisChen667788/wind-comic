@@ -338,6 +338,22 @@ db.exec(`CREATE TABLE IF NOT EXISTS pipeline_reruns (
 );
 CREATE INDEX IF NOT EXISTS idx_pipeline_reruns_project ON pipeline_reruns(project_id, created_at);`);
 
+// v6.5.1: 真·多用户成员邀请. 主账号 (owner_user_id) 生成带 token 的邀请, 被邀请的已有账号
+// 用户接受后以真实 user id 进 team_allocations 成员表. token 即邀请链接的凭证.
+db.exec(`CREATE TABLE IF NOT EXISTS team_invites (
+  token TEXT PRIMARY KEY,                      -- nanoid, 邀请链接凭证
+  owner_user_id TEXT NOT NULL,
+  email TEXT NOT NULL,                         -- 期望接受者邮箱 (规范化小写)
+  role TEXT NOT NULL DEFAULT 'member',         -- member | admin (不可邀 owner)
+  allocated INTEGER NOT NULL DEFAULT 0,        -- 接受后初始额度
+  status TEXT NOT NULL DEFAULT 'pending',      -- pending | accepted | revoked
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  accepted_by TEXT,                            -- 接受者真实 user id
+  accepted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_team_invites_owner ON team_invites(owner_user_id, created_at);`);
+
 // v2.11 #4 (2026-04-21): Writer-Editor 闭环 —— 成片后让 Editor 用 vision LLM
 // 对最终视频打 3 维分(连贯度/光影/脸相似),存进 project_quality_scores。
 // 下一次 Writer 生成台词时会读最近一次评分,对"分<70 的维度"注入针对性 cue

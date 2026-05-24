@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { UsersRound, Plus, Trash2, Save, Wallet, Loader2, AlertTriangle } from 'lucide-react';
+import { UsersRound, Plus, Trash2, Save, Wallet, Loader2, AlertTriangle, Mail, Link2, Send, Copy } from 'lucide-react';
 import {
   poolSummary, canSetAllocation, remaining,
   canRemoveMember, canAllocateCredits,
@@ -14,6 +14,12 @@ import {
 } from '@/lib/team-credits';
 
 const ROLE_LABEL: Record<TeamRole, string> = { owner: '主账号', admin: '管理员', member: '成员' };
+const INVITE_STATUS_META: Record<string, { label: string; cls: string }> = {
+  pending: { label: '待接受', cls: 'text-amber-300' },
+  accepted: { label: '已加入', cls: 'text-emerald-400' },
+  revoked: { label: '已撤销', cls: 'text-[var(--soft)]' },
+  expired: { label: '已过期', cls: 'text-rose-400/80' },
+};
 
 export default function TeamPage() {
   const myRole: TeamRole = 'owner'; // 当前为主账号视角
@@ -24,6 +30,20 @@ export default function TeamPage() {
   const [msg, setMsg] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<TeamRole>('member');
+  // v6.5.1: 真·多用户邀请
+  const [invites, setInvites] = useState<any[]>([]);
+  const [invEmail, setInvEmail] = useState('');
+  const [invRole, setInvRole] = useState<TeamRole>('member');
+  const [invAlloc, setInvAlloc] = useState('100');
+  const [invLink, setInvLink] = useState('');
+  const [invBusy, setInvBusy] = useState(false);
+
+  const loadInvites = () => {
+    fetch('/api/team/invite')
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d?.invites)) setInvites(d.invites); })
+      .catch(() => {});
+  };
 
   useEffect(() => {
     fetch('/api/team/allocations')
@@ -34,6 +54,7 @@ export default function TeamPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    loadInvites();
   }, []);
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3500); };
@@ -68,6 +89,28 @@ export default function TeamPage() {
       flash('✓ 已保存');
     } catch (e: any) { flash(e?.message || '保存失败'); }
     finally { setSaving(false); }
+  };
+
+  const createInvite = async () => {
+    const email = invEmail.trim();
+    if (!email) { flash('请填邀请邮箱'); return; }
+    setInvBusy(true); setInvLink('');
+    try {
+      const res = await fetch('/api/team/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role: invRole, allocated: parseInt(invAlloc, 10) || 0 }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || '生成失败');
+      setInvLink(typeof window !== 'undefined' ? window.location.origin + d.link : d.link);
+      setInvEmail('');
+      loadInvites();
+      flash('✓ 邀请已生成');
+    } catch (e: any) { flash(e?.message || '生成失败'); }
+    finally { setInvBusy(false); }
+  };
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(invLink); flash('✓ 链接已复制'); } catch { /* ignore */ }
   };
 
   return (
@@ -161,8 +204,63 @@ export default function TeamPage() {
             </div>
           )}
 
+          {/* v6.5.1: 真·多用户成员邀请 */}
+          <div className="mt-6 rounded-2xl border border-[var(--border)] bg-white/[0.03] p-5">
+            <p className="text-sm font-medium text-white flex items-center gap-1.5 mb-3"><Mail className="w-4 h-4 text-amber-400" />邀请成员加入团队</p>
+            <div className="flex gap-2 flex-wrap">
+              <input
+                value={invEmail} onChange={(e) => setInvEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), createInvite())}
+                placeholder="被邀请人邮箱"
+                className="flex-1 min-w-[180px] bg-black/40 border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white placeholder:text-[var(--muted)] outline-none focus:border-amber-500/40"
+              />
+              <select value={invRole} onChange={(e) => setInvRole(e.target.value as TeamRole)} className="bg-black/40 border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white outline-none">
+                <option value="member">成员</option>
+                <option value="admin">管理员</option>
+              </select>
+              <input
+                type="number" value={invAlloc} onChange={(e) => setInvAlloc(e.target.value)}
+                title="接受后初始额度" placeholder="额度"
+                className="w-24 bg-black/40 border border-[var(--border)] rounded-xl px-3 py-2 text-sm text-white text-right outline-none focus:border-amber-500/40"
+              />
+              <button
+                onClick={createInvite} disabled={invBusy || !canEdit}
+                className="px-3 py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-sm inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {invBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}生成邀请链接
+              </button>
+            </div>
+
+            {invLink && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg bg-black/30 border border-amber-500/20 px-3 py-2">
+                <Link2 className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                <code className="text-[11px] text-amber-200/90 truncate flex-1">{invLink}</code>
+                <button onClick={copyLink} className="text-amber-300/80 hover:text-amber-300 shrink-0" title="复制链接"><Copy className="w-3.5 h-3.5" /></button>
+              </div>
+            )}
+
+            {invites.length > 0 && (
+              <div className="mt-4 space-y-1.5">
+                {invites.map((inv) => {
+                  const meta = INVITE_STATUS_META[inv.status] || INVITE_STATUS_META.pending;
+                  return (
+                    <div key={inv.token} className="flex items-center justify-between gap-2 text-[12px] px-3 py-2 rounded-lg bg-black/20 border border-[var(--border)]">
+                      <span className="text-white truncate flex-1">{inv.email}</span>
+                      <span className="text-[10px] text-[var(--soft)] shrink-0">{ROLE_LABEL[inv.role as TeamRole]} · {inv.allocated} 额度</span>
+                      <span className={`text-[10px] shrink-0 ${meta.cls}`}>{meta.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <p className="mt-3 text-[11px] text-[var(--soft)] leading-relaxed">
+              被邀请人需用自己的已有账号登录后打开链接接受(系统不代为创建账号);接受后以其真实账号进团队。
+            </p>
+          </div>
+
           <p className="mt-4 text-[11px] text-[var(--soft)] leading-relaxed">
-            📌 额度分配已可用并持久化;成员侧"消费时按额度扣减"将在后续版本接入(随生成成本计入各成员 used)。
+            📌 成员消费已按额度实时扣减(随生成成本计入各成员 used,余额不足将被拒绝);额度分配 + 真·多用户邀请均已持久化。
           </p>
         </>
       )}

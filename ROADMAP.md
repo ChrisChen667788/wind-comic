@@ -1606,7 +1606,7 @@ npm test
     canAllocateCredits owner 限定/canRemoveMember owner 不可移除)
   - `team_allocations` 表 + `GET/PUT /api/team/allocations`(校验不超额才落库,主账号 scope)+
     `/dashboard/team` 页(池总览条 + 成员额度编辑 + 添加/移除 + 超额告警)+ 侧栏入口
-  - 📌 后续候选:成员侧消费按额度扣减(随生成成本计入 used)+ 真·多用户成员邀请
+  - ✅ 已交付 (v6.5.1):成员侧消费按额度扣减(`consume`/`costOf` + `/api/team/consume`)+ 真·多用户成员邀请(`team_invites` + 接受页)
 
 > **阶段八 ✅ 全部交付** (v6.0 角色资产 · v6.1 提示词工作台 · v6.2 长篇拆解 · v6.3 风格画廊 ·
 > v6.4 导演台 · v6.5 团队工作区),对标火山剧创 / 万镜一刻 的缺口闭环;差异化护城河
@@ -1633,6 +1633,16 @@ npm test
     无活跃实例则仅标记 dispatched=false)+ 项目 GET 透传 `stale`
   - 导演台「重跑」按钮真调端点(确认重跑此环节 + 重跑后刷新)+ 末环节也可重跑
   - 8 单测;dev 验证:400/404 + 重跑分镜 → 4 个成片资产置 stale + 审计落库 + final 推 stale(已清理)
+
+- [x] **v6.5.1 · 成员消费按额度扣减 + 真·多用户成员邀请** ✅ 2026-05-24
+  - `team-credits` 扩:`consume`(校验剩余够 → cost 计入 used, 不可变)+ `GENERATION_COST`/`costOf`
+    (随生成类型/份数算成本)+ `capAllocationToPool`(防超池)(15 新单测)
+  - `lib/team-invite`(纯逻辑:`isAssignableRole`/过期判定/`canAcceptInvite`/`buildInvite`/`memberFromInvite`)
+  - `team_invites` 表 + `POST /api/team/consume`(余额不足 → 400)+ `POST/GET /api/team/invite`
+    (主账号生成 token + 列邀请)+ `POST /api/team/invite/accept`(**须登录, 不创建账号**;以接受者
+    真实 user id 进成员表 + 防超池 cap)
+  - 团队页「邀请成员」面板(邮箱 + 角色 + 额度 → 生成可复制链接 + 邀请列表)+ `/dashboard/team/accept` 接受页
+  - dev 验证:consume 视频扣 5 / 超额 400;邀请生成+列出;未登录接受 → 401(均已清理)
 
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
