@@ -39,12 +39,27 @@ const projectRoot = path.resolve(__dirname, '..');
 // 测试隔离: VITEST/NODE_ENV=test 下用 qfmj.test.db, 与 lib/db.ts 的测试库一致,
 // e2e 子进程不再写生产库 (lib/db.ts 已在测试进程启动时清过该文件).
 const isTestEnv = !!process.env.VITEST || process.env.NODE_ENV === 'test';
-const dbPath = path.join(projectRoot, 'data', isTestEnv ? 'qfmj.test.db' : 'qfmj.db');
+// QFMJ_DB_PATH: 测试时由 e2e 测试进程透传"它本次实际用的随机库文件"路径, 确保子进程
+// 与测试进程读写同一个库 (lib/db.ts 现在每个测试文件用一个独占的随机库文件名).
+// 未设置时回退到默认: 测试 qfmj.test.db / 生产 qfmj.db.
+const dbPath = process.env.QFMJ_DB_PATH
+  || path.join(projectRoot, 'data', isTestEnv ? 'qfmj.test.db' : 'qfmj.db');
 const sqlite = new Database(dbPath);
 sqlite.pragma('journal_mode = WAL');
 // Next.js 主进程 + 本 ws-server 同时写同一 sqlite, 不设 busy_timeout 时并发写直接抛
 // SQLITE_BUSY (yjs_docs 持久化静默失败). 等最多 5s 拿锁, 与 lib/db.ts 一致.
 sqlite.pragma('busy_timeout = 5000');
+
+// 自给自足地保证 yjs_docs 存在: 子进程打开的库通常已由测试/主进程建好表, 但跨进程
+// WAL 刚写入的表偶有可见性时延, 直接 prepare 会抛 "no such table" 导致子进程启动即崩
+// (表现为 e2e "port wait timeout"). IF NOT EXISTS 幂等, 见到了就跳过, 没见到就自己建.
+sqlite.exec(`CREATE TABLE IF NOT EXISTS yjs_docs (
+  doc_name TEXT PRIMARY KEY,
+  state BLOB NOT NULL,
+  update_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);`);
 
 const SELECT_DOC = sqlite.prepare('SELECT state, update_count FROM yjs_docs WHERE doc_name = ?');
 const INSERT_DOC = sqlite.prepare(

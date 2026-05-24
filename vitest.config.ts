@@ -8,6 +8,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
+    // 整批测试前在主进程一次性清掉上一次 run 残留的测试库文件 (见 tests/global-setup.ts).
+    // lib/db.ts 测试时每个文件用一个独占随机库文件, 不自我清理, 残留集中在此一次性清.
+    globalSetup: ['./tests/global-setup.ts'],
     // 多个测试文件共享同一个 better-sqlite3 文件 (data/qfmj.db),
     // 并行 worker 会触发 "database is locked". 强制单 fork 串行运行测试文件.
     // vitest 4.x: poolOptions 已上移到 test 顶层.
