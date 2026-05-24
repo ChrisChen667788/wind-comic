@@ -1562,7 +1562,7 @@ npm test
     (小传 + 绑定音色 + 多视角 turnaround 缩略图/prompt); 打开自动载入已落库档案。跨项目复用沿用
     `cameo-ip` 经济闭环 (character_library 行即可发 IP token 复用)
   - ⛔ **明确不做"真人人像库"**: 采集/存储真人面部触红线(肖像权 + 安全规则), 仅做**经授权的虚拟 cameo**
-- [~] **v6.1 · 智能提示词工作台 (Prompt IDE)** [对标 火山剧创]
+- [x] **v6.1 · 智能提示词工作台 (Prompt IDE)** ✅ 2026-05-24 [对标 火山剧创]
   - [x] **核心 `lib/prompt-ide.ts`(v6.1, 16 单测, client-safe 纯逻辑)**: `@` 引用解析 `parseMentions`
     (排除 email 形态)+ 光标补全触发 `activeMention` + 候选排序 `suggestAssets`(全等>前缀>子串)+
     精确解析 `resolveMentions` + 编译展开 `compilePrompt`(@引用→资产 expansion, 未命中降级裸名);
@@ -1571,7 +1571,9 @@ npm test
   - [x] **v6.1.2 多模态参考**: `lib/multimodal-ref`(classify/validate/summarize, 9 单测)+
     `components/multimodal-ref-shelf`(文件/URL 加图音视频, 类型自动判定 + 每类上限 + chip 预览),
     接进 create;创作载荷新增 `references`(图片可被 cref 消费, 音/视频前向兼容)
-  - [ ] v6.1.3 生成前实时预览 / 试穿评分(复用 `cameo-vision` + `style-audit`)
+  - [x] **v6.1.3 生成前实时预览 / 就绪度评分**: `lib/prompt-readiness`(确定性加权评分 + 检查清单,
+    6 单测)+ `components/prompt-readiness`(实时随创意/参考变化算就绪度),接进 create 提交按钮上方;
+    复用 cameo-vision 试穿评分(cameoScore 透传)+ style 资产引用(呼应 style-audit 画风统一)
 - [ ] **v6.2 · 长篇智能拆解 + 叙事模式 (Story Intake)** [对标 万镜 智能解析]
   - 长篇小说/剧本 → 自动分集 + 每集分镜(orchestrator 多 agent 扩展)
   - 叙事模式: 对白 / 第一人称解说 / 旁白 → 注入 TTS(`tts-prosody`)+ 字幕(`subtitle-burn`)管线

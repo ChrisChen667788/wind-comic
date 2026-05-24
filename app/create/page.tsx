@@ -16,6 +16,7 @@ import { useLocale } from '@/hooks/use-locale';
 import { PromptEditor } from '@/components/prompt-editor';
 import { MultimodalRefShelf } from '@/components/multimodal-ref-shelf';
 import type { ReferenceAsset } from '@/lib/multimodal-ref';
+import { PromptReadiness } from '@/components/prompt-readiness';
 
 export default function CreatePage() {
   const [idea, setIdea] = useState('');
@@ -408,6 +409,14 @@ export default function CreatePage() {
                       </button>
                     </div>
                   </div>
+
+                  {/* v6.1.3: 生成前就绪度预览 (实时) */}
+                  <PromptReadiness
+                    idea={idea}
+                    hasFace={!!cameoPreview}
+                    cameoScore={cameoScoreData?.score ?? null}
+                    refs={references}
+                  />
 
                   {/* 提交按钮 */}
                   <button
