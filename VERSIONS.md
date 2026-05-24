@@ -152,6 +152,8 @@
 |---|---|---|---|
 | **v6.0** | 2026-05-24 | `64cf36d` | 角色资产中心纯逻辑核心 `lib/character-studio`:多视角设定图 prompt 合成(turnaround 正/四分之三/正侧/背,注入 character-dna 身份锁)+ 按 traits 性别/年龄绑定专属音色 + 确定性小传 + `CharacterProfile` 打包。明确不做真人人像库 |
 | 🔧 fix | 2026-05-24 | `0ad39ac` | **历史项目图片/视频无法查看根治**:v4.2.3 异步化 asset-repo 时 SELECT 漏选 `persistent_url`,致项目详情回退到已过期外链/`tmp` 路径 → 404。补回该列 + 回归测试(4 例);项目详情 28/38 资产恢复本地持久副本 |
+| 🔧 test | 2026-05-24 | `90c3268` | 合入 `fix/test-db-init-race`:测试库改每文件独占随机库 + globalSetup 一次性清理 + ws-server 子进程复用库路径,根治全量跑偶发 disk I/O / database is locked / port wait timeout(连续 4 次全绿) |
+| **v6.0.1** | 2026-05-24 | `(本次)` | 角色资产中心后端接线:`character_library.profile` 列 + character-studio 接线层(行↔档案 + 序列化)+ `GET/POST /api/characters/[id]/studio`(dry-run 出档案落库 / `generate` 真出图)。UI 收尾留 v6.0.2 |
 
 ---
 

@@ -1554,7 +1554,11 @@ npm test
     (turnaround 正/四分之三/正侧/背, 注入 `character-dna` 身份锁 + model-sheet 一致性约束);
     按 `character-traits` 性别/年龄确定性绑定专属音色(`VOICE_CATALOG` → tts VOICE_PROFILES);
     确定性小传 `composeCharacterBio`; `buildCharacterProfile` 三支柱打包
-  - [ ] v6.0.1 接线: 真出图(turnaround prompts → image provider)+ 落库 `character_library` + 角色库 UI 生成按钮(跨项目复用走 `cameo-ip` 经济闭环)
+  - [x] **v6.0.1 后端接线** (7 单测): `character_library.profile` 列 + `lib/character-studio` 接线层
+    (`traitsFromLibraryRow`/`buildProfileFromLibraryRow`/`serializeProfile`/`parseProfile`)+
+    `POST/GET /api/characters/[id]/studio`(dry-run 出 prompt+小传+音色并落库; `generate:true`
+    逐视图调 `dispatchImageGenerate` 真出图并并入 `image_urls`)
+  - [ ] v6.0.2 接线收尾: 角色库 UI「生成设定图/档案」按钮 + 档案展示面板;跨项目复用走 `cameo-ip` 经济闭环
   - ⛔ **明确不做"真人人像库"**: 采集/存储真人面部触红线(肖像权 + 安全规则), 仅做**经授权的虚拟 cameo**
 - [ ] **v6.1 · 智能提示词工作台 (Prompt IDE)** [对标 火山剧创]
   - `@` 引用项目资产(角色/场景/风格, 取自 `character_library`/`global_assets`)+ 自动补全(`prompt-templates`)

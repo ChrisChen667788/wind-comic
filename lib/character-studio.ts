@@ -263,3 +263,71 @@ export function buildCharacterProfile(input: BuildProfileInput): CharacterProfil
     turnaround,
   };
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// 5) 与 character_library 接线 (v6.0.1)
+// ──────────────────────────────────────────────────────────────────────
+
+/** character_library 行里本模块要用到的子集 (避免耦合完整 DB 行类型). */
+export interface CharacterLibraryRowLike {
+  name: string;
+  appearance?: string | null;
+  description?: string | null;
+  style_keywords?: string | null;
+}
+
+/**
+ * 把 character_library 行映射成 CharacterTraits (供 buildCharacterProfile 用).
+ * 库里只有 name/appearance/description 等自由文本, 没有结构化性别/年龄 → 这些填
+ * unknown/未明示 (voice 会走兜底, 不瞎猜); appearance 优先取 appearance, 退而取 description.
+ */
+export function traitsFromLibraryRow(row: CharacterLibraryRowLike): CharacterTraits {
+  const appearance = (row.appearance && row.appearance.trim())
+    || (row.description && row.description.trim())
+    || '未明示';
+  return {
+    name: row.name || '未命名角色',
+    gender: 'unknown',
+    ageGroup: '未明示',
+    build: '未明示',
+    skinTone: '未明示',
+    appearance,
+    costume: '未明示',
+    personality: '未明示',
+    signature: '未明示',
+    confident: false,
+  };
+}
+
+/** 从 character_library 行直接生成角色档案. style 缺省取行的 style_keywords. */
+export function buildProfileFromLibraryRow(
+  row: CharacterLibraryRowLike,
+  opts: { style?: string; views?: TurnaroundViewId[] } = {},
+): CharacterProfile {
+  return buildCharacterProfile({
+    name: row.name,
+    traits: traitsFromLibraryRow(row),
+    style: opts.style ?? (row.style_keywords || undefined) ?? undefined,
+    views: opts.views,
+  });
+}
+
+/** 档案序列化 (落库 character_library.profile). */
+export function serializeProfile(profile: CharacterProfile): string {
+  return JSON.stringify(profile);
+}
+
+/** 档案反序列化 (从 character_library.profile 读). 坏数据返回 null, 不抛. */
+export function parseProfile(json: string | null | undefined): CharacterProfile | null {
+  if (!json) return null;
+  try {
+    const p = JSON.parse(json);
+    if (p && typeof p === 'object' && typeof p.name === 'string' && Array.isArray(p.turnaround)) {
+      return p as CharacterProfile;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
