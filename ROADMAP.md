@@ -1680,6 +1680,15 @@ npm test
     处置建议「去充值/补配置」+ 重新探测)+ 侧栏入口
   - 实测:qingyuntop 换新 key 后恢复 ok(剩余 $30)、MiniMax TTS 标记「配置缺失(GroupId 未设)」、整体 warning
 
+- [x] **v6.8 · 升级最强模型 + 修视频生成 429** ✅ 2026-05-25
+  - **根因**:视频生成报错 = vectorengine 网关 `429 当前分组上游负载已饱和`;qingyuntop `/v1/video/create`
+    + `/v1/video/query` 实测 200(create→poll 全链路通)→ 主视频网关切 qingyuntop 修复
+  - 盘点 qingyuntop 558 模型,管线主模型升到当前最强(`config.ts` 默认 + `.env.local`):
+    LLM 通用 `claude-sonnet-4-6` / 创意 `claude-opus-4-7`(均实测 200);视频 `veo3.1-pro`(fallback `veo3.1,sora-2-pro`);图像 `flux-2-pro`(新 `IMAGE_MODEL` env)
+  - **兜底不变**:minimax 仍是 image/video 链兜底(provider 优先级未动);kling/minimax/TTS 配置原样
+  - 修 kontext 图像 provider 的 key↔base 配对(OPENAI_API_KEY 现可指 qingyuntop)+ 健康看板 LLM 卡改显真实模型 + vectorengine 探测改用 KELING_*(VEO_* 已 repoint)
+  - tsc 0;全量 1708/1708;健康看板:主 LLM `claude-sonnet-4-6` ok
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。

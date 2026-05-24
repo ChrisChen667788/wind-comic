@@ -122,19 +122,22 @@ registerImageProvider({
 // ─── Provider 4: flux.1-kontext-pro (via OpenAI-compat gateway) ──────────
 registerImageProvider({
   id: 'kontext',
-  name: 'flux.1-kontext-pro (vectorengine/qingyuntop)',
+  name: 'Strong image (IMAGE_MODEL, e.g. flux-2-pro · gateway)',
   supportsRefs: true,
   maxRefImages: 4,
   priority: 110,
-  available: () => !!process.env.OPENAI_API_KEY || !!process.env.QINGYUNTOP_API_KEY,
+  available: () => !!process.env.QINGYUNTOP_API_KEY || !!process.env.VEO_API_KEY || !!process.env.OPENAI_API_KEY,
   async generate(input: ImageGenerateInput) {
-    // 复用 orchestrator 里已经有的 kontext call (vectorengine / qingyuntop fallback).
-    // 这里走简化版直接 fetch — orchestrator 的版本带更多日志, 这版本作 fallback.
-    const key = process.env.OPENAI_API_KEY || process.env.QINGYUNTOP_API_KEY;
-    const base = process.env.OPENAI_API_KEY
-      ? 'https://api.vectorengine.ai'
-      : (process.env.QINGYUNTOP_BASE_URL || 'https://api.qingyuntop.top');
-    if (!key) throw new Error('no kontext gateway key');
+    // v6.8: 走 OpenAI 兼容 /v1/images/generations 的最强图像模型 (IMAGE_MODEL, 默认 flux.1-kontext-pro).
+    // key 与 base 必须配对 (之前 OPENAI_API_KEY 被假定=vectorengine, 现已可指向 qingyuntop → 修正).
+    const key = process.env.QINGYUNTOP_API_KEY || process.env.VEO_API_KEY || process.env.OPENAI_API_KEY;
+    const base = process.env.QINGYUNTOP_API_KEY
+      ? (process.env.QINGYUNTOP_BASE_URL || 'https://api.qingyuntop.top')
+      : process.env.VEO_API_KEY
+        ? (process.env.VEO_BASE_URL || 'https://api.vectorengine.ai')
+        : 'https://api.vectorengine.ai';
+    const model = process.env.IMAGE_MODEL || 'flux.1-kontext-pro';
+    if (!key) throw new Error('no image gateway key');
     const refUrls = [
       ...(input.referenceImages || []),
       ...(input.cref ? [input.cref] : []),
@@ -145,7 +148,7 @@ registerImageProvider({
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'flux.1-kontext-pro',
+        model,
         prompt: input.prompt + refHint,
         n: 1,
         size: '1024x1024',
@@ -153,7 +156,7 @@ registerImageProvider({
       signal: AbortSignal.timeout(90_000),
     });
     if (!res.ok) {
-      throw new Error(`kontext ${res.status}: ${(await res.text()).slice(0, 100)}`);
+      throw new Error(`image(${model}) ${res.status}: ${(await res.text()).slice(0, 100)}`);
     }
     const json = await res.json();
     if (json.data?.[0]?.url) return { imageUrl: json.data[0].url, provider: 'kontext' };

@@ -3,9 +3,10 @@ export const API_CONFIG = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
     baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-    model: process.env.OPENAI_MODEL || 'claude-sonnet-4-20250514',
-    // 编剧/导演等关键创意阶段可使用更强模型（牺牲速度换质量）
-    creativeModel: process.env.OPENAI_CREATIVE_MODEL || process.env.OPENAI_MODEL || 'claude-sonnet-4-20250514',
+    // v6.8: 默认升到当前最强 —— 通用走 Claude Sonnet 4.6, 高频; 创意环节走 Claude Opus 4.7
+    model: process.env.OPENAI_MODEL || 'claude-sonnet-4-6',
+    // 编剧/导演等关键创意阶段用最强模型（牺牲速度换质量）
+    creativeModel: process.env.OPENAI_CREATIVE_MODEL || process.env.OPENAI_MODEL || 'claude-opus-4-7',
     pricing: {
       input: 2.5,  // $/1M tokens
       output: 10   // $/1M tokens
@@ -39,9 +40,10 @@ export const API_CONFIG = {
   veo: {
     apiKey: process.env.VEO_API_KEY || '',
     baseURL: process.env.VEO_BASE_URL || 'https://api.qingyuntop.top',
-    model: process.env.VEO_MODEL || 'sora-2',
-    format: process.env.VEO_API_FORMAT || 'openai', // 'unified' | 'openai'
-    fallbackModels: (process.env.VEO_FALLBACK_MODELS || 'veo3.1-fast,veo3-fast')
+    // v6.8: 默认升到最强 Veo 3.1 Pro; unified 通道 (qingyuntop /v1/video/create)
+    model: process.env.VEO_MODEL || 'veo3.1-pro',
+    format: process.env.VEO_API_FORMAT || 'unified', // 'unified' | 'openai'
+    fallbackModels: (process.env.VEO_FALLBACK_MODELS || 'veo3.1,sora-2-pro')
       .split(',').map(s => s.trim()).filter(Boolean),
     pricing: 0.25  // ¥/秒（估算）
   },

@@ -26,7 +26,8 @@ function tryJson(s?: string): any { try { return s ? JSON.parse(s) : null; } cat
 
 /** 一个 provider 探测 — 返回 ProviderHealth, 永不回传 key. */
 async function probeMinimaxLLM(): Promise<ProviderHealth> {
-  const base = { id: 'minimax-llm', label: 'MiniMax LLM (编剧/导演文本)', kind: 'llm' as ProviderKind, baseUrl: process.env.OPENAI_BASE_URL };
+  const llmModel = process.env.OPENAI_MODEL || 'default';
+  const base = { id: 'primary-llm', label: `主 LLM · ${llmModel} (编剧/导演)`, kind: 'llm' as ProviderKind, baseUrl: process.env.OPENAI_BASE_URL };
   const key = process.env.OPENAI_API_KEY;
   if (isPlaceholder(key)) return { ...base, status: 'not_configured', detail: '未设置 OPENAI_API_KEY' };
   const t0 = Date.now();
@@ -85,8 +86,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ...cache.payload, cached: true });
   }
 
-  const veBase = process.env.VEO_BASE_URL || process.env.KELING_BASE_URL || 'https://api.vectorengine.ai';
-  const veKey = process.env.VEO_API_KEY || process.env.KELING_API_KEY;
+  // vectorengine 探测用仍指向它的 KELING_* (VEO_* 可能已被 repoint 到 qingyuntop)
+  const veBase = process.env.KELING_BASE_URL || 'https://api.vectorengine.ai';
+  const veKey = process.env.KELING_API_KEY || process.env.VEO_API_KEY;
 
   const probes = await Promise.all([
     probeMinimaxLLM(),
