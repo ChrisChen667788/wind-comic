@@ -7,13 +7,19 @@
  * 经 sessionStorage 交给 /dashboard/create (避免长文本超 URL 长度).
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ScrollText, Sparkles, ChevronRight, Layers, Mic } from 'lucide-react';
+import { ScrollText, Sparkles, ChevronRight, Layers, Mic, Volume2, ListChecks, RotateCcw } from 'lucide-react';
 import {
   splitIntoEpisodes, NARRATION_MODES, getNarrationMode,
   type Episode, type NarrationMode,
 } from '@/lib/story-intake';
+import { buildNarrationTrack } from '@/lib/narration-track';
+import {
+  buildSeasonBatch, nextPending, markJob, batchProgress, type SeasonBatchPlan,
+} from '@/lib/season-batch';
+
+const BATCH_KEY = 'qfmj-season-batch';
 
 export default function StoryIntakePage() {
   const router = useRouter();
@@ -21,6 +27,23 @@ export default function StoryIntakePage() {
   const [mode, setMode] = useState<NarrationMode>('dialogue');
   const [targetChars, setTargetChars] = useState<string>('');
   const [episodes, setEpisodes] = useState<Episode[] | null>(null);
+  // v6.2.2: 整季批量 (持久化到 localStorage, 跨页面续跑)
+  const [batch, setBatch] = useState<SeasonBatchPlan | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BATCH_KEY);
+      if (raw) setBatch(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
+  const persistBatch = (b: SeasonBatchPlan | null) => {
+    setBatch(b);
+    try {
+      if (b) localStorage.setItem(BATCH_KEY, JSON.stringify(b));
+      else localStorage.removeItem(BATCH_KEY);
+    } catch { /* ignore */ }
+  };
 
   const doSplit = () => {
     const tc = parseInt(targetChars, 10);
@@ -28,11 +51,28 @@ export default function StoryIntakePage() {
     setEpisodes(eps);
   };
 
-  const sendToCreate = (ep: Episode) => {
-    const nm = getNarrationMode(mode);
-    const seed = `【叙事模式:${nm.label}】${nm.directive}\n\n${ep.title}\n${ep.text}`;
+  const seedAndGo = (seed: string) => {
     try { sessionStorage.setItem('qfmj-create-seed', seed); } catch { /* ignore */ }
     router.push('/dashboard/create');
+  };
+
+  const sendToCreate = (ep: Episode) => {
+    const nm = getNarrationMode(mode);
+    seedAndGo(`【叙事模式:${nm.label}】${nm.directive}\n\n${ep.title}\n${ep.text}`);
+  };
+
+  const startBatch = () => {
+    if (!episodes || episodes.length === 0) return;
+    persistBatch(buildSeasonBatch(episodes, { mode }));
+  };
+
+  const sendNextBatch = () => {
+    if (!batch) return;
+    const job = nextPending(batch.jobs);
+    if (!job) return;
+    const updated = { ...batch, jobs: markJob(batch.jobs, job.episodeIndex, 'done') };
+    persistBatch(updated);
+    seedAndGo(job.seed);
   };
 
   const totalChars = text.trim().length;
@@ -49,6 +89,33 @@ export default function StoryIntakePage() {
           粘贴长篇小说 / 剧本 → 自动分集 + 选叙事模式 → 逐集送入创作工坊
         </p>
       </div>
+
+      {/* v6.2.2: 整季批量进度 (持久化, 跨页面续跑) */}
+      {batch && batch.jobs.length > 0 && (() => {
+        const prog = batchProgress(batch.jobs);
+        const next = nextPending(batch.jobs);
+        return (
+          <div className="mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-white flex items-center gap-1.5"><ListChecks className="w-4 h-4 text-amber-400" />整季批量 · {batch.modeLabel}</p>
+              <button onClick={() => persistBatch(null)} className="text-[11px] text-[var(--muted)] hover:text-white inline-flex items-center gap-1"><RotateCcw className="w-3 h-3" />重置</button>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden mb-2">
+              <div className="h-full bg-amber-400 transition-all" style={{ width: `${prog.pct}%` }} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[11px] text-[var(--muted)]">已送 {prog.done} / {prog.total} 集</span>
+              {next ? (
+                <button onClick={sendNextBatch} className="px-4 py-1.5 rounded-xl text-[12px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 inline-flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />送入下一集 (EP{next.episodeIndex} {next.title})<ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <span className="text-[12px] text-emerald-400">✓ 全季已送入创作</span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Input */}
       <textarea
@@ -111,8 +178,14 @@ export default function StoryIntakePage() {
             <p className="text-sm text-[var(--muted)] text-center py-10">未识别到可拆解的内容</p>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
                 <p className="text-sm font-medium text-white">拆出 {episodes.length} 集 · 叙事:{getNarrationMode(mode).label}</p>
+                <button
+                  onClick={startBatch}
+                  className="px-3.5 py-1.5 rounded-xl text-[12px] font-medium bg-violet-500/15 text-violet-200 border border-violet-500/30 hover:bg-violet-500/25 transition-all inline-flex items-center gap-1.5"
+                >
+                  <ListChecks className="w-3.5 h-3.5" />整季批量创作
+                </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {episodes.map((ep) => (
@@ -126,6 +199,14 @@ export default function StoryIntakePage() {
                     <p className="text-[12px] text-[var(--muted)] leading-relaxed line-clamp-3 flex-1">
                       {ep.text.slice(0, 160)}
                     </p>
+                    {(() => {
+                      const nt = buildNarrationTrack({ text: ep.text, mode });
+                      return nt.enabled && nt.segments.length > 0 ? (
+                        <p className="mt-2 text-[10px] text-violet-300/80 flex items-center gap-1">
+                          <Volume2 className="w-3 h-3" />旁白 {nt.segments.length} 句 · ~{nt.totalDurationSec}s · {nt.voiceLabel}
+                        </p>
+                      ) : null;
+                    })()}
                     <button
                       onClick={() => sendToCreate(ep)}
                       className="mt-3 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-medium bg-[#E8C547]/15 text-amber-300 border border-amber-500/25 hover:bg-amber-500/25 transition-all"

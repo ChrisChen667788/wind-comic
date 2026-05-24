@@ -1583,7 +1583,11 @@ npm test
   - [x] **v6.2.1 UI + 编排接线**: `app/dashboard/story-intake`(粘贴长文 → 分集预览卡 + 叙事模式
     选择器 + 单集目标字数)+ 侧栏入口;「用此集创作」把 该集文本 + 叙事 directive 经 sessionStorage
     交给 `/dashboard/create`(orchestrator 创作流, directive 随 idea 注入剧本生成)
-  - 📌 后续(v6.2.2 候选):解说音轨独立轨道(`tts-prosody` + `subtitle-burn`)+ 批量整季一键生成
+  - [x] **v6.2.2 解说音轨 + 整季批量**: `lib/narration-track`(从正文抽旁白句 → 估时长 → 绑音色 +
+    字幕条目;对白模式不出轨,10 单测合并)+ `lib/season-batch`(整季 job 计划 + nextPending/markJob/
+    进度);story-intake 每集显示旁白估算(句数/时长/音色)+「整季批量」可续跑队列(localStorage 持久化,
+    逐集送入创作 + 进度条)
+  - 📌 后续候选:解说轨真出音频(接 tts 引擎)+ N 集并行编排
 - [ ] **v6.3 · 风格模板画廊 (Style Gallery)** [对标 万镜 风格]
   - 命名风格预设画廊(逼真 3D / 科幻漫画 / 国风动漫 / 电影写实…), 基于 `style-presets`/`style-bible`
   - 一键套用 + 全片风格锁定(`style-audit` 已有)
