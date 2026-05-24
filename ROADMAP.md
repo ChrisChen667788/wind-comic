@@ -1594,8 +1594,12 @@ npm test
   - `app/dashboard/styles` 画廊: 60 预设 grid(缩略图 + 中英名 + 分类徽章 + 流行度 + 推荐引擎)+
     搜索 + 分类 tab + 侧栏入口;「套用此风格」经 sessionStorage 把风格名传给 `/dashboard/create`
     (创作工坊 style 状态接收 → 注入 orchestrator);全片风格锁定沿用既有 `style-audit`
-- [ ] **v6.4 · 导演级全链路编辑 (Director Console)** [对标 火山 控片]
-  - 主创作流每节点(剧本/资产/分镜/成片)开放编辑 + **单节点重跑**(复用 `workflow-studio` + SSE)
+- [x] **v6.4 · 导演级全链路编辑 (Director Console)** ✅ 2026-05-24 [对标 火山 控片]
+  - `lib/pipeline-stages`(8 单测): 4 环节模型(剧本→资产→分镜→成片)+ `derivePipelineStages`
+    (按资产 + updatedAt 推 空/就绪/**待更新 stale**:下游比上游旧)+ `downstreamStages`/`rerunPlan`/`pipelineProgress`
+  - `components/director-console` + 项目页「导演台」tab: 4 环节流水线可视化(状态徽章 + 进度条)+
+    进入任意节点编辑/重生(跳对应 tab)+ **重跑下游影响提示**;项目详情 API 补 `updatedAt` 供 stale 判定
+  - 📌 后续候选:每环节真·单节点 orchestrator 重跑端点(目前重跑跳到环节 tab 走既有重生)
 - [ ] **v6.5 · 团队工作区 + 积分额度分配 (Team Workspace)** [对标 火山 团队协作]
   - 主账号按成员/团队分配积分额度(扩 `billing` + `usage_tracking` + 团队 RBAC)
 

@@ -32,6 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       persistentUrl,
       shotNumber: a.shot_number,
       version: a.version,
+      updatedAt: a.updated_at, // v6.4: 导演台 stale 判定用
     };
   });
 

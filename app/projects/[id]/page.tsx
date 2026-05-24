@@ -7,9 +7,10 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
   Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle, BarChart3,
-  Clapperboard, ScanEye,
+  Clapperboard, ScanEye, MonitorPlay,
 } from 'lucide-react';
 import { CameoPanel } from '@/components/CameoPanel';
+import { DirectorConsole } from '@/components/director-console';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
 import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-sidebar';
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
@@ -187,6 +188,8 @@ export default function ProjectDetailPage() {
   const script = project.scriptData || scriptAsset?.data;
 
   const tabs = [
+    // v6.4: 导演台 — 全链路环节总览 + 跳转编辑
+    { key: 'director', label: '导演台', icon: MonitorPlay, count: 0 },
     { key: 'script', label: '剧本', icon: FileText, count: script?.shots?.length || 0 },
     { key: 'characters', label: '角色', icon: Users, count: characters.length },
     { key: 'scenes', label: '场景', icon: Mountain, count: scenes.length },
@@ -325,6 +328,11 @@ export default function ProjectDetailPage() {
 
         {/* Content */}
         <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          {/* v6.4: 导演台 — 全链路环节总览 */}
+          {activeTab === 'director' && (
+            <DirectorConsole assets={assets} onEditStage={(tab) => setActiveTab(tab)} />
+          )}
+
           {/* 剧本 */}
           {activeTab === 'script' && script && (
             <div className="space-y-3">
