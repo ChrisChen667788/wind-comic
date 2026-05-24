@@ -164,6 +164,7 @@
 | **v6.2.2** | 2026-05-24 | `86ebc49` | 解说音轨 + 整季批量:`lib/narration-track`(正文抽旁白句 → 估时长 → 绑音色 + 字幕,对白模式不出轨)+ `lib/season-batch`(整季 job 计划 + 进度,10 单测);story-intake 每集旁白估算 +「整季批量」localStorage 续跑队列(逐集送入 + 进度条) |
 | **v6.3** | 2026-05-24 | `66d949c` | 风格模板画廊(对标万镜风格):`style-presets` 扩 `STYLE_CATEGORIES`/`categoryLabel`/`searchStyles`(10 单测)+ `/dashboard/styles` 画廊(60 预设 grid + 搜索 + 分类 tab + 侧栏入口);「套用此风格」经 sessionStorage 传风格名给创作工坊。**阶段八 v6.3 收官** |
 | **v6.4** | 2026-05-24 | `386f22a` | 导演级全链路编辑(对标火山控片):`lib/pipeline-stages`(4 环节模型 + 按 updatedAt 推 空/就绪/待更新 stale + 下游失效分析,8 单测)+ 项目页「导演台」tab(`director-console`:流水线可视化 + 进度 + 跳节点编辑 + 重跑下游影响);项目 API 补 updatedAt |
+| **v6.5** | 2026-05-24 | `(本次)` | 团队工作区 + 积分额度分配(对标火山团队协作):`lib/team-credits`(额度数学 + 分配校验 + RBAC,12 单测)+ `team_allocations` 表 + `GET/PUT /api/team/allocations`(超额拒绝)+ `/dashboard/team`(池总览 + 成员额度编辑 + 添加/移除)+ 侧栏入口。**阶段八对标六版全交付** |
 
 ---
 

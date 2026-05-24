@@ -312,6 +312,14 @@ addColumnIfMissing('character_library', 'source_token_id', 'TEXT');
 // 多视角设定图 prompt/图 URL). 由 lib/character-studio 生成, /api/characters/[id]/studio 落库.
 addColumnIfMissing('character_library', 'profile', 'TEXT');
 
+// v6.5: 团队工作区 — 主账号 (owner_user_id) 的积分额度分配. allocations 为成员额度 JSON 数组.
+db.exec(`CREATE TABLE IF NOT EXISTS team_allocations (
+  owner_user_id TEXT PRIMARY KEY,
+  pool_credits INTEGER NOT NULL DEFAULT 0,
+  allocations TEXT NOT NULL DEFAULT '[]',
+  updated_at TEXT NOT NULL
+);`);
+
 // v2.11 #4 (2026-04-21): Writer-Editor 闭环 —— 成片后让 Editor 用 vision LLM
 // 对最终视频打 3 维分(连贯度/光影/脸相似),存进 project_quality_scores。
 // 下一次 Writer 生成台词时会读最近一次评分,对"分<70 的维度"注入针对性 cue

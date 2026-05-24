@@ -1600,8 +1600,17 @@ npm test
   - `components/director-console` + 项目页「导演台」tab: 4 环节流水线可视化(状态徽章 + 进度条)+
     进入任意节点编辑/重生(跳对应 tab)+ **重跑下游影响提示**;项目详情 API 补 `updatedAt` 供 stale 判定
   - 📌 后续候选:每环节真·单节点 orchestrator 重跑端点(目前重跑跳到环节 tab 走既有重生)
-- [ ] **v6.5 · 团队工作区 + 积分额度分配 (Team Workspace)** [对标 火山 团队协作]
-  - 主账号按成员/团队分配积分额度(扩 `billing` + `usage_tracking` + 团队 RBAC)
+- [x] **v6.5 · 团队工作区 + 积分额度分配 (Team Workspace)** ✅ 2026-05-24 [对标 火山 团队协作]
+  - `lib/team-credits`(12 单测): 额度数学(remaining/totals/poolSummary)+ 分配校验
+    (canSetAllocation 不超池/不低于已用)+ 消费判定(canConsume)+ RBAC(canManageMembers/
+    canAllocateCredits owner 限定/canRemoveMember owner 不可移除)
+  - `team_allocations` 表 + `GET/PUT /api/team/allocations`(校验不超额才落库,主账号 scope)+
+    `/dashboard/team` 页(池总览条 + 成员额度编辑 + 添加/移除 + 超额告警)+ 侧栏入口
+  - 📌 后续候选:成员侧消费按额度扣减(随生成成本计入 used)+ 真·多用户成员邀请
+
+> **阶段八 ✅ 全部交付** (v6.0 角色资产 · v6.1 提示词工作台 · v6.2 长篇拆解 · v6.3 风格画廊 ·
+> v6.4 导演台 · v6.5 团队工作区),对标火山剧创 / 万镜一刻 的缺口闭环;差异化护城河
+> (Cameo IP 经济 / Agent 编排 IDE / 每镜 Vision 质检 / 4 语言 i18n)持续保留。
 
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
