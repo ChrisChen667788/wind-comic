@@ -104,6 +104,11 @@ class PgDriver implements DbDriver {
           );
         }
         const Pool = pg.Pool || pg.default?.Pool;
+        // v6.6: int8/bigint (OID 20) 默认被 pg 解析成 string (COUNT(*) / BIGSERIAL).
+        // 全站 repo (countUsers / countProjectAssets 等) 按 number 用 → 统一解析成 Number,
+        // 与 SQLite 行为一致 (计数不会到 2^53, 安全). 一处修, 所有 count/bigint 列受益.
+        const pgTypes = pg.types || pg.default?.types;
+        pgTypes?.setTypeParser?.(20, (val: string) => (val == null ? null : Number(val)));
         const connectionString = process.env.DATABASE_URL;
         if (!connectionString) throw new Error('DB_DRIVER=pg 需要 DATABASE_URL 环境变量');
         return new Pool({ connectionString });

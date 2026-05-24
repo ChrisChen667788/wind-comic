@@ -23,7 +23,9 @@
     "generate:hero": "node scripts/generate-hero-cover.mjs",
     "generate:assets": "node scripts/generate-marketing-assets.mjs",
     "release": "bash scripts/release.sh",
-    "pg:smoke": "node scripts/pg-smoke.mjs"
+    "pg:smoke": "node scripts/pg-smoke.mjs",
+    "pg:migrate": "tsx scripts/pg-migrate.ts",
+    "pg:verify": "tsx scripts/pg-verify.ts"
   },
   "keywords": [
     "ai",
@@ -101,6 +103,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.1",
     "puppeteer": "^25.0.4",
+    "tsx": "^4.22.3",
     "vitest": "^4.1.0"
   }
 }

@@ -1644,6 +1644,20 @@ npm test
   - 团队页「邀请成员」面板(邮箱 + 角色 + 额度 → 生成可复制链接 + 邀请列表)+ `/dashboard/team/accept` 接受页
   - dev 验证:consume 视频扣 5 / 超额 400;邀请生成+列出;未登录接受 → 401(均已清理)
 
+### 5.9.2 PG 全量切换闭环 (v6.6) — 之前阻塞在"用户自带 PG 实例", 本地 Docker 自助跑通
+
+- [x] **v6.6 · PG 全量切换闭环 (本地 Docker 验证)** ✅ 2026-05-24
+  - `db-dialect` 扩:`stripFkAndComments`(去 FK 约束/行注释)+ `ensureIdempotentDDL`(补 `IF NOT EXISTS`);
+    `exportPostgresSchema({ applyReady })` → 可直接顺序 apply 的 PG DDL (16 单测)
+  - `PgDriver` 修 bigint 坑:`setTypeParser(20, Number)` → `int8`/`BIGSERIAL`/`COUNT(*)` 解析成 number,
+    与 SQLite 一致 (一处修, `countUsers`/`countProjectAssets`/未读数 全部受益)
+  - `scripts/pg-migrate.ts`(bootstrap 全量 schema → `db/schema.pg.sql` + 顺序 apply, 幂等)+
+    `scripts/pg-verify.ts`(`DB_DRIVER=pg` 下 user/project repo + transaction 真往返)+
+    `npm run pg:migrate` / `pg:verify`(`tsx` 入 devDep)
+  - **实测 (本地 Docker postgres:16)**: `pg:smoke` 通过;`pg:migrate` 清库 → 74 条 DDL → 33 表, 重跑幂等;
+    `pg:verify` 三组断言全绿。代码侧 cutover 就绪, 仅剩生产 PG 实例 + 数据搬迁
+  - 文档:`docs/postgres-migration.md` 补「v6.6 一键本地验证」三命令流程
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。

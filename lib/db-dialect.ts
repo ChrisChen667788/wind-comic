@@ -56,6 +56,31 @@ export function translateDDL(ddl: string): string {
 }
 
 /**
+ * v6.6 — 让 DDL 可直接在 PG 顺序 apply (不依赖 FK 顺序 + 去注释):
+ *   - 去掉 `-- …` 行注释 (有的注释里含 `;`, 否则按分号切语句会断裂)
+ *   - 去掉 `FOREIGN KEY (...) REFERENCES t(...)` 内联约束 (本项目 SQLite 未开 PRAGMA
+ *     foreign_keys, FK 本就不强制; 去掉后建表无需按依赖排序, 行为一致) + 清理悬挂逗号
+ * 纯函数, 单测覆盖.
+ */
+export function stripFkAndComments(ddl: string): string {
+  let s = ddl;
+  s = s.replace(/--[^\n]*/g, '');                                  // 行注释
+  s = s.replace(/,?\s*FOREIGN\s+KEY\s*\([^)]*\)\s*REFERENCES\s+"?\w+"?\s*\([^)]*\)/gi, ''); // FK 约束(连同前导逗号)
+  s = s.replace(/,(\s*)\)/g, '$1)');                                // 悬挂逗号 `, )` → `)`
+  return s;
+}
+
+/**
+ * v6.6 — 让单条 CREATE 幂等 (SQLite sqlite_master 存的 DDL 会丢掉 `IF NOT EXISTS`,
+ * 直接 apply 第二次会 "already exists"). 给 CREATE TABLE / [UNIQUE] INDEX 补回.
+ */
+export function ensureIdempotentDDL(ddl: string): string {
+  return ddl
+    .replace(/^(\s*CREATE\s+TABLE\s+)(?!IF\s+NOT\s+EXISTS)/i, '$1IF NOT EXISTS ')
+    .replace(/^(\s*CREATE\s+(?:UNIQUE\s+)?INDEX\s+)(?!IF\s+NOT\s+EXISTS)/i, '$1IF NOT EXISTS ');
+}
+
+/**
  * `INSERT OR REPLACE INTO t (...) VALUES (...)` → PG `ON CONFLICT` UPSERT.
  * 需要冲突目标列 (主键/唯一键). 传 conflictColumns, 自动生成 DO UPDATE SET 全列覆盖.
  * 拿不到列名时退化成 `ON CONFLICT DO NOTHING` 并在注释里标记.

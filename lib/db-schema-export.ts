@@ -6,10 +6,14 @@
  */
 
 import { db } from './db';
-import { translateDDL } from './db-dialect';
+import { translateDDL, stripFkAndComments, ensureIdempotentDDL } from './db-dialect';
 
-/** 导出 PG 兼容的 schema DDL 字符串 (建表 + 索引). */
-export function exportPostgresSchema(): string {
+/**
+ * 导出 PG 兼容的 schema DDL 字符串 (建表 + 索引).
+ * @param opts.applyReady true → 去 FK/注释, 产出可直接顺序 apply 的 DDL (v6.6 pg:migrate 用);
+ *                        默认 false → 保留原样供 runbook 人读 (v4.2 行为不变).
+ */
+export function exportPostgresSchema(opts: { applyReady?: boolean } = {}): string {
   const rows = db.prepare(
     `SELECT type, name, sql FROM sqlite_master
      WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'
@@ -19,10 +23,12 @@ export function exportPostgresSchema(): string {
   const parts: string[] = [
     '-- v4.2 auto-generated Postgres schema (translated from SQLite)',
     '-- 注意: 时间戳列用 TEXT (ISO 字符串), 与现有代码一致. 真要 timestamptz 需配套改读写.',
+    ...(opts.applyReady ? ['-- v6.6 applyReady: 已去 FK 约束 (SQLite 未开 FK 强制) + 行注释, 可直接顺序执行.'] : []),
     '',
   ];
   for (const r of rows) {
-    const ddl = translateDDL(r.sql).trim();
+    let ddl = translateDDL(r.sql).trim();
+    if (opts.applyReady) ddl = ensureIdempotentDDL(stripFkAndComments(ddl).trim()).trim();
     parts.push(`${ddl};`);
   }
   return parts.join('\n');

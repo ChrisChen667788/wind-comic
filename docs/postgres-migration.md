@@ -58,3 +58,33 @@
 - **`yjs_docs.state` BLOB** → PG `BYTEA`, 读写需 Buffer 适配 (y-websocket persistence)
 - **并发**: 迁 PG 后 `database is locked` 根治, 可去掉 `vitest.config` 的 `retry:1`
   和 `busy_timeout` 依赖
+
+## v6.6 — 一键本地验证 (已在 Docker PG 跑通)
+
+三条命令把"全量切换"从纸面验到可运行 (本地 Docker Postgres):
+
+```bash
+# 1) 起一个本地 PG (端口按需改, 这里用 5434 避让常见占用)
+docker run --name wind-pg -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=wind -p 5434:5432 -d postgres:16
+
+# 2) bootstrap 全量 schema 到 PG (从活 SQLite 导出 apply-ready DDL → 写 db/schema.pg.sql → 顺序执行)
+DATABASE_URL=postgres://postgres:pw@localhost:5434/wind npm run pg:migrate
+
+# 3) async repo 真连 PG 往返 (user/project/transaction 全经 PgDriver)
+DB_DRIVER=pg DATABASE_URL=postgres://postgres:pw@localhost:5434/wind npm run pg:verify
+```
+
+- `npm run pg:smoke` — 裸 SQL 冒烟 (连接/建表/参数化/UPSERT/DELETE), 已通过
+- `npm run pg:migrate` — `exportPostgresSchema({ applyReady: true })` 产出**去 FK 约束**
+  (SQLite 未开 PRAGMA foreign_keys, FK 本不强制 → 去掉免按依赖排序) + **去行注释**
+  (有的注释含 `;` 会坑分号切语句) + **补 `IF NOT EXISTS`** (sqlite_master 丢了它 → 幂等),
+  顺序 apply; **幂等可重复跑**。生成的 `db/schema.pg.sql` 一并入库供 review
+- `npm run pg:verify` — `DB_DRIVER=pg` 下跑 `user-repo` / `project-repo` 的
+  create/get/list/update + `DbDriver.transaction`, 证业务层 (非裸 SQL) 在 PG 工作
+- **bigint 坑已修**: `pg` 默认把 `int8`/`BIGSERIAL`/`COUNT(*)` 解析成 string,
+  `PgDriver` 统一 `setTypeParser(20, Number)` → 与 SQLite 的 number 行为一致
+  (一处修, `countUsers` / `countProjectAssets` 等全部受益)
+
+实测: 清库后 `pg:migrate` 应用 **74 条 DDL → 33 张表**, 再跑一次仍 OK (幂等);
+`pg:verify` 三组断言全绿。剩下的仅是**生产 PG 实例 + 数据搬迁** (按上面"搬数据"一节),
+代码侧已就绪。
