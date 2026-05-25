@@ -76,12 +76,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  if (!API_CONFIG.openai.apiKey) {
-    return Response.json({ error: 'OPENAI_API_KEY 未配置, 润色服务暂不可用' }, { status: 503 });
+  // v7.0.3: 润色走 创意主 LLM (DeepSeek deepseek-v4-pro) + MiniMax 全局兜底, 与 orchestrator 一致.
+  // 关键修复: 之前用 creativeModel 却发去通用 baseURL/apiKey (qingyuntop), 模型↔网关不匹配 → 报错.
+  const cfg = API_CONFIG.openai as any;
+  const llmAttempts: Array<{ baseURL: string; apiKey: string; model: string; label: string }> = [];
+  const primaryLLM = {
+    baseURL: cfg.creativeBaseURL || cfg.baseURL,
+    apiKey: cfg.creativeApiKey || cfg.apiKey,
+    model: cfg.creativeModel || cfg.model,
+    label: '创意·DeepSeek',
+  };
+  if (primaryLLM.apiKey) llmAttempts.push(primaryLLM);
+  if (cfg.fallbackApiKey && (cfg.fallbackApiKey !== primaryLLM.apiKey || cfg.fallbackModel !== primaryLLM.model)) {
+    llmAttempts.push({ baseURL: cfg.fallbackBaseURL, apiKey: cfg.fallbackApiKey, model: cfg.fallbackModel, label: 'MiniMax兜底' });
+  }
+  if (llmAttempts.length === 0) {
+    return Response.json({ error: 'LLM 未配置 (DEEPSEEK_API_KEY / OPENAI_API_KEY 均缺), 润色暂不可用' }, { status: 503 });
   }
 
   const systemPrompt = buildPolishPrompt({ mode, style, intensity, focus });
-  const model = API_CONFIG.openai.creativeModel || API_CONFIG.openai.model;
 
   // Pro 模式: 更低温度 (行业诊断要求稳定), 更大 token 预算 (要额外输出 audit), 更长超时
   const temperature = mode === 'pro' ? 0.5 : 0.7;
@@ -93,49 +106,60 @@ export async function POST(request: NextRequest) {
   const start = Date.now();
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // 依次尝试 创意(DeepSeek) → MiniMax 兜底; 第一个成功即用.
+    let data: any = null;
+    let usedModel = llmAttempts[0].model;
+    let lastErr = 'LLM 调用失败';
+    let lastStatus = 502;
+    for (const a of llmAttempts) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const resp = await fetch(`${a.baseURL}/chat/completions`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${a.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: a.model,
+            temperature,
+            // 给 GPT 兼容服务一个结构化响应提示;不支持的会降级为自然 JSON
+            response_format: { type: 'json_object' },
+            max_tokens,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `以下是待润色的剧本,请按 system 的规则出 JSON:\n\n---\n${script}\n---` },
+            ],
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+        const d = await resp.json();
+        if (resp.ok && d?.choices?.[0]?.message?.content) {
+          data = d; usedModel = a.model; break;
+        }
+        lastErr = d?.error?.message || `LLM 调用失败 (${resp.status})`;
+        lastStatus = resp.status;
+        console.warn(`[polish-script] ${a.label} 失败: ${lastErr}`);
+      } catch (attErr: any) {
+        clearTimeout(timer);
+        lastErr = attErr?.name === 'AbortError' ? '超时' : (attErr?.message || String(attErr));
+        console.warn(`[polish-script] ${a.label} 异常: ${lastErr}`);
+      }
+    }
 
-    const resp = await fetch(`${API_CONFIG.openai.baseURL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_CONFIG.openai.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        temperature,
-        // 给 GPT 兼容服务一个结构化响应提示;不支持的会降级为自然 JSON
-        response_format: { type: 'json_object' },
-        max_tokens,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `以下是待润色的剧本,请按 system 的规则出 JSON:\n\n---\n${script}\n---` },
-        ],
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-
-    const data = await resp.json();
-    if (!resp.ok || !data?.choices?.[0]?.message?.content) {
-      const msg = data?.error?.message || `LLM 调用失败 (${resp.status})`;
-      console.warn('[polish-script] upstream error:', msg);
-      // v2.18.4: 识别上游 quota 耗尽 → 给出可操作的清晰提示, 不再让用户看到裸 "user quota" 英文
-      const isQuota = /quota|insufficient|余额|balance|user quota is not enough|429/i.test(msg);
+    if (!data) {
+      const isQuota = /quota|insufficient|余额|balance|user quota is not enough|429|usage limit|额度|用尽/i.test(lastErr);
       if (isQuota) {
         return Response.json(
           {
-            error: '上游 LLM 网关(vectorengine)余额不足, 无法润色. ' +
-              '解决方案: 1) 去 vectorengine 后台充值; 2) 在 .env.local 换个有余额的 OPENAI_API_KEY; ' +
-              '3) 临时把 OPENAI_MODEL 改成 claude-sonnet (比 opus 便宜 5x).',
+            error: '主 LLM (DeepSeek) 与 MiniMax 兜底均额度不足/受限, 无法润色. 请检查 DeepSeek / MiniMax 额度, 或稍后重试.',
             category: 'upstream-quota',
-            originalMessage: msg,
+            originalMessage: lastErr,
           },
           { status: 402 },
         );
       }
-      return Response.json({ error: msg }, { status: 502 });
+      void lastStatus;
+      return Response.json({ error: lastErr }, { status: 502 });
     }
 
     const raw = data.choices[0].message.content.toString().trim();
@@ -167,7 +191,7 @@ export async function POST(request: NextRequest) {
       audit,
       mode,
       elapsedMs: Date.now() - start,
-      model,
+      model: usedModel,
       // pro 模式要求 audit 但没拿到 → 视为降级
       degraded: mode === 'pro' && !audit ? true : undefined,
     });

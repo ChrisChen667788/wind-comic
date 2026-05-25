@@ -1726,6 +1726,14 @@ npm test
   - `isMinimaxVideoQuotaError` 纯函数导出 + 2 单测;视频 provider 透明受益(无需改动)
   - tsc 0;全量 1714/1714
 
+- [x] **v7.0.3 · 剧本润色改用 DeepSeek + MiniMax 兜底** ✅ 2026-05-25
+  - **根因修复**:`/api/polish-script` 之前用 `creativeModel`(deepseek-v4-pro) 却发去通用 baseURL/apiKey
+    (qingyuntop) → 模型↔网关不匹配 → 页面「LLM 调用失败 (200)」。改成走 **创意 endpoint(DeepSeek)**
+  - 同 orchestrator 一致:尝试链 创意(DeepSeek)→ **MiniMax 兜底**,首个成功即用;非配额错误仍归一 502、
+    配额错误 402(文案去掉硬编码 vectorengine)
+  - dev 实测:Basic 模式 `model=deepseek-v4-pro` 真出润色稿(~27s);polish-api 19 单测仍绿
+  - tsc 0;全量 1714/1714
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。
