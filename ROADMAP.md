@@ -1767,6 +1767,79 @@ npm test
 
 ---
 
+## 5.10 阶段九 · 对标「AI 导演台 / 分镜工作站」(v7.2 – v8.x)
+
+> 输入:5 款竞品 UI 截图(AI 视频生成的"导演控制台")逐项拆解。它们的共性 = **把电影工业的
+> 专业控制(镜头/光影/连贯性/节奏)做成结构化、可视、可编辑的"驾驶舱"面板**,这正是本品
+> 当前最大的 UX 短板:能力多在"提示词/流水线"层,缺少"专业可视控制"层的外化。
+
+### 竞品速览
+- **CineSpark 15s** — 短视频极速分镜台:HOOK/BODY/CLIMAX 三幕时间轴 + 15s 运镜词库 + 运动强度/插帧/放大 + 9:16 + 节奏环 + 一键生成
+- **CineFlow Director's Suite** — 院线级镜头控制台:摄影机/镜头模拟(ARRI/Panavision/T-stop/ISO/ND/WB)+ ACES 色彩 + 多轨时间线 + 专业示波器 + 渲染循环 + EDL/AAF
+- **CineFlow Continuity Pro** — 连贯性锁定:角色/环境/**种子**锁 + 链接模式(硬切/匹配切/参考上帧)+ 连贯性强度 + 服装/光照锁 + FaceID 强度
+- **CineMaster Pro** — 广告导演站:单镜头精细控制(景别/机位/镜头/运镜/焦点)+ 光影氛围面板 + Master Prompt Generator + 导演/影片/LUT 风格预设 + PPM + 术语表
+- **CineMatrix** — 情感曲线 + 参数联动:emotion curve + 构图引导(三分法/头部/视线)+ 声音设计分层 + auto-update logic + JSON↔可视化实时同步 + AI Casting + 每镜 Marketing
+
+### 差距对照表(✅ 已有 / 🟡 部分 / ❌ 缺失)
+
+| 能力 | 状态 | 说明(本品现状) |
+|---|---|---|
+| 多智能体流水线编排(8 agent) | ✅ | **强于竞品**:导演/编剧/角色/场景/分镜/视频/剪辑/制片全链路 |
+| 角色锁定 / FaceID / **Cameo IP 经济(跨项目复用)** | ✅ | **强于竞品**:竞品仅单项目角色锁;我方有 token 化 + 授权市场 |
+| 长篇拆解 → 分集 / 解说音轨 / 整季批量 | ✅ | **竞品无**:story-intake + season-orchestrator |
+| 每镜 LLM Vision 质检(打分) | ✅ | **竞品无**:vision-audit |
+| 分镜表 + 缩略图 + 编辑 / 风格画廊(68)/ 多轨 Cinema 时间线 / 导演台(流水线总览)/ 团队协作+额度 / 4 语言 i18n | ✅ | 基础齐备 |
+| 单镜头机位 | 🟡 | 仅 `cameraAngle` 下拉(8 项);**缺**结构化 景别+机位+镜头+运镜+焦点 网格 |
+| 连贯性 | 🟡 | 后端有 seed/consistency-policy/FaceID;**缺**种子锁 UI + 链接模式 + 连贯性强度 + 服装/光照锁开关 + FaceID 强度档 |
+| 节奏 | 🟡 | 有分布环(pacing-chart);**缺**情感曲线 + 多轨节奏热力图(情感/紧张/节奏/亮度) |
+| 声音 | 🟡 | 有音轨/TTS/解说;**缺**结构化声音设计面板(环境/Foley/BGM 分层 + ducking) |
+| 示波器 | 🟡 | 仅音频波形;**缺**视频示波器(矢量/直方图/RGB Parade/亮度) |
+| 风格预设 | 🟡 | 68 预设、少量引用真实影片;**缺**系统化 导演运镜/影片/LUT 预设 |
+| Master Prompt | 🟡 | 有 prompt 模板 + 润色;**缺**结构化 role/task/核心概念/执行参数 生成器 |
+| **单镜头电影摄影控制台**(景别 CU/MS/LS/ELS · 机位 Eye/Low/High/Dutch · 镜头 · 运镜 · 焦点/变焦) | ❌ | 5 款截图**全有**,本品最高频缺口 |
+| **专业摄影机/镜头模拟**(机型 · 焦距 · T-stop · ISO · ND · 白平衡) | ❌ | |
+| **结构化光影设计**(主/补/背/重点光 + 色温 + 氛围 雨/雾/烟) | ❌ | 仅提示词层提及 |
+| **连贯性控制台 + 种子锁**(链接模式 + 强度 + 锁开关) | ❌ | |
+| **专业视频示波器**(波形/矢量/直方图/RGB Parade/亮度) | ❌ | |
+| **情感曲线 + 多轨节奏热力图** | ❌ | |
+| **15s 短视频结构化模式**(三幕 + 运镜词库 + 运动/插帧/放大 + 节奏环) | ❌ | CineSpark 整体形态 |
+| **构图引导叠层**(三分法/头部/视线)+ 运镜路径可视化 | ❌ | 仅 vision-audit 文字层 |
+| **项目级格式/色彩预设**(IMAX/Scope/ACES/24-120fps 升格/安全框) | ❌ | 仅导出比例 |
+| **EDL/AAF/XML 导出**对接 DaVinci/Premiere | ❌ | 仅 PDF/MP4/平台竖屏 |
+| **专业术语对照表** / **渲染循环反馈** / **导演驱动 auto-update logic** / **参数联动 JSON↔可视化同步** / **每镜 Marketing** | ❌ | |
+
+### 迭代计划(按"共性最高 + 复用本品已有能力"排序)
+
+- **v7.2 · 单镜头电影摄影控制台(P0,最高频共性)**
+  - `lib/cinematography.ts`(纯函数 + 单测):景别/机位/镜头/运镜/焦点/光影/运动强度 词表 + `compileShotSpecToPrompt()` 把结构化参数编译成 AI 提示词片段(复用 prompt-templates)
+  - `components/project/shot-cinematography-panel.tsx`:右栏分组面板(分段按钮组 CU/MS/LS/ELS + 滑块带数值 + 镜头/运镜下拉),对齐 CineMaster/CineMatrix「单镜头精细化控制」
+  - 接进 storyboard/workshop tab → 写进 shot 数据 + 重生成 prompt;升级现有 `cameraAngle` 下拉为该面板
+- **v7.3 · 连贯性控制台 + 种子锁**(对标 Continuity Pro):种子锁(主/辅 + 锁定/刷新)+ 链接模式(硬切/匹配切/参考上帧)+ 连贯性强度滑块 + 服装/光照锁 + FaceID 强度档;串进 consistency-policy + 生成 prompt
+- **v7.4 · 结构化光影 + 摄影机/镜头模拟 + 项目级格式预设**(对标 CineFlow Suite):光影面板(主/补/背/重点光 + 色温 + 氛围)+ 机型/镜头/T-stop/ISO/ND/WB + 项目级 IMAX/Scope/ACES/fps/安全框
+- **v7.5 · 情感曲线 + 节奏热力图 + 构图引导**(对标 CineMatrix):`lib` 从分镜情绪标签算情感曲线 + 多轨热力图;构图叠层(三分法/头部/视线)+ 运镜路径 mini-viz
+- **v7.6 · 15s 短视频极速模式** ✅ 2026-05-25(独立工作台,对标 CineSpark,**阶段九首发**):`lib/short-video`(三幕布局 + 运镜词库 + 节奏模板 + prompt 编译 + LLM 解析,15 单测)+ `POST /api/short-video/plan`(快档 flash 实测 7.4s)+ `/dashboard/short-video` 三栏驾驶舱(运镜词库 / 三幕色彩时间轴 + 分镜表 / 参数面板 + 节奏环 + 一键去创作 + 导出);改运镜/景别即时重编译 prompt。先落"驾驶舱"设计语言,后续 v7.2-v8.0 复用
+- **v7.7 · Master Prompt Generator + 风格/LUT/导演预设系统 + 术语表**:结构化 role/task/核心概念/执行参数 生成器;导演运镜/影片/LUT 预设;专业术语对照
+- **v8.0 · 专业出片对接**:视频示波器(矢量/直方图/RGB Parade/亮度)+ EDL/AAF/XML 导出 + 渲染循环反馈 + 参数联动 JSON↔可视化同步
+
+### UI/UX 升级(贯穿 v7.2+,从 PM/设计视角借鉴竞品长处)
+
+- **「驾驶舱」三栏布局**:左=资产/场景库 · 中=分镜+预览 · 右=参数控制台。5 款竞品全采用,信息密度高、"专业控片"体感强 → 项目页/创作工坊改造为此骨架
+- **顶部元数据状态条**:项目 / 格式 / 色彩空间 / 帧率 / 分辨率 / 保存 / GPU 算力(对齐 CineFlow/CineMaster 顶栏)
+- **底部监视/状态条**:时间码 / 示波器入口 / 存储 / 算力 / 自动保存
+- **三幕色彩编码时间轴**:HOOK 橙 / BODY 琥珀 / CLIMAX 红(对齐 CineSpark)
+- **锁定 chips/pills**:角色锁/环境锁/时间连续… 彩色标签(对齐 Continuity Pro 连贯性逻辑列)
+- **结构化控件语言**:分段按钮组(CU/MS/LS/ELS、Slow/Normal/Fast)+ 带数值滑块(运动 60% / 连贯性 0.6)+ 分组可折叠面板 → 沉淀进 `components/ui`
+- **环形/曲线 mini-chart**:节奏环 + 情感曲线(复用 components/cinema/dataviz)
+- **醒目「一键生成」CTA** + 操作列(生成/预览/编辑)行内化
+- **设计 tokens 扩展**:在现有"暖墨黑 × 金"主调上,为"导演台/技术监看区"补一套更冷的「监视器蓝 / 示波绿」功能色,区分创作区 vs 技术监看区(避免全站翻新风险,新色仅用于新面板)
+- **保持差异化护城河**:Cameo IP 经济 / Agent 编排 IDE / Vision 质检 / 长篇拆解 / i18n 继续作为竞品没有的亮点放大
+
+> **执行原则**:沿用本品"lib 纯逻辑 + 单测 → API/UI → tsc + 全量 + dev 实测 → 提交"的节奏;
+> 每个子版本独立可发布;优先复用已有能力(prompt-templates / cinema 组件 / pacing / consistency-policy),
+> 避免一次性大翻新。
+
+---
+
 ## 6. 技术债清单(待清理)
 
 | 隐患 | 位置 | 优先级 | Sprint |

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import {
   LayoutDashboard, FolderKanban, Sparkles, BookOpen, User,
-  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText, Palette, UsersRound, Activity,
+  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText, Palette, UsersRound, Activity, Zap,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -13,6 +13,8 @@ const navItems = [
   { href: '/dashboard', label: '创作总览', icon: LayoutDashboard },
   { href: '/dashboard/projects', label: '我的项目', icon: FolderKanban },
   { href: '/dashboard/create', label: '创作工坊', icon: Sparkles },
+  // v7.6: 15s 短视频极速分镜台 (对标 CineSpark) — 三幕结构化分镜 + 运镜词库
+  { href: '/dashboard/short-video', label: '极速分镜台', icon: Zap },
   // v6.2.1: 长篇小说/剧本 → 自动分集 + 叙事模式 → 逐集送入创作
   { href: '/dashboard/story-intake', label: '长篇拆解', icon: ScrollText },
   // v2.11: 独立剧本润色工具 — 不走完整 Agent 管线, 纯文本润色
