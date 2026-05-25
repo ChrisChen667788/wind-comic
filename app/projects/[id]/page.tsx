@@ -27,6 +27,8 @@ import { ReviewStatusBadge } from '@/components/project/review-status-badge';
 import { CinemaTimeline } from '@/components/project/cinema-timeline';
 import { VisionAuditTab } from '@/components/project/vision-audit-tab';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
+import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
+import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -57,6 +59,9 @@ export default function ProjectDetailPage() {
   // Sprint A.4 批量重生进行中标记
   const [batchRetrying, setBatchRetrying] = useState(false);
   const [batchRetryMsg, setBatchRetryMsg] = useState<string>('');
+  // v7.2 单镜头摄影台: 当前打开的分镜 + 本地已保存机位覆盖 (省一次全量刷新)
+  const [cinemaShot, setCinemaShot] = useState<{ shotNumber: number; title?: string; spec: ShotSpec } | null>(null);
+  const [specOverrides, setSpecOverrides] = useState<Record<number, ShotSpec>>({});
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -562,6 +567,25 @@ export default function ProjectDetailPage() {
                         <p className="cinema-subhead text-[11px] line-clamp-2 opacity-85 leading-snug">
                           {sb.data?.description?.slice(0, 60) || '——'}
                         </p>
+                        {/* v7.2 单镜头摄影台 — 机位摘要 chip + 入口 */}
+                        {(() => {
+                          const curSpec: ShotSpec =
+                            specOverrides[sb.shotNumber]
+                            || (sb.data?.cameraSpec ? normalizeShotSpec(sb.data.cameraSpec) : seedSpecFromCameraAngle(sb.data?.cameraAngle));
+                          const hasSaved = !!specOverrides[sb.shotNumber] || !!sb.data?.cameraSpec;
+                          return (
+                            <button
+                              onClick={() => setCinemaShot({ shotNumber: sb.shotNumber, title: sb.data?.description?.slice(0, 60), spec: curSpec })}
+                              title="单镜头摄影台 — 景别/机位/镜头/运镜/焦点/氛围"
+                              className="mt-1.5 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--border)] hover:border-[var(--primary)] transition group/cine"
+                            >
+                              <Clapperboard size={11} className={hasSaved ? 'text-[var(--primary)]' : 'text-[var(--muted)]'} />
+                              <span className="cinema-mono text-[9px] truncate opacity-75 group-hover/cine:opacity-100">
+                                {describeShotSpec(curSpec)}
+                              </span>
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
@@ -802,6 +826,18 @@ export default function ProjectDetailPage() {
       {/* AI 助手浮动入口 + 侧栏 (alt+/ 也可呼出) */}
       <ChatLauncherButton open={chatOpen} onClick={() => setChatOpen(true)} />
       <ProjectChatSidebar projectId={id} open={chatOpen} onClose={() => setChatOpen(false)} />
+
+      {/* v7.2 单镜头摄影台弹窗 */}
+      {cinemaShot && (
+        <ShotCinematographyModal
+          projectId={id}
+          shotNumber={cinemaShot.shotNumber}
+          shotTitle={cinemaShot.title}
+          initialSpec={cinemaShot.spec}
+          onClose={() => setCinemaShot(null)}
+          onSaved={(spec) => setSpecOverrides((m) => ({ ...m, [cinemaShot.shotNumber]: spec }))}
+        />
+      )}
     </div>
   );
 }
