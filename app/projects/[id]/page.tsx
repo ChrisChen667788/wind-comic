@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
   Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle, BarChart3,
-  Clapperboard, ScanEye, MonitorPlay,
+  Clapperboard, ScanEye, MonitorPlay, Link2,
 } from 'lucide-react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { DirectorConsole } from '@/components/director-console';
@@ -29,6 +29,7 @@ import { VisionAuditTab } from '@/components/project/vision-audit-tab';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
+import { ContinuityConsole } from '@/components/project/continuity-console';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -199,6 +200,8 @@ export default function ProjectDetailPage() {
     { key: 'characters', label: '角色', icon: Users, count: characters.length },
     { key: 'scenes', label: '场景', icon: Mountain, count: scenes.length },
     { key: 'storyboard', label: '分镜', icon: Film, count: storyboards.length },
+    // v7.3: 连贯性 + 种子锁控制台 (对标 Continuity Pro)
+    { key: 'continuity', label: '连贯性', icon: Link2, count: 0 },
     { key: 'videos', label: '视频', icon: Video, count: videos.length },
     // v2.16 P1.4: 镜头工坊 — 4K 重渲 / 首尾帧 / 多分辨率导出 集中入口
     { key: 'workshop', label: '镜头工坊', icon: Scissors, count: videos.length },
@@ -592,6 +595,17 @@ export default function ProjectDetailPage() {
                 })}
               </div>
             </div>
+          )}
+
+          {/* v7.3 连贯性 + 种子锁控制台 */}
+          {activeTab === 'continuity' && (
+            <ContinuityConsole
+              projectId={id}
+              characters={characters}
+              scenes={scenes}
+              storyboards={storyboards}
+              initialSettings={assets.find((a: any) => a.type === 'continuity')?.data}
+            />
           )}
 
           {/* 视频 */}

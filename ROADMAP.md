@@ -1815,7 +1815,7 @@ npm test
   - `components/project/shot-cinematography-panel.tsx`(受控:分段按钮 CU/MS/LS/ELS + 镜头/运镜下拉 + 焦点分段 + 氛围 chips + 运动滑块)+ `shot-cinematography-modal.tsx`(实时编译预览 + 复制 + 保存)
   - `POST /api/projects/[id]/shot-spec` 落进 storyboard 资产 `data.cameraSpec`(asset-repo updateAsset 双驱动);项目页"分镜"tab 每卡加机位摘要 chip + 摄影台入口;dev 实测 保存→DB持久化 / 400·404 边界 / 页面 200 全通过
   - (光影色温/摄影机机身模拟留 v7.4 深化)
-- **v7.3 · 连贯性控制台 + 种子锁**(对标 Continuity Pro):种子锁(主/辅 + 锁定/刷新)+ 链接模式(硬切/匹配切/参考上帧)+ 连贯性强度滑块 + 服装/光照锁 + FaceID 强度档;串进 consistency-policy + 生成 prompt
+- **v7.3 · 连贯性控制台 + 种子锁** ✅ 2026-05-25(对标 Continuity Pro):`lib/continuity`(种子锁/链接模式/强度/服装·光照锁/FaceID 强度 + `compileContinuityDirectives` 逐镜生成指令 + `computeContinuityTags` + `seedForShot`,19 单测)+ `GET/POST /api/projects/[id]/continuity`(upsert project_assets)+ `components/project/continuity-console`(视觉基因库 + 连贯性控制台 + 分镜连贯性 chips);项目页"连贯性"tab。dev 实测 GET/POST/回读/DB 持久化全通过。(下一步可把 directives 串进逐镜重生成 prompt)
 - **v7.4 · 结构化光影 + 摄影机/镜头模拟 + 项目级格式预设**(对标 CineFlow Suite):光影面板(主/补/背/重点光 + 色温 + 氛围)+ 机型/镜头/T-stop/ISO/ND/WB + 项目级 IMAX/Scope/ACES/fps/安全框
 - **v7.5 · 情感曲线 + 节奏热力图 + 构图引导**(对标 CineMatrix):`lib` 从分镜情绪标签算情感曲线 + 多轨热力图;构图叠层(三分法/头部/视线)+ 运镜路径 mini-viz
 - **v7.6 · 15s 短视频极速模式** ✅ 2026-05-25(独立工作台,对标 CineSpark,**阶段九首发**):`lib/short-video`(三幕布局 + 运镜词库 + 节奏模板 + prompt 编译 + LLM 解析,15 单测)+ `POST /api/short-video/plan`(快档 flash 实测 7.4s)+ `/dashboard/short-video` 三栏驾驶舱(运镜词库 / 三幕色彩时间轴 + 分镜表 / 参数面板 + 节奏环 + 一键去创作 + 导出);改运镜/景别即时重编译 prompt。先落"驾驶舱"设计语言,后续 v7.2-v8.0 复用
