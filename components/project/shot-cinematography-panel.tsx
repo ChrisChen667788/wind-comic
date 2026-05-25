@@ -11,7 +11,9 @@
 
 import {
   SHOT_SIZES, CAMERA_ANGLES, LENS_PRESETS, MOVEMENTS, FOCUS_PRESETS, ATMOSPHERES,
-  type ShotSpec, type Preset,
+  LIGHTING_SETUPS, CONTRAST_LEVELS, COLOR_TEMPS, CAMERA_BODIES, LENS_SERIES,
+  T_STOPS, ISO_OPTIONS, ND_OPTIONS, WB_PRESETS,
+  type ShotSpec, type Preset, type LightingSpec, type CameraSimSpec,
 } from '@/lib/cinematography';
 
 function SegGroup<T extends string>({ list, value, onPick, title }: {
@@ -46,6 +48,8 @@ export function ShotCinematographyPanel({ value, onChange }: {
   onChange: (next: ShotSpec) => void;
 }) {
   const set = (patch: Partial<ShotSpec>) => onChange({ ...value, ...patch });
+  const setLight = (patch: Partial<LightingSpec>) => onChange({ ...value, lighting: { ...value.lighting, ...patch } });
+  const setCam = (patch: Partial<CameraSimSpec>) => onChange({ ...value, camera: { ...value.camera, ...patch } });
 
   return (
     <div className="flex flex-col gap-3">
@@ -99,6 +103,79 @@ export function ShotCinematographyPanel({ value, onChange }: {
           className="w-full accent-[var(--primary)]"
         />
       </div>
+
+      {/* v7.4 光影设计 + 摄影机/镜头模拟 (折叠, 高级) */}
+      <details className="rounded-lg border border-[var(--border)] p-2.5 [&_summary]:cursor-pointer">
+        <summary className="cinema-eyebrow !mb-0 select-none">光影 + 摄影机模拟 · 高级</summary>
+        <div className="flex flex-col gap-3 mt-3">
+          {/* 光影 */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2">
+              <div className="cinema-eyebrow mb-1">光影 LIGHTING</div>
+              <select className="cinema-input !py-1.5 !text-[11px] w-full" value={value.lighting.setup}
+                onChange={(e) => setLight({ setup: e.target.value as any })}>
+                {LIGHTING_SETUPS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="cinema-eyebrow mb-1">色温 K</div>
+              <select className="cinema-input !py-1.5 !text-[11px] w-full" value={value.lighting.keyTempK}
+                onChange={(e) => setLight({ keyTempK: Number(e.target.value) })}>
+                {COLOR_TEMPS.map((c) => <option key={c.k} value={c.k}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="cinema-eyebrow mb-1">反差</div>
+              <div className="flex gap-0.5">
+                {CONTRAST_LEVELS.map((c) => (
+                  <button key={c.id} type="button" onClick={() => setLight({ contrast: c.id })}
+                    className={`flex-1 cinema-mono text-[10px] py-1.5 rounded border transition ${value.lighting.contrast === c.id ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary-muted)]' : 'border-[var(--border)] text-[var(--muted)]'}`}>
+                    {c.label.replace('反差', '')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 摄影机 / 镜头 */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className="cinema-eyebrow mb-1">机身 BODY</div>
+              <select className="cinema-input !py-1.5 !text-[11px] w-full" value={value.camera.body} onChange={(e) => setCam({ body: e.target.value as any })}>
+                {CAMERA_BODIES.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="cinema-eyebrow mb-1">镜头系列 LENS</div>
+              <select className="cinema-input !py-1.5 !text-[11px] w-full" value={value.camera.lensSeries} onChange={(e) => setCam({ lensSeries: e.target.value as any })}>
+                {LENS_SERIES.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 col-span-2 gap-2">
+              <label className="cinema-mono text-[10px] opacity-70">T-Stop
+                <select className="cinema-input !py-1 !text-[11px] w-full mt-0.5" value={value.camera.tStop} onChange={(e) => setCam({ tStop: Number(e.target.value) })}>
+                  {T_STOPS.map((t) => <option key={t} value={t}>T{t}</option>)}
+                </select>
+              </label>
+              <label className="cinema-mono text-[10px] opacity-70">ISO
+                <select className="cinema-input !py-1 !text-[11px] w-full mt-0.5" value={value.camera.iso} onChange={(e) => setCam({ iso: Number(e.target.value) })}>
+                  {ISO_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+                </select>
+              </label>
+              <label className="cinema-mono text-[10px] opacity-70">ND
+                <select className="cinema-input !py-1 !text-[11px] w-full mt-0.5" value={value.camera.nd} onChange={(e) => setCam({ nd: e.target.value })}>
+                  {ND_OPTIONS.map((n) => <option key={n} value={n}>{n === 'none' ? '无' : n}</option>)}
+                </select>
+              </label>
+              <label className="cinema-mono text-[10px] opacity-70">白平衡 WB
+                <select className="cinema-input !py-1 !text-[11px] w-full mt-0.5" value={value.camera.wb} onChange={(e) => setCam({ wb: Number(e.target.value) })}>
+                  {WB_PRESETS.map((w) => <option key={w} value={w}>{w}K</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

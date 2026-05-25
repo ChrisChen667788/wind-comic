@@ -30,6 +30,7 @@ import { InviteProjectButton } from '@/components/project/invite-project-button'
 import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
+import { ProjectFormatBar } from '@/components/project/project-format-bar';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -505,6 +506,8 @@ export default function ProjectDetailPage() {
           {/* 分镜 */}
           {activeTab === 'storyboard' && (
             <div>
+              {/* v7.4 项目级格式条 (画幅/色彩/帧率/安全框) */}
+              <ProjectFormatBar projectId={id} initialFormat={assets.find((a: any) => a.type === 'project-format')?.data} />
               {/* Sprint A.4 · 顶部 Cameo 一致性汇总条 + 批量重生按钮 */}
               <CameoSummary
                 storyboards={storyboards}
