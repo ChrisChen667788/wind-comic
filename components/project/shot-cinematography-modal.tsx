@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { X, Copy, Check, Save, Loader2, Clapperboard } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ShotCinematographyPanel } from './shot-cinematography-panel';
+import { CompositionGuide } from './composition-guide';
 import {
   compileShotSpecToPrompt, describeShotSpec, normalizeShotSpec, type ShotSpec,
 } from '@/lib/cinematography';
@@ -69,6 +70,11 @@ export function ShotCinematographyModal({
         {shotTitle && <p className="text-xs text-[var(--muted)] -mt-2 mb-1 line-clamp-1">{shotTitle}</p>}
 
         <ShotCinematographyPanel value={spec} onChange={setSpec} />
+
+        {/* v7.5 构图引导 + 运镜路径 (随景别/机位/运镜实时更新) */}
+        <div className="mt-3 pt-3 border-t border-[var(--border)]">
+          <CompositionGuide shotSize={spec.shotSize} angle={spec.angle} movement={spec.movement} />
+        </div>
 
         {/* 中文摘要 + 编译后的英文 prompt 片段 */}
         <div className="mt-3 pt-3 border-t border-[var(--border)]">

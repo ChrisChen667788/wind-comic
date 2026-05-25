@@ -31,6 +31,8 @@ import { ShotCinematographyModal } from '@/components/project/shot-cinematograph
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
 import { ProjectFormatBar } from '@/components/project/project-format-bar';
+import { EmotionRhythmChart } from '@/components/project/emotion-rhythm-chart';
+import { computeEmotionCurve } from '@/lib/emotion-curve';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -671,16 +673,35 @@ export default function ProjectDetailPage() {
 
           {/* v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议 */}
           {activeTab === 'pacing' && (
-            <PacingChart
-              report={script?.pacingReport || null}
-              dialogueCoverage={script?.dialogueCoverageReport || null}
-              styleAuditShots={storyboards.map((sb: any) => ({
-                shotNumber: sb.shotNumber || sb.shot_number,
-                styleAuditScore: sb.styleAuditScore ?? sb.data?.styleAuditScore,
-                styleAuditRetried: sb.styleAuditRetried ?? sb.data?.styleAuditRetried,
-                styleAuditReason: sb.styleAuditReason ?? sb.data?.styleAuditReason,
-              }))}
-            />
+            <div className="flex flex-col gap-4">
+              {/* v7.5 情感曲线 + 多轨节奏热力图 */}
+              <EmotionRhythmChart
+                curve={computeEmotionCurve(
+                  (script?.shots || []).map((sh: any, i: number) => {
+                    const sb = storyboards.find((b: any) => (b.shotNumber ?? b.shot_number) === (sh.shotNumber ?? i + 1));
+                    const cs = sb?.data?.cameraSpec;
+                    return {
+                      emotion: sh.emotion,
+                      durationS: sh.duration ?? sb?.data?.duration ?? 5,
+                      motion: cs?.motion,
+                      conflict: script?.pacingReport?.shots?.[i]?.conflictScore,
+                      lightingSetup: cs?.lighting?.setup,
+                      atmosphere: cs?.atmosphere,
+                    };
+                  }),
+                )}
+              />
+              <PacingChart
+                report={script?.pacingReport || null}
+                dialogueCoverage={script?.dialogueCoverageReport || null}
+                styleAuditShots={storyboards.map((sb: any) => ({
+                  shotNumber: sb.shotNumber || sb.shot_number,
+                  styleAuditScore: sb.styleAuditScore ?? sb.data?.styleAuditScore,
+                  styleAuditRetried: sb.styleAuditRetried ?? sb.data?.styleAuditRetried,
+                  styleAuditReason: sb.styleAuditReason ?? sb.data?.styleAuditReason,
+                }))}
+              />
+            </div>
           )}
 
           {/* v3.4.1: 成片质检 — Vision 看画面对不对得上剧本 */}
