@@ -2,18 +2,22 @@
   <img src="assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v6.7</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v7.0</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
   Multi-agent AI studio · reusable characters · novel→season splitting · director's control room · real-time collab · bring-your-own LLM.
+</p>
+<p align="center">
+  <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙。</b><br/>
+  多 Agent AI 创作工作室 · 可复用角色 · 长篇小说→自动分集 · 导演级控片台 · 实时协作 · 自带 LLM。
 </p>
 
 <p align="center">
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-1708%2F1708-2ea44f" alt="1708 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-1711%2F1711-2ea44f" alt="1711 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -64,6 +68,9 @@ It works because it doesn't try to be one giant model. It's an **honest multi-ag
 | **v6.5 · Team Workspace** | Owner-managed credit pool, per-member allocations + RBAC, **real multi-user invites** (token links), per-member consumption metering. |
 | **v6.6 · Postgres-ready** | Full SQLite→Postgres cutover path, **verified end-to-end on a local Postgres** (schema bootstrap + async-repo round-trip, idempotent migrate). |
 | **v6.7 · API Health Board** | One screen to see which gateway is healthy / **out-of-credits** / misconfigured — with live balance read-out, so you never hit a dead generation mid-flow again. |
+| **v6.8 · Strongest models** | Primary LLM/video/image repointed to top-tier models (`veo3.1-pro`, etc.) and fixed a video-stage `429 upstream-saturated` error by rerouting the gateway. |
+| **v6.9 · Gateway gap-fill** | A supplement gateway backfills TTS / Midjourney / Kling; real voiceover via `gpt-4o-mini-tts`; per-gateway **usage + balance** on the health board. |
+| **v7.0 · DeepSeek + universal fallback** | Writer/Director run on DeepSeek's strongest **`deepseek-v4-pro`**; every LLM call auto-falls back to **MiniMax** on any error / out-of-credits / timeout. 3-tier LLM health on the board. |
 
 ### 🎬 Director Console — the whole film as one control room *(v6.4)*
 Every stage at a glance — what's ready, what's gone stale because you changed something upstream, and a one-click rerun that knows exactly which downstream stages it invalidates.
@@ -138,7 +145,7 @@ After Writer finishes, we score each shot 0-10 on a Chinese-conflict-word dictio
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **1708 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **1711 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -294,7 +301,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 1708/1708 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 1711/1711 must stay green. Add tests for new lib/service files.
 
 See [`CLAUDE.md`](CLAUDE.md) for the repo's "house style" + agent design notes.
 

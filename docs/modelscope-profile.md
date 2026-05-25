@@ -7,7 +7,7 @@
 ## 〇. v6 产品介绍页 (ModelScope「介绍」可直接粘贴 · 图片走 GitHub raw 绝对链)
 
 > **Wind Comic 🌬️ 风之漫剧 —— 一句话进,整片短剧出。**
-> 不是再给你一个 5 秒片段,而是一条**诚实的多 Agent 流水线** + 一个**生产级创作工作室**:剧本 → 角色 → 分镜 → 配音 → 多轨时间线 → 成片 mp4,全部从同一句创意开始。MIT 开源,**1708 单测全过**,所有功能都在 `main` 里跑得起来,不是 PPT。
+> 不是再给你一个 5 秒片段,而是一条**诚实的多 Agent 流水线** + 一个**生产级创作工作室**:剧本 → 角色 → 分镜 → 配音 → 多轨时间线 → 成片 mp4,全部从同一句创意开始。MIT 开源,**1711 单测全过**,所有功能都在 `main` 里跑得起来,不是 PPT。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 巡览" width="100%" />
@@ -34,18 +34,38 @@
 </tr>
 </table>
 
-**技术栈 · 网关路由(v6.8/v6.9)**:每个模型调用 provider 可插拔(优先级链 + 自动 fallback),主网关跑最强模型、补全网关补能力、MiniMax 永远兜底 ——
+**技术栈 · 网关路由(v6.8–v7.0)**:每个模型调用 provider 可插拔(优先级链 + 自动 fallback),**MiniMax 全局兜底**(任何异常/欠费/超时自动路由)——
 
-| 能力 | 主(最强) | 补全 | 兜底 |
+| 能力 | 主(最强) | 补全 | 全局兜底 |
 |---|---|---|---|
-| LLM | `claude-opus-4-7` / `claude-sonnet-4-6` | — | MiniMax |
+| LLM 创意(编剧/导演) | `deepseek-v4-pro` | — | **MiniMax-M2.7** |
+| LLM 通用 | `claude-sonnet-4-6` | — | **MiniMax-M2.7** |
 | 视频 | `veo3.1-pro` | Kling | MiniMax Hailuo |
 | 图像 | `flux-2-pro` | Midjourney | MiniMax image-01 |
 | 配音 | `gpt-4o-mini-tts` | — | MiniMax T2A |
 
 > 框架 Next.js 16 + React 19 + Tailwind v4 · SQLite/Postgres 双驱动 · Yjs 实时协作 · 4 语言 i18n · 内置 API 健康看板(各网关用量/余额/欠费一屏看清) · 1711 单测全过
 
-> 🔗 GitHub(完整代码 + 文档 + 截图):**github.com/ChrisChen667788/wind-comic** · 🪪 MIT · ⭐ 觉得有用点个 Star
+---
+
+### English
+
+> **Wind Comic 🌬️ — one sentence in, a finished short-form drama out.**
+> Not another 5-second clip — an **honest multi-agent pipeline** + a **production-grade studio**: script → cast → storyboards → voiceover → multi-track timeline → final mp4, all from one idea. MIT open-source, **1711 tests passing**, every feature live in `main` (no slideware).
+
+**v6 turned it from a runnable demo into a usable studio —**
+
+- 🎭 **Character Studio** — multi-view turnaround sheets + 8-field DNA lock + auto-bound voice, reusable across projects
+- 📖 **Novel → season + real voiceover** — paste a whole novel, auto-split by chapter, pick a narration mode, render real TTS narration + burned subtitles for the whole season in parallel
+- 🎬 **Director Console** — 4-stage pipeline at a glance, stale detection + one-click single-stage rerun + downstream-impact analysis
+- 🎨 **Style Gallery** — 60 cinematic presets, one-click apply
+- 👥 **Team Workspace** — credit pool + per-member allocation + RBAC + real multi-user invites
+- 🩺 **API Health Board** — see every gateway healthy / out-of-credits / misconfigured at a glance, with live balance
+- 🔌 **BYO LLM + universal fallback** — swap any OpenAI-compatible model in 3 env lines; **DeepSeek `deepseek-v4-pro`** drives Writer/Director, with **MiniMax** as the global fallback on any error/out-of-credits
+
+> Stack: Next.js 16 + React 19 + Tailwind v4 · SQLite/Postgres dual-driver · Yjs realtime collab · 4-language i18n · built-in API health board · 1711 tests passing
+
+> 🔗 GitHub (full code + docs + screenshots): **github.com/ChrisChen667788/wind-comic** · 🪪 MIT · ⭐ Star it if it helps
 
 ---
 
@@ -55,23 +75,23 @@
 
 > **Wind Comic 🌬️ — 开源多 Agent AI 漫剧 / 短剧流水线作者**
 >
-> 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 + 锁画风 + 中文字幕真烧入 + Logic Pro 风时间线 + 实时多人协作 + 接你自己的 LLM. MIT 开源, 1708 单测全过.
+> 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 + 锁画风 + 中文字幕真烧入 + Logic Pro 风时间线 + 实时多人协作 + 接你自己的 LLM. MIT 开源, 1711 单测全过.
 >
 > 🔗 GitHub: github.com/ChrisChen667788/wind-comic
 > 🎬 适合: 竖屏短剧创作者 · 内容营销团队 · 漫画/漫剧工作室 · 独立电影人 · AI 开源开发者
 >
-> 持续迭代中, 已发布到 v6.7.
+> 持续迭代中, 已发布到 v7.0.
 
 ### English version
 
 > **Wind Comic 🌬️ — Author of the open-source multi-agent AI short-drama pipeline**
 >
-> One sentence in. Finished short drama out. 8-agent pipeline · character DNA lock · style bible · real CJK subtitles · Logic Pro-style timeline · real-time multiplayer · BYO LLM. MIT licensed. 1708 tests passing.
+> One sentence in. Finished short drama out. 8-agent pipeline · character DNA lock · style bible · real CJK subtitles · Logic Pro-style timeline · real-time multiplayer · BYO LLM. MIT licensed. 1711 tests passing.
 >
 > 🔗 GitHub: github.com/ChrisChen667788/wind-comic
 > 🎬 Built for: vertical-drama creators · content marketing teams · comic/manhua studios · indie filmmakers · open-source builders
 >
-> Current release: v6.7 (continuously shipping).
+> Current release: v7.0 (continuously shipping).
 
 ---
 
@@ -126,7 +146,7 @@
 - **我们是: 多 Agent + 开源 + 中文优先 + 自部署 + 你自己的 LLM + 实时协作**
 
 **为什么相信我们**:
-- 1708 个单测全过
+- 1711 个单测全过
 - TypeScript 严格模式
 - 21 个 sprint 迭代 (v2.0 → v3.1.3)
 - 完整 changelog 见 ROADMAP.md
@@ -163,7 +183,7 @@ Repo: github.com/ChrisChen667788/wind-comic
 
 **vs Competitors**: Sora 2 (one model) · Kling (no subtitle burn) · Vidu (CJK garbled) · Higgsfield (closed + $30/mo) · Runway Gen-4 (weak Chinese) → **We are multi-agent + open + Chinese-first + self-host + your LLM + real-time collab**.
 
-**Trust signals**: 1708 vitest tests · TypeScript strict · 21 sprints (v2.0 → v3.1.3) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
+**Trust signals**: 1711 vitest tests · TypeScript strict · 21 sprints (v2.0 → v3.1.3) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
 
 ---
 
@@ -263,7 +283,7 @@ Wind Comic 走相反路线: **流水线 + 多 Agent + 严格契约**. 每个 age
 - LLM 接入文档: `docs/llm-providers.md`
 - 竞品对照: `docs/COMPETITIVE-GAP-2026-05.md`
 
-⭐ MIT 开源, 1708 单测, 持续迭代中.
+⭐ MIT 开源, 1711 单测, 持续迭代中.
 
 ### English version
 
@@ -311,7 +331,7 @@ Wind Comic takes the opposite approach: **pipeline + multi-agent + strict contra
 - LLM swap docs: `docs/llm-providers.md`
 - Competitive self-audit: `docs/COMPETITIVE-GAP-2026-05.md`
 
-⭐ MIT licensed. 1708 tests passing. Shipping continuously.
+⭐ MIT licensed. 1711 tests passing. Shipping continuously.
 
 ---
 
