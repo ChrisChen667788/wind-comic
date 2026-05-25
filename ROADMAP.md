@@ -1719,6 +1719,13 @@ npm test
   - dev 实测:健康看板 minimax-tts → **ok「已配置可用」**,整体 **healthy**;MiniMax 全流程兜底真正闭环
   - tsc 0;全量 1712/1712
 
+- [x] **v7.0.2 · MiniMax 视频:标准版额度用尽自动转 Fast 版** ✅ 2026-05-25
+  - MiniMax 标准版 768P/6s 与 Fast 版 768P/6s **各有独立日额度(各 2/天)**。`minimax.service.generateVideo`
+    在标准版额度用尽时(`isMinimaxVideoQuotaError`:2056/usage limit/额度/quota 等)**自动路由到
+    `generateVideoFast`(独立额度)**,Fast 也满才抛错落下一引擎;`_noFastFallback` 防重入
+  - `isMinimaxVideoQuotaError` 纯函数导出 + 2 单测;视频 provider 透明受益(无需改动)
+  - tsc 0;全量 1714/1714
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。

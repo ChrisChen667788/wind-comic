@@ -86,6 +86,15 @@ function _trackMinimaxError(error: unknown, model: string, method: string): void
   });
 }
 
+/**
+ * v7.0.2: 判断是否「标准版视频日额度用尽」类错误 — 用于自动路由到 Fast 版(独立额度).
+ * MiniMax 额度耗尽常见 status_code 2056「usage limit reached」, 也兜各种 quota/额度 文案.
+ * 纯函数, 可单测.
+ */
+export function isMinimaxVideoQuotaError(message: string): boolean {
+  return /\b2056\b|\b1008\b|usage limit|limit reached|insufficient|quota|exceeded|额度|用尽|超出|余额/i.test(message || '');
+}
+
 export class MinimaxService {
   private apiKey: string;
   private baseURL: string;
@@ -136,6 +145,8 @@ export class MinimaxService {
     referenceImages?: string[];
     /** 内部重试用,勿传 */
     _retryCount?: number;
+    /** v7.0.2: 内部用 — 已尝试过 Fast 兜底, 防重入 */
+    _noFastFallback?: boolean;
   }): Promise<string> {
     // 快速失败:聚合网关上 Minimax 视频路径不存在,直接抛错让 orchestrator 跳到下一引擎
     if (!this.videoEndpointAvailable) {
@@ -239,6 +250,17 @@ export class MinimaxService {
       if (isSensitiveContentError(error) && retryCount === 0) {
         console.warn('[Minimax] video sensitive content caught — retrying sanitized');
         return await this.generateVideo(imageUrl, prompt, { ...options, _retryCount: 1 });
+      }
+      // v7.0.2: 标准版日额度用尽 (2/天) → 自动路由到 Fast 版 (768P/6s, 独立 2/天 额度).
+      // 覆盖 base_resp 业务错误 (如 2056 usage limit) 与 HTTP 层配额错误两种来源.
+      const emsg = error instanceof Error ? error.message : String(error);
+      if (!options?._noFastFallback && isMinimaxVideoQuotaError(emsg)) {
+        console.warn(`[Minimax] 标准版视频额度用尽 — 自动路由到 Fast 版 (独立额度): ${emsg.slice(0, 80)}`);
+        try {
+          return await this.generateVideoFast(prompt, { duration: options?.duration });
+        } catch (fastErr) {
+          console.warn('[Minimax] Fast 版兜底也失败:', fastErr instanceof Error ? fastErr.message : fastErr);
+        }
       }
       console.error('[Minimax] Video generation error:', error);
       _trackMinimaxError(error, 'video', 'generateVideo');
