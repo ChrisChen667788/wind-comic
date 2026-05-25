@@ -42,13 +42,12 @@ async function probeMinimaxTTS(): Promise<ProviderHealth> {
   const base = { id: 'minimax-tts', label: 'MiniMax TTS (兜底·主走 vectorengine)', kind: 'tts' as ProviderKind, baseUrl: process.env.MINIMAX_BASE_URL };
   const key = process.env.MINIMAX_API_KEY;
   if (isPlaceholder(key)) return { ...base, status: 'not_configured', detail: '未设置 MINIMAX_API_KEY' };
-  if (isPlaceholder(process.env.MINIMAX_GROUP_ID)) {
-    return { ...base, status: 'misconfigured', detail: 'MINIMAX_GROUP_ID 未设置 (控制台获取后填入)' };
-  }
+  // v7.0.1: 新 sk-cp- key 走 t2a_v2 无需 GroupId; 用账户 plan 支持的模型 (speech-02-hd)
   const t0 = Date.now();
-  const r = await timedFetch(`${process.env.MINIMAX_BASE_URL || 'https://api.minimaxi.com'}/v1/t2a_v2?GroupId=${process.env.MINIMAX_GROUP_ID}`, {
+  const ttsModel = process.env.MINIMAX_TTS_MODEL || 'speech-02-hd';
+  const r = await timedFetch(`${process.env.MINIMAX_BASE_URL || 'https://api.minimaxi.com'}/v1/t2a_v2`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: 'speech-2.5-hd-preview', text: '测试', stream: false, voice_setting: { voice_id: 'male-qn-qingse', speed: 1, vol: 1, pitch: 0 }, audio_setting: { format: 'mp3' } }),
+    body: JSON.stringify({ model: ttsModel, text: '测试', stream: false, voice_setting: { voice_id: 'male-qn-qingse', speed: 1, vol: 1, pitch: 0 }, audio_setting: { format: 'mp3' } }),
   });
   const j = tryJson(r.body);
   const cls = j?.base_resp ? classifyMinimax(j.base_resp) : classifyHttp(r);

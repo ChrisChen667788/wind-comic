@@ -80,6 +80,10 @@ export function classifyMinimax(baseResp: { status_code?: number; status_msg?: s
   const msg = baseResp.status_msg || '';
   if (code === 0) return { status: 'ok', detail: '正常' };
   if (code === 1008 || code === 2054) return { status: 'out_of_credits', detail: `${code} ${msg}` };
+  // v7.0.1: 2056 = 临时限流窗口 (鉴权+模型都有效, 稍后自动恢复) → 视为已配置可用, 不算欠费
+  if (code === 2056 || /usage limit reached|rate limit|5-hour|限流/i.test(msg)) {
+    return { status: 'ok', detail: `已配置可用 · 当前限流窗口稍后恢复` };
+  }
   if (code === 1004) {
     return /group/i.test(msg)
       ? { status: 'misconfigured', detail: `${code} ${msg} (GroupId 不匹配)` }

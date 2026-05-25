@@ -130,9 +130,9 @@ export class TTSService {
     const voiceId = options?.voiceId || DEFAULT_VOICES.narrator_male;
     const profile = VOICE_PROFILES[voiceId] || VOICE_PROFILES[DEFAULT_VOICES.narrator_male];
 
-    // v2.12 Sprint C.4: 与 minimax.service.ts 对齐 — 默认 speech-2.8-hd, 可被 env 覆盖
+    // v7.0.1: 默认 speech-02-hd (实测各 Token Plan 普遍支持; t2a_v2 无需 GroupId), 可被 MINIMAX_TTS_MODEL 覆盖
     const body: Record<string, any> = {
-      model: process.env.MINIMAX_TTS_MODEL || 'speech-2.8-hd',
+      model: process.env.MINIMAX_TTS_MODEL || 'speech-02-hd',
       text,
       voice_setting: {
         voice_id: voiceId,

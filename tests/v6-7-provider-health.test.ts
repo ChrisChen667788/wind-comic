@@ -51,6 +51,9 @@ describe('v6.7 · classifyMinimax', () => {
   it('1004 其他 → 鉴权失败', () => {
     expect(classifyMinimax({ status_code: 1004, status_msg: 'invalid api key' }).status).toBe('auth_error');
   });
+  it('2056 临时限流窗口 → 已配置可用 (ok), 不算欠费', () => {
+    expect(classifyMinimax({ status_code: 2056, status_msg: 'usage limit exceeded, 5-hour usage limit reached' }).status).toBe('ok');
+  });
   it('无 base_resp → 不可达', () => expect(classifyMinimax(null).status).toBe('down'));
 });
 

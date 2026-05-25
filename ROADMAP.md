@@ -1711,6 +1711,14 @@ npm test
   - 健康看板拆 3 条 LLM 线:通用(claude)/ 创意(deepseek-v4-pro)/ MiniMax 兜底 —— **dev 实测三条全 ok**
   - tsc 0;全量 1711/1711
 
+- [x] **v7.0.1 · MiniMax 语音兜底打通(配音不再缺失)** ✅ 2026-05-25
+  - 据用户 Token Plan(语音合成 184/11000 在用)核实:新 sk-cp- key **支持 TTS,且 `t2a_v2` 无需 GroupId**;
+    之前失败仅因模型名错(`speech-2.5-hd-preview` → 2061)。改 `MINIMAX_TTS_MODEL=speech-02-hd`(实测支持)
+  - `tts.service` 默认模型 → `speech-02-hd`;健康看板 minimax-tts 探针**去掉 GroupId 硬性要求** + 用支持的模型
+  - `classifyMinimax` 加 `2056`(5 小时限流窗口)→ 判「已配置可用·稍后恢复」(非欠费/非配置缺失),+1 单测
+  - dev 实测:健康看板 minimax-tts → **ok「已配置可用」**,整体 **healthy**;MiniMax 全流程兜底真正闭环
+  - tsc 0;全量 1712/1712
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。
