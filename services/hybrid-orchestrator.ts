@@ -694,9 +694,20 @@ export class HybridOrchestrator {
   // ── Claude LLM 调用（带超时和心跳）──
   // 关键修复: 使用子进程运行 LLM 调用，绕过 Next.js Turbopack 运行时的 fetch 阻塞问题
   private async callLLM(systemPrompt: string, userMessage: string, json = true, useCreativeModel = false, opts?: { maxTokens?: number; timeoutMs?: number }): Promise<string> {
-    if (!API_CONFIG.openai.apiKey) return '';
+    const cfg = API_CONFIG.openai as any;
+    // v7.0: LLM 尝试链 — 主 (创意=DeepSeek / 通用=主网关) → MiniMax 全局兜底.
+    // 任何主 LLM 异常/欠费/超时 → 自动路由到 MiniMax 继续.
+    const primaryAttempt = useCreativeModel
+      ? { baseURL: cfg.creativeBaseURL || cfg.baseURL, apiKey: cfg.creativeApiKey || cfg.apiKey, model: cfg.creativeModel || cfg.model, label: '创意·DeepSeek' }
+      : { baseURL: cfg.baseURL, apiKey: cfg.apiKey, model: cfg.model, label: '通用' };
+    const llmAttempts: Array<{ baseURL: string; apiKey: string; model: string; label: string }> = [];
+    if (primaryAttempt.apiKey) llmAttempts.push(primaryAttempt);
+    if (cfg.fallbackApiKey && (cfg.fallbackApiKey !== primaryAttempt.apiKey || cfg.fallbackModel !== primaryAttempt.model)) {
+      llmAttempts.push({ baseURL: cfg.fallbackBaseURL, apiKey: cfg.fallbackApiKey, model: cfg.fallbackModel, label: 'MiniMax兜底' });
+    }
+    if (llmAttempts.length === 0) return '';
 
-    const model = useCreativeModel ? API_CONFIG.openai.creativeModel : API_CONFIG.openai.model;
+    const model = primaryAttempt.model;
     const callId = `llm-${Date.now()}`;
     // v2.18.4: maxTokens 默认 8192 (智能升级模式).
     // v2.18.3 把默认拉到 16384 是为了不被截断, 但实测每个项目消耗翻 3-4x, 用户 quota 烧得
@@ -740,69 +751,67 @@ export class HybridOrchestrator {
         finalUser = finalUser.slice(0, 30000) + '\n\n[... 已截断 ...]';
       }
 
-      const startTime = Date.now();
-
       // ═══ 通过子进程运行 fetch（绕过 Next.js Turbopack 对长请求的阻塞）═══
       // eslint-disable-next-line turbo/no-undeclared-env-vars
       const cwd = process.cwd();
       const scriptPath = [cwd, 'scripts', 'llm-call.mjs'].join(path.sep);
-      const input = JSON.stringify({
-        baseURL: API_CONFIG.openai.baseURL,
-        apiKey: API_CONFIG.openai.apiKey,
-        model,
-        system: finalSystem,
-        user: finalUser,
-        maxTokens,
-        timeout: LLM_TIMEOUT,
-      });
 
-      const result = await new Promise<string>((resolve, reject) => {
-        const child = execFile('node', [scriptPath], {
-          timeout: LLM_TIMEOUT + 10_000, // 子进程超时比内部超时多 10s
-          maxBuffer: 10 * 1024 * 1024,    // 10MB
-          env: { ...process.env },
-        }, (err, stdout, stderr) => {
-          if (err) {
-            reject(new Error(err.killed ? 'timeout' : (err.message || String(err))));
-            return;
-          }
-          resolve(stdout);
+      // v7.0: 单次尝试 (子进程). 失败返回 {ok:false,error}, 由下面的尝试链兜底.
+      const runAttempt = (a: { baseURL: string; apiKey: string; model: string }) => new Promise<any>((resolve) => {
+        const input = JSON.stringify({
+          baseURL: a.baseURL, apiKey: a.apiKey, model: a.model,
+          system: finalSystem, user: finalUser, maxTokens, timeout: LLM_TIMEOUT,
         });
-        // 通过 stdin 传入请求数据
+        const child = execFile('node', [scriptPath], {
+          timeout: LLM_TIMEOUT + 10_000,
+          maxBuffer: 10 * 1024 * 1024,
+          env: { ...process.env },
+        }, (err, stdout) => {
+          if (err) { resolve({ ok: false, error: err.killed ? 'timeout' : (err.message || String(err)) }); return; }
+          try { resolve(JSON.parse(stdout)); } catch { resolve({ ok: false, error: '子进程输出解析失败' }); }
+        });
         child.stdin?.write(input);
         child.stdin?.end();
       });
 
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-      let parsed: any;
-      try {
-        parsed = JSON.parse(result);
-      } catch {
-        console.error(`[LLM:${callId}] ❌ 子进程输出解析失败 | ${elapsed}s | ${result.slice(0, 200)}`);
-        return '';
-      }
-
-      if (!parsed.ok) {
-        const errMsg = parsed.error || 'unknown error';
-        console.error(`[LLM:${callId}] ❌ ${errMsg} | ${elapsed}s`);
-        // v2.17 P0.2: 用量追踪 — 失败时落表 + 配额错误升级 alert
+      // 依次尝试 主 → MiniMax 兜底; 第一个成功即用.
+      let parsed: any = null;
+      let lastErr = 'no attempt';
+      let elapsed = '0';
+      for (let ai = 0; ai < llmAttempts.length; ai++) {
+        const a = llmAttempts[ai];
+        const aStart = Date.now();
+        console.log(`[LLM:${callId}] 尝试 ${ai + 1}/${llmAttempts.length} [${a.label}] model=${a.model} base=${a.baseURL}`);
+        const r = await runAttempt(a);
+        elapsed = ((Date.now() - aStart) / 1000).toFixed(1);
+        if (r && r.ok && (r.content || '').trim()) {
+          parsed = r;
+          if (ai > 0) {
+            console.log(`[LLM:${callId}] ✅ 兜底成功 [${a.label}] | ${elapsed}s`);
+            this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `主 LLM 异常,已自动兜底到 ${a.label} 继续` });
+          }
+          try {
+            const { recordApiCall } = await import('@/lib/api-usage-tracker');
+            recordApiCall({ provider: 'openai', model: a.model, method: 'chat.completions', success: true, projectId: this.projectId });
+          } catch { /* ignore */ }
+          break;
+        }
+        lastErr = (r && r.error) || 'empty';
+        console.warn(`[LLM:${callId}] ⚠️ 尝试 [${a.label}] 失败: ${lastErr} | ${elapsed}s`);
         try {
           const { recordApiCall } = await import('@/lib/api-usage-tracker');
-          recordApiCall({
-            provider: 'openai',
-            model: API_CONFIG.openai.model || 'unknown',
-            method: 'chat.completions',
-            success: false,
-            errorMessage: errMsg.slice(0, 200),
-            projectId: this.projectId,
-          });
-        } catch { /* 监控失败不阻塞业务 */ }
+          recordApiCall({ provider: 'openai', model: a.model, method: 'chat.completions', success: false, errorMessage: String(lastErr).slice(0, 200), projectId: this.projectId });
+        } catch { /* ignore */ }
+      }
+
+      if (!parsed) {
+        const errMsg = String(lastErr);
+        console.error(`[LLM:${callId}] ❌ 全部尝试失败 (主+兜底) | ${errMsg}`);
         if (errMsg.includes('insufficient_quota') || errMsg.includes('quota')) {
-          this.emit('status', { message: '⚠️ LLM API 余额不足，请充值后重试' });
-          this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: '❌ API 余额不足，无法继续创作。' });
+          this.emit('status', { message: '⚠️ LLM API 余额不足 (主+兜底均失败)' });
+          this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: '❌ LLM 余额不足,无法继续创作。' });
         } else if (errMsg === 'timeout') {
-          this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `LLM 响应超时，跳过此步骤...` });
+          this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `LLM 响应超时,跳过此步骤...` });
         } else {
           this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `LLM 出错: ${errMsg.slice(0, 80)}` });
         }

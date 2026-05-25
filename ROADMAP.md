@@ -1700,6 +1700,17 @@ npm test
     minimax-tts 卡标「兜底」;探测改用 `VECTORENGINE_*`
   - tsc 0;全量 1711/1711;dev 实测:narration TTS rendered True、健康看板 vectorengine 已用 $266·充裕
 
+- [x] **v7.0 · DeepSeek 创意主 LLM + MiniMax 全局兜底** ✅ 2026-05-25
+  - **编剧/导演 创意 LLM → DeepSeek 最强 `deepseek-v4-pro`**(独立 endpoint `api.deepseek.com`,与通用 LLM 分离);
+    通用 LLM 仍 `claude-sonnet-4-6`(主网关)
+  - **MiniMax 全局兜底**:`callLLM` 重构成尝试链(主→MiniMax),任何主 LLM 异常/欠费/超时自动路由到
+    `MiniMax-M2.7`(OpenAI 兼容 `api.minimaxi.com/v1`,新 key);config 加 `creativeBaseURL`/`creativeApiKey`/
+    `fallback{BaseURL,ApiKey,Model}`;每次尝试落 `recordApiCall`
+  - **MiniMax key 更新**(新 sk-cp-);LLM 兜底 chat 实测 200;native TTS/图像/视频 仍受该令牌 plan 限制(2061)
+    + 需 GroupId,媒体兜底位置已就位但受账号 plan 制约
+  - 健康看板拆 3 条 LLM 线:通用(claude)/ 创意(deepseek-v4-pro)/ MiniMax 兜底 —— **dev 实测三条全 ok**
+  - tsc 0;全量 1711/1711
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。

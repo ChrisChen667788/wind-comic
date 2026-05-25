@@ -25,15 +25,13 @@ async function timedFetch(url: string, opts: RequestInit = {}): Promise<{ httpSt
 function tryJson(s?: string): any { try { return s ? JSON.parse(s) : null; } catch { return null; } }
 
 /** 一个 provider 探测 — 返回 ProviderHealth, 永不回传 key. */
-async function probeMinimaxLLM(): Promise<ProviderHealth> {
-  const llmModel = process.env.OPENAI_MODEL || 'default';
-  const base = { id: 'primary-llm', label: `主 LLM · ${llmModel} (编剧/导演)`, kind: 'llm' as ProviderKind, baseUrl: process.env.OPENAI_BASE_URL };
-  const key = process.env.OPENAI_API_KEY;
-  if (isPlaceholder(key)) return { ...base, status: 'not_configured', detail: '未设置 OPENAI_API_KEY' };
+async function probeChatLLM(id: string, label: string, baseUrl: string, key: string | undefined, model: string): Promise<ProviderHealth> {
+  const base = { id, label, kind: 'llm' as ProviderKind, baseUrl };
+  if (isPlaceholder(key)) return { ...base, status: 'not_configured', detail: '未配置 key' };
   const t0 = Date.now();
-  const r = await timedFetch(`${process.env.OPENAI_BASE_URL || 'https://api.minimaxi.com/v1'}/chat/completions`, {
+  const r = await timedFetch(`${baseUrl}/chat/completions`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: process.env.OPENAI_MODEL || 'MiniMax-M2', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 }),
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 }),
   });
   const j = tryJson(r.body);
   const cls = j?.base_resp ? classifyMinimax(j.base_resp) : classifyHttp(r);
@@ -90,8 +88,16 @@ export async function GET(request: NextRequest) {
   const veBase = process.env.VECTORENGINE_BASE_URL || process.env.KELING_BASE_URL || 'https://api.vectorengine.ai';
   const veKey = process.env.VECTORENGINE_API_KEY || process.env.KELING_API_KEY || process.env.VEO_API_KEY;
 
+  // v7.0: 三条 LLM 线 —— 通用(主网关) / 创意(DeepSeek) / MiniMax 全局兜底
+  const creativeBase = process.env.CREATIVE_BASE_URL || process.env.DEEPSEEK_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.deepseek.com/v1';
+  const creativeKey = process.env.DEEPSEEK_API_KEY || process.env.CREATIVE_API_KEY || process.env.OPENAI_API_KEY;
+  const fbBase = process.env.LLM_FALLBACK_BASE_URL || 'https://api.minimaxi.com/v1';
+  const fbKey = process.env.LLM_FALLBACK_API_KEY || process.env.MINIMAX_API_KEY;
+
   const probes = await Promise.all([
-    probeMinimaxLLM(),
+    probeChatLLM('primary-llm', `通用 LLM · ${process.env.OPENAI_MODEL || '?'}`, process.env.OPENAI_BASE_URL || 'https://api.minimaxi.com/v1', process.env.OPENAI_API_KEY, process.env.OPENAI_MODEL || 'claude-sonnet-4-6'),
+    probeChatLLM('creative-llm', `创意 LLM · ${process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro'} (编剧/导演)`, creativeBase, creativeKey, process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro'),
+    probeChatLLM('minimax-llm-fallback', `MiniMax LLM 兜底 · ${process.env.LLM_FALLBACK_MODEL || 'MiniMax-M2.7'}`, fbBase, fbKey, process.env.LLM_FALLBACK_MODEL || 'MiniMax-M2.7'),
     probeMinimaxTTS(),
     probeGateway('qingyuntop', 'qingyuntop 网关 (Vidu/聚合视频)', process.env.QINGYUNTOP_BASE_URL || 'https://api.qingyuntop.top', process.env.QINGYUNTOP_API_KEY),
     probeGateway('vectorengine', 'vectorengine 网关 (补全: TTS/MJ/Kling/图像)', veBase, veKey),

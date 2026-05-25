@@ -3,10 +3,16 @@ export const API_CONFIG = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
     baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-    // v6.8: 默认升到当前最强 —— 通用走 Claude Sonnet 4.6, 高频; 创意环节走 Claude Opus 4.7
+    // v6.8: 通用 LLM (高频: 规划/校验/质检) —— Claude Sonnet 4.6 via 主网关
     model: process.env.OPENAI_MODEL || 'claude-sonnet-4-6',
-    // 编剧/导演等关键创意阶段用最强模型（牺牲速度换质量）
-    creativeModel: process.env.OPENAI_CREATIVE_MODEL || process.env.OPENAI_MODEL || 'claude-opus-4-7',
+    // v7.0: 编剧/导演 创意主 LLM —— 默认 DeepSeek 最强 deepseek-v4-pro (独立 endpoint)
+    creativeModel: process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro',
+    creativeBaseURL: process.env.CREATIVE_BASE_URL || process.env.DEEPSEEK_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+    creativeApiKey: process.env.CREATIVE_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || '',
+    // v7.0: 全局 LLM 兜底 —— 任何主 LLM 异常/欠费 → 路由到 MiniMax (OpenAI 兼容)
+    fallbackBaseURL: process.env.LLM_FALLBACK_BASE_URL || 'https://api.minimaxi.com/v1',
+    fallbackApiKey: process.env.LLM_FALLBACK_API_KEY || process.env.MINIMAX_API_KEY || '',
+    fallbackModel: process.env.LLM_FALLBACK_MODEL || 'MiniMax-M2.7',
     pricing: {
       input: 2.5,  // $/1M tokens
       output: 10   // $/1M tokens
