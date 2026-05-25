@@ -129,9 +129,11 @@ describe('POST /api/polish-script · Basic 模式', () => {
     expect(body.audit).toBeNull();
   });
 
-  it('上游 503 → 502 + 透传错误消息', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      mockLlmResponse(null, { status: 503, errorMsg: 'upstream overloaded' }),
+  it('上游 503 (持续) → 退避重试耗尽后 502 + 透传错误消息', async () => {
+    // v7.1: 503 属"瞬时错误"会退避重试一次; mockImplementation 每次返回全新 Response,
+    // 让初次 + 重试都 503, 验证"耗尽重试仍持续失败"时回落 502 并透传上游消息。
+    fetchSpy.mockImplementation(async () =>
+      mockLlmResponse(null, { status: 503, errorMsg: 'upstream overloaded' }) as any,
     );
     const res = await POST(mkReq({ script: '原文' }) as any);
     expect(res.status).toBe(502);

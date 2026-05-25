@@ -19,8 +19,8 @@
  * 走完整 runWriter (拿到带 Voice/Budget 的高质量版本)。
  */
 
-import OpenAI from 'openai';
 import { API_CONFIG } from './config';
+import { callLLMWithFallback } from './llm-client';
 import { getMcKeeWriterPrompt } from './mckee-skill';
 import { robustJsonParse } from './polish-json';
 import type { Script, ScriptShot } from '@/types/agents';
@@ -113,11 +113,6 @@ async function generateOneDraft(opts: {
   draftIndex: number;
   signal?: AbortSignal;
 }): Promise<Script> {
-  const openai = new OpenAI({
-    apiKey: API_CONFIG.openai.apiKey,
-    baseURL: API_CONFIG.openai.baseURL,
-  });
-
   // 简化版 system prompt — McKee 框架 + 一次出 JSON (跳过 Two-Pass 规划阶段)
   const systemPrompt =
     getMcKeeWriterPrompt('', opts.style, {
@@ -137,37 +132,40 @@ async function generateOneDraft(opts: {
     `画风:${opts.style}\n\n` +
     `输出长度: 4-8 个镜头的短剧, JSON 格式直出, 不要 markdown 包裹。`;
 
-  // 60s 超时, 草稿不应等太久 — runWriter Two-Pass 需要 90-120s, 我们 60s 足够单次
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60_000);
-  if (opts.signal) {
-    opts.signal.addEventListener('abort', () => controller.abort());
-  }
-
-  try {
-    const completion = await openai.chat.completions.create(
-      {
-        model: API_CONFIG.openai.model,
-        temperature: opts.temperature,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
-        response_format: { type: 'json_object' },
-      },
-      { signal: controller.signal },
-    );
-
-    const text = completion.choices[0]?.message?.content || '';
-    if (!text) throw new Error('LLM 返回空');
-
-    const parsed = robustJsonParse(text);
-    if (!parsed || typeof parsed !== 'object') {
-      throw new Error('LLM 输出无法解析为 JSON');
+  // v7.1: 草稿对比 = "快速比稿"场景, 用创意"快档" deepseek-v4-flash (推理 token 远少于 pro,
+  //   实测单稿 12-20s 且稳定出 JSON; pro 单稿 35-60s 且 reasoning 易吃光 token 预算导致空响应)。
+  //   质量优先的完整管线 runWriter 仍用 pro。75s 超时覆盖长尾, 主→MiniMax 全局兜底, 内置 <think> 剥离。
+  //   解析/校验失败再重试 1 次 (HA: flash 快, 重试代价低); 链路彻底失败 (超时/全挂) 不重试以控总时长。
+  let lastErr = '草稿生成失败';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await callLLMWithFallback({
+      system: systemPrompt,
+      user: userMessage,
+      useCreative: true,
+      fast: true,
+      temperature: opts.temperature,
+      jsonMode: true,
+      // McKee 编剧提示 (9KB) 产出较丰富 (实测 ~11000 字 ≈ 5000 token); 给到 8000 防止截断,
+      // 截断会导致 JSON 解析失败→触发重试→时长翻倍。8000 留足头部余量, 首试即过的概率更高。
+      maxTokens: 8000,
+      // flash 正常 50-70s (McKee 提示重); 100s 给"flash过载重试 + MiniMax 兜底(推理模型 40-90s)"留余量,
+      // 避免兜底腿必然超时 (并行 2-3 稿仍 < route maxDuration 240)
+      timeoutMs: 100_000,
+    });
+    if (!res.ok || !res.content) {
+      lastErr = res.error || 'LLM 返回空';
+      break; // 主+兜底都失败 (多为超时/欠费), 重试无益
     }
+
+    const parsed = robustJsonParse(res.content);
     const obj = parsed as any;
+    if (!parsed || typeof parsed !== 'object') {
+      lastErr = 'LLM 输出无法解析为 JSON';
+      continue; // 拿到内容但非 JSON → 重试一次
+    }
     if (!obj.title || !Array.isArray(obj.shots) || obj.shots.length === 0) {
-      throw new Error('LLM 输出缺 title 或 shots[]');
+      lastErr = 'LLM 输出缺 title 或 shots[]';
+      continue; // 结构不完整 → 重试一次
     }
 
     return {
@@ -175,9 +173,8 @@ async function generateOneDraft(opts: {
       synopsis: String(obj.synopsis || '').slice(0, 500),
       shots: normalizeShots(obj.shots),
     };
-  } finally {
-    clearTimeout(timer);
   }
+  throw new Error(lastErr);
 }
 
 function normalizeShots(raw: any[]): ScriptShot[] {

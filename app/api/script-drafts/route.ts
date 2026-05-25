@@ -23,7 +23,7 @@ import { API_CONFIG } from '@/lib/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+export const maxDuration = 240; // v7.1: 单稿 110s + MiniMax 兜底, 给足并发/限流余量
 
 function resolveUserId(request: Request): string {
   const payload = getUserFromRequest(request);

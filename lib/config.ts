@@ -5,8 +5,12 @@ export const API_CONFIG = {
     baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
     // v6.8: 通用 LLM (高频: 规划/校验/质检) —— Claude Sonnet 4.6 via 主网关
     model: process.env.OPENAI_MODEL || 'claude-sonnet-4-6',
-    // v7.0: 编剧/导演 创意主 LLM —— 默认 DeepSeek 最强 deepseek-v4-pro (独立 endpoint)
+    // v7.0: 编剧/导演 创意主 LLM —— 默认 DeepSeek 最强 deepseek-v4-pro (独立 endpoint, 推理模型/质量优先)
     creativeModel: process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro',
+    // v7.1: 创意"快档" LLM —— deepseek-v4-flash, 同属 DeepSeek v4 最新一族, 推理 token 远少于 pro
+    //   用于"快草稿对比 / 润色basic"这类需要秒级响应的轻量环节 (pro 单次 35-75s 体验太差)。
+    //   pro 仍用于主管线 runWriter / 导演 / 润色pro 等质量优先环节。
+    creativeFastModel: process.env.OPENAI_CREATIVE_FAST_MODEL || 'deepseek-v4-flash',
     creativeBaseURL: process.env.CREATIVE_BASE_URL || process.env.DEEPSEEK_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
     creativeApiKey: process.env.CREATIVE_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || '',
     // v7.0: 全局 LLM 兜底 —— 任何主 LLM 异常/欠费 → 路由到 MiniMax (OpenAI 兼容)

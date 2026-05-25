@@ -1,7 +1,7 @@
 /**
  * Tests for v2.15 G9 — lib/script-drafts.ts + /api/script-drafts route
  *
- * 不打真 OpenAI, 用 vi.mock 替换 OpenAI client.
+ * 不打真 LLM, mock 全局 fetch (v7.1 起 script-drafts 走 callLLMWithFallback)。
  * 锁住:
  *   - count clamp (1..3)
  *   - 空 idea / 太短 → throw
@@ -10,64 +10,65 @@
  *   - 路由 input validation + guardrail 集成
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // 标记全局 mock 行为
 let MOCK_RESPONSE: 'ok' | 'throw' | 'invalid-json' | 'missing-shots' = 'ok';
 let MOCK_TEMPS_SEEN: number[] = [];
 
-vi.mock('openai', () => {
-  return {
-    default: class FakeOpenAI {
-      chat = {
-        completions: {
-          create: async (req: any) => {
-            MOCK_TEMPS_SEEN.push(req.temperature);
-            if (MOCK_RESPONSE === 'throw') throw new Error('LLM boom');
-            if (MOCK_RESPONSE === 'invalid-json') {
-              return { choices: [{ message: { content: 'not json at all' } }] };
-            }
-            if (MOCK_RESPONSE === 'missing-shots') {
-              return { choices: [{ message: { content: JSON.stringify({ title: 'X' }) } }] };
-            }
-            return {
-              choices: [
-                {
-                  message: {
-                    content: JSON.stringify({
-                      title: `Draft @ T=${req.temperature}`,
-                      synopsis: '一段 1-2 句梗概',
-                      shots: [
-                        { shotNumber: 1, sceneDescription: '街角', action: '主角出场', emotion: '隐忍', characters: ['阿凯'] },
-                        { shotNumber: 2, sceneDescription: '街角', action: '对手出现', emotion: '震惊', characters: ['阿凯', '小白'], dialogue: '十年了。' },
-                      ],
-                    }),
-                  },
-                },
-              ],
-            };
-          },
-        },
-      };
-    },
-  };
-});
-
+// v7.1: script-drafts 改走 lib/llm-client.callLLMWithFallback (全局 fetch), 不再用 openai SDK。
+// 因此这里改 mock fetch。配置只给主端点、不给 fallbackApiKey → buildLLMAttempts 只产 1 个尝试,
+// 保证每稿恰好 1 次 LLM 调用 (温度阶梯断言精确, fallback 行为单独在 v7-1-llm-client.test 覆盖)。
 vi.mock('@/lib/config', () => ({
   API_CONFIG: {
     openai: {
       apiKey: 'fake-key',
       baseURL: 'http://fake',
       model: 'fake-model',
+      creativeModel: 'fake-creative-model',
+      // 故意不配 fallbackApiKey → 单尝试
     },
   },
 }));
 
 import { generateScriptDrafts } from '@/lib/script-drafts';
 
+let fetchSpy: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   MOCK_RESPONSE = 'ok';
   MOCK_TEMPS_SEEN = [];
+  fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockImplementation(async (_url: any, init: any) => {
+    const body = init?.body ? JSON.parse(init.body) : {};
+    const temp = body.temperature;
+    MOCK_TEMPS_SEEN.push(temp);
+
+    if (MOCK_RESPONSE === 'throw') throw new Error('LLM boom');
+
+    let content: string;
+    if (MOCK_RESPONSE === 'invalid-json') {
+      content = 'not json at all';
+    } else if (MOCK_RESPONSE === 'missing-shots') {
+      content = JSON.stringify({ title: 'X' });
+    } else {
+      content = JSON.stringify({
+        title: `Draft @ T=${temp}`,
+        synopsis: '一段 1-2 句梗概',
+        shots: [
+          { shotNumber: 1, sceneDescription: '街角', action: '主角出场', emotion: '隐忍', characters: ['阿凯'] },
+          { shotNumber: 2, sceneDescription: '街角', action: '对手出现', emotion: '震惊', characters: ['阿凯', '小白'], dialogue: '十年了。' },
+        ],
+      });
+    }
+    return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+});
+
+afterEach(() => {
+  fetchSpy.mockRestore();
 });
 
 describe('generateScriptDrafts — input validation', () => {

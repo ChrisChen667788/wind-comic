@@ -1734,6 +1734,30 @@ npm test
   - dev 实测:Basic 模式 `model=deepseek-v4-pro` 真出润色稿(~27s);polish-api 19 单测仍绿
   - tsc 0;全量 1714/1714
 
+- [x] **v7.1 · 稳定性 + 高可用硬化(润色不稳定 / 草稿对比报错 根因修复)** ✅ 2026-05-25
+  - **根因(实测定位)**:`deepseek-v4-pro` 是**推理模型**,`reasoning_tokens` 与「提示复杂度」相关而非输出长度——
+    润色 pro 提示(sysLen 3934)实测吃 ~1700-2000 reasoning token,把旧 `max_tokens` 地板(2000)**吃光** →
+    `content` 为空、`finish_reason=length` → route 误判「LLM 调用失败 (200)」→ **每次静默回落慢速 MiniMax**
+    (basic ~88s / pro ~144s 且 audit degraded)。草稿对比则是 60s 超时直接 abort(0/2)。
+  - **修复**:
+    - ① 统一高可用客户端 `lib/llm-client`:`buildLLMAttempts`(主创意/通用 → MiniMax 全局兜底)
+      `callLLMWithFallback`(超时 + `<think>` 剥离 + 瞬时错误退避重试)`stripThink` `isTransientLLMError`;
+      草稿对比收口到此,润色复用其纯函数
+    - ② **模型分档**:草稿对比 + 润色 basic → `deepseek-v4-flash`(同属 DeepSeek v4 最新族,推理少、秒级);
+      润色 pro + 主管线 runWriter/导演 → `deepseek-v4-pro`(质量优先);两档均 MiniMax 全局兜底。
+      config 加 `creativeFastModel`(env `OPENAI_CREATIVE_FAST_MODEL`)
+    - ③ 润色 `max_tokens` 地板抬高:basic 2000→6000、pro 2000→12000(留足 reasoning 之外的 content 余量;
+      实测 pro@12000 → `finish=stop`、正常出 audit)
+    - ④ 瞬时错误(too busy / 限流 / 5xx)→ 退避重试**同端点** 1 次再切兜底(避免一遇过载就掉到慢速 MiniMax);
+      草稿解析/校验失败再重试 1 次;草稿 `max_tokens` 5000→8000 防 McKee 富输出被截断
+    - ⑤ `<think>` 剥离串进润色 raw 解析(MiniMax 兜底会把推理塞进 `content` 的 `<think>` 块)
+  - **dev 实测(重启刷新后)**:润色 basic=`deepseek-v4-flash` **3.7s** / pro=`deepseek-v4-pro` **94s 带 audit 不 degraded**
+    (修复前均回落 MiniMax 88s/144s degraded);草稿对比 **2/2 成功**;健康看板 6 条核心 provider 全 ok、整体 healthy
+  - **HA 验证**:实测 DeepSeek「Service is too busy」时退避重试 → 仍 2/2;MiniMax-M2.7 `<think>` 兜底经 stripThink 正常解析
+  - tsc 0;全量 **1735/1735**(+7 v7.1 单测:`buildLLMAttempts` fast 档 / `stripThink` / `isTransientLLMError`)
+  - **已知特性**:草稿对比复用 9KB McKee 编剧提示(为与 runWriter 质量对齐),单稿 flash ~60s、并行 2 稿 ~130s;
+    可靠性已修复(不再 abort),后续可选「草稿专用轻提示」进一步压时延
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。

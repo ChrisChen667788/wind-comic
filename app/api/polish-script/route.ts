@@ -32,6 +32,7 @@ import { NextRequest } from 'next/server';
 import { API_CONFIG } from '@/lib/config';
 import { robustJsonParse, stripJsonWrapper } from '@/lib/polish-json';
 import { buildPolishPrompt, type PolishMode } from '@/lib/polish-prompts';
+import { stripThink, isTransientLLMError } from '@/lib/llm-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -76,15 +77,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // v7.0.3: 润色走 创意主 LLM (DeepSeek deepseek-v4-pro) + MiniMax 全局兜底, 与 orchestrator 一致.
-  // 关键修复: 之前用 creativeModel 却发去通用 baseURL/apiKey (qingyuntop), 模型↔网关不匹配 → 报错.
+  // v7.0.3: 润色走 创意主 LLM (DeepSeek) + MiniMax 全局兜底, 与 orchestrator 一致.
+  //   关键修复: 之前用 creativeModel 却发去通用 baseURL/apiKey (qingyuntop), 模型↔网关不匹配 → 报错.
+  // v7.1: 按档分模型 —— basic("快而便宜") 走快档 deepseek-v4-flash (秒级, 推理少);
+  //   pro("行业级") 走 deepseek-v4-pro (质量优先)。二者同属 DeepSeek v4 最新一族, 均兜底 MiniMax.
   const cfg = API_CONFIG.openai as any;
+  const usePolishFast = mode !== 'pro';
   const llmAttempts: Array<{ baseURL: string; apiKey: string; model: string; label: string }> = [];
   const primaryLLM = {
     baseURL: cfg.creativeBaseURL || cfg.baseURL,
     apiKey: cfg.creativeApiKey || cfg.apiKey,
-    model: cfg.creativeModel || cfg.model,
-    label: '创意·DeepSeek',
+    model: usePolishFast ? (cfg.creativeFastModel || cfg.creativeModel || cfg.model) : (cfg.creativeModel || cfg.model),
+    label: usePolishFast ? '创意·DeepSeek快' : '创意·DeepSeek',
   };
   if (primaryLLM.apiKey) llmAttempts.push(primaryLLM);
   if (cfg.fallbackApiKey && (cfg.fallbackApiKey !== primaryLLM.apiKey || cfg.fallbackModel !== primaryLLM.model)) {
@@ -100,7 +104,12 @@ export async function POST(request: NextRequest) {
   const temperature = mode === 'pro' ? 0.5 : 0.7;
   const tokenCeiling = mode === 'pro' ? 16000 : 8000;
   const tokenMultiplier = mode === 'pro' ? 2.2 : 1.4;
-  const max_tokens = Math.max(2000, Math.min(tokenCeiling, Math.ceil(script.length * tokenMultiplier)));
+  // v7.1 关键修复: DeepSeek 为推理模型, reasoning_tokens (与"提示复杂度"相关, pro 审计提示实测 ~1700-2000)
+  //   与 content 共享 max_tokens 预算。旧 floor=2000 会被 reasoning 吃光 → content 为空 → 误判失败、
+  //   每次都回落到慢速 MiniMax (basic ~88s / pro ~144s 且 degraded)。抬高 floor 留足 content 余量:
+  //   basic 6000 / pro 12000 (实测 pro@12000 → finish=stop, 正常出 audit)。
+  const tokenFloor = mode === 'pro' ? 12000 : 6000;
+  const max_tokens = Math.max(tokenFloor, Math.min(tokenCeiling, Math.ceil(script.length * tokenMultiplier)));
   const timeoutMs = mode === 'pro' ? 240_000 : 180_000;
 
   const start = Date.now();
@@ -111,39 +120,50 @@ export async function POST(request: NextRequest) {
     let usedModel = llmAttempts[0].model;
     let lastErr = 'LLM 调用失败';
     let lastStatus = 502;
+    // v7.1: 每个端点遇"瞬时错误"(过载/限流/5xx)退避重试 1 次, 再切兜底 (与 llm-client 一致)
+    const RETRIES = 1;
     for (const a of llmAttempts) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const resp = await fetch(`${a.baseURL}/chat/completions`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${a.apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: a.model,
-            temperature,
-            // 给 GPT 兼容服务一个结构化响应提示;不支持的会降级为自然 JSON
-            response_format: { type: 'json_object' },
-            max_tokens,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: `以下是待润色的剧本,请按 system 的规则出 JSON:\n\n---\n${script}\n---` },
-            ],
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        const d = await resp.json();
-        if (resp.ok && d?.choices?.[0]?.message?.content) {
-          data = d; usedModel = a.model; break;
+      for (let attempt = 0; attempt <= RETRIES; attempt++) {
+        const tag = attempt > 0 ? `${a.label}#${attempt + 1}` : a.label;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const resp = await fetch(`${a.baseURL}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${a.apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: a.model,
+              temperature,
+              // 给 GPT 兼容服务一个结构化响应提示;不支持的会降级为自然 JSON
+              response_format: { type: 'json_object' },
+              max_tokens,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `以下是待润色的剧本,请按 system 的规则出 JSON:\n\n---\n${script}\n---` },
+              ],
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          const d = await resp.json();
+          if (resp.ok && d?.choices?.[0]?.message?.content) {
+            data = d; usedModel = a.model; break;
+          }
+          lastErr = d?.error?.message || `LLM 调用失败 (${resp.status})`;
+          lastStatus = resp.status;
+          console.warn(`[polish-script] ${tag} 失败: ${lastErr}`);
+        } catch (attErr: any) {
+          clearTimeout(timer);
+          lastErr = attErr?.name === 'AbortError' ? '超时' : (attErr?.message || String(attErr));
+          console.warn(`[polish-script] ${tag} 异常: ${lastErr}`);
         }
-        lastErr = d?.error?.message || `LLM 调用失败 (${resp.status})`;
-        lastStatus = resp.status;
-        console.warn(`[polish-script] ${a.label} 失败: ${lastErr}`);
-      } catch (attErr: any) {
-        clearTimeout(timer);
-        lastErr = attErr?.name === 'AbortError' ? '超时' : (attErr?.message || String(attErr));
-        console.warn(`[polish-script] ${a.label} 异常: ${lastErr}`);
+        if (attempt < RETRIES && isTransientLLMError(lastErr)) {
+          await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
+          continue; // 退避后重试同端点
+        }
+        break; // 成功/非瞬时/超时 → 跳出去切下一个端点
       }
+      if (data) break;
     }
 
     if (!data) {
@@ -162,7 +182,8 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: lastErr }, { status: 502 });
     }
 
-    const raw = data.choices[0].message.content.toString().trim();
+    // v7.1: 剥离 reasoning 模型偶发的 <think>...</think> 块, 再做 JSON 解析 (与 llm-client 统一)
+    const raw = stripThink(data.choices[0].message.content.toString());
     const parsed = robustJsonParse(raw);
     if (!parsed?.polished || typeof parsed.polished !== 'string') {
       console.warn('[polish-script] failed to extract polished field, falling back to stripped raw');
