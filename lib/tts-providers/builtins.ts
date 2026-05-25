@@ -8,6 +8,7 @@
 
 import { registerTTSProvider } from './registry';
 import type { TTSGenerateInput } from './types';
+import './vectorengine-tts'; // v6.9: vectorengine gpt-4o-mini-tts (主), minimax 兜底
 
 let ttsSvc: any = null;
 async function getTTSService() {

@@ -1689,6 +1689,17 @@ npm test
   - 修 kontext 图像 provider 的 key↔base 配对(OPENAI_API_KEY 现可指 qingyuntop)+ 健康看板 LLM 卡改显真实模型 + vectorengine 探测改用 KELING_*(VEO_* 已 repoint)
   - tsc 0;全量 1708/1708;健康看板:主 LLM `claude-sonnet-4-6` ok
 
+- [x] **v6.9 · vectorengine 补全 TTS/MJ/Kling + 监控** ✅ 2026-05-25(维持现状:qingyuntop 主)
+  - **配音修复**:新 `lib/tts-providers/vectorengine-tts`(`/v1/audio/speech` · gpt-4o-mini-tts · 优先级 50 主路径,
+    minimax 兜底)→ 解说音轨实测真出 mp3(rendered True,provider=vectorengine-tts);`mapVoiceToOpenAI` 3 单测
+  - **MJ 生图补全**:`.env.local` MJ_API_KEY/BASE_URL→vectorengine 激活 mj provider;优先级排在 flux(110) 之后(115)
+    = 维持现状(flux 主)+ MJ 作 vectorengine 兜底(qingyuntop 耗尽时接住)
+  - **Kling**:已在 vectorengine(KELING_*),视频链 #2 兜底,确认在位
+  - **Suno**:vectorengine `/suno/submit/music` 端点存在但当前令牌组 `无可用渠道` → 暂不可用,文档标注(需网关侧开渠道)
+  - **监控**:健康看板 vectorengine 卡改「补全: TTS/MJ/Kling/图像」+ 显**用量**(占位高额度时显「已用 $X·充裕」);
+    minimax-tts 卡标「兜底」;探测改用 `VECTORENGINE_*`
+  - tsc 0;全量 1711/1711;dev 实测:narration TTS rendered True、健康看板 vectorengine 已用 $266·充裕
+
 > **差异化坚持**: 我方独有的 ① 跨用户 Cameo IP 经济(v4.0)② 拖拽式 Agent 编排 IDE(v4.1.x)
 > ③ 每镜 LLM Vision 质检(v3.4)④ 4 语言 i18n(v5.0.x)是对手没强调的护城河, v6.x 在补齐
 > 缺口的同时继续放大这几点。

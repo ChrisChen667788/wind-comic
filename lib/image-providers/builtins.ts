@@ -38,10 +38,12 @@ async function getMinimaxService() {
 // ─── Provider 1: Midjourney ────────────────────────────────────────────────
 registerImageProvider({
   id: 'mj',
-  name: 'Midjourney (via gateway)',
+  name: 'Midjourney (via vectorengine)',
   supportsRefs: true,
   maxRefImages: 2,   // MJ 实际只吃 --cref + --sref = 2
-  priority: 100,
+  // v6.9: 补全 MJ 但不抢 flux 主位 (维持现状) — 优先级排在 kontext-flux(110) 之后,
+  // 作 vectorengine 上的图像兜底 (qingyuntop flux 耗尽时接住).
+  priority: 115,
   available: () => {
     try {
       const m = require('@/services/midjourney.service');

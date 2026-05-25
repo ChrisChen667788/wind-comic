@@ -41,7 +41,7 @@ async function probeMinimaxLLM(): Promise<ProviderHealth> {
 }
 
 async function probeMinimaxTTS(): Promise<ProviderHealth> {
-  const base = { id: 'minimax-tts', label: 'MiniMax TTS (语音/解说音轨)', kind: 'tts' as ProviderKind, baseUrl: process.env.MINIMAX_BASE_URL };
+  const base = { id: 'minimax-tts', label: 'MiniMax TTS (兜底·主走 vectorengine)', kind: 'tts' as ProviderKind, baseUrl: process.env.MINIMAX_BASE_URL };
   const key = process.env.MINIMAX_API_KEY;
   if (isPlaceholder(key)) return { ...base, status: 'not_configured', detail: '未设置 MINIMAX_API_KEY' };
   if (isPlaceholder(process.env.MINIMAX_GROUP_ID)) {
@@ -86,15 +86,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ...cache.payload, cached: true });
   }
 
-  // vectorengine 探测用仍指向它的 KELING_* (VEO_* 可能已被 repoint 到 qingyuntop)
-  const veBase = process.env.KELING_BASE_URL || 'https://api.vectorengine.ai';
-  const veKey = process.env.KELING_API_KEY || process.env.VEO_API_KEY;
+  // v6.9: vectorengine = 补全网关 (TTS/MJ/Kling). 探测用 VECTORENGINE_* (回退 KELING_*)
+  const veBase = process.env.VECTORENGINE_BASE_URL || process.env.KELING_BASE_URL || 'https://api.vectorengine.ai';
+  const veKey = process.env.VECTORENGINE_API_KEY || process.env.KELING_API_KEY || process.env.VEO_API_KEY;
 
   const probes = await Promise.all([
     probeMinimaxLLM(),
     probeMinimaxTTS(),
     probeGateway('qingyuntop', 'qingyuntop 网关 (Vidu/聚合视频)', process.env.QINGYUNTOP_BASE_URL || 'https://api.qingyuntop.top', process.env.QINGYUNTOP_API_KEY),
-    probeGateway('vectorengine', 'vectorengine 网关 (Keling/Veo 视频)', veBase, veKey),
+    probeGateway('vectorengine', 'vectorengine 网关 (补全: TTS/MJ/Kling/图像)', veBase, veKey),
   ]);
 
   // 未接入的可选 provider (仅提示)

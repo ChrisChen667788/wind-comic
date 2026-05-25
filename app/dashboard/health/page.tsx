@@ -86,12 +86,15 @@ export default function HealthPage() {
 
                   <p className="text-[11px] text-white/70 mt-2 break-all line-clamp-2">{p.detail}</p>
 
-                  {p.balance && (p.balance.limitUsd != null || p.balance.remainingUsd != null) && (
+                  {p.balance && (p.balance.limitUsd != null || p.balance.usedUsd != null) && (
                     <div className="mt-2 flex items-center gap-1.5 text-[11px] text-white/80">
                       <Wallet className="w-3 h-3" />
-                      {p.balance.remainingUsd != null
-                        ? <span>剩余 <b>${p.balance.remainingUsd}</b> / 上限 ${p.balance.limitUsd}{p.balance.usedUsd != null ? ` · 已用 $${p.balance.usedUsd}` : ''}</span>
-                        : <span>上限 ${p.balance.limitUsd}</span>}
+                      {(p.balance.limitUsd ?? 0) >= 1_000_000
+                        // 上限是占位高值 (预付/充值制) → 只显已用, 标额度充裕
+                        ? <span>已用 <b>${p.balance.usedUsd ?? 0}</b> · 额度充裕(充值制)</span>
+                        : p.balance.remainingUsd != null
+                          ? <span>剩余 <b>${p.balance.remainingUsd}</b> / 上限 ${p.balance.limitUsd}{p.balance.usedUsd != null ? ` · 已用 $${p.balance.usedUsd}` : ''}</span>
+                          : <span>上限 ${p.balance.limitUsd}</span>}
                     </div>
                   )}
 
