@@ -237,6 +237,25 @@ Per-shot "改 prompt 重生" (regenerate image with custom prompt + reference im
 
 ---
 
+## 🔀 Gateway routing (v6.8 / v6.9)
+
+Every model call is provider-pluggable (priority chain + automatic fallback). The current default routing splits a **primary** gateway from a **supplement** gateway, with MiniMax always last as the safety net:
+
+| Capability | Primary (strongest) | Supplement | Fallback (unchanged) |
+|---|---|---|---|
+| **LLM** (writer / director / vision-audit) | `claude-opus-4-7` · `claude-sonnet-4-6` | — | MiniMax / XVERSE |
+| **Video** | `veo3.1-pro` (Veo 3.1 Pro) | Kling | **MiniMax Hailuo** |
+| **Image** | `flux-2-pro` (`IMAGE_MODEL`) | Midjourney (`mj_imagine`) | **MiniMax image-01** |
+| **TTS / voiceover** | `gpt-4o-mini-tts` | — | MiniMax T2A |
+| **Music / BGM** | MiniMax music | (Suno when gateway channel available) | — |
+
+- **Why split**: the primary gateway carries the newest top-tier models; the supplement gateway backfills capabilities (TTS / MJ / Kling) and catches overflow when the primary runs out of credits.
+- **v6.8** — repointed primary LLM/video/image to the funded gateway with the strongest models, fixing a video-stage `429 upstream-saturated` error on the old gateway.
+- **v6.9** — added a dedicated TTS provider (`lib/tts-providers/vectorengine-tts.ts`) so voiceover works without per-vendor group-id config; enabled Midjourney as an image fallback; surfaced **per-gateway usage + balance** on the [API Health Board](#-new-in-v6--from-demo-to-studio).
+- **Swap any of it** in `.env.local` (`OPENAI_*` / `VEO_*` / `IMAGE_MODEL` / `MINIMAX_*`) — zero code change. See [`docs/llm-providers.md`](docs/llm-providers.md).
+
+---
+
 ## 🏁 Quick start
 
 ```bash

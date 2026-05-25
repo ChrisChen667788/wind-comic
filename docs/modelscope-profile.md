@@ -34,6 +34,17 @@
 </tr>
 </table>
 
+**技术栈 · 网关路由(v6.8/v6.9)**:每个模型调用 provider 可插拔(优先级链 + 自动 fallback),主网关跑最强模型、补全网关补能力、MiniMax 永远兜底 ——
+
+| 能力 | 主(最强) | 补全 | 兜底 |
+|---|---|---|---|
+| LLM | `claude-opus-4-7` / `claude-sonnet-4-6` | — | MiniMax |
+| 视频 | `veo3.1-pro` | Kling | MiniMax Hailuo |
+| 图像 | `flux-2-pro` | Midjourney | MiniMax image-01 |
+| 配音 | `gpt-4o-mini-tts` | — | MiniMax T2A |
+
+> 框架 Next.js 16 + React 19 + Tailwind v4 · SQLite/Postgres 双驱动 · Yjs 实时协作 · 4 语言 i18n · 内置 API 健康看板(各网关用量/余额/欠费一屏看清) · 1711 单测全过
+
 > 🔗 GitHub(完整代码 + 文档 + 截图):**github.com/ChrisChen667788/wind-comic** · 🪪 MIT · ⭐ 觉得有用点个 Star
 
 ---

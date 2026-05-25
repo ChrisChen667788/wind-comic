@@ -196,6 +196,25 @@ KPI 卡: 平均冲突分 / 反转数 / 通过状态. 每镜柱状图 + 反转 ar
 
 ---
 
+## 🔀 网关路由策略 (v6.8 / v6.9)
+
+每个模型调用都是 provider 可插拔(优先级链 + 自动 fallback)。当前默认把**主网关**与**补全网关**分开,MiniMax 永远兜底:
+
+| 能力 | 主(最强) | 补全 | 兜底(不变) |
+|---|---|---|---|
+| **LLM**(编剧 / 导演 / 质检) | `claude-opus-4-7` · `claude-sonnet-4-6` | — | MiniMax / XVERSE |
+| **视频** | `veo3.1-pro`(Veo 3.1 Pro) | Kling | **MiniMax Hailuo** |
+| **图像** | `flux-2-pro`(`IMAGE_MODEL`) | Midjourney(`mj_imagine`) | **MiniMax image-01** |
+| **配音 TTS** | `gpt-4o-mini-tts` | — | MiniMax T2A |
+| **音乐 BGM** | MiniMax music | (Suno,待网关开渠道) | — |
+
+- **为什么分开**:主网关跑最新顶级模型;补全网关补上缺的能力(TTS / MJ / Kling),并在主网关额度耗尽时接住。
+- **v6.8** — 主 LLM/视频/图像切到已充值网关 + 最强模型,顺带修了旧网关视频阶段的 `429 上游饱和` 报错。
+- **v6.9** — 新增独立 TTS provider(`lib/tts-providers/vectorengine-tts.ts`),配音不再依赖各家 group-id 配置;Midjourney 接成图像兜底;[API 健康看板](#-v6-新增--从能跑的-demo-进化成能用的工作室)显示**各网关用量 + 余额**。
+- **随时可换**:改 `.env.local`(`OPENAI_*` / `VEO_*` / `IMAGE_MODEL` / `MINIMAX_*`),0 改代码。详见 [`docs/llm-providers.md`](docs/llm-providers.md)。
+
+---
+
 ## 🏁 快速开始
 
 ```bash
