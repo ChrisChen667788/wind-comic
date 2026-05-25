@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import {
   LayoutDashboard, FolderKanban, Sparkles, BookOpen, User,
-  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText, Palette, UsersRound, Activity, Zap,
+  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText, Palette, UsersRound, Activity, Zap, Lightbulb,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,6 +19,8 @@ const navItems = [
   { href: '/dashboard/story-intake', label: '长篇拆解', icon: ScrollText },
   // v2.11: 独立剧本润色工具 — 不走完整 Agent 管线, 纯文本润色
   { href: '/dashboard/polish', label: '剧本润色', icon: Wand2 },
+  // v7.7: Master Prompt 生成器 — 结构化导演级提示词 + 风格/LUT/导演预设
+  { href: '/dashboard/master-prompt', label: '创意生成器', icon: Lightbulb },
   // v2.12 Sprint C.1: 单图变视频(I2V)独立工具
   { href: '/dashboard/u2v', label: '单图变视频', icon: Film },
   { href: '/dashboard/assets', label: '素材库', icon: Package },
