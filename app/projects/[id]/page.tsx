@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
   Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle, BarChart3,
-  Clapperboard, ScanEye, MonitorPlay, Link2,
+  Clapperboard, ScanEye, MonitorPlay, Link2, Gauge,
 } from 'lucide-react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { DirectorConsole } from '@/components/director-console';
@@ -33,6 +33,7 @@ import { ContinuityConsole } from '@/components/project/continuity-console';
 import { ProjectFormatBar } from '@/components/project/project-format-bar';
 import { EmotionRhythmChart } from '@/components/project/emotion-rhythm-chart';
 import { computeEmotionCurve } from '@/lib/emotion-curve';
+import { MonitorTab } from '@/components/project/monitor-tab';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -214,6 +215,8 @@ export default function ProjectDetailPage() {
     { key: 'pacing', label: '节奏分析', icon: BarChart3, count: script?.pacingReport?.warnings?.length || 0 },
     // v3.4.1: 成片质检 — 每镜画面对剧本的 Vision 评分
     { key: 'vision-audit', label: '成片质检', icon: ScanEye, count: 0 },
+    // v8.0: 技术监看台 — 视频示波器 + EDL/XML 出片对接
+    { key: 'monitor', label: '技术监看', icon: Gauge, count: 0 },
     // v3.0 P0.1: 评论协作 — 项目级讨论 + 提及通知
     { key: 'comments', label: '评论协作', icon: MessageCircle, count: 0 },
     { key: 'play', label: '完整播放', icon: Play, count: 0 },
@@ -707,6 +710,11 @@ export default function ProjectDetailPage() {
           {/* v3.4.1: 成片质检 — Vision 看画面对不对得上剧本 */}
           {activeTab === 'vision-audit' && (
             <VisionAuditTab projectId={id} />
+          )}
+
+          {/* v8.0 技术监看台 — 视频示波器 + EDL/XML 出片对接 */}
+          {activeTab === 'monitor' && (
+            <MonitorTab projectId={id} storyboards={storyboards} />
           )}
 
           {/* v3.0 P0.1: 评论协作 — 项目级讨论 + 每个镜头独立线程 */}

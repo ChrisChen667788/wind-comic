@@ -1820,7 +1820,10 @@ npm test
 - **v7.5 · 情感曲线 + 节奏热力图 + 构图引导** ✅ 2026-05-25(对标 CineMatrix):`lib/emotion-curve`(情绪词典 → 4 轨 情感/紧张/节奏/亮度 + curveStats 高潮点,叠加 pacing 冲突分)+ `lib/composition`(构图建议 + 运镜路径 SVG,14 单测合并 v7-5)；`emotion-rhythm-chart`(4 轨曲线 + 高潮竖线)接"节奏分析"tab;`composition-guide`(三分法叠层 + 主体/头部/视线/平衡 + 运镜路径 mini-viz)接摄影台弹窗。tsc 0 / 全量 1811
 - **v7.6 · 15s 短视频极速模式** ✅ 2026-05-25(独立工作台,对标 CineSpark,**阶段九首发**):`lib/short-video`(三幕布局 + 运镜词库 + 节奏模板 + prompt 编译 + LLM 解析,15 单测)+ `POST /api/short-video/plan`(快档 flash 实测 7.4s)+ `/dashboard/short-video` 三栏驾驶舱(运镜词库 / 三幕色彩时间轴 + 分镜表 / 参数面板 + 节奏环 + 一键去创作 + 导出);改运镜/景别即时重编译 prompt。先落"驾驶舱"设计语言,后续 v7.2-v8.0 复用
 - **v7.7 · Master Prompt Generator + 风格/LUT/导演预设系统 + 术语表** ✅ 2026-05-25:`lib/master-prompt`(影片 look / 色彩 LUT / 导演运镜 三类引用真实影片的预设 + 术语表 + `compileMasterPrompt` 结构化 Role/Task/Core Concept/Execution Parameters,9 单测)+ `POST /api/master-prompt/refine`(LLM 优化,flash 14s)+ `/dashboard/master-prompt` 生成器页(预设 chip + 实时编译 + 复制/优化/用此创作 + 术语表)+ 侧栏「创意生成器」入口
-- **v8.0 · 专业出片对接**:视频示波器(矢量/直方图/RGB Parade/亮度)+ EDL/AAF/XML 导出 + 渲染循环反馈 + 参数联动 JSON↔可视化同步
+- **v8.0 · 专业出片对接** ✅ 2026-05-25(**阶段九收官**):`lib/edl-export`(CMX3600 EDL + FCP7 xmeml + 时间码)+ `lib/scopes`(直方图/逐列亮度/裁切统计,10 单测)+ `GET /api/projects/[id]/export-edl`(对接 DaVinci/Premiere,按项目帧率)+ `components/monitor-tab`(视频示波器 canvas 实采:直方图/亮度波形/RGB Parade + EDL/FCPXML 导出)+ 项目页"技术监看"tab。dev 实测导出 200 + 页面 200。(真 AAF 二进制 + 渲染循环/参数联动可视化 为后续可选增强)
+
+> **阶段九 ✅ 全部交付** (v7.6 极速分镜台 · v7.2 单镜头摄影台 · v7.3 连贯性+种子锁 · v7.4 光影+摄影机+格式 · v7.5 情感曲线+构图 · v7.7 创意生成器 · v8.0 专业出片对接)。
+> 竞品 5 款"AI 导演台"的结构化控件层已系统补齐, 同时保留 Cameo IP / Agent 编排 / Vision 质检 / 长篇拆解 / i18n 等自有护城河。
 
 ### UI/UX 升级(贯穿 v7.2+,从 PM/设计视角借鉴竞品长处)
 
