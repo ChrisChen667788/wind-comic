@@ -1826,7 +1826,8 @@ npm test
 > 竞品 5 款"AI 导演台"的结构化控件层已系统补齐, 同时保留 Cameo IP / Agent 编排 / Vision 质检 / 长篇拆解 / i18n 等自有护城河。
 
 - **v8.1 · 智能联动规则引擎 (Auto-Update Logic)** ✅ 2026-05-25(对标 CineMatrix):`lib/auto-rules`(声明式规则 + 5 预设 + `buildRuleContext`/`evaluateRules`/`applyRulesToSpec`,11 单测)+ 摄影台弹窗「✨ 智能建议机位」(按情绪/景别一键套用机位规则)。把 v7.2 ShotSpec + v7.4 光影 + v7.5 情感串成自动化。
-- 后续可选: 真 AAF 二进制导出 · 渲染循环/参数联动的实时可视化 · 每镜 Marketing & Distribution。
+- **v8.2 · 参数联动 / JSON↔可视化同步** ✅ 2026-05-25(对标 CineMatrix):`lib/param-linkage`(buildParamDoc/parseParamDoc/diffParamDoc,10 单测)+ `POST /api/projects/[id]/param-sync`(文档一次性写回每镜 spec+连贯性+格式)+ `components/param-linkage-panel`(联动示意图 + JSON 编辑器实时校验 + diff 计数 + Sync Now)+ 项目页"参数联动"tab。
+- 后续可选: 真 AAF 二进制导出 · 渲染循环实时反馈面板 · 每镜 Marketing & Distribution。
 
 ### UI/UX 升级(贯穿 v7.2+,从 PM/设计视角借鉴竞品长处)
 

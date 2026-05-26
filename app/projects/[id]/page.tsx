@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
   Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle, BarChart3,
-  Clapperboard, ScanEye, MonitorPlay, Link2, Gauge,
+  Clapperboard, ScanEye, MonitorPlay, Link2, Gauge, Braces,
 } from 'lucide-react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { DirectorConsole } from '@/components/director-console';
@@ -34,6 +34,7 @@ import { ProjectFormatBar } from '@/components/project/project-format-bar';
 import { EmotionRhythmChart } from '@/components/project/emotion-rhythm-chart';
 import { computeEmotionCurve } from '@/lib/emotion-curve';
 import { MonitorTab } from '@/components/project/monitor-tab';
+import { ParamLinkagePanel } from '@/components/project/param-linkage-panel';
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
@@ -217,6 +218,8 @@ export default function ProjectDetailPage() {
     { key: 'vision-audit', label: '成片质检', icon: ScanEye, count: 0 },
     // v8.0: 技术监看台 — 视频示波器 + EDL/XML 出片对接
     { key: 'monitor', label: '技术监看', icon: Gauge, count: 0 },
+    // v8.2: 参数联动 — JSON ↔ 可视化同步
+    { key: 'param-linkage', label: '参数联动', icon: Braces, count: 0 },
     // v3.0 P0.1: 评论协作 — 项目级讨论 + 提及通知
     { key: 'comments', label: '评论协作', icon: MessageCircle, count: 0 },
     { key: 'play', label: '完整播放', icon: Play, count: 0 },
@@ -715,6 +718,21 @@ export default function ProjectDetailPage() {
           {/* v8.0 技术监看台 — 视频示波器 + EDL/XML 出片对接 */}
           {activeTab === 'monitor' && (
             <MonitorTab projectId={id} storyboards={storyboards} />
+          )}
+
+          {/* v8.2 参数联动 — JSON ↔ 可视化同步 */}
+          {activeTab === 'param-linkage' && (
+            <ParamLinkagePanel
+              projectId={id}
+              shots={storyboards.map((sb: any) => ({ shotNumber: sb.shotNumber, cameraSpec: sb.data?.cameraSpec }))}
+              continuity={assets.find((a: any) => a.type === 'continuity')?.data}
+              format={assets.find((a: any) => a.type === 'project-format')?.data}
+              onSynced={(doc) => setSpecOverrides((m) => {
+                const next = { ...m };
+                for (const s of doc.shots) next[s.shotNumber] = s.spec;
+                return next;
+              })}
+            />
           )}
 
           {/* v3.0 P0.1: 评论协作 — 项目级讨论 + 每个镜头独立线程 */}
