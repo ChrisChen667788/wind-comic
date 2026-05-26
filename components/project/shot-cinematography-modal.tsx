@@ -10,21 +10,24 @@
  */
 
 import { useState } from 'react';
-import { X, Copy, Check, Save, Loader2, Clapperboard } from 'lucide-react';
+import { X, Copy, Check, Save, Loader2, Clapperboard, Wand2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ShotCinematographyPanel } from './shot-cinematography-panel';
 import { CompositionGuide } from './composition-guide';
 import {
   compileShotSpecToPrompt, describeShotSpec, normalizeShotSpec, type ShotSpec,
 } from '@/lib/cinematography';
+import { buildRuleContext, applyRulesToSpec } from '@/lib/auto-rules';
 
 export function ShotCinematographyModal({
-  projectId, shotNumber, shotTitle, initialSpec, onClose, onSaved,
+  projectId, shotNumber, shotTitle, initialSpec, emotion, onClose, onSaved,
 }: {
   projectId: string;
   shotNumber: number;
   shotTitle?: string;
   initialSpec: ShotSpec;
+  /** v8.1: 该镜情绪标签, 供智能联动规则 */
+  emotion?: string;
   onClose: () => void;
   onSaved?: (spec: ShotSpec) => void;
 }) {
@@ -32,6 +35,15 @@ export function ShotCinematographyModal({
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState('');
+  const [ruleMsg, setRuleMsg] = useState('');
+
+  function applyAutoRules() {
+    const ctx = buildRuleContext({ emotion, spec });
+    const { spec: next, firedLabels } = applyRulesToSpec(spec, ctx);
+    setSpec(next);
+    setRuleMsg(firedLabels.length ? `已应用: ${firedLabels.join('、')}` : '当前镜头(情绪/景别)无匹配联动规则');
+    setTimeout(() => setRuleMsg(''), 4000);
+  }
 
   const compiled = compileShotSpecToPrompt(spec);
 
@@ -70,6 +82,15 @@ export function ShotCinematographyModal({
         {shotTitle && <p className="text-xs text-[var(--muted)] -mt-2 mb-1 line-clamp-1">{shotTitle}</p>}
 
         <ShotCinematographyPanel value={spec} onChange={setSpec} />
+
+        {/* v8.1 智能联动: 按情绪/景别一键套用机位规则 */}
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <button onClick={applyAutoRules} className="cinema-btn-ghost !text-[11px]">
+            <Wand2 size={13} className="text-[var(--primary)]" /> 智能建议机位
+          </button>
+          {emotion && <span className="cinema-mono text-[10px] opacity-50">情绪: {emotion}</span>}
+          {ruleMsg && <span className="cinema-mono text-[10px] text-[var(--accent-green)]">{ruleMsg}</span>}
+        </div>
 
         {/* v7.5 构图引导 + 运镜路径 (随景别/机位/运镜实时更新) */}
         <div className="mt-3 pt-3 border-t border-[var(--border)]">

@@ -65,7 +65,7 @@ export default function ProjectDetailPage() {
   const [batchRetrying, setBatchRetrying] = useState(false);
   const [batchRetryMsg, setBatchRetryMsg] = useState<string>('');
   // v7.2 单镜头摄影台: 当前打开的分镜 + 本地已保存机位覆盖 (省一次全量刷新)
-  const [cinemaShot, setCinemaShot] = useState<{ shotNumber: number; title?: string; spec: ShotSpec } | null>(null);
+  const [cinemaShot, setCinemaShot] = useState<{ shotNumber: number; title?: string; spec: ShotSpec; emotion?: string } | null>(null);
   const [specOverrides, setSpecOverrides] = useState<Record<number, ShotSpec>>({});
 
   useEffect(() => {
@@ -586,7 +586,7 @@ export default function ProjectDetailPage() {
                           const hasSaved = !!specOverrides[sb.shotNumber] || !!sb.data?.cameraSpec;
                           return (
                             <button
-                              onClick={() => setCinemaShot({ shotNumber: sb.shotNumber, title: sb.data?.description?.slice(0, 60), spec: curSpec })}
+                              onClick={() => setCinemaShot({ shotNumber: sb.shotNumber, title: sb.data?.description?.slice(0, 60), spec: curSpec, emotion: (script?.shots || [])[sb.shotNumber - 1]?.emotion })}
                               title="单镜头摄影台 — 景别/机位/镜头/运镜/焦点/氛围"
                               className="mt-1.5 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--border)] hover:border-[var(--primary)] transition group/cine"
                             >
@@ -880,6 +880,7 @@ export default function ProjectDetailPage() {
           shotNumber={cinemaShot.shotNumber}
           shotTitle={cinemaShot.title}
           initialSpec={cinemaShot.spec}
+          emotion={cinemaShot.emotion}
           onClose={() => setCinemaShot(null)}
           onSaved={(spec) => setSpecOverrides((m) => ({ ...m, [cinemaShot.shotNumber]: spec }))}
         />
