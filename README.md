@@ -88,6 +88,18 @@ Lock a consistent visual identity before you generate. Search, filter by categor
 Live status for every model and gateway: 正常 / 额度用尽 / 配置缺失 / 不可达, with real balance read-out and a "去充值 / 补配置" hint. Keys are never stored or returned.
 <p align="center"><img src="assets/v6/health.png" width="100%" /></p>
 
+### 🩺 Polish Studio — Pro industry audit *(v7.1)*
+Paste a draft, hit **Pro**: deepseek-v4-pro returns a polished script **plus a full industry diagnostic** — AIGC-pipeline readiness score (e.g. 85/100), style profile, first-3-second hook strength, Save-the-Cat 3-act breakdown with missing beats called out, on-the-nose dialogue lines flagged, and per-character Cameo/Seedance identity anchors so every shot stays on-model.
+<p align="center"><img src="assets/v8/polish-pro-audit.png" width="100%" /></p>
+
+### 👤 Character Studio + Cameo IP turnaround *(v6.0 / v7.x)*
+Every character gets a real 3-view turnaround sheet (front / three-quarter / back) with a locked structured "DNA prompt" — face geometry, skin tone, signature props, color palette, silhouette identity, full body pose — so the same actor reads identically across all 6 shots. The Cameo IP economy lets the same character travel between projects.
+<p align="center"><img src="assets/v8/character-studio.png" width="100%" /></p>
+
+### 🎬 Finished film + 11-tab director station *(v8.0)*
+One project, eleven tabs of cockpit-grade control: 导演台 · 剧本 · 角色 · 场景 · 分镜 · 连贯性 · 视频 · 镜头工坊 · Cinema 时间线 · 节奏分析 · 成片质检 · 技术监看 · 参数联动 · 评论协作 · 完整播放. The finished film plays right in the workspace with a 90/100 audit badge and one-click `mp4` / platform export.
+<p align="center"><img src="assets/v8/final-film-control.png" width="100%" /></p>
+
 ### 👥 Team Workspace *(v6.5)*  ·  🎞️ Cinema Timeline + narration track *(v6.2.4)*
 <table>
 <tr>
@@ -186,13 +198,13 @@ Cross-project reusable: 角色 / 场景 / 视频 / 音乐 / 字幕 / 模板 — 
 Every short film with auto-generated cinematic covers + status badges + quality donut.
 <p align="center"><img src="assets/screenshot-projects-v3.1.3.png" width="100%" /></p>
 
-### Creation workspace
-Paste an idea, pick a story template (18 built-in: 霸总/重生/赛博/古装/儿童/纪实/科幻/恐怖 etc.), hit go. Story templates auto-fill duration / aspect ratio / camera-language defaults.
-<p align="center"><img src="assets/screenshot-create-v3.1.3.png" width="100%" /></p>
+### Creation workspace — live multi-agent canvas
+The whole pipeline as a live agent flow: Writer / Character Designer / Scene Designer / Storyboard Artist / Video Producer / Editor nodes wired together with progress streaming per node, plus a chat side-rail showing every agent message in real time.
+<p align="center"><img src="assets/v8/creation-canvas.png" width="100%" /></p>
 
-### Per-project storyboard
-The original storyboard tab — every shot's script line, character lock state, Cameo retry score, Style Audit dimensions.
-<p align="center"><img src="assets/screenshot-storyboard-v3.1.3.png" width="100%" /></p>
+### Per-project script + shot list with beats
+The 剧本 tab: every shot with duration, emotion tag (警觉 / 凝重 / 惊恐 / 暴风的沉着 / 镇定的专注…) and a one-line **beat note** (从表面到深层警觉 / 从无知到悉知威胁 / 从警戒到遭受袭击 …) so the rhythm of the cut is legible at a glance.
+<p align="center"><img src="assets/v8/script-shotlist.png" width="100%" /></p>
 
 ### 🆕 Cinema Timeline (v3.1.1–v3.1.3 — multi-track + collab)
 3-track layout (SHOTS / BGM / SUBTITLE), drag-to-retime, double-click subtitles to rewrite, drag edges to resize, **real BGM waveform** (Web Audio decode), live other-user cursors with name labels, segment lock indicators.

@@ -79,6 +79,18 @@
 每个模型 / 网关实时状态:正常 / 额度用尽 / 配置缺失 / 不可达,带真实余额读数和「去充值 / 补配置」建议。Key 永不存储、永不回传。
 <p align="center"><img src="assets/v6/health.png" width="100%" /></p>
 
+### 🩺 剧本润色 Pro 行业级诊断 *(v7.1)*
+贴一段草稿,选 **Pro**:deepseek-v4-pro 不仅润色,还给一份**完整行业体检** —— AIGC 管线就绪度评分(85/100)、风格画像、前 3 秒 Hook 强度、Save the Cat 三幕结构+缺失节拍指认、直抒胸臆/抽象情绪台词标红、按角色给 Cameo/Seedance Identity 锚点(保证每镜人物不漂)。
+<p align="center"><img src="assets/v8/polish-pro-audit.png" width="100%" /></p>
+
+### 👤 角色工坊 + Cameo IP 三视图 *(v6.0 / v7.x)*
+每个角色一张真三视图(正/三分之四/背),配一段结构化「DNA 提示词」—— 脸型、肤色、标志性道具、配色、Silhouette identity、全身 pose 全部锁定 —— 保证全片 6 个镜头同一个人。Cameo IP 经济还能让同一角色在多个项目间复用。
+<p align="center"><img src="assets/v8/character-studio.png" width="100%" /></p>
+
+### 🎬 完整成片 + 11 tab 控片台 *(v8.0)*
+一个项目,11 tab 驾驶舱级控制:导演台 · 剧本 · 角色 · 场景 · 分镜 · 连贯性 · 视频 · 镜头工坊 · Cinema 时间线 · 节奏分析 · 成片质检 · 技术监看 · 参数联动 · 评论协作 · 完整播放。成片直接在工作区里播,带 90/100 质检徽章,一键 `mp4` / 平台导出。
+<p align="center"><img src="assets/v8/final-film-control.png" width="100%" /></p>
+
 ### 👥 团队工作区 *(v6.5)*  ·  🎞️ 时间线 + 解说轨 *(v6.2.4)*
 <table>
 <tr>
@@ -177,13 +189,13 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 所有短片 + 自动生成的电影感封面 + 状态徽章 + 质量 donut.
 <p align="center"><img src="assets/screenshot-projects-v3.1.3.png" width="100%" /></p>
 
-### 创作工坊
-粘贴 idea, 选故事模板 (内置 18 个: 霸总 / 重生 / 赛博 / 古装 / 儿童 / 纪实 / 科幻 / 恐怖 等), 一键开机. 模板自动填时长 / 画幅 / 镜头语言默认值.
-<p align="center"><img src="assets/screenshot-create-v3.1.3.png" width="100%" /></p>
+### 创作工坊 —— 多 Agent 实时编排画布
+整条管线就是一张 Agent 流图:编剧 / 角色设计师 / 场景设计师 / 分镜师 / 视频生成 / 剪辑师 节点连线,每个节点带进度流,旁边一条 Chat 侧栏实时显示每个 Agent 的发言。
+<p align="center"><img src="assets/v8/creation-canvas.png" width="100%" /></p>
 
-### 分镜详情
-原版分镜 tab — 每镜剧本句 / 角色锁状态 / Cameo retry 分数 / Style Audit 维度.
-<p align="center"><img src="assets/screenshot-storyboard-v3.1.3.png" width="100%" /></p>
+### 项目剧本 + 镜头节拍
+剧本 tab:每镜带时长、情绪标签(警觉 / 凝重 / 惊恐 / 暴风的沉着 / 镇定的专注…)和一行**节拍注**(从表面到深层警觉 / 从无知到悉知威胁 / 从警戒到遭受袭击…),节奏一眼看清。
+<p align="center"><img src="assets/v8/script-shotlist.png" width="100%" /></p>
 
 ### 🆕 Cinema 时间线 (v3.1.1–v3.1.3 — 多轨道 + 协作)
 3 轨布局 (SHOTS / BGM / SUBTITLE), 拖拽改时间, 双击字幕改文字, 拖边沿改时长, **真 BGM 波形** (Web Audio decode), 实时其他用户光标 + 名字标, 段锁标识.

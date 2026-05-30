@@ -32,7 +32,16 @@
 <td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/styles.png" /><br/><sub>🎨 风格画廊 —— 60 套电影质感一键套用</sub></td>
 <td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/health.png" /><br/><sub>🩺 API 健康看板 —— 别再被死 key 打断</sub></td>
 </tr>
+<tr>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/polish-pro-audit.png" /><br/><sub>🩺 剧本润色 Pro —— deepseek-v4-pro 出稿 + AIGC 就绪度 / Save the Cat / Cameo 锚点 行业级体检 (v7.1)</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/character-studio.png" /><br/><sub>👤 角色工坊 —— 三视图 + DNA 锁脸 + Cameo IP 跨项目复用 (v6.0 / v7.x)</sub></td>
+</tr>
 </table>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/final-film-control.png" alt="Finished film + 11-tab director station" width="100%" />
+  <br/><sub>🎬 一个项目, 11 tab 驾驶舱:导演台 · 剧本 · 角色 · 场景 · 分镜 · 连贯性 · 视频 · 镜头工坊 · 时间线 · 节奏 · 质检 · 技术监看 · 参数联动 · 评论 · 完整播放 (v8.0)</sub>
+</p>
 
 **技术栈 · 网关路由(v6.8–v7.0)**:每个模型调用 provider 可插拔(优先级链 + 自动 fallback),**MiniMax 全局兜底**(任何异常/欠费/超时自动路由)——
 
