@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, ScanEye, RefreshCw } from 'lucide-react';
+import { CircleNotch as Loader2, Scan as ScanEye, ArrowsClockwise as RefreshCw } from '@phosphor-icons/react';
 import { VisionAuditPanel, type VisionAuditShot, type VisionAuditSummaryShape } from './vision-audit-panel';
 
 export function VisionAuditTab({ projectId }: { projectId: string }) {

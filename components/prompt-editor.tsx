@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { AtSign, Eye, EyeOff, X } from 'lucide-react';
+import { At as AtSign, Eye, EyeSlash as EyeOff, X } from '@phosphor-icons/react';
 import {
   activeMention, suggestAssets, insertMention, compilePrompt,
   type MentionableAsset,

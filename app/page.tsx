@@ -8,6 +8,7 @@ import { GlassCard } from '@/components/ui/glass-card';
 import { heroStats, featureHighlights, agentCards, vibeShots } from '@/lib/home-data';
 import { IMG_FEATURE_MAIN, IMG_LENS_MAIN, IMG_BG_TEXTURE } from '@/lib/placeholder-images';
 import { useEffect, useState } from 'react';
+import { Play } from '@phosphor-icons/react';
 import { useLocale } from '@/hooks/use-locale';
 
 export default function Home() {
@@ -160,7 +161,7 @@ export default function Home() {
               <div className="relative rounded-[30px] overflow-hidden bg-[var(--foreground)] border border-[var(--border)] group">
                 <img src={IMG_FEATURE_MAIN} alt="Feature" className="w-full h-[380px] object-cover transition-transform duration-400 group-hover:scale-[1.03]" />
                 <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(232,197,71,0.08),transparent_50%)] pointer-events-none" />
-                <button className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[rgba(255,255,255,0.16)] border border-[var(--border)] w-20 h-20 rounded-full text-[26px] cursor-pointer">▶</button>
+                <button aria-label="播放" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[rgba(255,255,255,0.16)] border border-[var(--border)] w-20 h-20 rounded-full grid place-items-center cursor-pointer hover:bg-[rgba(255,255,255,0.24)] transition-colors"><Play size={28} weight="fill" className="ml-1" /></button>
               </div>
               <div className="flex flex-col gap-4">
                 {featureHighlights.map((item) => (
@@ -270,7 +271,7 @@ export default function Home() {
               <div key={item.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-[20px] overflow-hidden text-left group transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
                 <div className="relative h-[180px] overflow-hidden">
                   <img src={item.coverUrl || item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  <button className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[46px] rounded-full border border-[var(--border)] bg-[rgba(0,0,0,0.5)] text-white cursor-pointer">▶</button>
+                  <button aria-label="播放" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[46px] rounded-full border border-[var(--border)] bg-[rgba(0,0,0,0.5)] text-white grid place-items-center cursor-pointer hover:bg-[rgba(0,0,0,0.65)] transition-colors"><Play size={18} weight="fill" className="ml-0.5" /></button>
                 </div>
                 <div className="p-4">
                   <span className="text-xs text-[var(--soft)]">{item.category || 'AI Short'}</span>

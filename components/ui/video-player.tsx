@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Play, Pause, SpeakerHigh as Volume2, SpeakerSlash as VolumeX, ArrowsOut as Maximize, ArrowsIn as Minimize } from '@phosphor-icons/react';import { cn } from "@/lib/utils"
 import { Button } from "./button"
 
 interface VideoPlayerProps {

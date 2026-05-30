@@ -12,7 +12,7 @@
  */
 
 import { useState } from 'react';
-import { Lock, RefreshCw, Save, Loader2, Users, Mountain, Hash, Link2, ScanFace, Check } from 'lucide-react';
+import { Lock, ArrowsClockwise as RefreshCw, FloppyDisk as Save, CircleNotch as Loader2, Users, Mountains as Mountain, Hash, LinkSimple as Link2, UserFocus as ScanFace, Check } from '@phosphor-icons/react';
 import {
   LINK_MODES, FACEID_STRENGTHS, generateSeed, normalizeContinuitySettings,
   computeContinuityTags, describeContinuity,

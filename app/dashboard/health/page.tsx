@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, RefreshCw, Loader2, CheckCircle2, AlertTriangle, XCircle, CircleDashed, Wallet } from 'lucide-react';
+import { Pulse as Activity, ArrowsClockwise as RefreshCw, CircleNotch as Loader2, CheckCircle as CheckCircle2, Warning as AlertTriangle, XCircle, CircleDashed, Wallet } from '@phosphor-icons/react';
 import { STATUS_META, type ProviderHealth, type HealthStatus } from '@/lib/provider-health';
 
 const TONE_CLS: Record<string, string> = {

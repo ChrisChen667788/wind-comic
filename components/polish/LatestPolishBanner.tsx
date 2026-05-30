@@ -15,9 +15,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  Stethoscope, ChevronDown, ChevronUp, Activity, Clock, Sparkles, ExternalLink,
-} from 'lucide-react';
+import { Stethoscope, CaretDown as ChevronDown, CaretUp as ChevronUp, Pulse as Activity, Clock, Sparkle as Sparkles, ArrowSquareOut as ExternalLink } from '@phosphor-icons/react';
 import IndustryAuditCard, { type PolishAudit } from './IndustryAuditCard';
 import { readinessLevel } from '@/lib/polish-prompts';
 

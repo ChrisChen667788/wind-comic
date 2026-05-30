@@ -1869,7 +1869,7 @@ npm test
 - **v8.3 P4 · 关键页布局 Asymmetric Bento** ✅ 2026-05-30 —— `/dashboard` 创作总览改 12 列非对称 bento(create hero `col-span-7 row-span-2` 主导 + 统计卡右栏不等高堆叠 + 内容/活动 7/5 收尾, CSS Grid 自动排布), 容器 `6xl→7xl`, 数字 tabular-nums, 标题 text-balance, mobile 单列 fallback。(project page split editorial 排留 P4.1 可选)
 - **v8.3 P5 · 模块整合 + 显示修复 + 风格画廊填充 + a11y** ✅ 2026-05-30 —— 创意生成器(鸡肋, 折进创作工坊入口)+ 角色库(并入素材库-角色)移出侧栏;素材库 `object-contain` 完整显示 + 名称/描述展开(不再"必须点开");`scripts/gen-style-thumbs.ts` 经 MiniMax image-01 生成 60 张真实风格缩略图(flux 网关饱和改兜底);全局 `:where(...):focus-visible` 金色 focus ring。(sentence-case/cliche scrub 量大且主观, 留 P6 选做)
 - **v8.3 P6 · 故事模板 AI 图标 + 全量 design review** ✅ 2026-05-30 —— 18 枚模板 emoji → AI 金色霓虹 emblem(`scripts/gen-template-icons.ts`, MiniMax, emoji onError 兜底);`docs/design-audit-v8.3.md` redesign-skill 全量 audit(P1-P6 已修 13 项 + 剩余债务清单)。截图刷新见下。
-- **v8.3 P6.1 · lucide → Phosphor 78 文件长尾迁移** (待办, 分批) —— "不要用默认图标" 的彻底落实; 每批 tsc + 测试 + 视觉核对, 不与功能改动混。
+- **v8.3 P6.1 · lucide → Phosphor 全量迁移** ✅ 2026-05-31 —— 89 文件 / 144 图标全迁(80 个经校验过的 alias codemod, tsc 0 零 body 改动)+ `IconContext` 全局 light 字重 + 散落装饰 emoji 清扫(按钮 CTA 9 处)。剩余数据型 emoji(ModeCard / LOOK 预设 / AssetGrid 等, 性质同故事模板)可走 AI 图标批量(选做 P6.3)。
 - **v8.3 P6.2 · 截图刷新** —— puppeteer(已装)捕获 v8 bento dashboard + 风格画廊 + 模板图标, 刷进 README/ModelScope。
 
 每 Pn 一个独立 sub-version, 控制风险面 (设计改动易回归)。tsc + 全量测试 + dev 实测 + 提交, 节奏与之前一致。

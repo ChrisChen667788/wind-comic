@@ -27,7 +27,7 @@ type TabKey = 'all' | 'popular' | StyleCategory;
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'all', label: '全部' },
-  { key: 'popular', label: '🔥 热门' },
+  { key: 'popular', label: '热门' },
   { key: 'realistic', label: '写实' },
   { key: 'anime', label: '动画' },
   { key: 'artistic', label: '艺术' },
@@ -222,7 +222,7 @@ function StyleCard({ preset, selected, onSelect }: StyleCardProps) {
       {/* 热度标签 */}
       {preset.popularity >= 90 && (
         <span className="absolute left-2 top-2 rounded bg-orange-500/80 px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
-          🔥 热门
+          热门
         </span>
       )}
 

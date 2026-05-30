@@ -4,11 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import {
-  ArrowLeft, FileText, Users, Mountain, Film, Video, Play, Scissors,
-  Star, CheckCircle2, AlertTriangle, Pencil, Save, X, MessageCircle, BarChart3,
-  Clapperboard, ScanEye, MonitorPlay, Link2, Gauge, Braces,
-} from 'lucide-react';
+import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces } from '@phosphor-icons/react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { DirectorConsole } from '@/components/director-console';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';

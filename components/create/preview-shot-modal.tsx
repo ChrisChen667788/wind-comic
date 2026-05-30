@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { X, Loader2, RefreshCw, Check, Sparkles, AlertTriangle, Clock, Trash2 } from 'lucide-react';
+import { X, CircleNotch as Loader2, ArrowsClockwise as RefreshCw, Check, Sparkle as Sparkles, Warning as AlertTriangle, Clock, Trash as Trash2 } from '@phosphor-icons/react';
 
 interface RateLimit {
   tier: string;

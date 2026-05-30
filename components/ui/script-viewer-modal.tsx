@@ -26,7 +26,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, FileText, Copy, Download, Check, Wand2 } from 'lucide-react';
+import { X, FileText, Copy, Download, Check, MagicWand as Wand2 } from '@phosphor-icons/react';
 import Link from 'next/link';
 
 interface ScriptShot {

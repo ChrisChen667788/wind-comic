@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Bookmark, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Bookmark, Plus, Trash as Trash2, CircleNotch as Loader2 } from '@phosphor-icons/react';
 import {
   Popover,
   PopoverContent,

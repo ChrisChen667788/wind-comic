@@ -16,11 +16,7 @@
  * 设计哲学: 只渲染模型给到的内容, 缺失字段优雅隐藏。绝不自己补数据。
  */
 
-import {
-  Activity, AlertTriangle, Anchor, Drama,
-  LayoutList, Lightbulb, MessageSquareQuote, Palette, Users, Zap,
-  Search, PlusCircle,
-} from 'lucide-react';
+import { Pulse as Activity, Warning as AlertTriangle, Anchor, MaskHappy as Drama, ListBullets as LayoutList, Lightbulb, Quotes as MessageSquareQuote, Palette, Users, Lightning as Zap, MagnifyingGlass as Search, PlusCircle } from '@phosphor-icons/react';
 import { readinessLevel } from '@/lib/polish-prompts';
 
 /**

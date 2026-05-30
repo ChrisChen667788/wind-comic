@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import { Film, Loader2, CheckCircle2, Clock, Camera, Sun, Palette, MoveRight } from 'lucide-react';
+import { FilmStrip as Film, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Camera, Sun, Palette, ArrowRight as MoveRight } from '@phosphor-icons/react';
 
 // Runway-style camera icon mapping
 const CAMERA_ICONS: Record<string, string> = {

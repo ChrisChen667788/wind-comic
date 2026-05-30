@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Upload, Link as LinkIcon, X, Loader2, UserCircle2, Sparkles } from 'lucide-react';
+import { Upload, Link as LinkIcon, X, CircleNotch as Loader2, UserCircle as UserCircle2, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { useToast } from '@/components/ui/toast-provider';
 import type { CharacterTraits } from '@/lib/character-traits';
 

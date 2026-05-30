@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { FileText, Users, Clapperboard, Film, Pencil, RefreshCw, AlertTriangle, ChevronRight, CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { FileText, Users, FilmSlate as Clapperboard, FilmStrip as Film, Pencil, ArrowsClockwise as RefreshCw, Warning as AlertTriangle, CaretRight as ChevronRight, CheckCircle as CheckCircle2, Circle, CircleNotch as Loader2 } from '@phosphor-icons/react';
 import {
   derivePipelineStages, downstreamStages, pipelineProgress,
   PIPELINE_STAGES, type StageAsset, type StageId, type StageStatus,

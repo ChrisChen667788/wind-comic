@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, Check, Play, Eye, Heart, Sparkles } from 'lucide-react';
+import { Copy, Check, Play, Eye, Heart, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { useLocale } from '@/hooks/use-locale';
 
 export default function CasesPage() {

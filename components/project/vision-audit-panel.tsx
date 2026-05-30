@@ -9,7 +9,7 @@
  * 纯展示组件 — 数据由父组件从 /api/projects/[id]/vision-audit 拿后传入.
  */
 
-import { AlertTriangle, CheckCircle2, XCircle, Eye, Film } from 'lucide-react';
+import { Warning as AlertTriangle, CheckCircle as CheckCircle2, XCircle, Eye, FilmStrip as Film } from '@phosphor-icons/react';
 
 export interface VisionAuditShot {
   shotNumber: number;

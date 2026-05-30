@@ -18,10 +18,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Loader2, GripVertical, Clock, Save, Film, MessageSquare, Music,
-  Volume2, VolumeX, Pencil, RotateCcw, Undo2, Redo2, Magnet,
-} from 'lucide-react';
+import { CircleNotch as Loader2, DotsSixVertical as GripVertical, Clock, FloppyDisk as Save, FilmStrip as Film, Chat as MessageSquare, MusicNotes as Music, SpeakerHigh as Volume2, SpeakerSlash as VolumeX, Pencil, ArrowCounterClockwise as RotateCcw, ArrowUUpLeft as Undo2, ArrowUUpRight as Redo2, Magnet } from '@phosphor-icons/react';
 import { visibleRange, shouldVirtualize } from '@/lib/timeline-virtual';
 import { useYjs } from '@/hooks/use-yjs';
 import { useAudioWaveform, sliceWaveform } from '@/hooks/use-audio-waveform';

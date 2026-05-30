@@ -4,10 +4,7 @@ import { memo, useState, useCallback } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData, ReviewItem, AgentRole } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import {
-  Loader2, CheckCircle2, AlertTriangle, ArrowRight, Clock,
-  Clapperboard, Megaphone, RefreshCw, RotateCcw, Sparkles, Gauge,
-} from 'lucide-react';
+import { CircleNotch as Loader2, CheckCircle as CheckCircle2, Warning as AlertTriangle, ArrowRight, Clock, FilmSlate as Clapperboard, Megaphone, ArrowsClockwise as RefreshCw, ArrowCounterClockwise as RotateCcw, Sparkle as Sparkles, Gauge } from '@phosphor-icons/react';
 import { useProjectWorkspaceStore } from '@/lib/store';
 
 // 阶段配置：名称、图标、颜色

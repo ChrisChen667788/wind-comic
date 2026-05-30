@@ -25,7 +25,7 @@
 
 | # | 审计项 | 量级 | 计划 |
 |---|---|---|---|
-| 1 | **Lucide → Phosphor 全量迁移** | **78 个文件** 仍 `from 'lucide-react'` | P6.1 (机械但量大, 需逐文件 icon 名映射 + weight; 分批做, 每批 tsc+测试) |
+| 1 | ~~Lucide → Phosphor 全量迁移~~ | ~~89 文件~~ | ✅ P6.1 已完成 (alias codemod + IconContext light, tsc 0) |
 | 2 | `transition-all` → transform/opacity 显式过渡 | 130 处 | P6.2 (GPU 友好 + 避免意外重排; 批量替换风险中等) |
 | 3 | 散落装饰 emoji (🎬 ▶ ✨ 🔥 …) | ~20 处按钮/标签 | P6.2 (改 Phosphor 图标或去除) |
 | 4 | 纯 `#000` / `bg-black` | 157 处 | P6.3 (多为图片占位底色, 真正该换的少; 低优先) |

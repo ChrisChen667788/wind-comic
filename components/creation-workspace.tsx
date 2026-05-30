@@ -7,7 +7,7 @@ import { PipelineCanvas, buildInitialNodes, initialEdges } from '@/components/pi
 import { Mascot } from '@/components/mascot';
 import { useProjectWorkspaceStore } from '@/lib/store';
 import { type Project } from '@/types/agents';
-import { PanelLeftClose, PanelLeftOpen, MoreHorizontal, Share2, Play, Film, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { ArrowLineLeft as PanelLeftClose, ArrowLineRight as PanelLeftOpen, DotsThree as MoreHorizontal, ShareNetwork as Share2, Play, FilmStrip as Film, CaretDown as ChevronDown, CaretUp as ChevronUp, Download } from '@phosphor-icons/react';
 import { VideoModal } from '@/components/ui/video-modal';
 import { OverallProgressBar } from '@/components/ui/overall-progress';
 import { WorkspaceHotkeys } from '@/components/workspace-hotkeys';

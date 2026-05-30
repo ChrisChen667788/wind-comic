@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { UsersRound, Plus, Trash2, Save, Wallet, Loader2, AlertTriangle, Mail, Link2, Send, Copy } from 'lucide-react';
+import { UsersThree as UsersRound, Plus, Trash as Trash2, FloppyDisk as Save, Wallet, CircleNotch as Loader2, Warning as AlertTriangle, Envelope as Mail, LinkSimple as Link2, PaperPlaneTilt as Send, Copy } from '@phosphor-icons/react';
 import {
   poolSummary, canSetAllocation, remaining,
   canRemoveMember, canAllocateCredits,

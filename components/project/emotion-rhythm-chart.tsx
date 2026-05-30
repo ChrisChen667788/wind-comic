@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Pulse as Activity } from '@phosphor-icons/react';
 import { curveStats, describeCurve, type EmotionPoint } from '@/lib/emotion-curve';
 
 const SERIES: { key: keyof EmotionPoint; label: string; color: string }[] = [

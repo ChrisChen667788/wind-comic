@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { X, CaretLeft as ChevronLeft, CaretRight as ChevronRight, MagnifyingGlassPlus as ZoomIn, MagnifyingGlassMinus as ZoomOut } from '@phosphor-icons/react';import { cn } from "@/lib/utils"
 import { Button } from "./button"
 
 interface ImageGalleryProps {

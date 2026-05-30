@@ -24,10 +24,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AgentRole } from '@/types/agents';
-import {
-  Send, X, Loader2, FileText, Users, Mountain, Film, Megaphone, Scissors,
-  Clapperboard, Sparkles, MessageCircle, Trash2,
-} from 'lucide-react';
+import { PaperPlaneTilt as Send, X, CircleNotch as Loader2, FileText, Users, Mountains as Mountain, FilmStrip as Film, Megaphone, Scissors, FilmSlate as Clapperboard, Sparkle as Sparkles, ChatCircle as MessageCircle, Trash as Trash2 } from '@phosphor-icons/react';
 
 interface Msg {
   id: string;

@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Sparkles, Plus, Clock, CheckCircle2, Loader2 } from 'lucide-react';
+import { Sparkle as Sparkles, Plus, Clock, CheckCircle as CheckCircle2, CircleNotch as Loader2 } from '@phosphor-icons/react';
 import { ProjectSearch } from '@/components/project-search';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { useLocale } from '@/hooks/use-locale';

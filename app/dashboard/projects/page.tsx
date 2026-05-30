@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
-import { FolderKanban, Clock, CheckCircle2, Play, Film, Plus, Sparkles, Search, Wand2 } from 'lucide-react';
+import { Kanban as FolderKanban, Clock, CheckCircle as CheckCircle2, Play, FilmStrip as Film, Plus, Sparkle as Sparkles, MagnifyingGlass as Search, MagicWand as Wand2 } from '@phosphor-icons/react';
 import { FilmStripDivider } from '@/components/cinema/primitives';
 import { NumberTicker, AnimatedShinyText } from '@/components/cinema/effects';
 import { ScoreDonut } from '@/components/cinema/dataviz';
@@ -55,8 +55,8 @@ export default function ProjectsPage() {
           <p className="cinema-subhead text-sm mt-1 opacity-70">管理和追踪你的 AI 漫剧创作</p>
         </div>
         <Link href="/dashboard/create" className="cinema-btn cinema-btn-primary !px-5 !py-2.5 !text-[12px] whitespace-nowrap">
-          <Plus className="w-4 h-4" />
-          ▶  新建创作
+          <Plus className="w-4 h-4" weight="bold" />
+          新建创作
         </Link>
       </div>
 
@@ -103,8 +103,8 @@ export default function ProjectsPage() {
           <p className="cinema-headline text-base mb-1">{filter === 'all' ? '还没有创作项目' : '没有符合条件的项目'}</p>
           <p className="cinema-subhead text-xs mb-5 opacity-65 max-w-md mx-auto">输入你的创意，AI 团队将自动为你完成从剧本到成片的全流程创作</p>
           <Link href="/dashboard/create" className="cinema-btn cinema-btn-primary !text-[12px]">
-            <Sparkles className="w-4 h-4" />
-            ▶  开始创作
+            <Sparkles className="w-4 h-4" weight="duotone" />
+            开始创作
           </Link>
         </div>
       ) : (

@@ -15,7 +15,7 @@
  */
 
 import { useState } from 'react';
-import { X, Loader2, RefreshCw, Sparkles, ImageOff, Upload, ImagePlus } from 'lucide-react';
+import { X, CircleNotch as Loader2, ArrowsClockwise as RefreshCw, Sparkle as Sparkles, ImageBroken as ImageOff, Upload, Image as ImagePlus } from '@phosphor-icons/react';
 
 export interface StoryboardRegenModalProps {
   projectId: string;

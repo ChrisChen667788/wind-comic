@@ -8,7 +8,7 @@
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { UsersRound, Loader2, CheckCircle2, AlertTriangle, LogIn } from 'lucide-react';
+import { UsersThree as UsersRound, CircleNotch as Loader2, CheckCircle as CheckCircle2, Warning as AlertTriangle, SignIn as LogIn } from '@phosphor-icons/react';
 
 function AcceptInner() {
   const params = useSearchParams();

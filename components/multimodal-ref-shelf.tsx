@@ -7,7 +7,7 @@
 
 import { useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { Image as ImageIcon, Music, Video, Plus, X, Paperclip } from 'lucide-react';
+import { Image as ImageIcon, MusicNotes as Music, Video, Plus, X, Paperclip } from '@phosphor-icons/react';
 import {
   classifyRef, validateRefs, ACCEPT_ATTR, KIND_LABEL, MAX_PER_KIND,
   type ReferenceAsset, type RefKind,

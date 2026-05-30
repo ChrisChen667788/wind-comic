@@ -13,9 +13,7 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  ArrowLeft, AlertTriangle, CheckCircle2, Loader2, Users, Crown,
-} from 'lucide-react';
+import { ArrowLeft, Warning as AlertTriangle, CheckCircle as CheckCircle2, CircleNotch as Loader2, Users, Crown } from '@phosphor-icons/react';
 
 type ProjectRole = 'viewer' | 'commenter' | 'editor';
 

@@ -15,10 +15,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Zap, Film, Clapperboard, Flame, Sparkles, Copy, Check, Download,
-  Loader2, AlertCircle, Wand2, Eye, Gauge, ImageUp, Share2, ArrowRight,
-} from 'lucide-react';
+import { Lightning as Zap, FilmStrip as Film, FilmSlate as Clapperboard, Flame, Sparkle as Sparkles, Copy, Check, Download, CircleNotch as Loader2, WarningCircle as AlertCircle, MagicWand as Wand2, Eye, Gauge, Image as ImageUp, ShareNetwork as Share2, ArrowRight } from '@phosphor-icons/react';
 import {
   RHYTHM_TEMPLATES, SHORT_DURATIONS, CAMERA_MOVE_VOCAB, ACT_LABEL_ZH,
   SHOT_SIZE_LABEL_ZH, cameraMovesByPhase, getCameraMove, getRhythmTemplate,

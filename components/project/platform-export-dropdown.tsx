@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { Share2, Loader2, Check, ChevronDown } from 'lucide-react';
+import { ShareNetwork as Share2, CircleNotch as Loader2, Check, CaretDown as ChevronDown } from '@phosphor-icons/react';
 
 interface Preset {
   key: string;

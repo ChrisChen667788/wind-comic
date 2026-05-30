@@ -5,11 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AgentRole, type ChatMessage } from '@/types/agents';
 import { useProjectWorkspaceStore } from '@/lib/store';
 import { AgentAvatar } from '@/components/mascot';
-import {
-  Send, ChevronDown, ChevronUp, Loader2,
-  FileText, Users, Mountain, Film, Video, Eye, Scissors,
-  ImageIcon, Paperclip, Clapperboard, Megaphone
-} from 'lucide-react';
+import { PaperPlaneTilt as Send, CaretDown as ChevronDown, CaretUp as ChevronUp, CircleNotch as Loader2, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Eye, Scissors, ImageIcon, Paperclip, FilmSlate as Clapperboard, Megaphone } from '@phosphor-icons/react';
 
 const AGENT_CONFIG: Record<string, { label: string; icon: any; color: string; desc: string; avatar: string }> = {
   [AgentRole.WRITER]: { label: '编剧', icon: FileText, color: 'text-[#E8C547]', desc: '剧本 · 对白 · 世界观', avatar: '/avatars/beaver-happy.jpg' },

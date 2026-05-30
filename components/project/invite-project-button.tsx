@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { UserPlus, Copy, Check, Trash2, Loader2, X as XIcon } from 'lucide-react';
+import { UserPlus, Copy, Check, Trash as Trash2, CircleNotch as Loader2, X as XIcon } from '@phosphor-icons/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 type ProjectRole = 'viewer' | 'commenter' | 'editor';

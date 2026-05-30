@@ -11,9 +11,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Wand2, Copy, Check, Sparkles, Loader2, ArrowRight, BookText, Clapperboard, Film, Palette, Video,
-} from 'lucide-react';
+import { MagicWand as Wand2, Copy, Check, Sparkle as Sparkles, CircleNotch as Loader2, ArrowRight, BookOpenText as BookText, FilmSlate as Clapperboard, FilmStrip as Film, Palette, Video } from '@phosphor-icons/react';
 import {
   FILM_LOOK_PRESETS, LUT_PRESETS, MOVEMENT_STYLE_PRESETS, GLOSSARY,
   DEFAULT_MASTER_PROMPT, compileMasterPrompt, describeMasterPrompt,

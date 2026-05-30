@@ -4,7 +4,7 @@ import { memo, useState, useEffect } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData, AgentRole } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import { Scissors, Loader2, CheckCircle2, Clock, Play, Film, Save, RefreshCw, Music, Volume2, ArrowUp, ArrowDown, Trash2, Undo2 } from 'lucide-react';
+import { Scissors, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Play, FilmStrip as Film, FloppyDisk as Save, ArrowsClockwise as RefreshCw, MusicNotes as Music, SpeakerHigh as Volume2, ArrowUp, ArrowDown, Trash as Trash2, ArrowUUpLeft as Undo2 } from '@phosphor-icons/react';
 import { VideoModal } from '@/components/ui/video-modal';
 import { useProjectWorkspaceStore } from '@/lib/store';
 

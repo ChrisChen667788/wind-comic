@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Trash2, MessageCircle, Send, Loader2, Radio, RadioReceiver, Paperclip, X as XIcon } from 'lucide-react';
+import { Trash as Trash2, ChatCircle as MessageCircle, PaperPlaneTilt as Send, CircleNotch as Loader2, Radio, Radio as RadioReceiver, Paperclip, X as XIcon } from '@phosphor-icons/react';
 import { MentionTextarea } from './mention-textarea';
 import type { CommentRowShape as CommentRow, CommentTargetType, CommentAttachmentShape } from '@/lib/comments-shared';
 import { useYjs } from '@/hooks/use-yjs';

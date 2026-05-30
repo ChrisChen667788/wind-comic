@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { AlertTriangle, X, Zap, Wifi, Clock, Lock } from 'lucide-react';
+import { Warning as AlertTriangle, X, Lightning as Zap, WifiHigh as Wifi, Clock, Lock } from '@phosphor-icons/react';
 
 interface AlertItem {
   provider: string;

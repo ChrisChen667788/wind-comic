@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, Loader2, Crown, Lock, Check } from 'lucide-react';
+import { ArrowLeft, Sparkle as Sparkles, CircleNotch as Loader2, Crown, Lock, Check } from '@phosphor-icons/react';
 
 interface MarketToken {
   id: string;

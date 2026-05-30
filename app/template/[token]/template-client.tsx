@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Copy, Check, Eye, Users, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import { Copy, Check, Eye, Users, Warning as AlertTriangle, ArrowLeft, CircleNotch as Loader2 } from '@phosphor-icons/react';
 
 interface SharedTemplate {
   token: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, X, Filter } from 'lucide-react';
+import { MagnifyingGlass as Search, X, Funnel as Filter } from '@phosphor-icons/react';
 import { Button } from './ui/button';
 
 interface ProjectSearchProps {

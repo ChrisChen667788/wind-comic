@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ChevronLeft, ChevronRight, ZoomIn, ImageOff, RefreshCw } from 'lucide-react';
+import { X, CaretLeft as ChevronLeft, CaretRight as ChevronRight, MagnifyingGlassPlus as ZoomIn, ImageBroken as ImageOff, ArrowsClockwise as RefreshCw } from '@phosphor-icons/react';
 
 /**
  * 统一的图片放大查看组件。

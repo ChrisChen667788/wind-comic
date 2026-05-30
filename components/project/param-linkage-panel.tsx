@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Braces, RefreshCw, Check, AlertCircle, Loader2, GitCompareArrows } from 'lucide-react';
+import { BracketsCurly as Braces, ArrowsClockwise as RefreshCw, Check, WarningCircle as AlertCircle, CircleNotch as Loader2, GitDiff as GitCompareArrows } from '@phosphor-icons/react';
 import {
   buildParamDoc, paramDocToJson, parseParamDoc, diffParamDoc, type ParamDoc,
 } from '@/lib/param-linkage';

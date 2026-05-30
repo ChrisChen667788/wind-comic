@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { UserCircle2, Upload, Trash2, Loader2, Lock, CheckCircle2, Sparkles } from 'lucide-react';
+import { UserCircle as UserCircle2, Upload, Trash as Trash2, CircleNotch as Loader2, Lock, CheckCircle as CheckCircle2, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { useToast } from './ui/toast-provider';
 import { CameoScoreBadge, type CameoScoreBadgeData } from './CameoScoreBadge';
 

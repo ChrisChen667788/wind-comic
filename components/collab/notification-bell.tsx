@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell, Check, AtSign, MessageCircle, Loader2 } from 'lucide-react';
+import { Bell, Check, At as AtSign, ChatCircle as MessageCircle, CircleNotch as Loader2 } from '@phosphor-icons/react';
 import {
   Popover,
   PopoverContent,

@@ -4,7 +4,7 @@ import { memo, useState, useCallback } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import { Video, Loader2, CheckCircle2, RefreshCw, Play, Clock, AlertCircle } from 'lucide-react';
+import { Video, CircleNotch as Loader2, CheckCircle as CheckCircle2, ArrowsClockwise as RefreshCw, Play, Clock, WarningCircle as AlertCircle } from '@phosphor-icons/react';
 import { VideoModal } from '@/components/ui/video-modal';
 import { useProjectWorkspaceStore } from '@/lib/store';
 

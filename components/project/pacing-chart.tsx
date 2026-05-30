@@ -9,7 +9,7 @@
  *   - DialogueCoverageReport (v2.24 C) — 缺反打 / 缺特写 列表
  */
 
-import { ArrowRight, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Minus, Lightbulb, Palette, MessageCircle } from 'lucide-react';
+import { ArrowRight, Warning as AlertTriangle, CheckCircle as CheckCircle2, TrendUp as TrendingUp, TrendDown as TrendingDown, Minus, Lightbulb, Palette, ChatCircle as MessageCircle } from '@phosphor-icons/react';
 
 type Polarity = -1 | 0 | 1;
 

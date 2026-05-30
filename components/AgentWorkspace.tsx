@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Agent, AgentRole } from '@/types/agents';
-import { Sparkles, CheckCircle2, AlertCircle, Loader2, Clock } from 'lucide-react';
+import { Sparkle as Sparkles, CheckCircle as CheckCircle2, WarningCircle as AlertCircle, CircleNotch as Loader2, Clock } from '@phosphor-icons/react';
 
 interface AgentWorkspaceProps {
   agents: Agent[];

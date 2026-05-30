@@ -20,7 +20,7 @@
  */
 
 import { useMemo } from 'react';
-import { UserCircle2, Link2, Sparkles, Anchor } from 'lucide-react';
+import { UserCircle as UserCircle2, LinkSimple as Link2, Sparkle as Sparkles, Anchor } from '@phosphor-icons/react';
 import { useAgentStore, type ConsistencyEvent } from '@/lib/store';
 
 interface Props {

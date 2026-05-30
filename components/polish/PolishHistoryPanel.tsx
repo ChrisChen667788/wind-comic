@@ -16,9 +16,7 @@
  */
 
 import { useMemo } from 'react';
-import {
-  X, History, Stethoscope, Gauge, ArrowRightLeft, Eye, Activity, FileText, TrendingUp, TrendingDown, Minus,
-} from 'lucide-react';
+import { X, ClockCounterClockwise as History, Stethoscope, Gauge, ArrowsLeftRight as ArrowRightLeft, Eye, Pulse as Activity, FileText, TrendUp as TrendingUp, TrendDown as TrendingDown, Minus } from '@phosphor-icons/react';
 import type { PolishAudit } from './IndustryAuditCard';
 import { readinessLevel } from '@/lib/polish-prompts';
 import { Sparkline } from '@/components/cinema/dataviz';

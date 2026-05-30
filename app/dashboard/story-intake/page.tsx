@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ScrollText, Sparkles, ChevronRight, Layers, Mic, Volume2, ListChecks, RotateCcw, AudioLines, Loader2, CheckCircle2 } from 'lucide-react';
+import { Scroll as ScrollText, Sparkle as Sparkles, CaretRight as ChevronRight, Stack as Layers, Microphone as Mic, SpeakerHigh as Volume2, ListChecks, ArrowCounterClockwise as RotateCcw, Waveform as AudioLines, CircleNotch as Loader2, CheckCircle as CheckCircle2 } from '@phosphor-icons/react';
 import {
   splitIntoEpisodes, NARRATION_MODES, getNarrationMode,
   type Episode, type NarrationMode,

@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Palette, Search, Check, Sparkles, Flame } from 'lucide-react';
+import { Palette, MagnifyingGlass as Search, Check, Sparkle as Sparkles, Flame } from '@phosphor-icons/react';
 import type { StylePreset } from '@/types/agents';
 import { STYLE_PRESETS, STYLE_CATEGORIES, categoryLabel, searchStyles } from '@/lib/style-presets';
 

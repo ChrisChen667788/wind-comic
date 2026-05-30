@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { AtSign } from 'lucide-react';
+import { At as AtSign } from '@phosphor-icons/react';
 
 interface UserHit {
   id: string;

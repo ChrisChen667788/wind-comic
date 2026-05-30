@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { X } from '@phosphor-icons/react';import { cn } from "@/lib/utils"
 
 export interface ToastProps {
   id: string

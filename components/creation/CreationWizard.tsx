@@ -20,6 +20,7 @@
  */
 
 import * as React from 'react';
+import { Rocket } from '@phosphor-icons/react';
 import { ModeCardGrid, MODE_PRESETS } from './ModeCard';
 import { StylePicker } from './StylePicker';
 import { ResolutionSelector } from './ResolutionSelector';
@@ -284,7 +285,7 @@ export function CreationWizard({
               )}
               data-testid="wizard-submit"
             >
-              {submitting ? '提交中...' : '🚀 启动生成'}
+              {submitting ? '提交中...' : <span className="inline-flex items-center gap-1.5"><Rocket size={15} weight="duotone" /> 启动生成</span>}
             </button>
           )}
         </div>

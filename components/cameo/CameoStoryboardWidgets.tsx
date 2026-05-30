@@ -18,7 +18,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Activity, Repeat, AlertTriangle, Loader2, CheckCircle2, X } from 'lucide-react';
+import { Pulse as Activity, Repeat, Warning as AlertTriangle, CircleNotch as Loader2, CheckCircle as CheckCircle2, X } from '@phosphor-icons/react';
 import { CameoBarList, CameoDonut } from '@/components/cinema/dataviz';
 import { NumberTicker } from '@/components/cinema/effects';
 

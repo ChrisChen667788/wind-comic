@@ -14,7 +14,7 @@
  * 复用点:CameoPanel(项目详情) + CreatePage(创作中上传)都可挂载。
  */
 
-import { Loader2, AlertTriangle, Lightbulb, Sparkles } from 'lucide-react';
+import { CircleNotch as Loader2, Warning as AlertTriangle, Lightbulb, Sparkle as Sparkles } from '@phosphor-icons/react';
 
 export interface CameoScoreBadgeData {
   score: number;

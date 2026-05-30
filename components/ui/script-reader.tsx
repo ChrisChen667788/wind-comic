@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Book, ChevronDown, ChevronUp } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Book, CaretDown as ChevronDown, CaretUp as ChevronUp } from '@phosphor-icons/react';import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "./card"
 import { Button } from "./button"
 

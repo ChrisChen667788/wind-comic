@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { Save, Loader2, Check, Clapperboard } from 'lucide-react';
+import { FloppyDisk as Save, CircleNotch as Loader2, Check, FilmSlate as Clapperboard } from '@phosphor-icons/react';
 import {
   FORMAT_PRESETS, COLOR_SPACES, FRAME_RATES, normalizeProjectFormat, describeFormat,
   type ProjectFormat,

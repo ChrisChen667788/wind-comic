@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, AlertCircle, Maximize2, Volume2, VolumeX } from 'lucide-react';
+import { X, WarningCircle as AlertCircle, ArrowsOutSimple as Maximize2, SpeakerHigh as Volume2, SpeakerSlash as VolumeX } from '@phosphor-icons/react';
 
 interface Props {
   open: boolean;

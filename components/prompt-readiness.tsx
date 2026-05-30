@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Circle, Gauge } from 'lucide-react';
+import { CheckCircle as CheckCircle2, Circle, Gauge } from '@phosphor-icons/react';
 import { compilePrompt, type MentionableAsset } from '@/lib/prompt-ide';
 import { summarizeRefs, type ReferenceAsset } from '@/lib/multimodal-ref';
 import { assessPromptReadiness } from '@/lib/prompt-readiness';

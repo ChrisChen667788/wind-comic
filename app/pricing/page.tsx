@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Check, X, CreditCard, Zap, Shield, HeadphonesIcon, Building2, ArrowRight, PenTool } from 'lucide-react';
+import { Check, X, CreditCard, Lightning as Zap, Shield, HeadphonesIcon, Buildings as Building2, ArrowRight, PenNib as PenTool } from '@phosphor-icons/react';
 import { PRICING_TIERS, PricingTier } from '@/lib/pricing';
 import { useLocale } from '@/hooks/use-locale';
 

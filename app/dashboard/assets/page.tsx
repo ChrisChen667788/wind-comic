@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Users, Mountain, Film, Video, Music, FileText, Package, Play } from 'lucide-react';
+import { Users, Mountains as Mountain, FilmStrip as Film, Video, MusicNotes as Music, FileText, Package, Play } from '@phosphor-icons/react';
 import { VideoModal } from '@/components/ui/video-modal';
 import { ImageLightboxModal } from '@/components/ui/image-lightbox';
 import { AudioPlayerModal } from '@/components/ui/audio-player-modal';

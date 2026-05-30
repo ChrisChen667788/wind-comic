@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { CaretDown as ChevronDown } from '@phosphor-icons/react';import { cn } from "@/lib/utils"
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {}
 

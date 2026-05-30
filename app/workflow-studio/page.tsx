@@ -14,7 +14,7 @@ import {
   STEP_CATALOG, validateWorkflow, topoSort, defaultWorkflow,
   type WorkflowGraph, type WorkflowNode, type StepKind,
 } from '@/lib/agent-workflow-core';
-import { ArrowLeft, Plus, Trash2, Save, Play, Workflow, Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash as Trash2, FloppyDisk as Save, Play, TreeStructure as Workflow, CircleNotch as Loader2, CheckCircle as CheckCircle2, XCircle, Warning as AlertTriangle } from '@phosphor-icons/react';
 
 const KINDS = Object.keys(STEP_CATALOG) as StepKind[];
 

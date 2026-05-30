@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Activity, FileDown, Gauge, AlertCircle } from 'lucide-react';
+import { Pulse as Activity, FileArrowDown as FileDown, Gauge, WarningCircle as AlertCircle } from '@phosphor-icons/react';
 import { computeHistogram, computeColumns, scopeStats, type ScopeStats } from '@/lib/scopes';
 
 function firstMedia(sb: any): string | undefined {

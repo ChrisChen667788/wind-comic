@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { CreationWorkspace } from '@/components/creation-workspace';
 import { useProjectWorkspaceStore } from '@/lib/store';
 import { AgentRole, type Project } from '@/types/agents';
-import { Wand2, Zap, Sparkles, Lightbulb } from 'lucide-react';
+import { MagicWand as Wand2, Lightning as Zap, Sparkle as Sparkles, Lightbulb, FilmSlate, Play, Pencil } from '@phosphor-icons/react';
 import { validateIdea, sanitizeInput } from '@/lib/validation';
 import { useToast } from '@/components/ui/toast-provider';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
@@ -608,8 +608,8 @@ export default function DashboardCreatePage() {
             className="cinema-btn !px-4 !py-2 !text-[12px] inline-flex items-center justify-center gap-1.5 disabled:opacity-40 whitespace-nowrap"
             title={isReady ? '生成 1 张图 + 5s 视频, 30-60s, 不消耗完整 pipeline 算力' : '至少输入 10 个字符'}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            🎬 试拍 1 镜
+            <FilmSlate className="w-3.5 h-3.5" weight="duotone" />
+            试拍 1 镜
           </button>
           <MovingBorderButton
             onClick={handleStartCreation}
@@ -625,7 +625,9 @@ export default function DashboardCreatePage() {
             }`}
             title={isReady ? '进入创作工坊' : '至少输入 10 个字符'}
           >
-            {isReady ? '▶  开机 · ROLL' : '✎  待输入创意'}
+            <span className="inline-flex items-center gap-1.5">
+              {isReady ? <><Play size={13} weight="fill" /> 开机 · ROLL</> : <><Pencil size={13} /> 待输入创意</>}
+            </span>
           </MovingBorderButton>
           {/* v8.3 P5: 创意生成器并入此处 (不再独立 nav 模块) — 结构化导演级提示词 + 影片/LUT/导演预设 */}
           <Link
@@ -633,7 +635,7 @@ export default function DashboardCreatePage() {
             className="text-[11px] text-[var(--cinema-text-2)] hover:text-[var(--cinema-amber)] transition-colors inline-flex items-center justify-end gap-1 whitespace-nowrap"
             title="结构化导演级提示词 · 影片 look / LUT / 导演运镜预设 · 专业术语表"
           >
-            ✨ 没灵感?用创意生成器搭一段导演级提示词 →
+            <Sparkles size={12} weight="duotone" /> 没灵感?用创意生成器搭一段导演级提示词 →
           </Link>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { PipelineNodeStatus, AgentRole } from '@/types/agents';
-import { CheckCircle, Check, MessageSquare, RefreshCw, X, Loader2 } from 'lucide-react';
+import { CheckCircle, Check, Chat as MessageSquare, ArrowsClockwise as RefreshCw, X, CircleNotch as Loader2 } from '@phosphor-icons/react';
 import { useProjectWorkspaceStore } from '@/lib/store';
 import { AnimatePresence, motion } from 'framer-motion';
 

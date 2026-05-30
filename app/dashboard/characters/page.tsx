@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Users, Plus, X, Clipboard, Check, Tag, Eye, Trash2, Search, Wand2, Loader2, Sparkles,
-} from 'lucide-react';
+import { Users, Plus, X, Clipboard, Check, Tag, Eye, Trash as Trash2, MagnifyingGlass as Search, MagicWand as Wand2, CircleNotch as Loader2, Sparkle as Sparkles } from '@phosphor-icons/react';
 
 interface CharacterItem {
   id: string;

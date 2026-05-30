@@ -10,7 +10,7 @@
  */
 
 import { useState } from 'react';
-import { X, Copy, Check, Save, Loader2, Clapperboard, Wand2 } from 'lucide-react';
+import { X, Copy, Check, FloppyDisk as Save, CircleNotch as Loader2, FilmSlate as Clapperboard, MagicWand as Wand2 } from '@phosphor-icons/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ShotCinematographyPanel } from './shot-cinematography-panel';
 import { CompositionGuide } from './composition-guide';

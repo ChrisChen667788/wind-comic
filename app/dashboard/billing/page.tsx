@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, Check, Star, ExternalLink } from 'lucide-react';
+import { CircleNotch as Loader2, Check, Star, ArrowSquareOut as ExternalLink } from '@phosphor-icons/react';
 import { useAuth } from '@/components/auth-provider';
 import { PRICING_TIERS } from '@/lib/pricing';
 import { useToast } from '@/components/ui/toast-provider';

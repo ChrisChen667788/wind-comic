@@ -15,7 +15,7 @@
  */
 
 import { useState } from 'react';
-import { RefreshCw, Loader2, Sparkles, ExternalLink, Lock, Film, Pencil } from 'lucide-react';
+import { ArrowsClockwise as RefreshCw, CircleNotch as Loader2, Sparkle as Sparkles, ArrowSquareOut as ExternalLink, Lock, FilmStrip as Film, Pencil } from '@phosphor-icons/react';
 import { ExportResolutionDropdown } from './export-resolution-dropdown';
 import { StoryboardRegenModal } from './storyboard-regen-modal';
 

@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { Globe, Check, ChevronDown } from 'lucide-react';
+import { Globe, Check, CaretDown as ChevronDown } from '@phosphor-icons/react';
 import { useLocale } from '@/hooks/use-locale';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 

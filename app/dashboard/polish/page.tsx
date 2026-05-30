@@ -24,12 +24,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import {
-  Sparkles, Copy, Check, RotateCcw, ArrowRightLeft, Wand2,
-  FileText, AlertCircle, Loader2, Download, Stethoscope, Gauge,
-  Save, X, FileDiff, AlignJustify, FileDown, History, StopCircle,
-  Library,
-} from 'lucide-react';
+import { Sparkle as Sparkles, Copy, Check, ArrowCounterClockwise as RotateCcw, ArrowsLeftRight as ArrowRightLeft, MagicWand as Wand2, FileText, WarningCircle as AlertCircle, CircleNotch as Loader2, Download, Stethoscope, Gauge, FloppyDisk as Save, X, GitDiff as FileDiff, TextAlignJustify as AlignJustify, FileArrowDown as FileDown, ClockCounterClockwise as History, StopCircle, Books as Library } from '@phosphor-icons/react';
 import IndustryAuditCard, { type PolishAudit } from '@/components/polish/IndustryAuditCard';
 import DiffPanel from '@/components/polish/DiffPanel';
 import PolishHistoryPanel, { type PolishHistoryEntry } from '@/components/polish/PolishHistoryPanel';

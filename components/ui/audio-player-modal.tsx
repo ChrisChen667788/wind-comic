@@ -18,7 +18,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Play, Pause, Music } from 'lucide-react';
+import { X, Play, Pause, MusicNotes as Music } from '@phosphor-icons/react';
 
 interface Props {
   open: boolean;

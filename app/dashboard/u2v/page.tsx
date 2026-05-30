@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Upload, Link as LinkIcon, Play, Download, Loader2, Sparkles, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Upload, Link as LinkIcon, Play, Download, CircleNotch as Loader2, Sparkle as Sparkles, Warning as AlertTriangle, ArrowCounterClockwise as RotateCcw } from '@phosphor-icons/react';
 import { useToast } from '@/components/ui/toast-provider';
 import { CameraLanguagePicker } from '@/components/create/camera-language-picker';
 import { CircularProgress } from '@/components/ui/circular-progress';

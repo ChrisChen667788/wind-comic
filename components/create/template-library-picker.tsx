@@ -28,7 +28,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X, Trash2, Copy, User, Sparkles, Filter, ChevronDown, ChevronUp, Share2, Check, Download, Upload } from 'lucide-react';
+import { MagnifyingGlass as Search, X, Trash as Trash2, Copy, User, Sparkle as Sparkles, Funnel as Filter, CaretDown as ChevronDown, CaretUp as ChevronUp, ShareNetwork as Share2, Check, Download, Upload } from '@phosphor-icons/react';
 import { storyTemplates, type StoryTemplate } from '@/lib/story-templates';
 import {
   Popover,

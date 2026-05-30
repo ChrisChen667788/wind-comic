@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import { FileText, Loader2, CheckCircle2, Clock } from 'lucide-react';
+import { FileText, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock } from '@phosphor-icons/react';
 
 function ScriptNodeComponent({ data }: NodeProps) {
   const d = data as unknown as PipelineNodeData;

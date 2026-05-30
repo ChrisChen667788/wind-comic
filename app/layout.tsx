@@ -5,6 +5,7 @@ import "./globals.css";
 // v2.13: cinema theme — opt-in via .cinema-page className,不影响其他页
 import "./cinema-theme.css";
 import { ToastProvider } from "@/components/ui/toast-provider";
+import { IconProvider } from "@/components/icon-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AuthProvider } from "@/components/auth-provider";
 
@@ -38,11 +39,13 @@ export default function RootLayout({
         {/* v8.3 P1: 全局 film grain 遮罩 (固定, 不接触指针, 与暖墨黑底叠出印刷质感) */}
         <div aria-hidden className="film-grain" />
         <ErrorBoundary>
-          <AuthProvider>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </AuthProvider>
+          <IconProvider>
+            <AuthProvider>
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </AuthProvider>
+          </IconProvider>
         </ErrorBoundary>
       </body>
     </html>

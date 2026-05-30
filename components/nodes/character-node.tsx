@@ -4,7 +4,7 @@ import { memo, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import { Users, Loader2, CheckCircle2, RefreshCw, Clock, Dna, Sparkles } from 'lucide-react';
+import { Users, CircleNotch as Loader2, CheckCircle as CheckCircle2, ArrowsClockwise as RefreshCw, Clock, Dna, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { ZoomableImage } from '@/components/ui/image-lightbox';
 
 function CharacterNodeComponent({ data }: NodeProps) {

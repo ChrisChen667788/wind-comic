@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Clock, CheckCircle2, Circle } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Clock, CheckCircle as CheckCircle2, Circle } from '@phosphor-icons/react';import { cn } from "@/lib/utils"
 
 interface TimelineItem {
   id: string

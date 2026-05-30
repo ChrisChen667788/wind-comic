@@ -6,7 +6,7 @@ import { AgentWorkspace } from '@/components/AgentWorkspace';
 import { ConsistencyPanel } from '@/components/ConsistencyPanel';
 import { CameoScoreBadge, type CameoScoreBadgeData } from '@/components/CameoScoreBadge';
 import { useAgentStore } from '@/lib/store';
-import { Sparkles, ArrowLeft, Wand2, Zap, Lightbulb, CheckCircle2, UserCircle2, X } from 'lucide-react';
+import { Sparkle as Sparkles, ArrowLeft, MagicWand as Wand2, Lightning as Zap, Lightbulb, CheckCircle as CheckCircle2, UserCircle as UserCircle2, X } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { validateIdea, sanitizeInput } from '@/lib/validation';

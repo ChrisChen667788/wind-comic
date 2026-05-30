@@ -19,7 +19,7 @@
  */
 
 import { useState } from 'react';
-import { Download, Lock, ChevronDown } from 'lucide-react';
+import { Download, Lock, CaretDown as ChevronDown } from '@phosphor-icons/react';
 import {
   Popover,
   PopoverContent,

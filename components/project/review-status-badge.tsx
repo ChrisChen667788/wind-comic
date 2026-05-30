@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle2, AlertTriangle, Loader2, Send, X as XIcon, Eye, RotateCcw } from 'lucide-react';
+import { CheckCircle as CheckCircle2, Warning as AlertTriangle, CircleNotch as Loader2, PaperPlaneTilt as Send, X as XIcon, Eye, ArrowCounterClockwise as RotateCcw } from '@phosphor-icons/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 type ReviewStatus = 'draft' | 'in_review' | 'approved' | 'changes_requested';

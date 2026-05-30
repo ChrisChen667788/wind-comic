@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { X, Loader2, Sparkles, RefreshCw, Check } from 'lucide-react';
+import { X, CircleNotch as Loader2, Sparkle as Sparkles, ArrowsClockwise as RefreshCw, Check } from '@phosphor-icons/react';
 import type { ScriptDraft } from '@/lib/script-drafts';
 
 export interface ScriptDraftsCompareProps {
