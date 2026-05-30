@@ -1905,10 +1905,12 @@ npm test
 
 ### 阶段十一 · 稳定性筑基 (v9.0.x) —— A
 
-- **v9.0 · PG 全量切换闭环**(根治 SQLite 并发写锁 = 测试偶发 DB-lock flake 的根因)
-  - 复用 v6.6 的本地 Docker 自助路径:`docker compose` 起 PG → `npm run pg:migrate` → `npm run pg:smoke` 全域往返
-  - 剩余写路径(invite-codes / usage / generations 等)接 async repo + `DbDriver.transaction`,**写路径全清后切 `DB_DRIVER=pg` 灰度**
-  - 验收:PG 下全量 1851+ 测试绿 + 关键页 dev 实测 200;SQLite 仍可回退(env 切换)
+- **v9.0 · PG 切换地基闭环** ✅ 2026-05-31 —— `docker-compose.pg.yml`(5434)+ pg:migrate(74 DDL/33 表)+ pg:smoke + `DB_DRIVER=pg` pg:verify + 真实 app 跑 PG 全绿;`docs/postgres-cutover-v9.md` runbook + **63 处 raw 写 / 40 文件全盘点**(按表分批)。安全性:默认 SQLite 下无 split-brain, PG opt-in 分批迁移零影响。详见下方批次。
+  - **v9.0.1** project_assets(26 处,最大簇)→ 既有 asset-repo(按需扩方法)
+  - **v9.0.2** projects/users/notifications/comments → 既有 4 repo(补缺方法)
+  - **v9.0.3** 新建 invite-repo / global-asset-repo / character-repo(含 IP token/grant)
+  - **v9.0.4** 新建 team/generations/waitlist/share/collaborator/quota/track-edit repo —— 写路径全清
+  - **v9.0.5** 切默认:`DB_DRIVER=pg` 下全量测试绿 → 建议生产 PG;SQLite env 可回退
 - **v9.0.1 · TTS 模型统一 + voice profile 去重**:`tts.service.ts` / `minimax.service.ts` 统一 `speech-02-hd`;清 `tts.service.ts:40` 重复 voice profile;健康看板 TTS 卡复核
 - **v9.0.2 · i18n 占位补全**:`lib/i18n.ts:130/132` 繁中(zh-TW)/日文(ja)真翻译替换占位;4 语言切换器全链路实测
 

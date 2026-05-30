@@ -1,0 +1,24 @@
+# v9.0 — 本地 Postgres (全量切换闭环自助验证用, 像 v6.6)
+# 起: docker compose -f docker-compose.pg.yml up -d
+# 连: DATABASE_URL=postgres://wind:wind@localhost:5434/wind
+# 停: docker compose -f docker-compose.pg.yml down   (加 -v 清数据)
+services:
+  windcomic-pg:
+    image: postgres:17-alpine
+    container_name: windcomic-pg
+    environment:
+      POSTGRES_USER: wind
+      POSTGRES_PASSWORD: wind
+      POSTGRES_DB: wind
+    ports:
+      - "5434:5432"   # 5434 避开 furball 的 5433
+    volumes:
+      - windcomic-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wind -d wind"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  windcomic-pgdata:
