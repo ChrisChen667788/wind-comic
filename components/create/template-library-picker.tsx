@@ -496,8 +496,17 @@ export function TemplateLibraryPicker({
                       MY
                     </span>
                   )}
-                  <div className="h-[52px] flex items-center justify-center text-2xl border-b border-[var(--cinema-border)]">
-                    {template.icon}
+                  {/* v8.3 P6: AI 生成的金色霓虹母题图标盖在 emoji 之上; 自定义模板无图 → onError 露出 emoji */}
+                  <div className="relative h-[60px] flex items-center justify-center text-2xl border-b border-[var(--cinema-border)] overflow-hidden bg-[#0A0A0B]">
+                    <span aria-hidden>{template.icon}</span>
+                    <img
+                      src={`/template-icons/${template.id}.jpg`}
+                      alt=""
+                      aria-hidden
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-contain"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
                   </div>
                   <div className="px-1.5 py-1 text-center">
                     <div className="cinema-headline text-[11px] truncate">{template.name}</div>
