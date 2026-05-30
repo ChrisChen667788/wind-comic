@@ -177,13 +177,13 @@ export default function AssetsPage() {
                 className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden group hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)] transition-all duration-300 cursor-pointer"
                 onClick={() => openAsset(asset)}
               >
-                {/* 媒体预览 */}
-                <div className="h-[140px] bg-black/30 relative overflow-hidden">
+                {/* 媒体预览 — v8.3 P5: object-contain 完整显示 (不再裁切, 免点开才能看全) */}
+                <div className="h-[180px] bg-black/40 relative overflow-hidden grid place-items-center">
                   {isImg && asset.mediaUrls[0] ? (
-                    <img src={asset.mediaUrls[0]} alt={asset.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={asset.mediaUrls[0]} alt={asset.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300" />
                   ) : isVid && asset.mediaUrls[0] ? (
                     <>
-                      <video src={asset.mediaUrls[0]} muted preload="metadata" className="w-full h-full object-cover" />
+                      <video src={asset.mediaUrls[0]} muted preload="metadata" className="w-full h-full object-contain" />
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
                         <Play className="w-8 h-8 text-white" />
                       </div>
@@ -207,11 +207,11 @@ export default function AssetsPage() {
                   )}
                 </div>
 
-                {/* 信息 */}
+                {/* 信息 — v8.3 P5: 名称允许 2 行, 描述展开到 3 行, 减少"必须点开" */}
                 <div className="p-3">
-                  <h4 className="text-sm font-medium text-white truncate">{asset.name}</h4>
+                  <h4 className="text-sm font-medium text-white line-clamp-2 leading-snug">{asset.name}</h4>
                   {asset.data?.description && (
-                    <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">{asset.data.description}</p>
+                    <p className="text-[11px] text-[var(--muted)] mt-1 line-clamp-3 leading-relaxed">{asset.data.description}</p>
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-[10px] text-gray-500">

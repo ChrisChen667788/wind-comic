@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CreationWorkspace } from '@/components/creation-workspace';
 import { useProjectWorkspaceStore } from '@/lib/store';
@@ -626,6 +627,14 @@ export default function DashboardCreatePage() {
           >
             {isReady ? '▶  开机 · ROLL' : '✎  待输入创意'}
           </MovingBorderButton>
+          {/* v8.3 P5: 创意生成器并入此处 (不再独立 nav 模块) — 结构化导演级提示词 + 影片/LUT/导演预设 */}
+          <Link
+            href="/dashboard/master-prompt"
+            className="text-[11px] text-[var(--cinema-text-2)] hover:text-[var(--cinema-amber)] transition-colors inline-flex items-center justify-end gap-1 whitespace-nowrap"
+            title="结构化导演级提示词 · 影片 look / LUT / 导演运镜预设 · 专业术语表"
+          >
+            ✨ 没灵感?用创意生成器搭一段导演级提示词 →
+          </Link>
         </div>
       </div>
 

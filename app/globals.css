@@ -100,6 +100,14 @@ body {
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
 
+/* v8.3 P5: 全局键盘可达 focus ring — :where() 0 特异性, 组件自定义 focus 仍可覆盖.
+   只在键盘 (focus-visible) 显示, 鼠标点击不出现. 金色描边 + 2px offset. */
+:where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 /* ═══════════════════════════════════════
    SCROLLBAR (暖色调纤细滚动条)
    ═══════════════════════════════════════ */

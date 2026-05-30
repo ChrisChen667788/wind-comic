@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 // v8.3 P1: lucide → Phosphor (ultra-thin Light weight, Taste Skill 推荐, 摆脱 AI 默认观感)
 import {
   SquaresFour, Kanban, Sparkle, BookOpen, User,
-  SignOut, CaretLeft, CaretRight, Package, PenNib, Users, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning, Lightbulb,
+  SignOut, CaretLeft, CaretRight, Package, PenNib, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning,
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 
@@ -20,12 +20,10 @@ const navItems = [
   { href: '/dashboard/story-intake', label: '长篇拆解', icon: Scroll },
   // v2.11: 独立剧本润色工具 — 不走完整 Agent 管线, 纯文本润色
   { href: '/dashboard/polish', label: '剧本润色', icon: MagicWand },
-  // v7.7: Master Prompt 生成器 — 结构化导演级提示词 + 风格/LUT/导演预设
-  { href: '/dashboard/master-prompt', label: '创意生成器', icon: Lightbulb },
   // v2.12 Sprint C.1: 单图变视频(I2V)独立工具
   { href: '/dashboard/u2v', label: '单图变视频', icon: FilmReel },
+  // v8.3 P5: 角色库并入「素材库」(角色子类), 不再独立模块; 素材库统一管理角色/场景/视频/音乐/字幕/模板
   { href: '/dashboard/assets', label: '素材库', icon: Package },
-  { href: '/dashboard/characters', label: '角色库', icon: Users },
   // v6.3: 风格模板画廊
   { href: '/dashboard/styles', label: '风格画廊', icon: Palette },
   { href: '/dashboard/cases', label: '灵感库', icon: BookOpen },

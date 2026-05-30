@@ -1867,7 +1867,7 @@ npm test
 - **v8.3 P2 · 卡片 + CTA Double-Bezel 体系** ✅ 2026-05-30 —— `.glass-card` 单层模拟双层 bezel(顶缘高光+内圈发丝纹+金色染色落影, spring)+ 真 `.bezel-shell`/`.bezel-core` + `<BezelCard>`(同心圆角机加工托盘)；`.cinema-card` 加机加工 inset(保持锐角)；nested CTA `.cta`/`.cta__island` + `<CtaButton>` + `.cinema-cta-island`(button-in-button 箭头岛屿)。落地 dashboard 主卡 BezelCard + 3 个高价值 CTA 岛屿化
 - **v8.3 P3 · 动效 spring 化** ✅ 2026-05-30 —— 进场动画 `.animate-fade-up`/`fade-in`/`zoom-in` ease → spring `--ease-spring`;新增 `.stagger` 交错入场容器(nth-child 自动延迟)+ `html scroll-behavior: smooth` + `prefers-reduced-motion` 全局守卫;落地 dashboard stat 卡/最近创作列表/短视频分镜表交错入场;cinema-theme 已是物理曲线保持不动
 - **v8.3 P4 · 关键页布局 Asymmetric Bento** ✅ 2026-05-30 —— `/dashboard` 创作总览改 12 列非对称 bento(create hero `col-span-7 row-span-2` 主导 + 统计卡右栏不等高堆叠 + 内容/活动 7/5 收尾, CSS Grid 自动排布), 容器 `6xl→7xl`, 数字 tabular-nums, 标题 text-balance, mobile 单列 fallback。(project page split editorial 排留 P4.1 可选)
-- **v8.3 P5 · 文案 / 微交互 / 状态收敛** —— scrub AI cliches, sentence case 全部标题, 补 empty / error / loading 三态, focus ring 走 1px outline + 2px offset
+- **v8.3 P5 · 模块整合 + 显示修复 + 风格画廊填充 + a11y** ✅ 2026-05-30 —— 创意生成器(鸡肋, 折进创作工坊入口)+ 角色库(并入素材库-角色)移出侧栏;素材库 `object-contain` 完整显示 + 名称/描述展开(不再"必须点开");`scripts/gen-style-thumbs.ts` 经 MiniMax image-01 生成 60 张真实风格缩略图(flux 网关饱和改兜底);全局 `:where(...):focus-visible` 金色 focus ring。(sentence-case/cliche scrub 量大且主观, 留 P6 选做)
 - **v8.3 P6 · 全量 design review + 截图刷新** —— 用 redesign-skill 跑一次完整 audit, 再用 v6 marketing GIF 流程刷新 README 的 5 张主截图
 
 每 Pn 一个独立 sub-version, 控制风险面 (设计改动易回归)。tsc + 全量测试 + dev 实测 + 提交, 节奏与之前一致。
