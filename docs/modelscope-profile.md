@@ -43,6 +43,19 @@
   <br/><sub>🎬 一个项目, 11 tab 驾驶舱:导演台 · 剧本 · 角色 · 场景 · 分镜 · 连贯性 · 视频 · 镜头工坊 · 时间线 · 节奏 · 质检 · 技术监看 · 参数联动 · 评论 · 完整播放 (v8.0)</sub>
 </p>
 
+**🎨 v8.3 精品化设计(Taste Skill)** —— Plus Jakarta Sans + Phosphor 图标 · 金色机加工 bezel 卡片 · spring 动效 · 非对称 bento 总览 · 60 张 AI 风格缩略图 · AI 金色霓虹题材图标替代默认 emoji:
+
+<table>
+<tr>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/dashboard-bento.png" /><br/><sub>非对称 bento 创作总览</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/style-gallery.png" /><br/><sub>60 风格画廊, 每张 AI 生成</sub></td>
+</tr>
+</table>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/template-icons.png" width="100%" />
+  <br/><sub>🎭 故事模板库 —— 18 枚统一风格 AI 金色霓虹题材图标 (告别默认 emoji)</sub>
+</p>
+
 **技术栈 · 网关路由(v6.8–v7.0)**:每个模型调用 provider 可插拔(优先级链 + 自动 fallback),**MiniMax 全局兜底**(任何异常/欠费/超时自动路由)——
 
 | 能力 | 主(最强) | 补全 | 全局兜底 |

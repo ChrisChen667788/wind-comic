@@ -49,6 +49,18 @@
   <img src="assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 巡览 —— API 健康 · 导演台 · 长篇拆解 · 风格画廊 · 时间线" width="100%" />
 </p>
 
+### 🎨 v8.3 —— 精品化设计大改造 *(Taste Skill)*
+
+Plus Jakarta Sans + Phosphor 细线图标、金色染色机加工 bezel 卡片、spring 动效、非对称 **bento 创作总览**、60 张 **风格画廊**缩略图,以及把每个默认 emoji 都换掉的 AI 金色霓虹**题材图标**。
+
+<table>
+<tr>
+<td width="50%"><img src="assets/v8/dashboard-bento.png" /><br/><sub>非对称 bento 创作总览 —— 主导 create-hero + 机加工 bezel 卡片</sub></td>
+<td width="50%"><img src="assets/v8/style-gallery.png" /><br/><sub>60 风格画廊,每张缩略图 AI 生成(统一主体 × 各画风)</sub></td>
+</tr>
+</table>
+<p align="center"><img src="assets/v8/template-icons.png" width="100%" /><br/><sub>故事模板库 —— 18 枚统一风格的 AI 金色霓虹题材图标(告别默认 emoji)</sub></p>
+
 | 版本 | 新增能力 |
 |---|---|
 | **v6.0 · 角色资产中心** | 可复用角色 —— 多视角设定图(正 / 四分之三 / 正侧 / 背)+ 8 字段 DNA 身份锁 + 自动绑定专属音色 + 确定性小传。跨项目复用走 Cameo IP 经济。 |

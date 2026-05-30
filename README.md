@@ -58,6 +58,18 @@ It works because it doesn't try to be one giant model. It's an **honest multi-ag
   <img src="assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 tour — API health · director console · novel splitting · style gallery · cinema timeline" width="100%" />
 </p>
 
+### 🎨 v8.3 — Premium design pass *(Taste Skill)*
+
+Plus Jakarta Sans + Phosphor icons, gold-tinted machined-bezel cards, spring motion, an asymmetric **bento dashboard**, a 60-thumbnail **style gallery**, and AI-generated gold-neon **genre icons** replacing every default emoji.
+
+<table>
+<tr>
+<td width="50%"><img src="assets/v8/dashboard-bento.png" /><br/><sub>Asymmetric bento dashboard — tall create-hero + machined-bezel cards</sub></td>
+<td width="50%"><img src="assets/v8/style-gallery.png" /><br/><sub>60-style gallery, every thumbnail AI-rendered (same subject × each look)</sub></td>
+</tr>
+</table>
+<p align="center"><img src="assets/v8/template-icons.png" width="100%" /><br/><sub>Story-template gallery — 18 cohesive AI gold-neon genre emblems (no more default emoji)</sub></p>
+
 | Version | What landed |
 |---|---|
 | **v6.0 · Character Studio** | Reusable cast assets — multi-view turnaround sheets (front / ¾ / profile / back) with an 8-field DNA identity lock, auto-bound voice timbre, deterministic bio. Reuse any character across projects via the Cameo IP economy. |
