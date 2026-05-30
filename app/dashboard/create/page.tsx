@@ -736,8 +736,12 @@ export default function DashboardCreatePage() {
                       {stylePreviews[preset.id] ? (
                         <img src={stylePreviews[preset.id]} alt={preset.label} className="absolute inset-0 w-full h-full object-cover" />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-3xl bg-[var(--cinema-surface-2)]">
-                          {preset.icon}
+                        // v8.3 P6.3: AI 金色 emblem 兜底 (无动态预览图时), 再无图则露出 emoji
+                        <div className="absolute inset-0 grid place-items-center text-3xl bg-[var(--cinema-surface-2)]">
+                          <span aria-hidden>{preset.icon}</span>
+                          <img src={`/look-icons/${preset.id}.jpg`} alt="" aria-hidden loading="lazy"
+                            className="absolute inset-0 w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                         </div>
                       )}
                       {/* 顶部胶片孔暗化 */}

@@ -148,9 +148,14 @@ export function ModeCard({ preset, selected, onSelect, className }: ModeCardProp
         </div>
       )}
 
-      {/* 图标 + 标题 */}
+      {/* 图标 + 标题 — v8.3 P6.3: AI 金色 emblem 盖在 emoji 之上, 无图 onError 露出 emoji */}
       <div className="mb-3 flex items-center gap-3">
-        <div className="text-4xl">{preset.icon}</div>
+        <div className="relative w-12 h-12 grid place-items-center text-4xl shrink-0">
+          <span aria-hidden>{preset.icon}</span>
+          <img src={`/mode-icons/${preset.mode}.jpg`} alt="" aria-hidden loading="lazy"
+            className="absolute inset-0 w-full h-full object-contain rounded-md"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+        </div>
         <div>
           <div className="text-lg font-bold text-white">{preset.name}</div>
           <div className="text-[11px] text-neutral-300 opacity-80">{preset.nameEn}</div>

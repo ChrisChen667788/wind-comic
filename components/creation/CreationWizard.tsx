@@ -435,7 +435,12 @@ function ReviewStep({ draft }: { draft: WizardDraft }) {
           value={
             modePreset ? (
               <span className="flex items-center gap-2">
-                <span className="text-xl">{modePreset.icon}</span>
+                <span className="relative w-5 h-5 grid place-items-center text-xl shrink-0">
+                  <span aria-hidden>{modePreset.icon}</span>
+                  <img src={`/mode-icons/${modePreset.mode}.jpg`} alt="" aria-hidden
+                    className="absolute inset-0 w-full h-full object-contain rounded"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                </span>
                 {modePreset.name} · {modePreset.nameEn}
               </span>
             ) : (
