@@ -21,16 +21,16 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       {/* Hero Header */}
-      <div className="mb-8 animate-fade-up">
+      <div className="mb-7 animate-fade-up">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-emerald-400 font-medium">{t.dashboard.systemOnline}</span>
+              <span className="text-xs text-emerald-400 font-medium tracking-wide">{t.dashboard.systemOnline}</span>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">{t.dashboard.title}</h1>
+            <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight leading-none">{t.dashboard.title}</h1>
             <p className="text-sm text-[var(--muted)]">{t.dashboard.subtitle}</p>
           </div>
           {/* v5.0: 语言切换 */}
@@ -38,68 +38,67 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick Action Banner */}
-      <Link
-        href="/dashboard/create"
-        className="block mb-8 p-5 rounded-2xl bg-gradient-to-r from-[#E8C547]/08 via-[#D4A830]/08 to-[#4A7EBB]/06 border border-[#E8C547]/20 hover:border-[#E8C547]/40 transition-all group animate-fade-up"
-        style={{ animationDelay: '0.1s' }}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#E8C547] to-[#D4A830] grid place-items-center shadow-lg shadow-[#E8C547]/15">
-              <Sparkle size={22} weight="duotone" className="text-white" />
+      {/* v8.3 P4: Asymmetric Bento — 12 列, 打破"三等宽卡片"的 AI 标志布局.
+          create hero 占 7×2 主导左上, 统计卡在右栏不等高堆叠, 内容/活动 7/5 收尾. */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 auto-rows-min stagger">
+
+        {/* ① Create hero — 主导卡, 跨 2 行 */}
+        <Link
+          href="/dashboard/create"
+          className="group relative overflow-hidden rounded-[20px] p-7 flex flex-col justify-between min-h-[244px] lg:col-span-7 lg:row-span-2
+                     border border-[#E8C547]/20 hover:border-[#E8C547]/45 transition-colors duration-300"
+        >
+          {/* 暖金径向光晕 + 噪点叠层背景 */}
+          <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(120%_140%_at_15%_0%,rgba(232,197,71,0.16),transparent_55%),radial-gradient(120%_120%_at_100%_100%,rgba(74,126,187,0.10),transparent_50%)]" />
+          <div aria-hidden className="absolute -right-10 -top-10 w-56 h-56 rounded-full bg-[#E8C547]/10 blur-3xl group-hover:bg-[#E8C547]/16 transition-colors duration-500" />
+          <div className="flex items-center gap-3.5">
+            <div className="w-14 h-14 rounded-[16px] bg-gradient-to-br from-[#E8C547] to-[#D4A830] grid place-items-center shadow-[0_8px_24px_-6px_rgba(232,197,71,0.5)] shrink-0">
+              <Sparkle size={26} weight="duotone" className="text-[#0A0A0B]" />
             </div>
-            <div>
-              <div className="text-white font-semibold text-lg">{t.dashboard.quickStartTitle}</div>
-              <div className="text-[var(--muted)] text-sm">{t.dashboard.quickStartSubtitle}</div>
-            </div>
+            <span className="text-[10px] font-mono tracking-[0.25em] uppercase text-[#E8C547]/70">Studio · One idea → one film</span>
           </div>
-          {/* v8.3 P2: nested CTA 岛屿 — 箭头不裸露, 嵌进独立圆形 */}
-          <span className="grid place-items-center w-9 h-9 rounded-full bg-[#E8C547]/12 text-[#E8C547] group-hover:bg-[#E8C547]/20 group-hover:translate-x-1 transition-all shrink-0">
-            <ArrowRight size={16} weight="bold" />
-          </span>
+          <div>
+            <h2 className="text-2xl lg:text-[1.75rem] font-extrabold text-white tracking-tight leading-tight mb-2 text-balance">{t.dashboard.quickStartTitle}</h2>
+            <p className="text-sm text-[var(--muted)] max-w-md leading-relaxed mb-5">{t.dashboard.quickStartSubtitle}</p>
+            {/* nested CTA 岛屿 */}
+            <span className="cta cta--gold !text-[13px]">
+              {t.dashboard.quickStartTitle}
+              <span className="cta__island"><ArrowRight size={16} weight="bold" /></span>
+            </span>
+          </div>
+        </Link>
+
+        {/* ② 主统计 — projects, 占右栏第 1 行 */}
+        <div className="lg:col-span-5 rounded-[20px] border border-[#E8C547]/14 bg-gradient-to-br from-[#E8C547]/12 to-transparent p-5 flex flex-col justify-between min-h-[114px]
+                        hover:-translate-y-0.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-[var(--muted)] font-medium">{t.dashboard.statProjects}</span>
+            <div className="w-9 h-9 rounded-xl bg-[#E8C547]/15 text-[#E8C547] grid place-items-center"><Kanban size={16} weight="duotone" /></div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <strong className="text-[2.25rem] font-extrabold text-white tabular-nums leading-none">{metrics.projects}</strong>
+            <small className="text-[var(--soft)] text-xs">{t.dashboard.statProjectsSub}</small>
+          </div>
         </div>
-      </Link>
 
-      {/* Stat Cards — v8.3 P3: 交错入场 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 stagger">
-        {[
-          { label: t.dashboard.statProjects, value: metrics.projects, icon: Kanban, color: 'rose', sub: t.dashboard.statProjectsSub },
-          { label: t.dashboard.statGenerations, value: metrics.generations, icon: Lightning, color: 'pink', sub: t.dashboard.statGenerationsSub },
-          { label: t.dashboard.statCases, value: metrics.cases, icon: BookOpen, color: 'cyan', sub: t.dashboard.statCasesSub },
-        ].map((c) => {
-          const colorMap: Record<string, string> = {
-            purple: 'from-[#E8C547]/15 to-[#E8C547]/05 border-[#E8C547]/10',
-            pink: 'from-[#D4A830]/15 to-pink-500/5 border-[#D4A830]/08',
-            cyan: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/10',
-          };
-          const iconColorMap: Record<string, string> = {
-            purple: 'bg-[#E8C547]/15 text-[#E8C547]',
-            pink: 'bg-pink-500/15 text-pink-400',
-            cyan: 'bg-cyan-500/15 text-cyan-400',
-          };
-          return (
-            <div
-              key={c.label}
-              className={`bg-gradient-to-br ${colorMap[c.color]} border rounded-2xl p-5 flex flex-col gap-3 hover:-translate-y-0.5 hover:scale-[1.015] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[var(--muted)] font-medium">{c.label}</span>
-                <div className={`w-9 h-9 rounded-xl ${iconColorMap[c.color]} grid place-items-center`}>
-                  <c.icon size={16} weight="duotone" />
-                </div>
-              </div>
-              <strong className="text-3xl font-bold text-white">{c.value}</strong>
-              <small className="text-[var(--soft)] text-xs">{c.sub}</small>
-            </div>
-          );
-        })}
-      </div>
+        {/* ③ 次级统计 2-up — generations + cases, 占右栏第 2 行 */}
+        <div className="lg:col-span-5 grid grid-cols-2 gap-4">
+          <div className="rounded-[20px] border border-pink-500/12 bg-gradient-to-br from-pink-500/12 to-transparent p-5 flex flex-col justify-between
+                          hover:-translate-y-0.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
+            <div className="w-9 h-9 rounded-xl bg-pink-500/15 text-pink-400 grid place-items-center mb-3"><Lightning size={16} weight="duotone" /></div>
+            <strong className="text-[1.75rem] font-extrabold text-white tabular-nums leading-none">{metrics.generations}</strong>
+            <small className="text-[var(--soft)] text-[11px] mt-1">{t.dashboard.statGenerations}</small>
+          </div>
+          <div className="rounded-[20px] border border-cyan-500/12 bg-gradient-to-br from-cyan-500/14 to-transparent p-5 flex flex-col justify-between
+                          hover:-translate-y-0.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/15 text-cyan-400 grid place-items-center mb-3"><BookOpen size={16} weight="duotone" /></div>
+            <strong className="text-[1.75rem] font-extrabold text-white tabular-nums leading-none">{metrics.cases}</strong>
+            <small className="text-[var(--soft)] text-[11px] mt-1">{t.dashboard.statCases}</small>
+          </div>
+        </div>
 
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Recent Generations — v8.3 P2: 真 Double-Bezel 双层卡片 */}
-        <div className="lg:col-span-3 animate-fade-up" style={{ animationDelay: '0.3s' }}>
+        {/* ④ Recent Generations — col-span-7, 真 Double-Bezel */}
+        <div className="lg:col-span-7">
           <BezelCard>
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
@@ -141,8 +140,8 @@ export default function DashboardPage() {
           </BezelCard>
         </div>
 
-        {/* Activity & Status */}
-        <div className="lg:col-span-2 space-y-6 animate-fade-up" style={{ animationDelay: '0.4s' }}>
+        {/* ⑤ Activity & Status — col-span-5 收尾右栏 */}
+        <div className="lg:col-span-5 space-y-4">
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
               <TrendUp size={16} weight="duotone" className="text-emerald-400" />
