@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { GlassCard } from '@/components/ui/glass-card';
+import { BezelCard } from '@/components/ui/bezel-card';
 // v8.3 P1: lucide → Phosphor (ultra-thin Light, weight per usage)
 import { Sparkle, Kanban, Lightning, BookOpen, ArrowRight, Clock, FilmReel, TrendUp } from '@phosphor-icons/react';
 import { LocaleSwitcher } from '@/components/locale-switcher';
@@ -53,7 +54,10 @@ export default function DashboardPage() {
               <div className="text-[var(--muted)] text-sm">{t.dashboard.quickStartSubtitle}</div>
             </div>
           </div>
-          <ArrowRight size={18} weight="light" className="text-[var(--muted)] group-hover:text-white group-hover:translate-x-1 transition-all" />
+          {/* v8.3 P2: nested CTA 岛屿 — 箭头不裸露, 嵌进独立圆形 */}
+          <span className="grid place-items-center w-9 h-9 rounded-full bg-[#E8C547]/12 text-[#E8C547] group-hover:bg-[#E8C547]/20 group-hover:translate-x-1 transition-all shrink-0">
+            <ArrowRight size={16} weight="bold" />
+          </span>
         </div>
       </Link>
 
@@ -95,9 +99,9 @@ export default function DashboardPage() {
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Recent Generations */}
+        {/* Recent Generations — v8.3 P2: 真 Double-Bezel 双层卡片 */}
         <div className="lg:col-span-3 animate-fade-up" style={{ animationDelay: '0.3s' }}>
-          <GlassCard>
+          <BezelCard>
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <FilmReel size={16} weight="duotone" className="text-[#E8C547]" />
@@ -135,7 +139,7 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-          </GlassCard>
+          </BezelCard>
         </div>
 
         {/* Activity & Status */}

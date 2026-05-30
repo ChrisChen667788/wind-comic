@@ -1864,7 +1864,7 @@ npm test
 ### 迭代计划
 
 - **v8.3 P1 · 基础 (字体 + 圆角 + 阴影 + 噪点)** ✅ 2026-05-30 —— `app/globals.css` 设计 token 重排(`--radius-xs/sm/md/lg/xl/2xl` 阶梯 + 金色染色阴影 `--shadow-card/-hi/-glow/-inset` + `--ease-spring` + `body min-height: 100dvh`)+ `app/layout.tsx` 接 `next/font/google` 自托管 **Plus Jakarta Sans** + **JetBrains Mono**(替代 Inter)+ 全局 `.film-grain` 噪点遮罩(SVG turbulence, opacity 0.035, mix-blend overlay);装 `@phosphor-icons/react`(28.1k ⭐ Phosphor Light), `components/sidebar.tsx`(18 个 icon) + `app/dashboard/page.tsx`(8 个 icon)lucide → Phosphor(active 用 duotone 金色)。其余 lucide 调用点留 P1.1+ 渐进换
-- **v8.3 P2 · 卡片 + CTA Double-Bezel 体系** —— `components/ui/glass-card.tsx` 升级为外壳+内芯双层, `cinema-btn-primary` 加 nested arrow 容器, 阴影统一改金色染色
+- **v8.3 P2 · 卡片 + CTA Double-Bezel 体系** ✅ 2026-05-30 —— `.glass-card` 单层模拟双层 bezel(顶缘高光+内圈发丝纹+金色染色落影, spring)+ 真 `.bezel-shell`/`.bezel-core` + `<BezelCard>`(同心圆角机加工托盘)；`.cinema-card` 加机加工 inset(保持锐角)；nested CTA `.cta`/`.cta__island` + `<CtaButton>` + `.cinema-cta-island`(button-in-button 箭头岛屿)。落地 dashboard 主卡 BezelCard + 3 个高价值 CTA 岛屿化
 - **v8.3 P3 · 动效 spring 化** —— 全站 ease curve 切到 spring-like (cubic-bezier(0.22, 1, 0.36, 1)), 关键页 (创作总览/项目页/极速分镜台) 加 staggered 入场
 - **v8.3 P4 · 关键页布局 Asymmetric Bento** —— `/dashboard` 创作总览改 8/4 + 4/8 zig-zag bento; project page header 用 split editorial 排; README 营销页保留对称(刻意)
 - **v8.3 P5 · 文案 / 微交互 / 状态收敛** —— scrub AI cliches, sentence case 全部标题, 补 empty / error / loading 三态, focus ring 走 1px outline + 2px offset

@@ -105,17 +105,23 @@ img { max-width: 100%; display: block; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(232,197,71,0.25); }
 
 /* ═══════════════════════════════════════
-   GLASS CARDS (暖墨磨砂)
+   GLASS CARDS (暖墨磨砂 · v8.3 P2 机加工双层质感)
+   单层 DOM 用分层阴影模拟 Double-Bezel:
+   顶缘高光 (铝合金倒角) + 内圈发丝纹 + 金色染色落影
    ═══════════════════════════════════════ */
 .glass-card {
-  background: linear-gradient(160deg, rgba(255,248,235,0.035) 0%, rgba(255,248,235,0.012) 100%);
+  background: linear-gradient(160deg, rgba(255,248,235,0.04) 0%, rgba(255,248,235,0.012) 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 28px;
   backdrop-filter: blur(48px) saturate(1.3);
-  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.5s var(--ease-spring), border-color 0.4s ease, box-shadow 0.5s var(--ease-spring);
   position: relative;
   overflow: hidden;
+  box-shadow:
+    var(--shadow-inset),                        /* 顶缘高光 */
+    inset 0 0 0 1px rgba(255, 248, 235, 0.015), /* 内圈发丝纹 */
+    var(--shadow-card);                          /* 金色染色落影 */
 }
 .glass-card::before {
   content: '';
@@ -123,7 +129,7 @@ img { max-width: 100%; display: block; }
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(160deg, rgba(232,197,71,0.08) 0%, transparent 40%, transparent 60%, rgba(232,197,71,0.04) 100%);
+  background: linear-gradient(160deg, rgba(232,197,71,0.10) 0%, transparent 40%, transparent 60%, rgba(232,197,71,0.04) 100%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -134,10 +140,56 @@ img { max-width: 100%; display: block; }
 .glass-card:hover {
   border-color: var(--border-hover);
   transform: translateY(-3px);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(232,197,71,0.06);
+  box-shadow:
+    var(--shadow-inset),
+    inset 0 0 0 1px rgba(255, 248, 235, 0.02),
+    var(--shadow-card-hi);
 }
 .glass-card:hover::before {
   opacity: 1;
+}
+
+/* ═══════════════════════════════════════
+   v8.3 P2 · TRUE DOUBLE-BEZEL (Doppelrand)
+   外壳 (机加工托盘) 套内芯 (玻璃面板), 同心圆角
+   用于高价值 surface (hero / 关键卡片), 经 <BezelCard> 渲染
+   ═══════════════════════════════════════ */
+.bezel-shell {
+  position: relative;
+  padding: 6px;
+  border-radius: var(--radius-2xl);
+  background: linear-gradient(160deg, rgba(255, 248, 235, 0.05), rgba(255, 248, 235, 0.015));
+  box-shadow:
+    var(--shadow-inset),
+    inset 0 0 0 1px rgba(255, 248, 235, 0.03),
+    var(--shadow-card);
+  transition: transform 0.5s var(--ease-spring), box-shadow 0.5s var(--ease-spring);
+}
+.bezel-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(160deg, rgba(232, 197, 71, 0.18) 0%, transparent 38%, transparent 62%, rgba(232, 197, 71, 0.06) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.bezel-core {
+  position: relative;
+  border-radius: calc(var(--radius-2xl) - 6px); /* 同心圆: 外圆角 - 外壳 padding */
+  background: var(--background-elevated);
+  box-shadow: inset 0 1px 0 rgba(255, 248, 235, 0.05);
+  overflow: hidden;
+}
+.bezel-shell:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    var(--shadow-inset),
+    inset 0 0 0 1px rgba(255, 248, 235, 0.04),
+    var(--shadow-card-hi);
 }
 
 /* ═══════════════════════════════════════
@@ -148,12 +200,12 @@ img { max-width: 100%; display: block; }
   border: none;
   color: #0A0A0B;
   padding: 11px 28px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow: 0 2px 16px rgba(232, 197, 71, 0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+  transition: transform 0.3s var(--ease-spring), box-shadow 0.3s var(--ease-spring), background 0.3s ease;
+  box-shadow: 0 6px 18px -6px rgba(232, 197, 71, 0.45), inset 0 1px 0 rgba(255,255,255,0.18);
   letter-spacing: 0.02em;
   position: relative;
   overflow: hidden;
@@ -169,13 +221,67 @@ img { max-width: 100%; display: block; }
 .btn-primary:hover {
   background: linear-gradient(135deg, #F2D05A 0%, #E0B83E 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(232, 197, 71, 0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 12px 32px -6px rgba(232, 197, 71, 0.5), inset 0 1px 0 rgba(255,255,255,0.22);
 }
 .btn-primary:hover::after {
   transform: translateX(100%);
 }
-.btn-primary:active { transform: translateY(0); }
+.btn-primary:active { transform: translateY(0) scale(0.985); }
 .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+/* ═══════════════════════════════════════
+   v8.3 P2 · NESTED CTA (Button-in-Button)
+   主 CTA 内嵌一个独立圆形"岛屿"装尾随箭头/图标
+   <CtaButton> 渲染; 也可手写 .cta + .cta__island
+   ═══════════════════════════════════════ */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 22px;   /* 右侧留给 island 的内边距更小 (button-in-button) */
+  border: none;
+  border-radius: 999px;         /* 全圆角胶囊 */
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.3s var(--ease-spring), box-shadow 0.3s var(--ease-spring), background 0.3s ease;
+}
+.cta--gold {
+  background: linear-gradient(135deg, #E8C547 0%, #D4A830 100%);
+  color: #0A0A0B;
+  box-shadow: 0 6px 18px -6px rgba(232, 197, 71, 0.45), inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.cta--gold:hover {
+  background: linear-gradient(135deg, #F2D05A 0%, #E0B83E 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -6px rgba(232, 197, 71, 0.5), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.cta--ghost {
+  background: var(--surface-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-inset), inset 0 0 0 1px var(--border);
+}
+.cta--ghost:hover {
+  background: var(--surface-hover);
+  transform: translateY(-2px);
+}
+.cta:active { transform: translateY(0) scale(0.985); }
+.cta:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+/* 内嵌圆形岛屿 — 完全贴合主按钮右内边距 */
+.cta__island {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: transform 0.3s var(--ease-spring), background 0.3s ease;
+}
+.cta--gold .cta__island { background: rgba(10, 10, 11, 0.14); color: #0A0A0B; }
+.cta--ghost .cta__island { background: var(--primary-muted); color: var(--primary); }
+.cta:hover .cta__island { transform: translateX(2px); }
 
 .btn-ghost {
   background: var(--surface);

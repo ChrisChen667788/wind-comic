@@ -407,7 +407,7 @@ export default function ShortVideoStudioPage() {
               </div>
 
               <button onClick={sendToCreate} className="cinema-btn-primary w-full justify-center !py-2.5">
-                <Sparkles size={15} /> 用此方案去创作 <ArrowRight size={14} />
+                <Sparkles size={15} /> 用此方案去创作 <span className="cinema-cta-island"><ArrowRight size={13} /></span>
               </button>
               <div className="flex gap-1.5">
                 <button onClick={exportMarkdown} className="cinema-btn-ghost flex-1 justify-center !text-[11px]"><Download size={12} /> 导出分镜表</button>

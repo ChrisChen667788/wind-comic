@@ -124,7 +124,7 @@ export default function MasterPromptPage() {
               <button onClick={copy} className="cinema-btn-ghost !text-[11px]">{copied ? <Check size={13} className="text-[var(--accent-green)]" /> : <Copy size={13} />} 复制</button>
               <button onClick={refine} disabled={refining} className="cinema-btn-ghost !text-[11px] disabled:opacity-50">{refining ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} 优化 Prompt</button>
               {refined && <button onClick={() => setRefined(null)} className="cinema-btn-ghost !text-[11px]">还原</button>}
-              <button onClick={sendToCreate} className="cinema-btn-primary !text-[11px] ml-auto"><Sparkles size={13} /> 用此创作 <ArrowRight size={13} /></button>
+              <button onClick={sendToCreate} className="cinema-btn-primary !text-[11px] ml-auto"><Sparkles size={13} /> 用此创作 <span className="cinema-cta-island"><ArrowRight size={12} /></span></button>
             </div>
           </div>
 

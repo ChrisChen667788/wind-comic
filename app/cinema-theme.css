@@ -81,7 +81,12 @@
   background: var(--cinema-surface);
   border: 1px solid var(--cinema-border);
   border-radius: 4px;       /* 影院软件不要太圆,4-6px 即可 */
-  box-shadow: var(--cinema-shadow);
+  /* v8.3 P2: 机加工面板 — 顶缘高光 + 内圈发丝纹 + 琥珀染色落影 (保持 pro-tool 锐角) */
+  box-shadow:
+    0 1px 0 rgba(245, 241, 234, 0.05) inset,
+    inset 0 0 0 1px rgba(245, 241, 234, 0.012),
+    0 8px 28px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(201, 163, 94, 0.05);
   transition: border-color 160ms ease, box-shadow 220ms ease, transform 240ms cubic-bezier(.2,.8,.2,1);
 }
 /* hover 时:亚麻琥珀晕,微微抬起,边框点亮 */
@@ -185,6 +190,20 @@ button.cinema-card:hover {
   border-color: #D6B270;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 8px 22px -8px rgba(201, 163, 94, 0.65);
 }
+/* v8.3 P2: cinema 主 CTA 的内嵌箭头岛屿 (button-in-button) */
+.cinema-cta-island {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(10, 9, 8, 0.16);
+  color: #0A0908;
+  flex-shrink: 0;
+  margin-left: 2px;
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1);
+}
+.cinema-btn-primary:hover .cinema-cta-island { transform: translateX(2px); }
 
 .cinema-btn-ghost {
   background: transparent;
