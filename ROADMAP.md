@@ -1829,6 +1829,52 @@ npm test
 - **v8.2 · 参数联动 / JSON↔可视化同步** ✅ 2026-05-25(对标 CineMatrix):`lib/param-linkage`(buildParamDoc/parseParamDoc/diffParamDoc,10 单测)+ `POST /api/projects/[id]/param-sync`(文档一次性写回每镜 spec+连贯性+格式)+ `components/param-linkage-panel`(联动示意图 + JSON 编辑器实时校验 + diff 计数 + Sync Now)+ 项目页"参数联动"tab。
 - 后续可选: 真 AAF 二进制导出 · 渲染循环实时反馈面板 · 每镜 Marketing & Distribution。
 
+---
+
+## 5.11 阶段十 · UI/UX 精品化 (v8.3) — Taste Skill 大改造
+
+> 本品当前已经超过普通 AI 生成应用的设计水准 (#0A0A0B 暖墨黑底 + 金色主色 + Source Han Serif SC 编辑级标题 + glass-card 真磨砂),
+> 但对照 [Taste Skill](https://github.com/Leonxlnx/taste-skill) (28.1k ⭐ Anti-Slop Frontend Framework) 的「redesign-existing-projects」+
+> 「high-end-visual-design」审计清单, 依旧有明确的"AI 印迹"可清除。本版做一次系统化精品化升级, 保留电影感品牌识别。
+
+### 工具已就位
+- `.agents/skills/` 已装好 4 个 skill (受版本控制):
+  `design-taste-frontend` (默认) · `redesign-existing-projects` (审计→修复) · `high-end-visual-design` (Awwwards-tier 精品法则) · `full-output-enforcement` (拒绝半成品)
+- `.claude/skills/*` 软链同名指过去, Claude Code 下回可直接调用
+
+### 真实审计 (现状 vs Taste Skill 标准)
+| 维度 | 现状 | 命中的 AI 印迹 / 待修 |
+|---|---|---|
+| 排版 body 字体 | **`Inter` + SF Pro Display + Noto Sans SC** | ❌ Inter 在 high-end-visual-design 的"绝对禁用"清单首位 → 切 **Plus Jakarta Sans** / `Geist` (CJK 仍走 Source Han) |
+| 排版字重 | 主要 400/700 | 缺 500/600 → 引入 Medium / SemiBold 做更细的层级 |
+| 数字 | 走 proportional | 数据密集面板加 `font-variant-numeric: tabular-nums` |
+| 图标 | **80 个文件** `from 'lucide-react'` | ❌ Lucide 是 redesign-skill 标的"最常见 AI 图标默认" → 关键面板换 **Phosphor Light** (ultra-thin) |
+| 圆角 | 单一 `--radius: 10px` | ❌ "uniform border-radius on everything" → 引入 `--radius-xs/sm/md/lg/xl` + 同心圆 `calc()` |
+| 阴影 | `0 12px 48px rgba(0,0,0,0.65)` 纯黑 | ❌ "Generic box-shadow / pure black" → 改为**金色染色阴影** `rgba(232,197,71,0.18)` 等, 跟主色同源 |
+| 卡片结构 | 单层 glass-card | ⚠️ 缺 **Double-Bezel** (Doppelrand) —— 外壳 hairline + 内芯独立色 + 同心圆角,营造"机加工硬件"质感 |
+| CTA | 单层圆角按钮 | ⚠️ 缺 **Nested CTA / Button-in-Button** —— 主 CTA 内嵌圆形 arrow 容器 (`rounded-full` 套 `w-8 h-8 rounded-full`) |
+| 动效 | `transition: all 0.5s cubic-bezier` | ⚠️ ease 时长统一, 缺**春力 (spring) 物理** + 进场 stagger |
+| 布局 | 标准三栏 / 四栏 grid | ⚠️ 三等宽 feature 卡片 = AI 标志性布局, 关键落地页加 **Asymmetric Bento** / Z-Axis Cascade |
+| 留白 | 整体偏紧 | "Double the spacing. Let the design breathe." |
+| 噪点 / 纹理 | 全平面 | 缺 fixed pointer-events-none 噪点遮罩, 主页加 `opacity: 0.03` film-grain |
+| 文案 | 个别地方 "Elevate / Unleash / 顶级 / 一键" | 改为具体、克制、活体动词 |
+| 字符 case | 部分 Title Case | 切 sentence case |
+| 错误状态 | 散落 alert / Oops | "Connection failed. Please try again." 风格 |
+
+### 迭代计划
+
+- **v8.3 P1 · 基础 (字体 + 圆角 + 阴影 + 噪点)** —— 改 `app/globals.css` 设计 token 一处, 大半 UI 受益; 加全局 grain overlay; 引入 Plus Jakarta Sans + Phosphor Light 子集 (替换 lucide 在 dashboard / 项目页这两个高曝光面板)
+- **v8.3 P2 · 卡片 + CTA Double-Bezel 体系** —— `components/ui/glass-card.tsx` 升级为外壳+内芯双层, `cinema-btn-primary` 加 nested arrow 容器, 阴影统一改金色染色
+- **v8.3 P3 · 动效 spring 化** —— 全站 ease curve 切到 spring-like (cubic-bezier(0.22, 1, 0.36, 1)), 关键页 (创作总览/项目页/极速分镜台) 加 staggered 入场
+- **v8.3 P4 · 关键页布局 Asymmetric Bento** —— `/dashboard` 创作总览改 8/4 + 4/8 zig-zag bento; project page header 用 split editorial 排; README 营销页保留对称(刻意)
+- **v8.3 P5 · 文案 / 微交互 / 状态收敛** —— scrub AI cliches, sentence case 全部标题, 补 empty / error / loading 三态, focus ring 走 1px outline + 2px offset
+- **v8.3 P6 · 全量 design review + 截图刷新** —— 用 redesign-skill 跑一次完整 audit, 再用 v6 marketing GIF 流程刷新 README 的 5 张主截图
+
+每 Pn 一个独立 sub-version, 控制风险面 (设计改动易回归)。tsc + 全量测试 + dev 实测 + 提交, 节奏与之前一致。
+
+### 设计护城河 (不动的部分)
+保持暖墨黑×金的电影感品牌识别 + Source Han Serif SC 编辑级标题 + Cameo IP / 多 Agent 流水线 / Vision 质检 这些独有的产品资产 —— Taste Skill 是给"皮"做精品化, 不是换品牌。
+
 ### UI/UX 升级(贯穿 v7.2+,从 PM/设计视角借鉴竞品长处)
 
 - **「驾驶舱」三栏布局**:左=资产/场景库 · 中=分镜+预览 · 右=参数控制台。5 款竞品全采用,信息密度高、"专业控片"体感强 → 项目页/创作工坊改造为此骨架
