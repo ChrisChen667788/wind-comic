@@ -1,9 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  /* ═══ 暖墨黑 × 金色主调 (Premium v2) ═══
+  /* ═══ 暖墨黑 × 金色主调 (Premium v2 · v8.3 P1 Taste Skill 精品化) ═══
    * 灵感来源: 漫画印刷质感 × 金箔封面 × 手工匠人感
    * 基调: 暖墨黑底 + 金色主色 + 漫画红点缀
+   *
+   * v8.3 P1 改造:
+   *   · 字体: Inter → Plus Jakarta Sans (via next/font, --font-jakarta), CJK 仍 Noto Sans SC
+   *   · 圆角: 单一 10px → xs/sm/md/lg/xl/2xl 阶梯, 嵌套用 concentric calc()
+   *   · 阴影: 纯黑 → 金色染色 (与 --primary 同源), 跟暖墨黑底融成印刷感
+   *   · 噪点: 全局 .film-grain 遮罩 (固定层, pointer-events none)
+   *   · 动效: 进场 spring-like cubic-bezier(0.22, 1, 0.36, 1), 标准持续 .ease-spring
    */
   --background: #0A0A0B;
   --background-elevated: #121214;
@@ -23,10 +30,32 @@
   --soft: #4A4744;
   --border: #242220;
   --border-hover: #3A3735;
-  --shadow: 0 12px 48px rgba(0, 0, 0, 0.65);
-  --radius: 10px;
-  --radius-sm: 8px;
-  --radius-lg: 14px;
+
+  /* ─── v8.3 P1 字体栈 ─── */
+  --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --font-mono-stack: var(--font-mono), 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ─── v8.3 P1 圆角阶梯 (concentric: 内嵌元素圆角 = 外层 - padding) ─── */
+  --radius-xs: 4px;     /* badge, chip 内圈 */
+  --radius-sm: 6px;     /* button 内圈, input */
+  --radius-md: 10px;    /* default */
+  --radius-lg: 14px;    /* card */
+  --radius-xl: 20px;    /* large container */
+  --radius-2xl: 28px;   /* hero shell, Double-Bezel 外壳 (v8.3 P2 用) */
+  --radius: var(--radius-md); /* 旧别名, 向后兼容 */
+
+  /* ─── v8.3 P1 金色染色阴影 (与 --primary 同源, 跟暖墨黑底融出印刷感) ─── */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(232, 197, 71, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(232, 197, 71, 0.06);
+  --shadow-card: 0 12px 40px rgba(0, 0, 0, 0.55), 0 2px 12px rgba(232, 197, 71, 0.08);
+  --shadow-card-hi: 0 24px 72px rgba(0, 0, 0, 0.55), 0 4px 20px rgba(232, 197, 71, 0.12);
+  --shadow-glow: 0 0 0 1px rgba(232, 197, 71, 0.08), 0 0 32px rgba(232, 197, 71, 0.10);
+  --shadow-inset: inset 0 1px 0 rgba(255, 248, 235, 0.06); /* 顶部高光 */
+  --shadow: var(--shadow-card); /* 旧别名, 向后兼容 */
+
+  /* ─── v8.3 P1 spring-like 缓动 (Taste Skill 推荐) ─── */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 * {
@@ -35,14 +64,33 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh; /* 修 iOS Safari 视口跳跃 */
   color: var(--text);
   background: var(--background);
-  font-family: 'Inter', 'SF Pro Display', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01'; /* Jakarta 可选: 备用 'a', 'g' 字形 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.015em;
   line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════
+   v8.3 P1 · 全局 FILM GRAIN 遮罩 (fixed, pointer-events none)
+   暖墨黑底 + 极细噪点 = 印刷质感 (匠人感)
+   ═══════════════════════════════════════ */
+.film-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.92  0 0 0 0 0.85  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 180px 180px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .film-grain { opacity: 0.02; }
 }
 
 a { color: inherit; text-decoration: none; }

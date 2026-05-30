@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { GlassCard } from '@/components/ui/glass-card';
-import { Sparkles, FolderKanban, Zap, BookOpen, ArrowRight, Clock, Film, TrendingUp } from 'lucide-react';
+// v8.3 P1: lucide → Phosphor (ultra-thin Light, weight per usage)
+import { Sparkle, Kanban, Lightning, BookOpen, ArrowRight, Clock, FilmReel, TrendUp } from '@phosphor-icons/react';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { useLocale } from '@/hooks/use-locale';
 
@@ -45,22 +46,22 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#E8C547] to-[#D4A830] grid place-items-center shadow-lg shadow-[#E8C547]/15">
-              <Sparkles className="w-6 h-6 text-white" />
+              <Sparkle size={22} weight="duotone" className="text-white" />
             </div>
             <div>
               <div className="text-white font-semibold text-lg">{t.dashboard.quickStartTitle}</div>
               <div className="text-[var(--muted)] text-sm">{t.dashboard.quickStartSubtitle}</div>
             </div>
           </div>
-          <ArrowRight className="w-5 h-5 text-[var(--muted)] group-hover:text-white group-hover:translate-x-1 transition-all" />
+          <ArrowRight size={18} weight="light" className="text-[var(--muted)] group-hover:text-white group-hover:translate-x-1 transition-all" />
         </div>
       </Link>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
-          { label: t.dashboard.statProjects, value: metrics.projects, icon: FolderKanban, color: 'rose', sub: t.dashboard.statProjectsSub },
-          { label: t.dashboard.statGenerations, value: metrics.generations, icon: Zap, color: 'pink', sub: t.dashboard.statGenerationsSub },
+          { label: t.dashboard.statProjects, value: metrics.projects, icon: Kanban, color: 'rose', sub: t.dashboard.statProjectsSub },
+          { label: t.dashboard.statGenerations, value: metrics.generations, icon: Lightning, color: 'pink', sub: t.dashboard.statGenerationsSub },
           { label: t.dashboard.statCases, value: metrics.cases, icon: BookOpen, color: 'cyan', sub: t.dashboard.statCasesSub },
         ].map((c, i) => {
           const colorMap: Record<string, string> = {
@@ -82,7 +83,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[var(--muted)] font-medium">{c.label}</span>
                 <div className={`w-9 h-9 rounded-xl ${iconColorMap[c.color]} grid place-items-center`}>
-                  <c.icon className="w-4 h-4" />
+                  <c.icon size={16} weight="duotone" />
                 </div>
               </div>
               <strong className="text-3xl font-bold text-white">{c.value}</strong>
@@ -99,11 +100,11 @@ export default function DashboardPage() {
           <GlassCard>
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
-                <Film className="w-4 h-4 text-[#E8C547]" />
+                <FilmReel size={16} weight="duotone" className="text-[#E8C547]" />
                 <h3 className="font-semibold text-white">{t.dashboard.recentCreations}</h3>
               </div>
               <Link href="/dashboard/projects" className="text-xs text-[var(--muted)] hover:text-white transition-colors flex items-center gap-1">
-                {t.common.viewAll} <ArrowRight className="w-3 h-3" />
+                {t.common.viewAll} <ArrowRight size={12} weight="light" />
               </Link>
             </div>
             <div className="space-y-3">
@@ -113,7 +114,7 @@ export default function DashboardPage() {
                     {item.resultUrls?.[0] ? (
                       <img src={item.resultUrls[0]} alt={item.prompt} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                     ) : (
-                      <div className="w-full h-full grid place-items-center text-[var(--soft)]"><Film className="w-5 h-5" /></div>
+                      <div className="w-full h-full grid place-items-center text-[var(--soft)]"><FilmReel size={20} weight="light" /></div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -128,7 +129,7 @@ export default function DashboardPage() {
                 </div>
               )) : (
                 <div className="text-center py-10 text-[var(--soft)]">
-                  <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <Sparkle size={32} weight="light" className="mx-auto mb-2 opacity-30" />
                   <p className="text-sm">{t.dashboard.noRecords}</p>
                   <Link href="/dashboard/create" className="text-xs text-[#E8C547] hover:text-[#D4A830] mt-1 inline-block">{t.dashboard.startFirst}</Link>
                 </div>
@@ -141,7 +142,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6 animate-fade-up" style={{ animationDelay: '0.4s' }}>
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              <TrendUp size={16} weight="duotone" className="text-emerald-400" />
               <h3 className="font-semibold text-white text-sm">{t.dashboard.systemStatus}</h3>
             </div>
             <div className="space-y-3">
@@ -163,7 +164,7 @@ export default function DashboardPage() {
 
           <GlassCard>
             <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-4 h-4 text-amber-400" />
+              <Clock size={16} weight="duotone" className="text-amber-400" />
               <h3 className="font-semibold text-white text-sm">{t.dashboard.recentActivity}</h3>
             </div>
             <div className="space-y-2">

@@ -3,26 +3,27 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
+// v8.3 P1: lucide → Phosphor (ultra-thin Light weight, Taste Skill 推荐, 摆脱 AI 默认观感)
 import {
-  LayoutDashboard, FolderKanban, Sparkles, BookOpen, User,
-  LogOut, ChevronLeft, ChevronRight, Package, PenTool, Users, Wand2, Film, CreditCard, ScrollText, Palette, UsersRound, Activity, Zap, Lightbulb,
-} from 'lucide-react';
+  SquaresFour, Kanban, Sparkle, BookOpen, User,
+  SignOut, CaretLeft, CaretRight, Package, PenNib, Users, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning, Lightbulb,
+} from '@phosphor-icons/react';
 import { useState } from 'react';
 
 const navItems = [
-  { href: '/dashboard', label: '创作总览', icon: LayoutDashboard },
-  { href: '/dashboard/projects', label: '我的项目', icon: FolderKanban },
-  { href: '/dashboard/create', label: '创作工坊', icon: Sparkles },
+  { href: '/dashboard', label: '创作总览', icon: SquaresFour },
+  { href: '/dashboard/projects', label: '我的项目', icon: Kanban },
+  { href: '/dashboard/create', label: '创作工坊', icon: Sparkle },
   // v7.6: 15s 短视频极速分镜台 (对标 CineSpark) — 三幕结构化分镜 + 运镜词库
-  { href: '/dashboard/short-video', label: '极速分镜台', icon: Zap },
+  { href: '/dashboard/short-video', label: '极速分镜台', icon: Lightning },
   // v6.2.1: 长篇小说/剧本 → 自动分集 + 叙事模式 → 逐集送入创作
-  { href: '/dashboard/story-intake', label: '长篇拆解', icon: ScrollText },
+  { href: '/dashboard/story-intake', label: '长篇拆解', icon: Scroll },
   // v2.11: 独立剧本润色工具 — 不走完整 Agent 管线, 纯文本润色
-  { href: '/dashboard/polish', label: '剧本润色', icon: Wand2 },
+  { href: '/dashboard/polish', label: '剧本润色', icon: MagicWand },
   // v7.7: Master Prompt 生成器 — 结构化导演级提示词 + 风格/LUT/导演预设
   { href: '/dashboard/master-prompt', label: '创意生成器', icon: Lightbulb },
   // v2.12 Sprint C.1: 单图变视频(I2V)独立工具
-  { href: '/dashboard/u2v', label: '单图变视频', icon: Film },
+  { href: '/dashboard/u2v', label: '单图变视频', icon: FilmReel },
   { href: '/dashboard/assets', label: '素材库', icon: Package },
   { href: '/dashboard/characters', label: '角色库', icon: Users },
   // v6.3: 风格模板画廊
@@ -30,9 +31,9 @@ const navItems = [
   { href: '/dashboard/cases', label: '灵感库', icon: BookOpen },
   { href: '/dashboard/profile', label: '账户', icon: User },
   // v6.5: 团队工作区 — 主账号按成员分配积分额度
-  { href: '/dashboard/team', label: '团队', icon: UsersRound },
+  { href: '/dashboard/team', label: '团队', icon: UsersThree },
   // v6.7: API 健康仪表盘 — 一眼看各网关欠费/掉线
-  { href: '/dashboard/health', label: 'API 健康', icon: Activity },
+  { href: '/dashboard/health', label: 'API 健康', icon: Pulse },
   // v2.12 Sprint C.2: Stripe 4 档订阅管理
   { href: '/dashboard/billing', label: '订阅 / 计费', icon: CreditCard },
 ];
@@ -63,7 +64,7 @@ export function Sidebar() {
       >
         <div className="w-7 h-7 rounded-md grid place-items-center shrink-0 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-[#E8C547] to-[#D4A830]" />
-          <PenTool className="w-3.5 h-3.5 text-[#0C0C0C] relative z-10" />
+          <PenNib size={14} weight="duotone" className="text-[#0C0C0C] relative z-10" />
         </div>
         {!collapsed && (
           <span className="flex items-baseline gap-1.5">
@@ -78,7 +79,7 @@ export function Sidebar() {
         onClick={() => setCollapsed(!collapsed)}
         className="absolute -right-3 top-[60px] w-5 h-5 rounded-full bg-[var(--background-elevated)] border border-[var(--border)] grid place-items-center text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--border-hover)] transition-all z-10"
       >
-        {collapsed ? <ChevronRight className="w-2.5 h-2.5" /> : <ChevronLeft className="w-2.5 h-2.5" />}
+        {collapsed ? <CaretRight size={10} weight="bold" /> : <CaretLeft size={10} weight="bold" />}
       </button>
 
       {/* Thin divider */}
@@ -96,7 +97,7 @@ export function Sidebar() {
               className={`sidebar-nav-item ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-0' : ''}`}
               title={collapsed ? item.label : undefined}
             >
-              <Icon className={`w-[17px] h-[17px] shrink-0 transition-colors ${isActive ? 'text-[#E8C547]' : ''}`} />
+              <Icon size={17} weight={isActive ? 'duotone' : 'light'} className={`shrink-0 transition-colors ${isActive ? 'text-[#E8C547]' : ''}`} />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );
@@ -126,7 +127,7 @@ export function Sidebar() {
           }`}
           title={collapsed ? '退出' : undefined}
         >
-          <LogOut className="w-3.5 h-3.5" />
+          <SignOut size={14} weight="light" />
           {!collapsed && <span>退出</span>}
         </button>
       </div>

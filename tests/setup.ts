@@ -1,6 +1,20 @@
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
+
+// v8.3 P1: next/font/google 是 Next 构建期 helper, 调用时会 fetch Google Fonts,
+// 在 vitest/jsdom 环境下挂起整个 transform (实测 transform 268s → 全套超时).
+// stub 成只返回 variable/className 的工厂, 让 app/layout.tsx 能被 vite 解析。
+vi.mock('next/font/google', () => {
+  const stub = () => ({ variable: '--font-stub', className: 'font-stub', style: { fontFamily: 'stub' } });
+  return {
+    Plus_Jakarta_Sans: stub,
+    JetBrains_Mono: stub,
+    Inter: stub,
+    Geist: stub,
+    Geist_Mono: stub,
+  };
+});
 
 // 每个测试后清理
 afterEach(() => {
