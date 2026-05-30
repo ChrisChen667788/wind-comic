@@ -272,8 +272,8 @@ export default function ShortVideoStudioPage() {
                 </div>
               </div>
 
-              {/* 分镜表 */}
-              <div className="flex flex-col gap-3">
+              {/* 分镜表 — v8.3 P3: 交错入场 */}
+              <div className="flex flex-col gap-3 stagger">
                 {plan.shots.map((s) => {
                   const pv = previews[s.index];
                   return (

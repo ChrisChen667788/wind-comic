@@ -61,13 +61,13 @@ export default function DashboardPage() {
         </div>
       </Link>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      {/* Stat Cards — v8.3 P3: 交错入场 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 stagger">
         {[
           { label: t.dashboard.statProjects, value: metrics.projects, icon: Kanban, color: 'rose', sub: t.dashboard.statProjectsSub },
           { label: t.dashboard.statGenerations, value: metrics.generations, icon: Lightning, color: 'pink', sub: t.dashboard.statGenerationsSub },
           { label: t.dashboard.statCases, value: metrics.cases, icon: BookOpen, color: 'cyan', sub: t.dashboard.statCasesSub },
-        ].map((c, i) => {
+        ].map((c) => {
           const colorMap: Record<string, string> = {
             purple: 'from-[#E8C547]/15 to-[#E8C547]/05 border-[#E8C547]/10',
             pink: 'from-[#D4A830]/15 to-pink-500/5 border-[#D4A830]/08',
@@ -81,8 +81,7 @@ export default function DashboardPage() {
           return (
             <div
               key={c.label}
-              className={`bg-gradient-to-br ${colorMap[c.color]} border rounded-2xl p-5 flex flex-col gap-3 animate-fade-up hover:scale-[1.02] transition-transform`}
-              style={{ animationDelay: `${0.15 + i * 0.08}s` }}
+              className={`bg-gradient-to-br ${colorMap[c.color]} border rounded-2xl p-5 flex flex-col gap-3 hover:-translate-y-0.5 hover:scale-[1.015] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[var(--muted)] font-medium">{c.label}</span>
@@ -111,7 +110,7 @@ export default function DashboardPage() {
                 {t.common.viewAll} <ArrowRight size={12} weight="light" />
               </Link>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 stagger">
               {generations.length > 0 ? generations.map((item) => (
                 <div key={item.id} className="flex gap-3 items-center bg-[var(--surface)] hover:bg-[var(--surface-strong)] rounded-xl p-3 transition-all group cursor-pointer">
                   <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-black/20">

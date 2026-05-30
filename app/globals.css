@@ -62,6 +62,10 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth; /* v8.3 P3: 锚点跳转平滑 */
+}
+
 body {
   margin: 0;
   min-height: 100dvh; /* 修 iOS Safari 视口跳跃 */
@@ -505,8 +509,10 @@ img { max-width: 100%; display: block; }
   50% { opacity: 1; }
 }
 
-.animate-fade-up { animation: fadeUp 0.5s ease both; }
-.animate-fade-in { animation: fadeIn 0.35s ease both; }
+/* v8.3 P3: 进场动效改 spring-like 缓动, 距离略增 → 更有重量感 */
+.animate-fade-up { animation: fadeUp 0.55s var(--ease-spring) both; }
+.animate-fade-in { animation: fadeIn 0.4s var(--ease-out-quart) both; }
+.animate-zoom-in { animation: zoomIn 0.5s var(--ease-spring) both; }
 .animate-float { animation: float 6s ease-in-out infinite; }
 .animate-float-delay-1 { animation: float 6s ease-in-out 0.8s infinite; }
 .animate-float-delay-2 { animation: float 6s ease-in-out 1.6s infinite; }
@@ -519,6 +525,31 @@ img { max-width: 100%; display: block; }
 .animate-gradient {
   background-size: 200% 200%;
   animation: gradient-shift 5s ease infinite;
+}
+
+/* v8.3 P3: 交错入场容器 (Taste Skill: "Never mount everything at once")
+   子元素依次 fadeUp, 每个 +55ms 延迟; 比逐个写 inline animationDelay 干净 */
+.stagger > * { animation: fadeUp 0.5s var(--ease-spring) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.09s; }
+.stagger > *:nth-child(3) { animation-delay: 0.14s; }
+.stagger > *:nth-child(4) { animation-delay: 0.19s; }
+.stagger > *:nth-child(5) { animation-delay: 0.24s; }
+.stagger > *:nth-child(6) { animation-delay: 0.29s; }
+.stagger > *:nth-child(7) { animation-delay: 0.34s; }
+.stagger > *:nth-child(8) { animation-delay: 0.39s; }
+.stagger > *:nth-child(9) { animation-delay: 0.44s; }
+.stagger > *:nth-child(10) { animation-delay: 0.49s; }
+.stagger > *:nth-child(n+11) { animation-delay: 0.54s; }
+
+/* v8.3 P3: 无障碍 — 尊重系统"减少动态效果", 关掉非必要动画/过渡 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ═══════════════════════════════════════
