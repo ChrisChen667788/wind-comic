@@ -1897,6 +1897,39 @@ npm test
 
 ---
 
+## 5.12 后续路线 (v9.x) — 稳定性筑基 → 变现分发 → 出片增强
+
+> 决策(2026-05-31):用户选 A+B+C 综合推进。排序原则 = **先清地基债再上新功能**:
+> A 稳定性先行(根治测试 flake + 上线并发)→ B 变现闭环(业务价值最高)→ C 出片增强(锦上添花)。
+> 沿用"lib 纯逻辑+单测 → API/UI → tsc+全量+dev 实测 → 提交"节奏, 每子版本独立可发布。
+
+### 阶段十一 · 稳定性筑基 (v9.0.x) —— A
+
+- **v9.0 · PG 全量切换闭环**(根治 SQLite 并发写锁 = 测试偶发 DB-lock flake 的根因)
+  - 复用 v6.6 的本地 Docker 自助路径:`docker compose` 起 PG → `npm run pg:migrate` → `npm run pg:smoke` 全域往返
+  - 剩余写路径(invite-codes / usage / generations 等)接 async repo + `DbDriver.transaction`,**写路径全清后切 `DB_DRIVER=pg` 灰度**
+  - 验收:PG 下全量 1851+ 测试绿 + 关键页 dev 实测 200;SQLite 仍可回退(env 切换)
+- **v9.0.1 · TTS 模型统一 + voice profile 去重**:`tts.service.ts` / `minimax.service.ts` 统一 `speech-02-hd`;清 `tts.service.ts:40` 重复 voice profile;健康看板 TTS 卡复核
+- **v9.0.2 · i18n 占位补全**:`lib/i18n.ts:130/132` 繁中(zh-TW)/日文(ja)真翻译替换占位;4 语言切换器全链路实测
+
+### 阶段十二 · 变现 / 分发闭环 (v9.1.x) —— B (对标 CineMatrix Marketing tab)
+
+- **v9.1 · `lib/distribution`(纯逻辑 + 单测)**:平台规格(抖音/快手/视频号/小红书/YouTube Shorts/B站)字数/标签/话术模板 + `buildDistributionPrompt()`(成片 synopsis + 情绪曲线 + 钩子 → marketing pack 提示)+ `parseDistributionPack()`(标题×N / 标签 / 钩子文案 / 简介 / 发布建议,容错降级)
+- **v9.1.1 · `POST /api/projects/[id]/distribution`**:快档 flash + MiniMax 兜底,生成每集分发包;落 `project_assets type='distribution'`
+- **v9.1.2 · 项目页「分发」tab**:平台多选 chips → 一键生成 → 每平台卡片(标题候选/标签/钩子/简介, 行内复制)+ 导出 .txt/.md
+- **v9.1.3 · AI 竖屏封面候选**:复用 MiniMax image-01,按片名+主角+画风生成 3 张 9:16 封面候选 + 标题安全区叠层预览
+
+### 阶段十三 · 出片增强 (v9.2.x) —— C
+
+- **v9.2 · 真 AAF 二进制导出**:引入 AAF 库(或自研最小 OMF/AAF 容器),`GET /api/projects/[id]/export-aaf` 对接 Avid Media Composer;与现有 EDL/FCPXML 并列
+- **v9.2.1 · 渲染循环实时反馈面板**:技术监看 tab 加"渲染循环"——SSE 推每镜生成进度/重试/耗时 + 整体 ETA(复用 lib/sse)
+- **v9.2.2 · 草稿专用轻提示提速**:草稿对比/极速分镜用精简 system prompt(非完整 9KB McKee),目标单稿 flash <20s(当前 ~60s)
+- **v9.2.3 · 设计 P4.1**:项目页头部 editorial split 排版 + 「监视器蓝/示波绿」功能色 token(仅技术监看区,不动创作区品牌色)
+
+> **里程碑**:v9.0.x 绿 = 测试 flake 根治 + 可上 PG;v9.1.x 绿 = 短剧分发变现闭环;v9.2.x 绿 = 专业出片 + 体验提速。
+
+---
+
 ## 6. 技术债清单(待清理)
 
 | 隐患 | 位置 | 优先级 | Sprint |
