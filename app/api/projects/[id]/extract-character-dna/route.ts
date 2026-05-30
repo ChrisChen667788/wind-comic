@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
 import { extractCharacterDna } from '@/lib/character-dna';
+import { updateAsset } from '@/lib/repos/asset-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,9 +70,7 @@ export async function POST(
     missing,
     extractedAt: now(),
   };
-  db.prepare(
-    `UPDATE project_assets SET data = ?, updated_at = ? WHERE id = ?`,
-  ).run(JSON.stringify(mergedData), now(), row.id);
+  await updateAsset(row.id, { data: mergedData });
 
   return NextResponse.json({
     dna: {

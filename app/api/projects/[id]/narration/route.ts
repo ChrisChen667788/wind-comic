@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { nanoid } from 'nanoid';
-import { db, now } from '@/lib/db';
+import { db } from '@/lib/db';
+import { deleteAssetsByType, createAsset } from '@/lib/repos/asset-repo';
 import { buildNarrationTrack } from '@/lib/narration-track';
 import { synthesizeNarrationTrack } from '@/lib/narration-synth';
 import { persistAsset } from '@/lib/asset-storage';
@@ -80,17 +80,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     srtUrl,
   };
   const mediaUrls = segments.map((s) => s.audioUrl).filter(Boolean) as string[];
-  const apply = db.transaction(() => {
-    db.prepare(`DELETE FROM project_assets WHERE project_id = ? AND type = 'narration'`).run(id);
-    db.prepare(
-      `INSERT INTO project_assets (id, project_id, type, name, data, media_urls, persistent_url, shot_number, version, created_at, updated_at)
-       VALUES (?, ?, 'narration', ?, ?, ?, ?, NULL, 1, ?, ?)`,
-    ).run(
-      nanoid(), id, `解说音轨 · ${rendered.voiceLabel}`,
-      JSON.stringify(data), JSON.stringify(mediaUrls), srtUrl, now(), now(),
-    );
+  // v9.0.1: 走 asset-repo (双驱动); narration 清旧 + 落新, 失败可重跑
+  await deleteAssetsByType(id, 'narration');
+  await createAsset({
+    projectId: id, type: 'narration', name: `解说音轨 · ${rendered.voiceLabel}`,
+    data, mediaUrls, persistentUrl: srtUrl, version: 1,
   });
-  apply();
 
   return NextResponse.json({
     ok: true,

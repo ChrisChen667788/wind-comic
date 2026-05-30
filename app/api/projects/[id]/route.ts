@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
 import { getUserFromRequest } from '../../auth/lib';
 import { normalizeAssetRow } from '@/lib/asset-storage';
-import { listProjectAssets } from '@/lib/repos/asset-repo';
+import { listProjectAssets, getAsset, updateAssetDataInProject } from '@/lib/repos/asset-repo';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -81,11 +81,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ message: 'assetId and data are required' }, { status: 400 });
   }
 
-  const asset = db.prepare('SELECT id FROM project_assets WHERE id = ? AND project_id = ?').get(assetId, id) as any;
-  if (!asset) return NextResponse.json({ message: 'Asset not found' }, { status: 404 });
+  const asset = await getAsset(assetId);
+  if (!asset || asset.project_id !== id) return NextResponse.json({ message: 'Asset not found' }, { status: 404 });
 
-  db.prepare('UPDATE project_assets SET data = ?, updated_at = ? WHERE id = ? AND project_id = ?')
-    .run(JSON.stringify(data), now(), assetId, id);
+  await updateAssetDataInProject(assetId, id, data);
 
   return NextResponse.json({ success: true });
 }

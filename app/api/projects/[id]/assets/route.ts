@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
 import { nanoid } from 'nanoid';
 import { normalizeAssetRow } from '@/lib/asset-storage';
+import { createAsset } from '@/lib/repos/asset-repo';
 
 export const runtime = 'nodejs';
 
@@ -43,16 +44,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const id = nanoid();
     const timestamp = now();
 
-    db.prepare(`
-      INSERT INTO project_assets (id, project_id, type, name, data, media_urls, shot_number, version, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id, projectId, body.type, body.name,
-      JSON.stringify(body.data || {}),
-      JSON.stringify(body.mediaUrls || []),
-      body.shotNumber || null,
-      1, timestamp, timestamp
-    );
+    await createAsset({
+      id, projectId, type: body.type, name: body.name,
+      data: body.data || {}, mediaUrls: body.mediaUrls || [],
+      shotNumber: body.shotNumber || null, version: 1,
+    });
 
     return NextResponse.json({ id, projectId, ...body, version: 1, createdAt: timestamp, updatedAt: timestamp });
   } catch (error) {

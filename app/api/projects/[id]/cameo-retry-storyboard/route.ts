@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
+import { updateAsset } from '@/lib/repos/asset-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -169,11 +170,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       };
       const shouldUpdateImage = result.cameoRetried && result.finalImageUrl && result.finalImageUrl !== originalImageUrl;
       if (shouldUpdateImage) {
-        db.prepare('UPDATE project_assets SET media_urls = ?, persistent_url = ?, data = ?, updated_at = ? WHERE id = ?')
-          .run(JSON.stringify([result.finalImageUrl]), null, JSON.stringify(newData), now(), board.id);
+        await updateAsset(board.id, { mediaUrls: [result.finalImageUrl], persistentUrl: null, data: newData });
       } else {
-        db.prepare('UPDATE project_assets SET data = ?, updated_at = ? WHERE id = ?')
-          .run(JSON.stringify(newData), now(), board.id);
+        await updateAsset(board.id, { data: newData });
       }
 
       if (shouldUpdateImage && (result.cameoScore == null || (before != null && result.cameoScore > before))) {

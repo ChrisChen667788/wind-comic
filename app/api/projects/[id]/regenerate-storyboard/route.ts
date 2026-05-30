@@ -21,6 +21,7 @@
 
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
+import { createAsset } from '@/lib/repos/asset-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,23 +71,16 @@ function getProjectContext(projectId: string): {
   }
 }
 
-function persistStoryboard(projectId: string, shotNumber: number, imageUrl: string, prompt: string): void {
+async function persistStoryboard(projectId: string, shotNumber: number, imageUrl: string, prompt: string): Promise<void> {
   try {
     // 更新该 shot_number 对应的 storyboard asset (insert new row, 保留历史)
     const id = `sb-${projectId}-${shotNumber}-${Date.now()}`;
-    db.prepare(
-      `INSERT INTO project_assets (id, project_id, type, name, media_urls, data, shot_number, created_at, updated_at)
-       VALUES (?, ?, 'storyboard', ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      id,
-      projectId,
-      `Shot ${shotNumber} (re-gen)`,
-      JSON.stringify([imageUrl]),
-      JSON.stringify({ prompt, regenerated: true, regeneratedAt: new Date().toISOString() }),
+    await createAsset({
+      id, projectId, type: 'storyboard', name: `Shot ${shotNumber} (re-gen)`,
+      mediaUrls: [imageUrl],
+      data: { prompt, regenerated: true, regeneratedAt: new Date().toISOString() },
       shotNumber,
-      new Date().toISOString(),
-      new Date().toISOString(),
-    );
+    });
   } catch (e) {
     console.warn('[regen-sb] persist failed:', e);
   }
@@ -177,7 +171,7 @@ export async function POST(
           return;
         }
 
-        persistStoryboard(projectId, shotNumber, imageUrl, finalPrompt);
+        await persistStoryboard(projectId, shotNumber, imageUrl, finalPrompt);
         send('complete', { shotNumber, imageUrl, prompt: finalPrompt });
         controller.close();
       } catch (e) {

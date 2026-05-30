@@ -58,19 +58,23 @@ export interface CreateAssetInput {
   mediaUrls?: string[];
   shotNumber?: number | null;
   version?: number;
+  /** v9.0.1: 自定义 id (默认 nanoid; 如 storyboard 重生用 `sb-...`) */
+  id?: string;
+  /** v9.0.1: 落库持久化副本 URL */
+  persistentUrl?: string | null;
 }
 
 export async function createAsset(input: CreateAssetInput): Promise<AssetRow> {
   const driver = getDbDriver();
-  const id = nanoid();
+  const id = input.id || nanoid();
   const ts = new Date().toISOString();
   await driver.run(
-    `INSERT INTO project_assets (id, project_id, type, name, data, media_urls, shot_number, version, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO project_assets (id, project_id, type, name, data, media_urls, persistent_url, shot_number, version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, input.projectId, input.type, input.name,
       JSON.stringify(input.data ?? {}), JSON.stringify(input.mediaUrls ?? []),
-      input.shotNumber ?? null, input.version ?? 1, ts, ts,
+      input.persistentUrl ?? null, input.shotNumber ?? null, input.version ?? 1, ts, ts,
     ],
   );
   const row = await getAsset(id);
@@ -78,15 +82,17 @@ export async function createAsset(input: CreateAssetInput): Promise<AssetRow> {
   return row;
 }
 
-/** 更新资产 data / media_urls. */
+/** 更新资产 data / media_urls / persistent_url; bumpVersion 时 version+1. */
 export async function updateAsset(
   id: string,
-  patch: { data?: unknown; mediaUrls?: string[] },
+  patch: { data?: unknown; mediaUrls?: string[]; persistentUrl?: string | null; bumpVersion?: boolean },
 ): Promise<boolean> {
   const sets: string[] = [];
   const params: unknown[] = [];
   if (patch.data !== undefined) { sets.push('data = ?'); params.push(JSON.stringify(patch.data)); }
   if (patch.mediaUrls !== undefined) { sets.push('media_urls = ?'); params.push(JSON.stringify(patch.mediaUrls)); }
+  if (patch.persistentUrl !== undefined) { sets.push('persistent_url = ?'); params.push(patch.persistentUrl); }
+  if (patch.bumpVersion) sets.push('version = version + 1');
   if (sets.length === 0) return false;
   sets.push('updated_at = ?'); params.push(new Date().toISOString());
   params.push(id);
@@ -94,8 +100,83 @@ export async function updateAsset(
   return r.changes > 0;
 }
 
+/** v9.0.1: 带 project 守卫的 data 更新 (WHERE id AND project_id). */
+export async function updateAssetDataInProject(id: string, projectId: string, data: unknown): Promise<boolean> {
+  const r = await getDbDriver().run(
+    `UPDATE project_assets SET data = ?, updated_at = ? WHERE id = ? AND project_id = ?`,
+    [JSON.stringify(data), new Date().toISOString(), id, projectId],
+  );
+  return r.changes > 0;
+}
+
+/** v9.0.1: 按 (project, type, shot|name) 选中更新 media/persistent/data. 返回受影响行数. */
+export async function updateAssetBySelector(
+  projectId: string,
+  sel: { type: string; shotNumber?: number | null; name?: string },
+  patch: { mediaUrls?: string[]; persistentUrl?: string | null; data?: unknown; bumpVersion?: boolean },
+): Promise<number> {
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (patch.mediaUrls !== undefined) { sets.push('media_urls = ?'); params.push(JSON.stringify(patch.mediaUrls)); }
+  if (patch.persistentUrl !== undefined) { sets.push('persistent_url = ?'); params.push(patch.persistentUrl); }
+  if (patch.data !== undefined) { sets.push('data = ?'); params.push(JSON.stringify(patch.data)); }
+  if (patch.bumpVersion) sets.push('version = version + 1');
+  if (sets.length === 0) return 0;
+  sets.push('updated_at = ?'); params.push(new Date().toISOString());
+  let where = 'project_id = ? AND type = ?';
+  params.push(projectId, sel.type);
+  if (sel.shotNumber != null) { where += ' AND shot_number = ?'; params.push(sel.shotNumber); }
+  else { where += ' AND name = ?'; params.push(sel.name); }
+  const r = await getDbDriver().run(`UPDATE project_assets SET ${sets.join(', ')} WHERE ${where}`, params);
+  return r.changes;
+}
+
 export async function deleteAsset(id: string): Promise<boolean> {
   const r = await getDbDriver().run(`DELETE FROM project_assets WHERE id = ?`, [id]);
+  return r.changes > 0;
+}
+
+/** v9.0.1: 删除某 project 下某 type 的全部资产 (如 narration 重生前清空). 返回行数. */
+export async function deleteAssetsByType(projectId: string, type: string): Promise<number> {
+  const r = await getDbDriver().run(`DELETE FROM project_assets WHERE project_id = ? AND type = ?`, [projectId, type]);
+  return r.changes;
+}
+
+/** v9.0.1: 批量置 stale (rerun: 选中重跑环节的下游失效). */
+export async function setAssetsStaleByTypes(projectId: string, types: string[], stale: boolean): Promise<number> {
+  if (types.length === 0) return 0;
+  const ph = types.map(() => '?').join(', ');
+  const r = await getDbDriver().run(
+    `UPDATE project_assets SET stale = ? WHERE project_id = ? AND type IN (${ph})`,
+    [stale ? 1 : 0, projectId, ...types],
+  );
+  return r.changes;
+}
+
+export async function setAssetStale(id: string, projectId: string, stale: boolean): Promise<boolean> {
+  const r = await getDbDriver().run(
+    `UPDATE project_assets SET stale = ? WHERE id = ? AND project_id = ?`,
+    [stale ? 1 : 0, id, projectId],
+  );
+  return r.changes > 0;
+}
+
+/** v9.0.1: 批量确认 (assets/confirm). */
+export async function setAssetsConfirmedByTypes(projectId: string, types: string[]): Promise<number> {
+  if (types.length === 0) return 0;
+  const ph = types.map(() => '?').join(', ');
+  const r = await getDbDriver().run(
+    `UPDATE project_assets SET confirmed = 1, updated_at = ? WHERE project_id = ? AND type IN (${ph})`,
+    [new Date().toISOString(), projectId, ...types],
+  );
+  return r.changes;
+}
+
+export async function setAssetConfirmed(id: string): Promise<boolean> {
+  const r = await getDbDriver().run(
+    `UPDATE project_assets SET confirmed = 1, updated_at = ? WHERE id = ?`,
+    [new Date().toISOString(), id],
+  );
   return r.changes > 0;
 }
 

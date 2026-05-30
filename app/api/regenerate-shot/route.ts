@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { HybridOrchestrator } from '@/services/hybrid-orchestrator';
 import { db, now } from '@/lib/db';
+import { updateAssetBySelector } from '@/lib/repos/asset-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,14 +73,10 @@ export async function POST(request: NextRequest) {
             });
 
             // 更新DB
-            const existing = db.prepare(
-              'SELECT id FROM project_assets WHERE project_id = ? AND type = ? AND shot_number = ?'
-            ).get(projectId, 'video', shotNumber) as any;
-
-            if (existing) {
-              db.prepare('UPDATE project_assets SET media_urls = ?, data = ?, version = version + 1, updated_at = ? WHERE id = ?')
-                .run(JSON.stringify([result.videoUrl]), JSON.stringify({ duration: result.duration, status: 'completed' }), now(), existing.id);
-            }
+            await updateAssetBySelector(
+              projectId, { type: 'video', shotNumber },
+              { mediaUrls: [result.videoUrl], data: { duration: result.duration, status: 'completed' }, bumpVersion: true },
+            );
 
             send('regenerateComplete', {
               shotNumber,
@@ -147,13 +144,10 @@ export async function POST(request: NextRequest) {
             // 更新DB
             for (const v of videos) {
               if (v.videoUrl && !v.videoUrl.startsWith('data:')) {
-                const ex = db.prepare(
-                  'SELECT id FROM project_assets WHERE project_id = ? AND type = ? AND shot_number = ?'
-                ).get(projectId, 'video', v.shotNumber) as any;
-                if (ex) {
-                  db.prepare('UPDATE project_assets SET media_urls = ?, version = version + 1, updated_at = ? WHERE id = ?')
-                    .run(JSON.stringify([v.videoUrl]), now(), ex.id);
-                }
+                await updateAssetBySelector(
+                  projectId, { type: 'video', shotNumber: v.shotNumber },
+                  { mediaUrls: [v.videoUrl], bumpVersion: true },
+                );
               }
             }
 

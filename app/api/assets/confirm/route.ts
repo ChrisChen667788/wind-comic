@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, now } from '@/lib/db';
+import { setAssetsConfirmedByTypes, setAssetConfirmed } from '@/lib/repos/asset-repo';
 
 export const runtime = 'nodejs';
 
@@ -26,21 +26,14 @@ export async function POST(request: NextRequest) {
     const types = roleTypeMap[agentRole] || [];
 
     if (types.length > 0) {
-      const placeholders = types.map(() => '?').join(',');
-      const result = db.prepare(
-        `UPDATE project_assets SET confirmed = 1, updated_at = ? WHERE project_id = ? AND type IN (${placeholders})`
-      ).run(now(), projectId, ...types);
-
-      console.log(`[API] Confirmed ${result.changes} assets for ${agentRole} in project ${projectId}`);
+      const changes = await setAssetsConfirmedByTypes(projectId, types);
+      console.log(`[API] Confirmed ${changes} assets for ${agentRole} in project ${projectId}`);
     }
 
     // 如果传入了具体的 assets 数组，也逐个确认
     if (assets && Array.isArray(assets)) {
       for (const asset of assets) {
-        if (asset.id) {
-          db.prepare('UPDATE project_assets SET confirmed = 1, updated_at = ? WHERE id = ?')
-            .run(now(), asset.id);
-        }
+        if (asset.id) await setAssetConfirmed(asset.id);
       }
     }
 

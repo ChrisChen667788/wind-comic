@@ -15,6 +15,7 @@ import { db, now } from '@/lib/db';
 import { getUserFromRequest } from '../../../auth/lib';
 import type { Script, ScriptShot } from '@/types/agents';
 import { computeTracks, applyTrackEdits, resetTrackEdit, type SegmentOverride } from '@/lib/timeline-tracks';
+import { updateAsset } from '@/lib/repos/asset-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -134,9 +135,7 @@ export async function POST(
     }
   }
 
-  db.prepare(
-    `UPDATE project_assets SET data = ?, updated_at = ? WHERE id = ?`,
-  ).run(JSON.stringify(script), now(), row.id);
+  await updateAsset(row.id, { data: script });
 
   // v3.1 F.1: 处理 track edits (BGM/字幕 mute/移位/改写)
   // 单段 reset 走 trackResets array; 普通编辑走 trackEdits array

@@ -20,6 +20,7 @@
 
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
+import { updateAssetBySelector } from '@/lib/repos/asset-repo';
 import { KlingService } from '@/services/kling.service';
 import { API_CONFIG } from '@/lib/config';
 import { checkPlan, planRejection } from '@/lib/plan-gate';
@@ -122,17 +123,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
         // 持久化:覆盖该镜头的 video 资产 + 标记 quality=4k
         try {
-          db.prepare(
-            `UPDATE project_assets
-             SET media_urls = ?, persistent_url = ?, data = ?, updated_at = ?
-             WHERE project_id = ? AND type = 'video' AND shot_number = ?`,
-          ).run(
-            JSON.stringify([videoUrl]),
-            videoUrl,
-            JSON.stringify({ quality: '4k', engine: 'kling-master', regeneratedAt: new Date().toISOString() }),
-            new Date().toISOString(),
-            projectId,
-            shotNumber,
+          await updateAssetBySelector(
+            projectId, { type: 'video', shotNumber },
+            { mediaUrls: [videoUrl], persistentUrl: videoUrl, data: { quality: '4k', engine: 'kling-master', regeneratedAt: new Date().toISOString() } },
           );
         } catch (e) {
           console.warn('[regen-4k] DB update failed (non-fatal):', e);

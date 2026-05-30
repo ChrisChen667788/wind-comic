@@ -42,7 +42,7 @@ docker compose -f docker-compose.pg.yml down          # 停 (加 -v 清数据)
 
 ## 迭代批次(每批 tsc + 全量测试 + dev 实测 PG, 独立提交)
 
-- **v9.0.1 · project_assets → asset-repo**(最大簇 26 处):按需扩 asset-repo(如 `updateAssetData(projectId, shotNumber, patch)`),把 create-stream / regenerate-shot / cameo-retry / timeline / 等路由的 raw project_assets 写改走 repo
+- **v9.0.1 · project_assets → asset-repo**(部分完成 ✅):asset-repo 扩 8 个方法(`updateAssetBySelector`/`updateAssetDataInProject`/`deleteAssetsByType`/`setAssets(Stale|Confirmed)ByTypes`/`setAsset(Stale|Confirmed)` + create/update 加 `id`/`persistentUrl`/`bumpVersion`);**10 文件 / ~14 写**改走 repo(confirm/projects[id]/timeline/assets/extract-dna/regenerate-shot×2/4k/regenerate-storyboard/cameo-retry/narration);**PG 实测 10 方法全往返 ✅**。**defer v9.0.1b**:create-stream(7 写,后台 promise 持久化 helper)+ rerun(2 写,与 `pipeline_reruns` 同事务)需单独细做
 - **v9.0.2 · projects / users / notifications / comments → 既有 repo**:复用 project-repo / user-repo / notification-repo / comment-repo,补缺的方法
 - **v9.0.3 · 新建 invite-repo / global-asset-repo / character-repo**(含 IP token/grant)
 - **v9.0.4 · 新建 team/generations/waitlist/share/collaborator/quota/track-edit repo** —— 写路径全清
