@@ -9,7 +9,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '../auth/lib';
-import { issueIpToken, listMarketplaceTokens, listOwnerTokens } from '@/lib/cameo-ip';
+import { issueIpToken, listMarketplaceTokens, listOwnerTokens } from '@/lib/repos/cameo-ip-repo'; // v9.0.3d: async, 双驱动
 
 export const runtime = 'nodejs';
 
@@ -19,9 +19,9 @@ export async function GET(request: Request) {
   if (scope === 'mine') {
     const payload = getUserFromRequest(request);
     if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    return NextResponse.json({ tokens: listOwnerTokens(payload.sub) });
+    return NextResponse.json({ tokens: await listOwnerTokens(payload.sub) });
   }
-  return NextResponse.json({ tokens: listMarketplaceTokens({ limit: Number(url.searchParams.get('limit')) || 60 }) });
+  return NextResponse.json({ tokens: await listMarketplaceTokens({ limit: Number(url.searchParams.get('limit')) || 60 }) });
 }
 
 export async function POST(request: Request) {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'characterId 和 name 必填' }, { status: 400 });
   }
   try {
-    const token = issueIpToken({
+    const token = await issueIpToken({
       characterId,
       ownerId: payload.sub,
       name,
