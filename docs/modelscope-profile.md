@@ -2,6 +2,10 @@
 
 > 这是个人主页 [modelscope.cn/profile/haozi667788](https://www.modelscope.cn/profile/haozi667788) 的中英双语完整文案. 直接复制粘贴.
 
+> **📌 项目「介绍」区要和 GitHub 主页完全一致, 请直接粘贴 [`docs/modelscope-intro.md`](modelscope-intro.md)** ——
+> 那是 `README.md` 的 1:1 镜像 (图片→raw、相对链→blob 绝对化), 由 `node scripts/gen-modelscope-intro.mjs` 生成,
+> README 更新后重跑即可。下面 §〇 起的分段文案是较早的精简版 + 主页元信息 (名称/标签/许可/bio 等, 仍可用于填表单字段)。
+
 ---
 
 ## 〇. v6 产品介绍页 (ModelScope「介绍」可直接粘贴 · 图片走 GitHub raw 绝对链)
