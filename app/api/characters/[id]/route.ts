@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, now } from '@/lib/db';
+import { db } from '@/lib/db';
 import { getUserFromRequest } from '../../auth/lib';
+import { getCharacter, updateCharacter, deleteCharacter } from '@/lib/repos/character-repo'; // v9.0.3c: async, 双驱动
 
 export const runtime = 'nodejs';
 
-function getCharacter(id: string) {
-  return db.prepare('SELECT * FROM character_library WHERE id = ?').get(id) as any | undefined;
-}
-
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = getCharacter(id);
+  const row = await getCharacter(id);
   if (!row) {
     return NextResponse.json({ message: 'Not found' }, { status: 404 });
   }
@@ -40,7 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     userId = firstUser?.id || 'demo-user';
   }
 
-  const row = getCharacter(id);
+  const row = await getCharacter(id);
   if (!row) {
     return NextResponse.json({ message: 'Not found' }, { status: 404 });
   }
@@ -56,32 +53,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     usageCount,
   } = body;
 
-  const ts = now();
-
-  db.prepare(
-    `UPDATE character_library SET
-      name = ?,
-      description = ?,
-      appearance = ?,
-      visual_tags = ?,
-      image_urls = ?,
-      style_keywords = ?,
-      usage_count = ?,
-      updated_at = ?
-     WHERE id = ?`
-  ).run(
-    name ?? row.name,
-    description ?? row.description,
-    appearance ?? row.appearance,
-    JSON.stringify(visualTags ?? JSON.parse(row.visual_tags || '[]')),
-    JSON.stringify(imageUrls ?? JSON.parse(row.image_urls || '[]')),
-    styleKeywords ?? row.style_keywords,
-    usageCount ?? row.usage_count,
-    ts,
-    id
-  );
-
-  const updated = getCharacter(id);
+  // v9.0.3c: 走 character-repo (双驱动); 每字段用现值兜底 (与原逻辑一致)
+  const updated = await updateCharacter(id, {
+    name: name ?? row.name,
+    description: description ?? row.description,
+    appearance: appearance ?? row.appearance,
+    visualTags: visualTags ?? JSON.parse(row.visual_tags || '[]'),
+    imageUrls: imageUrls ?? JSON.parse(row.image_urls || '[]'),
+    styleKeywords: styleKeywords ?? row.style_keywords,
+    usageCount: usageCount ?? row.usage_count,
+  });
+  if (!updated) return NextResponse.json({ message: 'Not found' }, { status: 404 });
   return NextResponse.json({
     id: updated.id,
     userId: updated.user_id,
@@ -107,12 +89,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     userId = firstUser?.id || 'demo-user';
   }
 
-  const row = getCharacter(id);
+  const row = await getCharacter(id);
   if (!row) {
     return NextResponse.json({ message: 'Not found' }, { status: 404 });
   }
 
-  db.prepare('DELETE FROM character_library WHERE id = ?').run(id);
+  await deleteCharacter(id);
 
   return NextResponse.json({ message: 'Deleted' });
 }

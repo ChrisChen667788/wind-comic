@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { nanoid } from 'nanoid';
-import { db, now } from '@/lib/db';
+import { db } from '@/lib/db';
 import { getUserFromRequest } from '../auth/lib';
+import { listCharactersByUser, createCharacter } from '@/lib/repos/character-repo'; // v9.0.3c: async, 双驱动
 
 export const runtime = 'nodejs';
 
@@ -15,9 +15,7 @@ export async function GET(request: Request) {
     userId = firstUser?.id || 'demo-user';
   }
 
-  const rows = db.prepare(
-    'SELECT * FROM character_library WHERE user_id = ? ORDER BY created_at DESC'
-  ).all(userId) as any[];
+  const rows = await listCharactersByUser(userId);
 
   const data = rows.map((r) => ({
     id: r.id,
@@ -53,39 +51,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Missing name' }, { status: 400 });
   }
 
-  const id = nanoid();
-  const ts = now();
-
-  db.prepare(
-    `INSERT INTO character_library (id, user_id, name, description, appearance, visual_tags, image_urls, style_keywords, usage_count, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    userId,
-    name,
-    description || '',
-    appearance || '',
-    JSON.stringify(visualTags || []),
-    JSON.stringify(imageUrls || []),
-    styleKeywords || '',
-    0,
-    ts,
-    ts
-  );
+  // v9.0.3c: 走 character-repo (双驱动); 返回落库后的真实行
+  const row = await createCharacter({ userId, name, description, appearance, visualTags, imageUrls, styleKeywords });
 
   return NextResponse.json(
     {
-      id,
-      userId,
-      name,
-      description: description || '',
-      appearance: appearance || '',
-      visualTags: visualTags || [],
-      imageUrls: imageUrls || [],
-      styleKeywords: styleKeywords || '',
-      usageCount: 0,
-      createdAt: ts,
-      updatedAt: ts,
+      id: row.id,
+      userId: row.user_id,
+      name: row.name,
+      description: row.description,
+      appearance: row.appearance,
+      visualTags: JSON.parse(row.visual_tags || '[]'),
+      imageUrls: JSON.parse(row.image_urls || '[]'),
+      styleKeywords: row.style_keywords,
+      usageCount: row.usage_count,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     },
     { status: 201 }
   );

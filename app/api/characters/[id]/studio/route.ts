@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, now } from '@/lib/db';
 import { buildProfileFromLibraryRow, serializeProfile, parseProfile } from '@/lib/character-studio';
+import { getCharacter, updateCharacterProfile } from '@/lib/repos/character-repo'; // v9.0.3c: async, 双驱动
 
 export const runtime = 'nodejs';
 
@@ -15,13 +15,9 @@ export const runtime = 'nodejs';
  *   - generate=true: 逐视图调 image provider 链真出图, 把 imageUrl 填回 turnaround + image_urls
  */
 
-function getRow(id: string): any | undefined {
-  return db.prepare('SELECT * FROM character_library WHERE id = ?').get(id) as any | undefined;
-}
-
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = getRow(id);
+  const row = await getCharacter(id);
   if (!row) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
   // 已落库优先; 否则实时构建 (不落库)
@@ -32,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = getRow(id);
+  const row = await getCharacter(id);
   if (!row) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
   const body = await req.json().catch(() => ({} as any));
@@ -60,16 +56,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // 落库: profile JSON; 若真出了图, 也把图并进 image_urls (去重, 原有在前)
-  const ts = now();
+  // v9.0.3c: 走 character-repo (双驱动)
   if (generatedUrls.length > 0) {
     let existing: string[] = [];
     try { existing = JSON.parse(row.image_urls || '[]'); } catch { existing = []; }
     const merged = Array.from(new Set([...existing, ...generatedUrls]));
-    db.prepare('UPDATE character_library SET profile = ?, image_urls = ?, updated_at = ? WHERE id = ?')
-      .run(serializeProfile(profile), JSON.stringify(merged), ts, id);
+    await updateCharacterProfile(id, serializeProfile(profile), merged);
   } else {
-    db.prepare('UPDATE character_library SET profile = ?, updated_at = ? WHERE id = ?')
-      .run(serializeProfile(profile), ts, id);
+    await updateCharacterProfile(id, serializeProfile(profile));
   }
 
   return NextResponse.json({ profile, generated: generatedUrls.length, persisted: true });
