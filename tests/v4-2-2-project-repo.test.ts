@@ -127,6 +127,22 @@ describe('v4.2.2 · project-repo CRUD (async через DbDriver)', () => {
     expect(raw2.primary_character_ref).toBeNull();
   });
 
+  it('updateProjectById set/clear share_token + share_created_at (v9.0.2b)', async () => {
+    const uid = seedUser();
+    const id = 'proj-share-' + nanoid(6);
+    await insertProjectFull({ id, userId: uid, title: 'SH' });
+    await updateProjectById(id, { share_token: 'tok_abc', share_created_at: '2026-05-31T00:00:00Z' });
+    const raw = db.prepare('SELECT share_token, share_created_at FROM projects WHERE id = ?')
+      .get(id) as { share_token: string | null; share_created_at: string | null };
+    expect(raw.share_token).toBe('tok_abc');
+    expect(raw.share_created_at).toBe('2026-05-31T00:00:00Z');
+    // 撤销 → null
+    await updateProjectById(id, { share_token: null, share_created_at: null });
+    const raw2 = db.prepare('SELECT share_token FROM projects WHERE id = ?')
+      .get(id) as { share_token: string | null };
+    expect(raw2.share_token).toBeNull();
+  });
+
   it('updateProjectById: empty patch → false, unknown col → throws', async () => {
     const uid = seedUser();
     const id = 'proj-guard-' + nanoid(6);

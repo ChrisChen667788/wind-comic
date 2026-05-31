@@ -80,3 +80,24 @@ export async function updateUserPassword(id: string, passwordHash: string): Prom
   const r = await getDbDriver().run(`UPDATE users SET password_hash = ? WHERE id = ?`, [passwordHash, id]);
   return r.changes > 0;
 }
+
+/**
+ * v9.0.2b: Stripe webhook 落订阅状态.
+ * 只写真实存在的 3 列 (subscription_tier/status + stripe_customer_id);
+ * stripeCustomerId 为空时 COALESCE 保留旧值 (首次 checkout 才带, 后续事件可能不带)。
+ * (注: 旧实现还写 users.updated_at, 但该列 SQLite/PG 都没有, 整条 UPDATE 会报错 → 此处去掉, 顺带修历史 bug。)
+ */
+export async function updateUserSubscription(
+  id: string,
+  patch: { tier: string; status: string | null; stripeCustomerId?: string | null },
+): Promise<boolean> {
+  const r = await getDbDriver().run(
+    `UPDATE users
+       SET subscription_tier = ?,
+           subscription_status = ?,
+           stripe_customer_id = COALESCE(?, stripe_customer_id)
+     WHERE id = ?`,
+    [patch.tier, patch.status, patch.stripeCustomerId ?? null, id],
+  );
+  return r.changes > 0;
+}

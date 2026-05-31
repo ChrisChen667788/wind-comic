@@ -295,6 +295,12 @@ addColumnIfMissing('projects', 'primary_character_ref', 'TEXT');
 // 保证现有单角色编排链路无感知;Phase 2 再做 per-shot 角色路由。
 addColumnIfMissing('projects', 'locked_characters', "TEXT NOT NULL DEFAULT '[]'");
 
+// v9.0.2b (2026-05-31): 轻量项目共享链接 — 之前由 /api/projects/[id]/share 的
+// ensureShareSchema() 运行时 ALTER 热加; 现纳入规范 schema (canonical), 让 SQLite (新/旧库)
+// 与 PG export 都带上这两列, share 写路径才能走 project-repo 双驱动 (见 v9.0.2b)。
+addColumnIfMissing('projects', 'share_token', 'TEXT');
+addColumnIfMissing('projects', 'share_created_at', 'TEXT');
+
 // v2.12 Sprint C.2 (2026-04-26): Stripe 4 档订阅
 // subscription_tier: 'free' | 'creator' | 'pro' | 'enterprise', 默认 free
 // subscription_status: 'active' | 'past_due' | 'canceled' | 'incomplete' | null, null = 没订阅

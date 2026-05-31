@@ -280,7 +280,7 @@ CREATE TABLE IF NOT EXISTS projects (
   cover_urls TEXT,
   status TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL, script_data TEXT, director_notes TEXT, pipeline_state TEXT, mode TEXT DEFAULT 'episodic', execution_mode TEXT DEFAULT 'dialogue', style_id TEXT, global_asset_ids TEXT DEFAULT '[]', output_config TEXT, primary_character_ref TEXT, locked_characters TEXT NOT NULL DEFAULT '[]'
+  updated_at TEXT NOT NULL, script_data TEXT, director_notes TEXT, pipeline_state TEXT, mode TEXT DEFAULT 'episodic', execution_mode TEXT DEFAULT 'dialogue', style_id TEXT, global_asset_ids TEXT DEFAULT '[]', output_config TEXT, primary_character_ref TEXT, locked_characters TEXT NOT NULL DEFAULT '[]', share_token TEXT, share_created_at TEXT
 );
 CREATE TABLE IF NOT EXISTS shot_vision_audits (
   id TEXT PRIMARY KEY,

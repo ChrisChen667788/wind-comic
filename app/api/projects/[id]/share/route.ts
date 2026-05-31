@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
+import { updateProjectById } from '@/lib/repos/project-repo';
 import { nanoid } from 'nanoid';
 
 export const runtime = 'nodejs';
@@ -12,52 +13,37 @@ export const dynamic = 'force-dynamic';
  *  DELETE /api/projects/:id/share → 撤销共享
  *  GET  /api/projects/:id/share   → 查看当前共享状态
  *
- * token 直接写 `projects.share_token` 字段;列存在才启用,否则热备一张独立表。
+ * token 直接写 `projects.share_token` 字段。
+ * v9.0.2b: share_token/share_created_at 已纳入 canonical schema (lib/db.ts addColumnIfMissing),
+ *   不再需要运行时 ensureShareSchema 热加 (那是 SQLite PRAGMA/ALTER, PG 不兼容); 写走 project-repo 双驱动。
  * 共享页由 /app/share/[token]/page.tsx 按 read-only 呈现。
  */
 
-function ensureShareSchema() {
-  try {
-    const row = db.prepare("PRAGMA table_info('projects')").all() as Array<{ name: string }>;
-    if (!row.some(r => r.name === 'share_token')) {
-      db.exec("ALTER TABLE projects ADD COLUMN share_token TEXT");
-    }
-    if (!row.some(r => r.name === 'share_created_at')) {
-      db.exec("ALTER TABLE projects ADD COLUMN share_created_at TEXT");
-    }
-  } catch (e) {
-    console.warn('[share] ensureShareSchema failed:', e);
-  }
-}
-
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
-  ensureShareSchema();
 
   const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId) as any;
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 });
 
   const token = nanoid(18);
-  db.prepare('UPDATE projects SET share_token = ?, share_created_at = ? WHERE id = ?')
-    .run(token, now(), projectId);
+  const createdAt = now();
+  await updateProjectById(projectId, { share_token: token, share_created_at: createdAt });
 
   return NextResponse.json({
     token,
     shareUrl: `/share/${token}`,
-    createdAt: now(),
+    createdAt,
   });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
-  ensureShareSchema();
-  db.prepare('UPDATE projects SET share_token = NULL, share_created_at = NULL WHERE id = ?').run(projectId);
+  await updateProjectById(projectId, { share_token: null, share_created_at: null });
   return NextResponse.json({ ok: true });
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
-  ensureShareSchema();
   const row = db.prepare('SELECT share_token, share_created_at FROM projects WHERE id = ?').get(projectId) as any;
   if (!row) return NextResponse.json({ error: 'project not found' }, { status: 404 });
   if (!row.share_token) return NextResponse.json({ enabled: false });

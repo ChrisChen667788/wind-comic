@@ -144,6 +144,8 @@ const PROJECT_UPDATABLE_COLS = new Set([
   'title', 'description', 'cover_urls', 'status',
   'style_id', 'primary_character_ref', 'locked_characters',
   'director_notes', 'script_data',
+  // v9.0.2b: 轻量共享链接
+  'share_token', 'share_created_at',
 ]);
 
 /**

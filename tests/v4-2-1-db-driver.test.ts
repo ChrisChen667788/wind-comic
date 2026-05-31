@@ -11,6 +11,7 @@ import {
   countUsers,
   createUser,
   updateUserPassword,
+  updateUserSubscription,
 } from '@/lib/repos/user-repo';
 
 const savedEnv = { ...process.env };
@@ -143,5 +144,27 @@ describe('v4.2.1 · user-repo (async, через driver)', () => {
 
   it('updateUserPassword returns false for missing user', async () => {
     expect(await updateUserPassword('ghost-' + nanoid(), 'x')).toBe(false);
+  });
+
+  // v9.0.2b — Stripe webhook 订阅落库 (只写真实列, 无 phantom updated_at)
+  it('updateUserSubscription writes tier/status/customer + COALESCE keeps old customer', async () => {
+    const u = await createUser({ email: `sub-${nanoid()}@test.local`, passwordHash: 'h', name: 'S' });
+    expect(await updateUserSubscription(u.id, { tier: 'pro', status: 'active', stripeCustomerId: 'cus_123' })).toBe(true);
+    expect((await findUserById(u.id))?.subscription_tier).toBe('pro');
+    // status + customer id 不在 UserRow COLS, 用 driver 读
+    const raw = await getDbDriver().get<{ subscription_status: string; stripe_customer_id: string }>(
+      'SELECT subscription_status, stripe_customer_id FROM users WHERE id = ?', [u.id]);
+    expect(raw?.subscription_status).toBe('active');
+    expect(raw?.stripe_customer_id).toBe('cus_123');
+    // 后续事件不带 customer id → COALESCE 保留旧值
+    await updateUserSubscription(u.id, { tier: 'free', status: 'canceled', stripeCustomerId: null });
+    const raw2 = await getDbDriver().get<{ subscription_tier: string; stripe_customer_id: string }>(
+      'SELECT subscription_tier, stripe_customer_id FROM users WHERE id = ?', [u.id]);
+    expect(raw2?.subscription_tier).toBe('free');
+    expect(raw2?.stripe_customer_id).toBe('cus_123'); // 保留
+  });
+
+  it('updateUserSubscription returns false for missing user', async () => {
+    expect(await updateUserSubscription('ghost-' + nanoid(), { tier: 'pro', status: 'active' })).toBe(false);
   });
 });

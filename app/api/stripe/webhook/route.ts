@@ -16,7 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db, now } from '@/lib/db';
+import { updateUserSubscription } from '@/lib/repos/user-repo';
 import {
   verifyWebhookEvent,
   deriveSubscriptionChange,
@@ -63,21 +63,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const ts = now();
-    db.prepare(
-      `UPDATE users
-        SET subscription_tier = ?,
-            subscription_status = ?,
-            stripe_customer_id = COALESCE(?, stripe_customer_id),
-            updated_at = COALESCE(updated_at, ?)
-        WHERE id = ?`,
-    ).run(
-      change.tier,
-      change.status,
-      change.stripeCustomerId,
-      ts,
-      change.userId,
-    );
+    // v9.0.2b: 走 user-repo (双驱动). 旧实现还写 users.updated_at — 该列 SQLite/PG 都没有,
+    // 整条 UPDATE 会报错 → updateUserSubscription 去掉它, 顺带修这个历史 bug。
+    await updateUserSubscription(change.userId, {
+      tier: change.tier,
+      status: change.status,
+      stripeCustomerId: change.stripeCustomerId,
+    });
     console.log(
       `[Stripe webhook] user=${change.userId} tier=${change.tier} status=${change.status} type=${event.type}`,
     );

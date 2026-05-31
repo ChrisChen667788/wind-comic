@@ -32,8 +32,8 @@ docker compose -f docker-compose.pg.yml down          # 停 (加 -v 清数据)
 | 目标表 | raw 写次数 | 已有 async repo? | 批次 |
 |---|---|---|---|
 | `project_assets` | ✅ **全清 (0 残留)** | ✅ asset-repo | v9.0.1 + **v9.0.1b** |
-| `projects` | create-stream/cameo ✅; share ⏭ | ✅ project-repo | **v9.0.2** (share → v9.0.2b) |
-| `users` | register/create-stream ✅; stripe ⏭ | ✅ user-repo | **v9.0.2** (stripe → v9.0.2b) |
+| `projects` | ✅ **全清** (create-stream/cameo/share) | ✅ project-repo | v9.0.2 + **v9.0.2b** |
+| `users` | ✅ **全清** (register/create-stream/stripe) | ✅ user-repo | v9.0.2 + **v9.0.2b** |
 | `notifications` | ✅ **已在 repo** (route 用 notification-repo) | ✅ notification-repo | 早已迁 |
 | `comments` | ✅ **已在 repo** (route 用 createCommentAsync) | ✅ comment-repo/comments async | 早已迁 |
 | `invite_codes` | 5 | ❌ 新建 | v9.0.3 |
@@ -54,7 +54,11 @@ docker compose -f docker-compose.pg.yml down          # 停 (加 -v 清数据)
   - **cameo**(2 projects):设/清 `primary_character_ref`→`updateProjectById`。
   - 验证:PG 往返 10/10(createUser/insertProjectFull/updateProjectById 含 COALESCE 语义 + cameo 设清 + 白名单守卫 + 清理);tsc 0 / 1854 测试(+3)全绿;create-stream/cameo HTTP 冒烟(400/404, 无写)。
   - **defer v9.0.2b**(需 PG schema 补列再迁):**share**(2 projects, `share_token`/`share_created_at` 不在 PG migrate,且 `ensureShareSchema` 用 SQLite PRAGMA/ALTER 需 PG 守卫)+ **stripe webhook**(1 users, 写 `updated_at` 列 PG users 没有)。
-- **v9.0.2b · share + stripe webhook**(schema 补列后迁):projects 加 `share_token`/`share_created_at`,users 加 `updated_at`(或去写),`ensureShareSchema` PG-guard。
+- **v9.0.2b · share + stripe webhook ✅**(projects/users 写路径全清):
+  - **schema**:`share_token`/`share_created_at` 之前由 share route 的 `ensureShareSchema()` 运行时 SQLite ALTER 热加(PG 不兼容 PRAGMA)→ 纳入 canonical schema(`lib/db.ts` 两条 `addColumnIfMissing`),SQLite 新/旧库 + PG export 都带上;`db/schema.pg.sql` 重新生成(projects CREATE 含两列)。**dev PG 用 `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 补列**(pg:migrate 是 `CREATE IF NOT EXISTS` 只建不改,既有 PG 表需 ALTER —— 生产同理)。
+  - **share**:删掉 `ensureShareSchema()`(列已在 schema),POST/DELETE 两条 UPDATE → `updateProjectById`(白名单加 `share_token`/`share_created_at`)。
+  - **stripe webhook**:`updateUserSubscription(tier/status/stripeCustomerId)` → user-repo。**顺带修历史 bug**:旧 SQL 写 `users.updated_at` —— 该列 SQLite/PG **都不存在**,整条 UPDATE 一直在报错(订阅状态从没落库过);去掉 `updated_at` 后才真正生效。
+  - 验证:PG 往返 8/8(updateUserSubscription 含 COALESCE 保留 customer + findUserById 无 updated_at 报错 + share 设/清);tsc 0 / 1857 测试(+3);share GET/POST/DELETE + stripe HTTP 冒烟(share DELETE 实跑 SQLite 写路径无 "no such column")。
 - **v9.0.3 · 新建 invite-repo / global-asset-repo / character-repo**(含 IP token/grant)
 - **v9.0.4 · 新建 team/generations/waitlist/share/collaborator/quota/track-edit repo** —— 写路径全清
 - **v9.0.5 · 切默认**:全量测试在 `DB_DRIVER=pg` 绿 → 文档建议生产 `DB_DRIVER=pg`;SQLite 仍可 env 回退
