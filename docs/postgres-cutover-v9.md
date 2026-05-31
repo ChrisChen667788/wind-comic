@@ -36,8 +36,9 @@ docker compose -f docker-compose.pg.yml down          # 停 (加 -v 清数据)
 | `users` | ✅ **全清** (register/create-stream/stripe) | ✅ user-repo | v9.0.2 + **v9.0.2b** |
 | `notifications` | ✅ **已在 repo** (route 用 notification-repo) | ✅ notification-repo | 早已迁 |
 | `comments` | ✅ **已在 repo** (route 用 createCommentAsync) | ✅ comment-repo/comments async | 早已迁 |
-| `invite_codes` | 5 | ❌ 新建 | v9.0.3 |
-| `global_assets` `character_library` `character_ip_tokens/grants` | ~13 | ❌ 新建 | v9.0.3 |
+| `invite_codes` | ✅ **路由写全清** (admin/validate/register);审批发码随 v9.0.4 | ✅ **新建 invite-repo** | **v9.0.3** |
+| `global_assets` | 5 (I/U/D) | ❌ 新建 | v9.0.3b |
+| `character_library` `character_ip_tokens/grants` | ~12 | ❌ 新建 | v9.0.3c |
 | `team_allocations` `generations` `waitlist` `*_share_tokens` `project_collaborators` `api_quota_alerts` `project_track_edits` | ~16 | ❌ 新建 | v9.0.4 |
 
 ## 迭代批次(每批 tsc + 全量测试 + dev 实测 PG, 独立提交)
@@ -59,8 +60,10 @@ docker compose -f docker-compose.pg.yml down          # 停 (加 -v 清数据)
   - **share**:删掉 `ensureShareSchema()`(列已在 schema),POST/DELETE 两条 UPDATE → `updateProjectById`(白名单加 `share_token`/`share_created_at`)。
   - **stripe webhook**:`updateUserSubscription(tier/status/stripeCustomerId)` → user-repo。**顺带修历史 bug**:旧 SQL 写 `users.updated_at` —— 该列 SQLite/PG **都不存在**,整条 UPDATE 一直在报错(订阅状态从没落库过);去掉 `updated_at` 后才真正生效。
   - 验证:PG 往返 8/8(updateUserSubscription 含 COALESCE 保留 customer + findUserById 无 updated_at 报错 + share 设/清);tsc 0 / 1857 测试(+3);share GET/POST/DELETE + stripe HTTP 冒烟(share DELETE 实跑 SQLite 写路径无 "no such column")。
-- **v9.0.3 · 新建 invite-repo / global-asset-repo / character-repo**(含 IP token/grant)
-- **v9.0.4 · 新建 team/generations/waitlist/share/collaborator/quota/track-edit repo** —— 写路径全清
+- **v9.0.3 · 新建 invite-repo ✅**(invite_codes 路由写全清):新建 `lib/repos/invite-repo.ts`(async, DbDriver)—— create/generate/get/list/validate/revoke + `consumeInviteCodeTx`(tx 作用域, 从 lib/invite-codes 迁来, register 的注册闭环)+ `isInviteRequired`;三条路由(admin `invite-codes` / `validate` / `register`)改走 repo。旧 `lib/invite-codes.ts` sync 版保留(仅其单测 + waitlist 审批发码在用, **后者随 v9.0.4 waitlist 一起迁**)。验证:PG 往返 12/12(含 consumeInviteCodeTx 事务 + FK 用户 + revoke/validate 各态);tsc 0 / 1863 测试(+6);validate HTTP 冒烟(400 NOT_FOUND/INVALID)。
+- **v9.0.3b · 新建 global-asset-repo**:global_assets 5 写(create/update/delete/recordUsage/upsertBible),调用面含 create-stream + templates + bible 多路由。
+- **v9.0.3c · 新建 character-repo**:character_library(5)+ character_ip_tokens(4)+ character_ip_grants(3)= IP 经济(铸券/授权/版税),~12 写。
+- **v9.0.4 · 新建 team/generations/waitlist/share/collaborator/quota/track-edit repo** —— 写路径全清(invite 审批发码在此随 waitlist 收口)
 - **v9.0.5 · 切默认**:全量测试在 `DB_DRIVER=pg` 绿 → 文档建议生产 `DB_DRIVER=pg`;SQLite 仍可 env 回退
 
 ## 备注

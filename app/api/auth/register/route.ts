@@ -8,7 +8,7 @@ import {
   consumeInviteCodeTx,
   isInviteRequired,
   type InviteCodeError,
-} from '@/lib/invite-codes';
+} from '@/lib/repos/invite-repo'; // v9.0.3: invite-repo (async, 双驱动)
 import { findUserByEmail } from '@/lib/repos/user-repo';
 
 const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" rx="40" fill="#2d1b69"/><circle cx="40" cy="30" r="14" fill="rgba(255,255,255,0.3)"/><ellipse cx="40" cy="68" rx="22" ry="18" fill="rgba(255,255,255,0.2)"/></svg>`)}`;

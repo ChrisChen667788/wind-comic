@@ -8,11 +8,8 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserFromRequest } from '../auth/lib';
-import {
-  generateInviteCodes,
-  listInviteCodes,
-  type InviteCodeError,
-} from '@/lib/invite-codes';
+// v9.0.3: 走 invite-repo (async, 双驱动)
+import { generateInviteCodes, listInviteCodes } from '@/lib/repos/invite-repo';
 import type { InviteCode } from '@/types/agents';
 
 export const runtime = 'nodejs';
@@ -34,7 +31,7 @@ export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get('source') || undefined;
   const limit = Number(request.nextUrl.searchParams.get('limit') || 100);
 
-  const codes = listInviteCodes({
+  const codes = await listInviteCodes({
     status: status as InviteCode['status'] | undefined,
     source,
     limit: Number.isFinite(limit) ? limit : 100,
@@ -52,6 +49,6 @@ export async function POST(request: Request) {
   };
   const count = Math.min(Math.max(Number(body.count) || 1, 1), 100);
 
-  const created = generateInviteCodes(count, auth.userId, body.source);
+  const created = await generateInviteCodes(count, auth.userId, body.source);
   return NextResponse.json({ created, total: created.length }, { status: 201 });
 }
