@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, now } from '@/lib/db';
+import { db } from '@/lib/db';
+import { updateProjectById } from '@/lib/repos/project-repo';
 import { persistAsset } from '@/lib/asset-storage';
 
 export const runtime = 'nodejs';
@@ -67,9 +68,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'failed to persist image' }, { status: 500 });
     }
 
-    // 写入 projects 表
-    db.prepare('UPDATE projects SET primary_character_ref = ?, updated_at = ? WHERE id = ?')
-      .run(persisted.url, now(), projectId);
+    // 写入 projects 表 (v9.0.2: 走 project-repo, 双驱动)
+    await updateProjectById(projectId, { primary_character_ref: persisted.url });
 
     console.log(`[Cameo] project ${projectId} primary face set → ${persisted.url}`);
 
@@ -101,7 +101,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 });
 
-  db.prepare('UPDATE projects SET primary_character_ref = NULL, updated_at = ? WHERE id = ?')
-    .run(now(), projectId);
+  await updateProjectById(projectId, { primary_character_ref: null });
   return NextResponse.json({ success: true });
 }

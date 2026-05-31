@@ -13,6 +13,8 @@ import {
   updateProjectStatus,
   updateProjectMeta,
   deleteProject,
+  insertProjectFull,
+  updateProjectById,
 } from '@/lib/repos/project-repo';
 
 // projects.user_id 有 FK → users(id), 先建真用户
@@ -74,5 +76,63 @@ describe('v4.2.2 · project-repo CRUD (async через DbDriver)', () => {
     expect(await deleteProject(p.id, 'nope')).toBe(false);
     expect(await deleteProject(p.id, uid)).toBe(true);
     expect(await getProject(p.id)).toBeNull();
+  });
+
+  // ─── v9.0.2: 创作管线 / cameo 复用的按 id 写 ─────────────────────────────
+  it('insertProjectFull writes client id + creative columns', async () => {
+    const uid = seedUser();
+    const id = 'proj-full-' + nanoid(6);
+    const p = await insertProjectFull({
+      id, userId: uid, title: '创作管线项目', description: 'd',
+      coverUrls: ['https://x/c.png'], status: 'active',
+      styleId: 'ink-wash', primaryCharacterRef: 'https://x/face.png',
+      lockedCharacters: [{ name: '主角', role: 'lead', cw: 100, imageUrl: 'https://x/f.png' }],
+    });
+    expect(p.id).toBe(id);
+    expect(p.status).toBe('active');
+    // 创作列不在 repo COLS 里, 用 raw db 校验落库
+    const raw = db.prepare('SELECT style_id, primary_character_ref, locked_characters FROM projects WHERE id = ?')
+      .get(id) as { style_id: string; primary_character_ref: string; locked_characters: string };
+    expect(raw.style_id).toBe('ink-wash');
+    expect(raw.primary_character_ref).toBe('https://x/face.png');
+    expect(JSON.parse(raw.locked_characters)[0].name).toBe('主角');
+  });
+
+  it('updateProjectById patches whitelisted cols (no owner guard) + bumps updated_at', async () => {
+    const uid = seedUser();
+    const id = 'proj-upd-' + nanoid(6);
+    await insertProjectFull({ id, userId: uid, title: 'T', status: 'active' });
+    const before = await getProject(id);
+
+    await new Promise((r) => setTimeout(r, 5));
+    const changed = await updateProjectById(id, {
+      status: 'completed',
+      director_notes: JSON.stringify({ passed: true }),
+      primary_character_ref: 'https://x/new.png',
+    });
+    expect(changed).toBe(true);
+
+    const after = await getProject(id);
+    expect(after?.status).toBe('completed');
+    expect(after?.updated_at).not.toBe(before?.updated_at); // updated_at 被刷新
+    const raw = db.prepare('SELECT director_notes, primary_character_ref FROM projects WHERE id = ?')
+      .get(id) as { director_notes: string; primary_character_ref: string };
+    expect(JSON.parse(raw.director_notes).passed).toBe(true);
+    expect(raw.primary_character_ref).toBe('https://x/new.png');
+
+    // 清 primary_character_ref (null)
+    await updateProjectById(id, { primary_character_ref: null });
+    const raw2 = db.prepare('SELECT primary_character_ref FROM projects WHERE id = ?')
+      .get(id) as { primary_character_ref: string | null };
+    expect(raw2.primary_character_ref).toBeNull();
+  });
+
+  it('updateProjectById: empty patch → false, unknown col → throws', async () => {
+    const uid = seedUser();
+    const id = 'proj-guard-' + nanoid(6);
+    await insertProjectFull({ id, userId: uid, title: 'G' });
+    expect(await updateProjectById(id, {})).toBe(false);
+    expect(await updateProjectById(id, { status: undefined })).toBe(false);
+    await expect(updateProjectById(id, { evil_col: 'x' } as any)).rejects.toThrow(/不允许更新列/);
   });
 });

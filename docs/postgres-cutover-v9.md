@@ -32,10 +32,10 @@ docker compose -f docker-compose.pg.yml down          # 停 (加 -v 清数据)
 | 目标表 | raw 写次数 | 已有 async repo? | 批次 |
 |---|---|---|---|
 | `project_assets` | ✅ **全清 (0 残留)** | ✅ asset-repo | v9.0.1 + **v9.0.1b** |
-| `projects` | 14 (11U/3I) | ✅ project-repo | v9.0.2 |
-| `users` | 8 (4U/4I) | ✅ user-repo | v9.0.2 |
-| `notifications` | 7 | ✅ notification-repo | v9.0.2 |
-| `comments` | 6 | ✅ comment-repo | v9.0.2 |
+| `projects` | create-stream/cameo ✅; share ⏭ | ✅ project-repo | **v9.0.2** (share → v9.0.2b) |
+| `users` | register/create-stream ✅; stripe ⏭ | ✅ user-repo | **v9.0.2** (stripe → v9.0.2b) |
+| `notifications` | ✅ **已在 repo** (route 用 notification-repo) | ✅ notification-repo | 早已迁 |
+| `comments` | ✅ **已在 repo** (route 用 createCommentAsync) | ✅ comment-repo/comments async | 早已迁 |
 | `invite_codes` | 5 | ❌ 新建 | v9.0.3 |
 | `global_assets` `character_library` `character_ip_tokens/grants` | ~13 | ❌ 新建 | v9.0.3 |
 | `team_allocations` `generations` `waitlist` `*_share_tokens` `project_collaborators` `api_quota_alerts` `project_track_edits` | ~16 | ❌ 新建 | v9.0.4 |
@@ -47,7 +47,14 @@ docker compose -f docker-compose.pg.yml down          # 停 (加 -v 清数据)
   - **create-stream**(7 写):`saveAsset`/`updateAssetMedia` 两个同步 helper + DNA `onProgress` UPDATE → `createAsset`/`updateAsset`/`updateAssetBySelector`/`listAssetsByType`。helper 转 `async`,11 处调用点全 `await`,内含 `.forEach` 改 `for...of`(否则不 await);后台 `persistFirstValid → persistent_url` 落盘**仍 fire-and-forget**(`await` 只覆盖毫秒级 INSERT,慢 fetch 不拖 SSE);DNA 持久化在 onProgress(同步回调)里用 fire-and-forget async IIFE,best-effort 不阻塞编排进度。
   - **rerun**(2 写):`db.transaction()`(2× project_assets stale UPDATE + `pipeline_reruns` INSERT)→ `getDbDriver().transaction(async tx ⇒ …)` 用 **tx 作用域 `tx.run`** 跨两表原子(repo 方法走全局 driver、在 PG 下不进本事务 client,故此处直接 inline SQL);两处 project_assets 读也改走 `getDbDriver().query`(避免 pg 模式读 sqlite 脑裂)。
   - 验证:**`app/` 内 raw `project_assets` 写 = 0**(grep 实证);PG 往返 11/11(saveAsset/DNA/updateMedia + 事务 **COMMIT 与 ROLLBACK** 原子性 + 清理);tsc 0 / 1851 测试全绿;Next dev SQLite 三路 HTTP 冒烟(无写)。
-- **v9.0.2 · projects / users / notifications / comments → 既有 repo**:复用 project-repo / user-repo / notification-repo / comment-repo,补缺的方法
+- **v9.0.2 · projects / users → 既有 repo ✅**(notifications/comments 早已在 repo):
+  - 盘点修正:实际 raw 写远少于估计 —— **register 早已走 `getDbDriver().transaction`**(users insert+邀请码消费原子);**comments route 早已用 `createCommentAsync`/`listCommentsAsync`/`deleteCommentAsync`**(DbDriver 事务版,含 @mention 通知扇出);**notifications route 早已用 `notification-repo`**。`lib/notifications.ts` / `lib/comments.ts` 的同步版是 legacy(route 不再调)。`lib/db.ts` 的 users/projects 写是一次性 demo seed(`if userCount>0 return`),SQLite bootstrap, 非运行时路径。
+  - project-repo 补 2 个可复用方法:`insertProjectFull`(客户端 id + style/cameo/locked 创作列)+ `updateProjectById(id, patch)`(列白名单动态 SET, 无 owner 守卫, 自动 updated_at; 挡 key 注入)。+3 单测。
+  - **create-stream**(6 projects + 1 users):项目 upsert(存在性读→`getProject`)INSERT→`insertProjectFull`、两条 UPDATE 合一→`updateProjectById`(`style_id` COALESCE 语义用条件展开保留);5 处后续 UPDATE(director_notes×2 / 完成 status+cover+script)→`updateProjectById`;demo 兜底建用户→`user-repo.createUser`。
+  - **cameo**(2 projects):设/清 `primary_character_ref`→`updateProjectById`。
+  - 验证:PG 往返 10/10(createUser/insertProjectFull/updateProjectById 含 COALESCE 语义 + cameo 设清 + 白名单守卫 + 清理);tsc 0 / 1854 测试(+3)全绿;create-stream/cameo HTTP 冒烟(400/404, 无写)。
+  - **defer v9.0.2b**(需 PG schema 补列再迁):**share**(2 projects, `share_token`/`share_created_at` 不在 PG migrate,且 `ensureShareSchema` 用 SQLite PRAGMA/ALTER 需 PG 守卫)+ **stripe webhook**(1 users, 写 `updated_at` 列 PG users 没有)。
+- **v9.0.2b · share + stripe webhook**(schema 补列后迁):projects 加 `share_token`/`share_created_at`,users 加 `updated_at`(或去写),`ensureShareSchema` PG-guard。
 - **v9.0.3 · 新建 invite-repo / global-asset-repo / character-repo**(含 IP token/grant)
 - **v9.0.4 · 新建 team/generations/waitlist/share/collaborator/quota/track-edit repo** —— 写路径全清
 - **v9.0.5 · 切默认**:全量测试在 `DB_DRIVER=pg` 绿 → 文档建议生产 `DB_DRIVER=pg`;SQLite 仍可 env 回退

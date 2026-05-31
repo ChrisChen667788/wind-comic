@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { HybridOrchestrator } from '@/services/hybrid-orchestrator';
 import { db, now } from '@/lib/db';
 import { createAsset, updateAsset, updateAssetBySelector, listAssetsByType } from '@/lib/repos/asset-repo';
+import { getProject, insertProjectFull, updateProjectById } from '@/lib/repos/project-repo';
+import { createUser } from '@/lib/repos/user-repo';
 import { nanoid } from 'nanoid';
 import { storyTemplates } from '@/lib/story-templates';
 import { toSsePayload, normalizeError } from '@/lib/pipeline-error';
@@ -88,7 +90,6 @@ export async function POST(request: NextRequest) {
       };
 
       const projectId = clientProjectId || nanoid();
-      const ts = now();
 
       // 各阶段结果（用 let 以便后续阶段即使前面失败也能继续）
       let plan: any = null;
@@ -238,15 +239,13 @@ export async function POST(request: NextRequest) {
           if (user) {
             userId = user.id;
           } else {
-            // 如果没有用户，创建一个默认用户
-            const defaultUserId = 'demo-user-' + Date.now();
-            db.prepare(`INSERT INTO users (id, email, password_hash, name, role, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
-              .run(defaultUserId, 'demo@qfmanju.ai', 'dummy', '演示用户', 'user', ts);
-            userId = defaultUserId;
+            // 如果没有用户，创建一个默认用户 (v9.0.2: 走 user-repo, 双驱动; 仅 users 全空时兜底)
+            const demo = await createUser({ email: 'demo@qfmanju.ai', passwordHash: 'dummy', name: '演示用户', role: 'user' });
+            userId = demo.id;
             console.log(`[DB] Created default user: ${userId}`);
           }
 
-          const existing = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+          const existing = await getProject(projectId);
           // v2.12 Phase 1: 把 lockedCharacters[] 持久化到 projects.locked_characters
           // (单一角色仍同步进 primary_character_ref,见上方 effectiveCameoRef 逻辑)
           // v2.12 Sprint A.3: 同步 upsert 到 global_assets,跨项目复用 Character Bible
@@ -254,20 +253,23 @@ export async function POST(request: NextRequest) {
           // 推迟到 INSERT/UPDATE 后再 upsert bible(需要 projectId 已存在)
           const bibleUpsertList: Array<{ name: string; role: 'lead' | 'antagonist' | 'supporting' | 'cameo'; cw: number; imageUrl: string; traits?: any }> = sanitizedLocked;
           if (!existing) {
-            // v2.9: 把用户选择的 style 持久化到 projects.style_id
-            // v2.12: + 持久化 locked_characters + primary_character_ref(兜底)
-            db.prepare(`INSERT INTO projects (id, user_id, title, description, cover_urls, status, style_id, primary_character_ref, locked_characters, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-              .run(projectId, userId, idea.slice(0, 30), idea, '[]', 'active', style || null, effectiveCameoRef || null, lockedJson, ts, ts);
+            // v9.0.2: 走 project-repo (双驱动) — 创作管线建项目, 带 style/cameo/locked
+            await insertProjectFull({
+              id: projectId, userId, title: idea.slice(0, 30), description: idea,
+              coverUrls: [], status: 'active',
+              styleId: style || null, primaryCharacterRef: effectiveCameoRef || null,
+              lockedCharacters: sanitizedLocked,
+            });
             console.log(`[DB] Project created: ${projectId}${style ? ` (style=${style})` : ''}${sanitizedLocked.length ? ` lockedChars=${sanitizedLocked.length}` : ''}`);
           } else {
             // 已存在就 UPDATE —— 用户可能在同一个 projectId 下换了风格重跑
+            // v9.0.2: 走 project-repo; style_id COALESCE 语义保留 (仅传了 style 才覆盖)
             try {
-              db.prepare('UPDATE projects SET style_id = COALESCE(?, style_id), locked_characters = ?, updated_at = ? WHERE id = ?')
-                .run(style || null, lockedJson, ts, projectId);
-              if (effectiveCameoRef) {
-                db.prepare('UPDATE projects SET primary_character_ref = ? WHERE id = ?')
-                  .run(effectiveCameoRef, projectId);
-              }
+              await updateProjectById(projectId, {
+                ...(style ? { style_id: style } : {}),
+                locked_characters: lockedJson,
+                ...(effectiveCameoRef ? { primary_character_ref: effectiveCameoRef } : {}),
+              });
             } catch (e) {
               console.warn(`[DB] style/locked_characters update failed for ${projectId}:`, e);
             }
@@ -669,19 +671,22 @@ export async function POST(request: NextRequest) {
             send('status', { message: 'AI 导演正在进行二次审核...' });
             const review2 = await orchestrator.runDirectorReview(script, finalVideos, editResult);
             send('review', review2);
-            try { db.prepare('UPDATE projects SET director_notes = ?, updated_at = ? WHERE id = ?').run(JSON.stringify(review2), now(), projectId); } catch {}
+            try { await updateProjectById(projectId, { director_notes: JSON.stringify(review2) }); } catch {}
           } catch (e) {
             console.error('[Stream] Review feedback failed:', e);
           }
         } else if (review) {
-          try { db.prepare('UPDATE projects SET director_notes = ?, updated_at = ? WHERE id = ?').run(JSON.stringify(review), now(), projectId); } catch {}
+          try { await updateProjectById(projectId, { director_notes: JSON.stringify(review) }); } catch {}
         }
 
-        // ── 10. 完成 ──
+        // ── 10. 完成 ── (v9.0.2: 走 project-repo, 双驱动)
         try {
           const coverUrl = finalStoryboards[0]?.imageUrl || '';
-          db.prepare('UPDATE projects SET status = ?, cover_urls = ?, script_data = ?, updated_at = ? WHERE id = ?')
-            .run('completed', JSON.stringify([coverUrl]), JSON.stringify(script), now(), projectId);
+          await updateProjectById(projectId, {
+            status: 'completed',
+            cover_urls: JSON.stringify([coverUrl]),
+            script_data: JSON.stringify(script),
+          });
         } catch {}
 
         send('complete', { projectId, plan, script, characters, scenes, storyboards: finalStoryboards, videos: finalVideos, editResult, review });
