@@ -10,7 +10,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../../../auth/lib';
-import { recordAssetUsage } from '@/lib/global-assets';
+import { recordAssetUsage } from '@/lib/repos/global-asset-repo'; // v9.0.3b: async, 双驱动
 
 export const runtime = 'nodejs';
 
@@ -35,7 +35,7 @@ export async function POST(
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
     }
 
-    const updated = recordAssetUsage(id, userId, String(body.projectId));
+    const updated = await recordAssetUsage(id, userId, String(body.projectId));
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     return NextResponse.json({

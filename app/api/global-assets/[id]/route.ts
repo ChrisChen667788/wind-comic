@@ -16,7 +16,7 @@ import {
   updateGlobalAsset,
   deleteGlobalAsset,
   type UpdateGlobalAssetInput,
-} from '@/lib/global-assets';
+} from '@/lib/repos/global-asset-repo'; // v9.0.3b: async, 双驱动
 
 export const runtime = 'nodejs';
 
@@ -36,7 +36,7 @@ export async function GET(
   try {
     const userId = resolveUserId(request);
     const { id } = await params;
-    const asset = getGlobalAssetById(id);
+    const asset = await getGlobalAssetById(id);
     if (!asset) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     if (asset.userId !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -56,7 +56,7 @@ export async function PATCH(
     const userId = resolveUserId(request);
     const { id } = await params;
     const body = (await request.json().catch(() => ({}))) as UpdateGlobalAssetInput;
-    const updated = updateGlobalAsset(id, userId, body);
+    const updated = await updateGlobalAsset(id, userId, body);
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json(updated);
   } catch (e) {
@@ -75,7 +75,7 @@ export async function DELETE(
   try {
     const userId = resolveUserId(request);
     const { id } = await params;
-    const ok = deleteGlobalAsset(id, userId);
+    const ok = await deleteGlobalAsset(id, userId);
     if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (e) {

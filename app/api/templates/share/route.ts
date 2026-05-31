@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../../auth/lib';
-import { getGlobalAssetById } from '@/lib/global-assets';
+import { getGlobalAssetById } from '@/lib/repos/global-asset-repo'; // v9.0.3b: async, 双驱动
 import {
   createShareToken,
   deleteToken,
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   const assetId = typeof body?.assetId === 'string' ? body.assetId.trim() : '';
   if (!assetId) return NextResponse.json({ error: '缺 assetId' }, { status: 400 });
 
-  const asset = getGlobalAssetById(assetId);
+  const asset = await getGlobalAssetById(assetId);
   if (!asset) return NextResponse.json({ error: 'asset 不存在' }, { status: 404 });
   if (asset.type !== 'template') {
     return NextResponse.json({ error: 'asset 不是模板类型, 不能分享' }, { status: 400 });

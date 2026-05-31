@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../../../auth/lib';
-import { findCharacterBibleByName } from '@/lib/global-assets';
+import { findCharacterBibleByName } from '@/lib/repos/global-asset-repo'; // v9.0.3b: async, 双驱动
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,7 +45,7 @@ export async function GET(
   }
 
   const userId = resolveUserId(request);
-  const hit = findCharacterBibleByName(userId, name);
+  const hit = await findCharacterBibleByName(userId, name);
   if (!hit) {
     return NextResponse.json({ found: false });
   }

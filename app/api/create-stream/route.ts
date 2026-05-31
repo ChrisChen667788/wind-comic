@@ -280,10 +280,10 @@ export async function POST(request: NextRequest) {
           // 失败不阻塞主流程 — 这只是跨项目记忆增强,即使写不进库,本项目仍能正常生成
           if (bibleUpsertList.length > 0) {
             try {
-              const { upsertCharacterBible } = await import('@/lib/global-assets');
+              const { upsertCharacterBible } = await import('@/lib/repos/global-asset-repo'); // v9.0.3b: async, 双驱动
               for (const c of bibleUpsertList) {
                 try {
-                  upsertCharacterBible({
+                  await upsertCharacterBible({
                     userId,
                     projectId,
                     name: c.name,
@@ -385,8 +385,8 @@ export async function POST(request: NextRequest) {
             }
             // v2.11 #2: 同时写入用户的全局角色库 (global_assets)
             try {
-              const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/global-assets');
-              const existing = listGlobalAssets({ userId, type: 'character', limit: 200, offset: 0 });
+              const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/repos/global-asset-repo'); // v9.0.3b: async, 双驱动
+              const existing = await listGlobalAssets({ userId, type: 'character', limit: 200, offset: 0 });
               let saved = 0;
               for (const c of result) {
                 const charName = c.character || c.name;
@@ -400,11 +400,11 @@ export async function POST(request: NextRequest) {
                     updates.description = c.description;
                   }
                   if (Object.keys(updates).length > 0) {
-                    updateGlobalAsset(found.id, userId, updates);
+                    await updateGlobalAsset(found.id, userId, updates);
                   }
-                  recordAssetUsage(found.id, userId, projectId);
+                  await recordAssetUsage(found.id, userId, projectId);
                 } else {
-                  createGlobalAsset({
+                  await createGlobalAsset({
                     userId,
                     type: 'character',
                     name: charName,
@@ -446,8 +446,8 @@ export async function POST(request: NextRequest) {
             }
             // v2.11 #2: 场景同步登记到全局场景库
             try {
-              const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/global-assets');
-              const existing = listGlobalAssets({ userId, type: 'scene', limit: 300, offset: 0 });
+              const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/repos/global-asset-repo'); // v9.0.3b: async, 双驱动
+              const existing = await listGlobalAssets({ userId, type: 'scene', limit: 300, offset: 0 });
               for (const s of result) {
                 const sceneName = s.name;
                 if (!sceneName) continue;
@@ -459,10 +459,10 @@ export async function POST(request: NextRequest) {
                   if (s.description && s.description.length > (found.description || '').length) {
                     updates.description = s.description;
                   }
-                  if (Object.keys(updates).length > 0) updateGlobalAsset(found.id, userId, updates);
-                  recordAssetUsage(found.id, userId, projectId);
+                  if (Object.keys(updates).length > 0) await updateGlobalAsset(found.id, userId, updates);
+                  await recordAssetUsage(found.id, userId, projectId);
                 } else {
-                  createGlobalAsset({
+                  await createGlobalAsset({
                     userId, type: 'scene', name: sceneName,
                     description: s.description || '',
                     thumbnail: thumbUrl,

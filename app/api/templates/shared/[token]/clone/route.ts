@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../../../../auth/lib';
-import { createGlobalAsset } from '@/lib/global-assets';
+import { createGlobalAsset } from '@/lib/repos/global-asset-repo'; // v9.0.3b: async, 双驱动
 import {
   getTemplateAssetForToken,
   incrementCloneCount,
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const baseName = customName || `${found.asset.name} (克隆自分享)`;
 
   try {
-    const newAsset = createGlobalAsset({
+    const newAsset = await createGlobalAsset({
       userId,
       type: 'template',
       name: baseName,

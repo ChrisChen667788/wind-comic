@@ -16,7 +16,7 @@ import {
   createGlobalAsset,
   listGlobalAssets,
   type CreateGlobalAssetInput,
-} from '@/lib/global-assets';
+} from '@/lib/repos/global-asset-repo'; // v9.0.3b: async, 双驱动
 import type { GlobalAssetType } from '@/types/agents';
 
 export const runtime = 'nodejs';
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const assets = listGlobalAssets({
+    const assets = await listGlobalAssets({
       userId,
       type: typeParam as GlobalAssetType | undefined,
       q,
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
 
-    const asset = createGlobalAsset({
+    const asset = await createGlobalAsset({
       userId,
       type: body.type as GlobalAssetType,
       name: String(body.name).trim(),
