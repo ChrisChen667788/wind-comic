@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { HybridOrchestrator } from '@/services/hybrid-orchestrator';
 import { db, now } from '@/lib/db';
+import { createAsset, updateAsset, updateAssetBySelector, listAssetsByType } from '@/lib/repos/asset-repo';
 import { nanoid } from 'nanoid';
 import { storyTemplates } from '@/lib/story-templates';
 import { toSsePayload, normalizeError } from '@/lib/pipeline-error';
@@ -104,32 +105,32 @@ export async function POST(request: NextRequest) {
         orchestrator.onProgress = (type, data) => {
           send(type, data);
           // v2.23 P0.3: 持久化 character DNA 到 character asset 的 data 字段, 让项目页能拿到
+          // v9.0.1b: 走 asset-repo (双驱动). onProgress 是同步回调, DNA 持久化是 best-effort —
+          // 用 fire-and-forget async IIFE (与 saveAsset 后台落盘同款), 不阻塞编排进度推送。
           if (type === 'characterDna' && data?.perCharacter && Array.isArray(data.perCharacter)) {
-            try {
-              const { db, now } = require('@/lib/db');
-              const updateStmt = db.prepare(
-                `UPDATE project_assets SET data = ?, updated_at = ?
-                 WHERE project_id = ? AND type = 'character' AND name = ?`,
-              );
-              for (const entry of data.perCharacter as Array<{ name: string; signature: any; filledCount: number; totalCount: number; missing: string[] }>) {
-                // 读旧 data 合并 — 不丢之前的 description/appearance
-                const row = db.prepare(
-                  `SELECT data FROM project_assets WHERE project_id = ? AND type = 'character' AND name = ?`,
-                ).get(projectId, entry.name) as { data?: string } | undefined;
-                let mergedData: any = {};
-                try { mergedData = row?.data ? JSON.parse(row.data) : {}; } catch { /* ignore */ }
-                mergedData.dna = {
-                  signature: entry.signature,
-                  filledCount: entry.filledCount,
-                  totalCount: entry.totalCount,
-                  missing: entry.missing,
-                  extractedAt: now(),
-                };
-                updateStmt.run(JSON.stringify(mergedData), now(), projectId, entry.name);
+            const perCharacter = data.perCharacter as Array<{ name: string; signature: any; filledCount: number; totalCount: number; missing: string[] }>;
+            void (async () => {
+              try {
+                const chars = await listAssetsByType(projectId, 'character');
+                for (const entry of perCharacter) {
+                  // 读旧 data 合并 — 不丢之前的 description/appearance
+                  const row = chars.find((c) => c.name === entry.name);
+                  if (!row) continue;
+                  let mergedData: any = {};
+                  try { mergedData = row.data ? JSON.parse(row.data) : {}; } catch { /* ignore */ }
+                  mergedData.dna = {
+                    signature: entry.signature,
+                    filledCount: entry.filledCount,
+                    totalCount: entry.totalCount,
+                    missing: entry.missing,
+                    extractedAt: now(),
+                  };
+                  await updateAssetBySelector(projectId, { type: 'character', name: entry.name }, { data: mergedData });
+                }
+              } catch (e) {
+                console.warn('[create-stream] DNA persist failed:', e);
               }
-            } catch (e) {
-              console.warn('[create-stream] DNA persist failed:', e);
-            }
+            })();
           }
         };
 
@@ -330,7 +331,7 @@ export async function POST(request: NextRequest) {
           const bibleUrl = await orchestrator.runStyleBibleArtist(plan);
           if (bibleUrl) {
             send('styleBible', { url: bibleUrl });
-            saveAsset(projectId, 'styleBible', 'Style Bible Key Art', { url: bibleUrl });
+            await saveAsset(projectId, 'styleBible', 'Style Bible Key Art', { url: bibleUrl });
           }
         } catch (e) {
           console.warn('[Stream] Style Bible 渲染失败, 继续走老路径:', e);
@@ -342,7 +343,7 @@ export async function POST(request: NextRequest) {
           script = await orchestrator.runWriter(plan);
           send('agents', orchestrator.getAllAgents());
           send('script', script);
-          saveAsset(projectId, 'script', '剧本', { synopsis: script.synopsis, title: script.title, shots: script.shots, theme: (script as any).theme });
+          await saveAsset(projectId, 'script', '剧本', { synopsis: script.synopsis, title: script.title, shots: script.shots, theme: (script as any).theme });
           // v2.13.5 修复"角色/场景设计与剧本无关"的核心一步:
           // 把 Writer 产出的真实剧本注入 orchestrator,后续 Character/Scene 设计器
           // 在 idea-input 路径下也能拿到"真剧情",而不是只有 Director plan 的占位描述。
@@ -373,13 +374,13 @@ export async function POST(request: NextRequest) {
             send('agents', orchestrator.getAllAgents());
             send('characters', result);
             // 保存角色图片到资产库（直接带上 mediaUrls，不依赖二次 UPDATE）
-            result.forEach((c: any) => {
+            for (const c of result as any[]) {
               const mediaUrls = c.imageUrl && !c.imageUrl.startsWith('data:') ? [c.imageUrl] : [];
-              saveAsset(projectId, 'character', c.character || c.name, {
+              await saveAsset(projectId, 'character', c.character || c.name, {
                 description: c.description || c.prompt || '',
                 appearance: c.appearance || '',
               }, mediaUrls);
-            });
+            }
             // v2.11 #2: 同时写入用户的全局角色库 (global_assets)
             try {
               const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/global-assets');
@@ -437,10 +438,10 @@ export async function POST(request: NextRequest) {
             send('agents', orchestrator.getAllAgents());
             send('scenes', result);
             // 保存场景图片到资产库（过滤 mock data URI）
-            result.forEach((s: any) => {
+            for (const s of result as any[]) {
               const mediaUrls = s.imageUrl && !s.imageUrl.startsWith('data:') ? [s.imageUrl] : [];
-              saveAsset(projectId, 'scene', s.name, { description: s.description, location: s.name }, mediaUrls);
-            });
+              await saveAsset(projectId, 'scene', s.name, { description: s.description, location: s.name }, mediaUrls);
+            }
             // v2.11 #2: 场景同步登记到全局场景库
             try {
               const { listGlobalAssets, createGlobalAsset, updateGlobalAsset, recordAssetUsage } = await import('@/lib/global-assets');
@@ -504,14 +505,14 @@ export async function POST(request: NextRequest) {
           send('agents', orchestrator.getAllAgents());
           send('storyboardPlans', storyboardPlans);
           // 保存分镜（含图片 URL，如果有的话）
-          storyboardPlans.forEach((sb: any) => {
+          for (const sb of storyboardPlans as any[]) {
             const mediaUrls = sb.imageUrl && !sb.imageUrl.startsWith('data:') ? [sb.imageUrl] : [];
-            saveAsset(projectId, 'storyboard', `镜头 ${sb.shotNumber}`, {
+            await saveAsset(projectId, 'storyboard', `镜头 ${sb.shotNumber}`, {
               description: sb.prompt,
               planData: (sb as any).planData,
               duration: 10,
             }, mediaUrls, sb.shotNumber);
-          });
+          }
         } catch (e) {
           console.error('[Stream] Storyboard Planning failed:', e);
           send('status', { message: '分镜规划出错，继续下一步...' });
@@ -526,9 +527,9 @@ export async function POST(request: NextRequest) {
           send('agents', orchestrator.getAllAgents());
           send('storyboards', storyboards);
           // 更新分镜资产（添加渲染后的图片URL + Sprint A.1 cameo 痕迹, A.4 仪表盘消费）
-          storyboards.forEach((sb: any) => {
+          for (const sb of storyboards as any[]) {
             const mediaUrls = sb.imageUrl && !sb.imageUrl.startsWith('data:') ? [sb.imageUrl] : [];
-            saveAsset(projectId, 'storyboard', `镜头 ${sb.shotNumber}`, {
+            await saveAsset(projectId, 'storyboard', `镜头 ${sb.shotNumber}`, {
               description: sb.prompt,
               planData: (sb as any).planData,
               duration: 10,
@@ -539,7 +540,7 @@ export async function POST(request: NextRequest) {
               cameoFinalCw: sb.cameoFinalCw,
               cameoReason: sb.cameoReason,
             }, mediaUrls, sb.shotNumber);
-          });
+          }
         } catch (e) {
           console.error('[Stream] Storyboard Rendering failed:', e);
           send('status', { message: '分镜图渲染出错，使用文本分镜继续...' });
@@ -561,17 +562,17 @@ export async function POST(request: NextRequest) {
           send('agents', orchestrator.getAllAgents());
           send('videos', videos); // 发送完整视频列表（前端可能已通过 videoClip 逐条收到）
           // 保存镜头视频和封面图到资产库
-          videos.forEach((v: any) => {
+          for (const v of videos as any[]) {
             if (v.videoUrl && !v.videoUrl.startsWith('data:')) {
               const mediaUrls = [v.videoUrl];
               if (v.coverImageUrl) mediaUrls.push(v.coverImageUrl);
-              saveAsset(projectId, 'video', `视频 ${v.shotNumber}`, {
+              await saveAsset(projectId, 'video', `视频 ${v.shotNumber}`, {
                 duration: v.duration || 5,
                 status: v.status,
                 coverImageUrl: v.coverImageUrl || null,
               }, mediaUrls, v.shotNumber);
             }
-          });
+          }
         } catch (e) {
           console.error('[Stream] Video Producer failed:', e);
           send('status', { message: '视频生成出错，继续下一步...' });
@@ -585,14 +586,14 @@ export async function POST(request: NextRequest) {
           editResult = await orchestrator.runEditor(videos, script);
           send('agents', orchestrator.getAllAgents());
           send('editResult', editResult);
-          saveAsset(projectId, 'timeline', '剪辑时间线', editResult);
+          await saveAsset(projectId, 'timeline', '剪辑时间线', editResult);
           // 保存最终成片视频URL
           if (editResult.finalVideoUrl) {
-            saveAsset(projectId, 'final_video', '最终成片', { duration: editResult.totalDuration }, [editResult.finalVideoUrl]);
+            await saveAsset(projectId, 'final_video', '最终成片', { duration: editResult.totalDuration }, [editResult.finalVideoUrl]);
           }
           // 保存配乐
           if (editResult.musicUrl) {
-            saveAsset(projectId, 'music', '背景配乐', { duration: editResult.totalDuration }, [editResult.musicUrl]);
+            await saveAsset(projectId, 'music', '背景配乐', { duration: editResult.totalDuration }, [editResult.musicUrl]);
           }
 
           // ── v2.11 #4 Writer-Editor 闭环: Editor 成片后对最终视频打 3 维分 ──
@@ -662,7 +663,7 @@ export async function POST(request: NextRequest) {
             send('agents', orchestrator.getAllAgents());
             send('videos', finalVideos);
             send('storyboards', finalStoryboards);
-            finalVideos.forEach((v: any) => { updateAssetMedia(projectId, 'video', `视频 ${v.shotNumber}`, [v.videoUrl], v.shotNumber); });
+            for (const v of finalVideos as any[]) { await updateAssetMedia(projectId, 'video', `视频 ${v.shotNumber}`, [v.videoUrl], v.shotNumber); }
 
             // 二次审核
             send('status', { message: 'AI 导演正在进行二次审核...' });
@@ -731,29 +732,31 @@ async function persistFirstValid(urls?: string[]): Promise<string | null> {
  * 成功后 UPDATE persistent_url。这样 UI 能立刻看到资产卡片,持久化
  * 在背面慢慢跑,即使失败也不影响主流程。
  */
-function saveAsset(projectId: string, type: string, name: string, data: any, mediaUrls?: string[], shotNumber?: number) {
+// v9.0.1b: async + 走 asset-repo (双驱动). 调用方需 await (各 forEach 已改 for...of)。
+// INSERT 同步落库 (persistent_url 留空) 仍是毫秒级, 不拖 SSE; 慢的是后台 persistFirstValid 落盘,
+// 那一步保持 fire-and-forget (await 只覆盖 INSERT, 不覆盖 fetch)。
+async function saveAsset(projectId: string, type: string, name: string, data: any, mediaUrls?: string[], shotNumber?: number): Promise<void> {
   try {
-    // 先检查项目是否存在
+    // 先检查项目是否存在 (projects 表读 — v9.0.2 再迁, 此处保持 raw)
     const projectExists = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
     if (!projectExists) {
       console.error(`[DB] Cannot save asset: project ${projectId} does not exist`);
       return;
     }
 
-    const assetId = nanoid();
-
-    // 同步落库, persistent_url 先留空
-    db.prepare(`INSERT INTO project_assets (id, project_id, type, name, data, media_urls, shot_number, version, persistent_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(assetId, projectId, type, name, JSON.stringify(data || {}), JSON.stringify(mediaUrls || []), shotNumber || null, 1, null, now(), now());
+    // 落库, persistent_url 先留空
+    const asset = await createAsset({
+      projectId, type, name, data: data || {},
+      mediaUrls: mediaUrls || [], shotNumber: shotNumber ?? null,
+    });
     console.log(`[DB] Asset saved: ${type}/${name}`);
 
     // 后台持久化第一张有效 URL, 不 await —— 慢 fetch 不能阻塞 SSE 流
     if (mediaUrls && mediaUrls.length > 0) {
-      void persistFirstValid(mediaUrls).then(url => {
+      void persistFirstValid(mediaUrls).then(async (url) => {
         if (!url) return;
         try {
-          db.prepare('UPDATE project_assets SET persistent_url = ?, updated_at = ? WHERE id = ?')
-            .run(url, now(), assetId);
+          await updateAsset(asset.id, { persistentUrl: url });
           console.log(`[DB] Asset persisted: ${type}/${name} → ${url.slice(0, 60)}`);
         } catch (e) {
           console.warn(`[DB] persistent_url update failed (${type}/${name}):`, e);
@@ -765,18 +768,13 @@ function saveAsset(projectId: string, type: string, name: string, data: any, med
   }
 }
 
-function updateAssetMedia(projectId: string, type: string, name: string, mediaUrls: string[], shotNumber?: number) {
+async function updateAssetMedia(projectId: string, type: string, name: string, mediaUrls: string[], shotNumber?: number): Promise<void> {
   try {
-    let result;
-    if (shotNumber) {
-      result = db.prepare('UPDATE project_assets SET media_urls = ?, updated_at = ? WHERE project_id = ? AND type = ? AND shot_number = ?')
-        .run(JSON.stringify(mediaUrls), now(), projectId, type, shotNumber);
-    } else {
-      result = db.prepare('UPDATE project_assets SET media_urls = ?, updated_at = ? WHERE project_id = ? AND type = ? AND name = ?')
-        .run(JSON.stringify(mediaUrls), now(), projectId, type, name);
-    }
+    // v9.0.1b: 按 (type, shot|name) 选中更新 media_urls
+    const sel = shotNumber ? { type, shotNumber } : { type, name };
+    const changes = await updateAssetBySelector(projectId, sel, { mediaUrls });
 
-    if (result.changes > 0) {
+    if (changes > 0) {
       console.log(`[DB] Asset media updated: ${type}/${name}`);
     } else {
       console.log(`[DB] Asset not found for update: ${type}/${name}`);
@@ -785,16 +783,10 @@ function updateAssetMedia(projectId: string, type: string, name: string, mediaUr
 
     // 后台刷新 persistent_url (新 URL 可能是不同的 CDN, 重新抓一份)
     if (mediaUrls.length > 0) {
-      void persistFirstValid(mediaUrls).then(url => {
+      void persistFirstValid(mediaUrls).then(async (url) => {
         if (!url) return;
         try {
-          if (shotNumber) {
-            db.prepare('UPDATE project_assets SET persistent_url = ?, updated_at = ? WHERE project_id = ? AND type = ? AND shot_number = ?')
-              .run(url, now(), projectId, type, shotNumber);
-          } else {
-            db.prepare('UPDATE project_assets SET persistent_url = ?, updated_at = ? WHERE project_id = ? AND type = ? AND name = ?')
-              .run(url, now(), projectId, type, name);
-          }
+          await updateAssetBySelector(projectId, sel, { persistentUrl: url });
           console.log(`[DB] Asset persisted (update): ${type}/${name}`);
         } catch (e) {
           console.warn(`[DB] persistent_url update failed (${type}/${name}):`, e);
