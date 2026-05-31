@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v7.0</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v9.0.2b</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -19,7 +19,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-1711%2F1711-2ea44f" alt="1711 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-1857%2F1857-2ea44f" alt="1857 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -52,9 +52,9 @@ It works because it doesn't try to be one giant model. It's an **honest multi-ag
 
 ---
 
-## 🆕 New in v6 — from *demo* to *studio*
+## 🆕 New in v6 → v9 — from *demo* to *production platform*
 
-> v3 shipped the pipeline. **v6 turns it into a production studio.** Reusable characters, a prompt IDE, novel→season auto-splitting with real voiceover, a 60-style gallery, a director's control room, team credit budgets, a Postgres-ready backend, and a live API health board — every screen below is a **real capture of the running app**.
+> v3 shipped the pipeline. **v6 turned it into a production studio; v7–v9 hardened it into a platform.** Reusable characters, a prompt IDE, novel→season auto-splitting with real voiceover, a 60-style gallery, a director's control room, team credit budgets, an industry-grade script audit (**Polish Pro**, v7.1), a **premium design pass** (v8.3), a **fully-migrated Postgres backend** (v9), and a live API health board — every screen below is a **real capture of the running app**.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 tour — API health · director console · novel splitting · style gallery · cinema timeline" width="100%" />
@@ -85,6 +85,10 @@ Plus Jakarta Sans + Phosphor icons, gold-tinted machined-bezel cards, spring mot
 | **v6.8 · Strongest models** | Primary LLM/video/image repointed to top-tier models (`veo3.1-pro`, etc.) and fixed a video-stage `429 upstream-saturated` error by rerouting the gateway. |
 | **v6.9 · Gateway gap-fill** | A supplement gateway backfills TTS / Midjourney / Kling; real voiceover via `gpt-4o-mini-tts`; per-gateway **usage + balance** on the health board. |
 | **v7.0 · DeepSeek + universal fallback** | Writer/Director run on DeepSeek's strongest **`deepseek-v4-pro`**; every LLM call auto-falls back to **MiniMax** on any error / out-of-credits / timeout. 3-tier LLM health on the board. |
+| **v7.1 · Polish Studio Pro** | Paste a draft, hit **Pro**: `deepseek-v4-pro` returns a polished script **plus a full industry audit** — AIGC-readiness score, Save-the-Cat 3-act beat-gap detection, on-the-nose dialogue flags, per-character Cameo/Seedance identity anchors. Tiered models (flash for speed, pro for depth) fixed the reasoning-token instability. |
+| **v7.2–v8.0 · AI director console** *(阶段九)* | Per-shot **cinematography console** (景别/机位/镜头/运镜/焦点), **continuity + seed lock**, project-format bar, emotion/rhythm curves, JSON↔visual **parameter linkage** — all converging into one **11-tab director station** per project. |
+| **v8.1–v8.3 · Premium design pass** *(Taste Skill)* | Plus Jakarta Sans + Phosphor icons, gold machined-bezel cards, spring motion, an asymmetric **bento dashboard**, 60 AI-rendered **style thumbnails**, and AI **gold-neon genre icons** replacing every default emoji (18 templates + 5 modes + 8 looks). |
+| **v9.0–v9.0.2b · Postgres full cutover** | SQLite↔Postgres **dual-driver**; every write path migrated to async repos — `project_assets` · `projects` · `users` · `notifications` · `comments` all cleared — **verified end-to-end on a local Postgres** with transaction commit + rollback atomicity. Default stays SQLite (same file, zero split-brain); `DB_DRIVER=pg` is opt-in. **1857 tests** green on both drivers. |
 
 ### 🎬 Director Console — the whole film as one control room *(v6.4)*
 Every stage at a glance — what's ready, what's gone stale because you changed something upstream, and a one-click rerun that knows exactly which downstream stages it invalidates.
@@ -171,7 +175,7 @@ After Writer finishes, we score each shot 0-10 on a Chinese-conflict-word dictio
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/llm-providers.md) for the full matrix.
 
-### 10. **1711 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **1857 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -265,7 +269,7 @@ Per-shot "改 prompt 重生" (regenerate image with custom prompt + reference im
 | 🆕 **Style Gallery** | 60 presets, 5 categories, one-click apply | `lib/style-presets.ts` + `app/dashboard/styles` |
 | 🆕 **Director Console** | 4-stage pipeline model + stale detection + single-stage rerun | `lib/pipeline-stages.ts` + `components/director-console.tsx` |
 | 🆕 **Team Workspace** | Credit pool + per-member allocations + RBAC + real invites | `lib/team-credits.ts` + `lib/team-invite.ts` |
-| 🆕 **Postgres cutover** | SQLite→PG dual-driver, schema bootstrap, async repos | `lib/db-driver.ts` + `scripts/pg-migrate.ts` |
+| 🆕 **Postgres cutover (v9)** | SQLite↔PG dual-driver; **all write paths on async repos** (project_assets/projects/users/notifications/comments cleared), tx commit+rollback verified, `DB_DRIVER=pg` opt-in | `lib/db-driver.ts` + `lib/repos/*` + `scripts/pg-migrate.ts` |
 | 🆕 **API Health Board** | Live model/gateway status + balance + out-of-credits detection | `lib/provider-health.ts` + `app/dashboard/health` |
 
 ---
@@ -327,7 +331,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 1711/1711 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 1857/1857 must stay green. Add tests for new lib/service files.
 
 See [`CLAUDE.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/CLAUDE.md) for the repo's "house style" + agent design notes.
 
@@ -338,7 +342,7 @@ See [`CLAUDE.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/CLAUDE
 - [`docs/llm-providers.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/llm-providers.md) — Swap LLM provider in 3 env vars
 - [`docs/SCREENSHOTS.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/SCREENSHOTS.md) — Module-by-module screenshot manifest
 - [`docs/MARKETING-en.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/MARKETING-en.md) · [`docs/MARKETING-zh.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/MARKETING-zh.md) — Pitch deck copy
-- [`ROADMAP.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/ROADMAP.md) — Full sprint-by-sprint changelog (v2.10 → v6.7) · [`VERSIONS.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/VERSIONS.md) — version history table
+- [`ROADMAP.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/ROADMAP.md) — Full sprint-by-sprint changelog (v2.10 → v9.0.2b) · [`VERSIONS.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/VERSIONS.md) — version history table
 - [`docs/COMPETITIVE-GAP-2026-05.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/COMPETITIVE-GAP-2026-05.md) — Honest analysis vs Sora/Kling/Vidu/Higgsfield
 
 ---
