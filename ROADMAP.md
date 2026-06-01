@@ -1919,7 +1919,7 @@ npm test
 - **v9.1 · `lib/distribution`(纯逻辑 + 单测)**:平台规格(抖音/快手/视频号/小红书/YouTube Shorts/B站)字数/标签/话术模板 + `buildDistributionPrompt()`(成片 synopsis + 情绪曲线 + 钩子 → marketing pack 提示)+ `parseDistributionPack()`(标题×N / 标签 / 钩子文案 / 简介 / 发布建议,容错降级)
 - **v9.1.1 · `POST /api/projects/[id]/distribution`**:快档 flash + MiniMax 兜底,生成每集分发包;落 `project_assets type='distribution'`
 - **v9.1.2 · 项目页「分发」tab**:平台多选 chips → 一键生成 → 每平台卡片(标题候选/标签/钩子/简介, 行内复制)+ 导出 .txt/.md
-- **v9.1.3 · AI 竖屏封面候选**:复用 MiniMax image-01,按片名+主角+画风生成 3 张 9:16 封面候选 + 标题安全区叠层预览
+- **v9.1.3 · AI 竖屏封面候选** ✅ 2026-06-01 (补做收尾):`lib/cover-candidates`(`buildCoverPrompts` 3 构图变体 9:16 + 负向不画字 + `pickProtagonist` + `getTitleSafeArea`,8 单测)+ `POST /api/projects/[id]/covers`(MiniMax image-01 T2I 768×1344 并行 3 张, allSettled, 覆盖落库)+ `cover-candidates-panel`(9:16 卡片 + 标题安全区虚线叠层 + 标题预览 + 下载, 挂「分发」tab)。tsc 0 / 160 文件 1918 测试; 结构冒烟 GET 200 / POST 404。诚实边界: 真 MiniMax 出图费额度, 未真出图。**→ 阶段十二闭环, v9.x 计划全部交付**
 
 ### 阶段十三 · 出片增强 (v9.2.x) —— C
 

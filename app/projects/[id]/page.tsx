@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone } from '@phosphor-icons/react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { DistributionPanel } from '@/components/project/distribution-panel';
+import { CoverCandidatesPanel } from '@/components/project/cover-candidates-panel';
 import { DirectorConsole } from '@/components/director-console';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
 import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-sidebar';
@@ -804,9 +805,12 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
-          {/* v9.1.2: 多平台分发 / 变现 */}
+          {/* v9.1.2 多平台分发 + v9.1.3 AI 竖屏封面候选 (发布前置: 文案 + 封面) */}
           {activeTab === 'distribution' && (
-            <DistributionPanel projectId={id} />
+            <div className="flex flex-col gap-4">
+              <DistributionPanel projectId={id} />
+              <CoverCandidatesPanel projectId={id} title={project.title} />
+            </div>
           )}
 
           {/* 完整播放 */}
