@@ -83,8 +83,8 @@ describe('detectQuotaError', () => {
 });
 
 describe('recordApiCall', () => {
-  it('writes failed call to api_usage_events', () => {
-    recordApiCall({
+  it('writes failed call to api_usage_events', async () => {
+    await recordApiCall({
       provider: 'minimax',
       model: 'I2V-01',
       method: 'generateVideo',
@@ -101,8 +101,8 @@ describe('recordApiCall', () => {
     expect(rows[0].success).toBe(0);
   });
 
-  it('does NOT write successful calls (write amplification mitigation)', () => {
-    recordApiCall({
+  it('does NOT write successful calls (write amplification mitigation)', async () => {
+    await recordApiCall({
       provider: 'minimax',
       model: 'I2V-01',
       method: 'generateVideo',
@@ -112,9 +112,9 @@ describe('recordApiCall', () => {
     expect(rows).toHaveLength(0);
   });
 
-  it('truncates long error messages to ≤200 chars', () => {
+  it('truncates long error messages to ≤200 chars', async () => {
     const longMsg = 'x'.repeat(500);
-    recordApiCall({
+    await recordApiCall({
       provider: 'openai',
       model: 'gpt-4o',
       method: 'chat',
@@ -125,8 +125,8 @@ describe('recordApiCall', () => {
     expect(row.error_message.length).toBeLessThanOrEqual(200);
   });
 
-  it('quota error → also creates alert in api_quota_alerts', () => {
-    recordApiCall({
+  it('quota error → also creates alert in api_quota_alerts', async () => {
+    await recordApiCall({
       provider: 'minimax',
       model: 'I2V-01',
       method: 'generateVideo',
@@ -134,15 +134,15 @@ describe('recordApiCall', () => {
       statusCode: 1008,
       errorMessage: '账户余额不足',
     });
-    const alerts = listActiveQuotaAlerts();
+    const alerts = await listActiveQuotaAlerts();
     expect(alerts).toHaveLength(1);
     expect(alerts[0].provider).toBe('minimax');
     expect(alerts[0].alertType).toBe('exhausted');
     expect(alerts[0].occurrenceCount).toBe(1);
   });
 
-  it('non-quota failure does NOT create alert', () => {
-    recordApiCall({
+  it('non-quota failure does NOT create alert', async () => {
+    await recordApiCall({
       provider: 'minimax',
       model: 'I2V-01',
       method: 'generateVideo',
@@ -150,49 +150,49 @@ describe('recordApiCall', () => {
       statusCode: 500,
       errorMessage: 'internal server error',
     });
-    expect(listActiveQuotaAlerts()).toHaveLength(0);
+    expect(await listActiveQuotaAlerts()).toHaveLength(0);
   });
 
-  it('repeated quota errors aggregate occurrence_count (1h window)', () => {
+  it('repeated quota errors aggregate occurrence_count (1h window)', async () => {
     for (let i = 0; i < 3; i++) {
-      recordApiCall({
+      await recordApiCall({
         provider: 'minimax',
         success: false,
         statusCode: 1008,
         errorMessage: `余额不足 ${i}`,
       });
     }
-    const alerts = listActiveQuotaAlerts();
+    const alerts = await listActiveQuotaAlerts();
     expect(alerts).toHaveLength(1);
     expect(alerts[0].occurrenceCount).toBe(3);
   });
 
-  it('different providers create separate alerts', () => {
-    recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
-    recordApiCall({ provider: 'openai', success: false, errorMessage: 'insufficient_quota' });
-    const alerts = listActiveQuotaAlerts();
+  it('different providers create separate alerts', async () => {
+    await recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
+    await recordApiCall({ provider: 'openai', success: false, errorMessage: 'insufficient_quota' });
+    const alerts = await listActiveQuotaAlerts();
     expect(alerts).toHaveLength(2);
     expect(alerts.map((a) => a.provider).sort()).toEqual(['minimax', 'openai']);
   });
 
-  it('different alert types in same provider are separate', () => {
-    recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
-    recordApiCall({ provider: 'minimax', success: false, statusCode: 2061, errorMessage: 'plan not support' });
-    const alerts = listActiveQuotaAlerts({ provider: 'minimax' });
+  it('different alert types in same provider are separate', async () => {
+    await recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
+    await recordApiCall({ provider: 'minimax', success: false, statusCode: 2061, errorMessage: 'plan not support' });
+    const alerts = await listActiveQuotaAlerts({ provider: 'minimax' });
     // v2.22 fix: 2061 重分类为 model_unavailable (之前是 auth_failed)
     expect(alerts.map((a) => a.alertType).sort()).toEqual(['exhausted', 'model_unavailable']);
   });
 });
 
 describe('acknowledgeQuotaAlert', () => {
-  it('removes alert from active list', () => {
-    recordApiCall({
+  it('removes alert from active list', async () => {
+    await recordApiCall({
       provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足',
     });
-    const alerts = listActiveQuotaAlerts();
+    const alerts = await listActiveQuotaAlerts();
     expect(alerts).toHaveLength(1);
-    acknowledgeQuotaAlert(alerts[0].id);
-    expect(listActiveQuotaAlerts()).toHaveLength(0);
+    await acknowledgeQuotaAlert(alerts[0].id);
+    expect(await listActiveQuotaAlerts()).toHaveLength(0);
   });
 });
 

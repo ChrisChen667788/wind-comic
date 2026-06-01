@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   // 只看 1 小时窗口的活跃告警 — 给前端 banner 用
-  const alerts = listActiveQuotaAlerts({ windowMs: 60 * 60 * 1000 });
+  const alerts = await listActiveQuotaAlerts({ windowMs: 60 * 60 * 1000 });
 
   // 简化输出: 每个 provider 一条 (取最严重的 alert_type)
   const SEVERITY: Record<string, number> = {

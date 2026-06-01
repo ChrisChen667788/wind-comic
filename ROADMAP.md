@@ -1928,7 +1928,29 @@ npm test
 - **v9.2.2 · 草稿专用轻提示提速** ✅ 2026-06-01:`lib/slim-prompts`(`getSlimWriterPrompt` ~0.5KB 三幕骨架 + JSON 契约,6 单测)替代草稿对比直挂的完整 McKee(实测 9153 字/8.9KB);`script-drafts.generateOneDraft` 改用之 + timeout 100s→45s。flash 推理负担骤降 → 单稿目标 <20s(此前 ~50-70s)。极速分镜 `buildShortVideoMessages` 本就精简(v7.6),无需改。tsc 0 / 159 文件 1910 测试。诚实边界:体积削减 ~94% 可验,<20s 为设计目标,未打真 LLM 实测
 - **v9.2.3 · 设计 P4.1** ✅ 2026-06-01:项目页头部 editorial split 非对称双栏 (大号 display 标题 + 竖线分隔 meta deck: 镜头/角色/评分/状态) + `globals.css` 新增 `--monitor-blue`/`--scope-green` 功能色 token (仅技术监看区: 渲染循环→监视器蓝/done→示波绿, 示波器→示波绿, 出片→监视器蓝; 不动创作区品牌金)。tsc 0 / 159 文件 1910 测试; dev 项目页编译 200。**→ 阶段十三收官**
 
-> **里程碑**:v9.0.x 绿 = 测试 flake 根治 + 可上 PG;v9.1.x 绿 = 短剧分发变现闭环;v9.2.x 绿 = 专业出片 + 体验提速。**(v9.0.x / v9.1.x[除 v9.1.3] / v9.2.x 全绿 → 阶段十一~十三达成)**
+> **里程碑**:v9.0.x 绿 = 测试 flake 根治 + 可上 PG;v9.1.x 绿 = 短剧分发变现闭环;v9.2.x 绿 = 专业出片 + 体验提速。**(v9.0.x / v9.1.x / v9.2.x 全部交付 → 阶段十一~十三达成)**
+
+- **v9.0.4d · 遥测/用量簇收尾上 DbDriver** ✅ 2026-06-02:`api-usage-tracker`(api_usage_events + api_quota_alerts)+ admin/api-status 读路径全异步化双驱动;PG 往返 7/7;两遥测测试 31/31。**遥测簇双驱动收口**。剩 yjs_docs / agent_workflows / preview_history / shot_vision_audits / plugin_chain_events 等更低频内部表留机会主义(默认 SQLite 无 split-brain)。
+
+---
+
+## 5.13 阶段十四 · v9.3 — 用量与成本可观测 (Usage & Cost Observability) 【提案 · 待确认】
+
+> 起点 (2026-06-02): v9.0.4d 把遥测簇 (api_usage_events / api_quota_alerts) 全量上 DbDriver (PG 往返 7/7),
+> 失败 / 配额 / 耗时数据已可在 PG 落库 + 读出。本阶段在其上建「可观测层」: 把分散遥测归集成成本视图 +
+> 预算护栏 + 创作者可见用量面板。与 v9.1 变现闭环、plan-gate 天然衔接。
+> 沿用「lib 纯逻辑+单测 → API → UI → tsc+全量+PG 往返」节奏, 每子版本独立可发布。
+
+- **v9.3.0 · 成本归集 lib (cost-rollup, 纯逻辑+单测)**:把 api_usage_events (+ 既有 cost_log) 归集成
+  per-provider / per-day / per-project 成本卷积 + 预算数学 (已用 vs 上限、按当前速率预测月末)。纯函数, 不碰 DB。
+- **v9.3.1 · 用量看板端点 `GET /api/usage/summary`**:从 PG 取遥测 → cost-rollup → 返回
+  `{ byProvider, byDay, activeAlerts, failureRates, budget }`;user / project / 窗口过滤;admin 全量 / 创作者限本人。
+- **v9.3.2 · 创作者用量面板 (dashboard)**:provider 花费条 + 每日趋势 + 预算环 + 活跃配额告警 banner;
+  复用 API 健康看板组件语言, 创作者可见 (非仅 admin)。
+- **v9.3.3 · 预算护栏 (budget guards)**:user / team 软硬预算上限 —— 到阈值告警, 到上限 plan-gate
+  (复用 `lib/plan-gate`);护栏状态在面板 + 创作入口提示。
+
+> **里程碑**:v9.3.x 绿 = 用量/成本从「埋在日志」变「创作者可见 + 预算可控」, 闭合 v9.1 变现的成本侧。
 
 ---
 

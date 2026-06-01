@@ -25,7 +25,7 @@
  *   - 不限流 (那是 plan-gate 的责任, 不在监控范畴)
  */
 
-import { db } from './db';
+import { getDbDriver } from './db-driver';
 import { nanoid } from 'nanoid';
 
 export type ApiProvider =
@@ -164,35 +164,36 @@ export function detectQuotaError(
  *
  * 失败时不抛 — 监控本身不能让创作链路炸。
  */
-export function recordApiCall(rec: ApiCallRecord): void {
+export async function recordApiCall(rec: ApiCallRecord): Promise<void> {
   try {
     if (!rec.success) {
       const id = nanoid();
       const now = new Date().toISOString();
       const errMsg = (rec.errorMessage || '').slice(0, 200);
-      db.prepare(
+      await getDbDriver().run(
         `INSERT INTO api_usage_events
          (id, provider, model, method, success, status_code, error_message, duration_ms, project_id, user_id, est_cost_cny, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
-        id,
-        rec.provider,
-        rec.model || '',
-        rec.method || '',
-        0,
-        rec.statusCode ?? null,
-        errMsg,
-        rec.durationMs ?? 0,
-        rec.projectId ?? null,
-        rec.userId ?? null,
-        rec.estCostCny ?? 0,
-        now,
+        [
+          id,
+          rec.provider,
+          rec.model || '',
+          rec.method || '',
+          0,
+          rec.statusCode ?? null,
+          errMsg,
+          rec.durationMs ?? 0,
+          rec.projectId ?? null,
+          rec.userId ?? null,
+          rec.estCostCny ?? 0,
+          now,
+        ],
       );
 
       // 配额错误升级到 alerts 表
       const alertType = detectQuotaError(rec.provider, rec.statusCode, errMsg);
       if (alertType) {
-        upsertQuotaAlert(rec.provider, rec.model || '', alertType, errMsg, now);
+        await upsertQuotaAlert(rec.provider, rec.model || '', alertType, errMsg, now);
       }
     }
     // 成功不写 (写放大太大), 想要全量统计去 cost_log 表
@@ -203,38 +204,37 @@ export function recordApiCall(rec: ApiCallRecord): void {
 }
 
 /** 同 provider+alert_type 1 小时内聚合 (occurrence_count++); 否则插新行 */
-function upsertQuotaAlert(
+async function upsertQuotaAlert(
   provider: ApiProvider,
   model: string,
   alertType: AlertType,
   errorMessage: string,
   now: string,
-): void {
+): Promise<void> {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const existing = db
-    .prepare(
-      `SELECT id, occurrence_count FROM api_quota_alerts
+  const existing = await getDbDriver().get(
+    `SELECT id, occurrence_count FROM api_quota_alerts
        WHERE provider = ? AND alert_type = ?
          AND acknowledged_at IS NULL
          AND last_seen_at > ?
        ORDER BY last_seen_at DESC LIMIT 1`,
-    )
-    .get(provider, alertType, oneHourAgo) as
-    | { id: string; occurrence_count: number }
-    | undefined;
+    [provider, alertType, oneHourAgo],
+  ) as { id: string; occurrence_count: number } | undefined;
 
   if (existing) {
-    db.prepare(
+    await getDbDriver().run(
       `UPDATE api_quota_alerts
        SET last_seen_at = ?, occurrence_count = ?, error_message = ?, model = ?
        WHERE id = ?`,
-    ).run(now, existing.occurrence_count + 1, errorMessage, model, existing.id);
+      [now, existing.occurrence_count + 1, errorMessage, model, existing.id],
+    );
   } else {
-    db.prepare(
+    await getDbDriver().run(
       `INSERT INTO api_quota_alerts
        (id, provider, model, alert_type, error_message, first_seen_at, last_seen_at, occurrence_count)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(nanoid(), provider, model, alertType, errorMessage, now, now, 1);
+      [nanoid(), provider, model, alertType, errorMessage, now, now, 1],
+    );
   }
 
   // 控制台提示一次, 让运维 tail logs 能看到
@@ -248,10 +248,10 @@ function upsertQuotaAlert(
 // ════════════════════════════════════════════════════════════════════
 
 /** 列出活跃告警 (未 ack, last_seen 在指定窗口内). 默认 1 小时窗口 */
-export function listActiveQuotaAlerts(opts?: {
+export async function listActiveQuotaAlerts(opts?: {
   windowMs?: number;
   provider?: ApiProvider;
-}): QuotaAlert[] {
+}): Promise<QuotaAlert[]> {
   const windowMs = opts?.windowMs ?? 60 * 60 * 1000;
   const since = new Date(Date.now() - windowMs).toISOString();
   const filters = ['acknowledged_at IS NULL', 'last_seen_at > ?'];
@@ -260,16 +260,15 @@ export function listActiveQuotaAlerts(opts?: {
     filters.push('provider = ?');
     params.push(opts.provider);
   }
-  const rows = db
-    .prepare(
-      `SELECT id, provider, model, alert_type, error_message,
+  const rows = (await getDbDriver().query(
+    `SELECT id, provider, model, alert_type, error_message,
               first_seen_at, last_seen_at, occurrence_count, acknowledged_at
        FROM api_quota_alerts
        WHERE ${filters.join(' AND ')}
        ORDER BY last_seen_at DESC
        LIMIT 50`,
-    )
-    .all(...params) as any[];
+    params,
+  )) as any[];
 
   return rows.map((r) => ({
     id: r.id,
@@ -285,28 +284,28 @@ export function listActiveQuotaAlerts(opts?: {
 }
 
 /** 标记一个告警 ack (用户在 admin 页点了"知道了") */
-export function acknowledgeQuotaAlert(id: string): void {
-  db.prepare('UPDATE api_quota_alerts SET acknowledged_at = ? WHERE id = ?').run(
-    new Date().toISOString(),
-    id,
+export async function acknowledgeQuotaAlert(id: string): Promise<void> {
+  await getDbDriver().run(
+    'UPDATE api_quota_alerts SET acknowledged_at = ? WHERE id = ?',
+    [new Date().toISOString(), id],
   );
 }
 
 /** 最近 N 小时内某 provider 的失败率 (用于"是不是该提前 fallback") */
-export function getRecentFailureRate(
+export async function getRecentFailureRate(
   provider: ApiProvider,
   windowMs: number = 10 * 60 * 1000,
-): { total: number; failed: number; rate: number } {
+): Promise<{ total: number; failed: number; rate: number }> {
   const since = new Date(Date.now() - windowMs).toISOString();
   // 我们只记失败, 所以 rate 计算需要 cost_log 取分母 — 简化: 仅返回失败次数,
   // 调用方自己判 (>=3 失败 in 10min 视为不健康)
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) AS failed FROM api_usage_events
+  const row = (await getDbDriver().get(
+    `SELECT COUNT(*) AS failed FROM api_usage_events
        WHERE provider = ? AND created_at > ? AND success = 0`,
-    )
-    .get(provider, since) as { failed: number };
-  return { total: row.failed, failed: row.failed, rate: row.failed > 0 ? 1 : 0 };
+    [provider, since],
+  )) as { failed: number };
+  const failed = Number(row?.failed ?? 0);
+  return { total: failed, failed, rate: failed > 0 ? 1 : 0 };
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -359,7 +358,7 @@ export async function withApiTracking<T>(
     const durationMs = Date.now() - t0;
     const statusCode = e instanceof ApiCallError ? e.statusCode : undefined;
     const errorMessage = e instanceof Error ? e.message : String(e);
-    recordApiCall({
+    await recordApiCall({
       ...meta,
       success: false,
       statusCode,

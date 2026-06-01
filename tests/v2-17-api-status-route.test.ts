@@ -57,8 +57,8 @@ describe('GET /api/api-status (public)', () => {
 
   it('returns deduplicated alerts (most severe per provider)', async () => {
     // Same provider, two different alert types — public endpoint dedups by provider
-    recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
-    recordApiCall({ provider: 'minimax', success: false, statusCode: 429, errorMessage: 'too many requests' });
+    await recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
+    await recordApiCall({ provider: 'minimax', success: false, statusCode: 429, errorMessage: 'too many requests' });
     const GET = await importPublicGet();
     const res = await GET();
     const body = await res.json();
@@ -69,7 +69,7 @@ describe('GET /api/api-status (public)', () => {
   });
 
   it('does not leak error_message detail (only provider+type+count+ts)', async () => {
-    recordApiCall({
+    await recordApiCall({
       provider: 'openai',
       success: false,
       errorMessage: 'sk-xxxx insufficient_quota leaking secrets',
@@ -101,7 +101,7 @@ describe('GET /api/admin/api-usage', () => {
 
   it('200 returns activeAlerts + failuresByProvider + recentFailures for admin', async () => {
     MOCK_USER = { sub: 'admin1', role: 'admin' };
-    recordApiCall({
+    await recordApiCall({
       provider: 'minimax', model: 'I2V-01', method: 'generateVideo',
       success: false, statusCode: 1008, errorMessage: '余额不足',
     });
@@ -148,8 +148,8 @@ describe('POST /api/admin/api-usage (ack alert)', () => {
 
   it('200 acks an alert (removes from active list)', async () => {
     MOCK_USER = { sub: 'admin1', role: 'admin' };
-    recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
-    const before = listActiveQuotaAlerts();
+    await recordApiCall({ provider: 'minimax', success: false, statusCode: 1008, errorMessage: '余额不足' });
+    const before = await listActiveQuotaAlerts();
     expect(before).toHaveLength(1);
     const POST = await importAdminPost();
     const res = await POST(
@@ -160,7 +160,7 @@ describe('POST /api/admin/api-usage (ack alert)', () => {
       }),
     );
     expect(res.status).toBe(200);
-    const after = listActiveQuotaAlerts();
+    const after = await listActiveQuotaAlerts();
     expect(after).toHaveLength(0);
   });
 });

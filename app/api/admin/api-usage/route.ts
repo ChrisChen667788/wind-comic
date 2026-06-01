@@ -13,7 +13,7 @@ import {
   acknowledgeQuotaAlert,
   type ApiProvider,
 } from '@/lib/api-usage-tracker';
-import { db } from '@/lib/db';
+import { getDbDriver } from '@/lib/db-driver';
 
 export const runtime = 'nodejs';
 
@@ -37,34 +37,32 @@ export async function GET(request: NextRequest) {
   const windowMs = (Number.isFinite(windowH) ? windowH : 1) * 60 * 60 * 1000;
 
   // 活跃告警 (未 ack)
-  const alerts = listActiveQuotaAlerts({
+  const alerts = await listActiveQuotaAlerts({
     windowMs,
     provider: provider || undefined,
   });
 
   // 最近 N 小时按 provider 失败统计
   const since = new Date(Date.now() - windowMs).toISOString();
-  const failuresByProvider = db
-    .prepare(
-      `SELECT provider, COUNT(*) AS failed,
+  const failuresByProvider = (await getDbDriver().query(
+    `SELECT provider, COUNT(*) AS failed,
               MIN(created_at) AS first_at, MAX(created_at) AS last_at
        FROM api_usage_events
        WHERE success = 0 AND created_at > ?
        GROUP BY provider
        ORDER BY failed DESC`,
-    )
-    .all(since) as Array<{ provider: string; failed: number; first_at: string; last_at: string }>;
+    [since],
+  )) as Array<{ provider: string; failed: number; first_at: string; last_at: string }>;
 
   // 最近 50 条原始失败记录 (给 admin 翻看用)
-  const recentFailures = db
-    .prepare(
-      `SELECT provider, model, method, status_code, error_message, duration_ms, created_at
+  const recentFailures = await getDbDriver().query(
+    `SELECT provider, model, method, status_code, error_message, duration_ms, created_at
        FROM api_usage_events
        WHERE success = 0 AND created_at > ?
        ORDER BY created_at DESC
        LIMIT 50`,
-    )
-    .all(since);
+    [since],
+  );
 
   return NextResponse.json({
     windowHours: windowH,
@@ -83,6 +81,6 @@ export async function POST(request: NextRequest) {
   const id = typeof body?.id === 'string' ? body.id.trim() : '';
   if (!id) return NextResponse.json({ error: 'id 必填 (要 ack 的 alert id)' }, { status: 400 });
 
-  acknowledgeQuotaAlert(id);
+  await acknowledgeQuotaAlert(id);
   return NextResponse.json({ ok: true, acknowledgedId: id });
 }

@@ -792,7 +792,7 @@ export class HybridOrchestrator {
           }
           try {
             const { recordApiCall } = await import('@/lib/api-usage-tracker');
-            recordApiCall({ provider: 'openai', model: a.model, method: 'chat.completions', success: true, projectId: this.projectId });
+            await recordApiCall({ provider: 'openai', model: a.model, method: 'chat.completions', success: true, projectId: this.projectId });
           } catch { /* ignore */ }
           break;
         }
@@ -800,7 +800,7 @@ export class HybridOrchestrator {
         console.warn(`[LLM:${callId}] ⚠️ 尝试 [${a.label}] 失败: ${lastErr} | ${elapsed}s`);
         try {
           const { recordApiCall } = await import('@/lib/api-usage-tracker');
-          recordApiCall({ provider: 'openai', model: a.model, method: 'chat.completions', success: false, errorMessage: String(lastErr).slice(0, 200), projectId: this.projectId });
+          await recordApiCall({ provider: 'openai', model: a.model, method: 'chat.completions', success: false, errorMessage: String(lastErr).slice(0, 200), projectId: this.projectId });
         } catch { /* ignore */ }
       }
 
