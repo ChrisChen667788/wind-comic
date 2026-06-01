@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v9.0.2b</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v9.2.0</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-1857%2F1857-2ea44f" alt="1857 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-1894%2F1894-2ea44f" alt="1894 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -70,23 +70,14 @@ Plus Jakarta Sans + Phosphor icons, gold-tinted machined-bezel cards, spring mot
 </table>
 <p align="center"><img src="assets/v8/template-icons.png" width="100%" /><br/><sub>Story-template gallery — 18 cohesive AI gold-neon genre emblems (no more default emoji)</sub></p>
 
-| Version | What landed |
+> Notes are consolidated **per major version** — the full minor-by-minor changelog lives in [`VERSIONS.md`](VERSIONS.md) / [`ROADMAP.md`](ROADMAP.md).
+
+| Major version | What landed |
 |---|---|
-| **v6.0 · Character Studio** | Reusable cast assets — multi-view turnaround sheets (front / ¾ / profile / back) with an 8-field DNA identity lock, auto-bound voice timbre, deterministic bio. Reuse any character across projects via the Cameo IP economy. |
-| **v6.1 · Prompt Workbench** | `@`-mention any asset right in your prompt, live autocomplete, a compile-preview that expands every reference, and a pre-generation readiness score. |
-| **v6.2 · Long-form Intake** | Paste a whole novel → auto-split into episodes (chapter-aware) → choose a narration mode (dialogue / first-person / narrator). **v6.2.3** renders narration to **real TTS** with N-episode parallel orchestration; **v6.2.4** persists the audio + burns **SRT subtitles into the timeline**. |
-| **v6.3 · Style Gallery** | 60 cinematic presets across 5 categories, instant search, one-click **apply-to-workshop**. |
-| **v6.4 · Director Console** | The whole pipeline as 4 stages (script → assets → storyboard → final) with ready / **stale** detection, one-click **single-stage rerun**, and downstream-impact analysis. |
-| **v6.5 · Team Workspace** | Owner-managed credit pool, per-member allocations + RBAC, **real multi-user invites** (token links), per-member consumption metering. |
-| **v6.6 · Postgres-ready** | Full SQLite→Postgres cutover path, **verified end-to-end on a local Postgres** (schema bootstrap + async-repo round-trip, idempotent migrate). |
-| **v6.7 · API Health Board** | One screen to see which gateway is healthy / **out-of-credits** / misconfigured — with live balance read-out, so you never hit a dead generation mid-flow again. |
-| **v6.8 · Strongest models** | Primary LLM/video/image repointed to top-tier models (`veo3.1-pro`, etc.) and fixed a video-stage `429 upstream-saturated` error by rerouting the gateway. |
-| **v6.9 · Gateway gap-fill** | A supplement gateway backfills TTS / Midjourney / Kling; real voiceover via `gpt-4o-mini-tts`; per-gateway **usage + balance** on the health board. |
-| **v7.0 · DeepSeek + universal fallback** | Writer/Director run on DeepSeek's strongest **`deepseek-v4-pro`**; every LLM call auto-falls back to **MiniMax** on any error / out-of-credits / timeout. 3-tier LLM health on the board. |
-| **v7.1 · Polish Studio Pro** | Paste a draft, hit **Pro**: `deepseek-v4-pro` returns a polished script **plus a full industry audit** — AIGC-readiness score, Save-the-Cat 3-act beat-gap detection, on-the-nose dialogue flags, per-character Cameo/Seedance identity anchors. Tiered models (flash for speed, pro for depth) fixed the reasoning-token instability. |
-| **v7.2–v8.0 · AI director console** *(阶段九)* | Per-shot **cinematography console** (景别/机位/镜头/运镜/焦点), **continuity + seed lock**, project-format bar, emotion/rhythm curves, JSON↔visual **parameter linkage** — all converging into one **11-tab director station** per project. |
-| **v8.1–v8.3 · Premium design pass** *(Taste Skill)* | Plus Jakarta Sans + Phosphor icons, gold machined-bezel cards, spring motion, an asymmetric **bento dashboard**, 60 AI-rendered **style thumbnails**, and AI **gold-neon genre icons** replacing every default emoji (18 templates + 5 modes + 8 looks). |
-| **v9.0–v9.0.2b · Postgres full cutover** | SQLite↔Postgres **dual-driver**; every write path migrated to async repos — `project_assets` · `projects` · `users` · `notifications` · `comments` all cleared — **verified end-to-end on a local Postgres** with transaction commit + rollback atomicity. Default stays SQLite (same file, zero split-brain); `DB_DRIVER=pg` is opt-in. **1857 tests** green on both drivers. |
+| **v6 · Production studio** | **Character Studio** (reusable cast, multi-view turnaround + 8-field **DNA identity lock**, cross-project **Cameo IP**) · **Prompt Workbench** (`@`-mention assets + compile-preview + readiness score) · **Long-form Intake** (novel → chapter-aware episodes, **real TTS narration** + burned SRT, N-episode parallel) · 60-look **Style Gallery** · **Director Console** (4-stage pipeline, stale-detection, single-stage rerun) · **Team Workspace** (credit pool + RBAC + real invite links) · **API Health Board** (live gateway status + balance) · top-tier model repointing (`veo3.1-pro`) + supplement gateway backfilling TTS / Midjourney / Kling. |
+| **v7 · Platform hardening** | Writer/Director on DeepSeek **`deepseek-v4-pro`** with a **universal MiniMax fallback** on any error / out-of-credits / timeout (3-tier LLM health board) · tiered models (**`deepseek-v4-flash`** for speed) that cured the reasoning-token instability · **Polish Studio Pro** — industry script audit: AIGC-readiness score, Save-the-Cat 3-act beat-gap detection, on-the-nose dialogue flags, per-character identity anchors. |
+| **v8 · AI director station + premium design** | Per-shot **cinematography console** (景别/机位/镜头/运镜/焦点) + **continuity & seed lock** + emotion/rhythm curves + JSON↔visual **parameter linkage**, all converging into an **11-tab director station** · **Taste design pass**: Plus Jakarta Sans + Phosphor icons, gold machined-bezel cards, spring motion, an asymmetric **bento dashboard**, 60 AI-rendered **style thumbnails**, and AI **gold-neon genre icons** (18 templates + 5 modes + 8 looks). |
+| **v9 · Postgres platform + monetization** | Full SQLite↔Postgres **dual-driver** cutover — **17 core tables/clusters** migrated to async repos, verified end-to-end on Postgres with **transaction commit + rollback** atomicity (default stays SQLite, same file, **zero split-brain**; `DB_DRIVER=pg` is opt-in) · multi-platform **distribution-pack** generator (抖音 / 快手 / 视频号 / 小红书 / YouTube Shorts / B站) · **real binary AAF export** (MS-CFB container, for Avid) alongside EDL / FCPXML. **1894 tests** green on both drivers. |
 
 ### 🎬 Director Console — the whole film as one control room *(v6.4)*
 Every stage at a glance — what's ready, what's gone stale because you changed something upstream, and a one-click rerun that knows exactly which downstream stages it invalidates.
@@ -173,7 +164,7 @@ After Writer finishes, we score each shot 0-10 on a Chinese-conflict-word dictio
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **1857 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **1894 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -272,22 +263,23 @@ Per-shot "改 prompt 重生" (regenerate image with custom prompt + reference im
 
 ---
 
-## 🔀 Gateway routing (v6.8 / v6.9)
+## 🔀 Gateway routing — default model map *(matches current `lib/config.ts`)*
 
-Every model call is provider-pluggable (priority chain + automatic fallback). The current default routing splits a **primary** gateway from a **supplement** gateway, with MiniMax always last as the safety net:
+Every model call is provider-pluggable (priority chain + automatic fallback). Creative and high-frequency LLM traffic are split across two model tiers, and **MiniMax is always the last-resort fallback** on any error / out-of-credits / timeout:
 
-| Capability | Primary (strongest) | Supplement | Fallback (unchanged) |
-|---|---|---|---|
-| **LLM** (writer / director / vision-audit) | `claude-opus-4-7` · `claude-sonnet-4-6` | — | MiniMax / XVERSE |
-| **Video** | `veo3.1-pro` (Veo 3.1 Pro) | Kling | **MiniMax Hailuo** |
-| **Image** | `flux-2-pro` (`IMAGE_MODEL`) | Midjourney (`mj_imagine`) | **MiniMax image-01** |
-| **TTS / voiceover** | `gpt-4o-mini-tts` | — | MiniMax T2A |
-| **Music / BGM** | MiniMax music | (Suno when gateway channel available) | — |
+| Capability | Default model (env override) | Supplement / fallback |
+|---|---|---|
+| **Creative LLM** (writer / director) | `deepseek-v4-pro` (`OPENAI_CREATIVE_MODEL`) + `deepseek-v4-flash` fast tier for drafts/polish | `MiniMax-M2.7` (`LLM_FALLBACK_MODEL`) · optional self-hosted **XVERSE-Ent** (A5.7B / A4.2B) |
+| **General LLM** (planning / validation / Vision-Audit) | `claude-sonnet-4-6` (`OPENAI_MODEL`) | `MiniMax-M2.7` |
+| **Video** | `veo3.1-pro` (`VEO_MODEL`) | `veo3.1` · `sora-2-pro` · Kling → **MiniMax Hailuo** |
+| **Image** | `flux.1-kontext-pro` (`IMAGE_MODEL`) | Midjourney (`mj_imagine`) · fal FLUX Kontext · local ComfyUI → **MiniMax image** |
+| **TTS / voiceover** | `gpt-4o-mini-tts` (`VE_TTS_MODEL`) | MiniMax T2A (`speech-02-hd`) |
+| **Music / BGM** | MiniMax music | (Suno when gateway channel available) |
 
-- **Why split**: the primary gateway carries the newest top-tier models; the supplement gateway backfills capabilities (TTS / MJ / Kling) and catches overflow when the primary runs out of credits.
-- **v6.8** — repointed primary LLM/video/image to the funded gateway with the strongest models, fixing a video-stage `429 upstream-saturated` error on the old gateway.
-- **v6.9** — added a dedicated TTS provider (`lib/tts-providers/vectorengine-tts.ts`) so voiceover works without per-vendor group-id config; enabled Midjourney as an image fallback; surfaced **per-gateway usage + balance** on the [API Health Board](#-new-in-v6--from-demo-to-studio).
-- **Swap any of it** in `.env.local` (`OPENAI_*` / `VEO_*` / `IMAGE_MODEL` / `MINIMAX_*`) — zero code change. See [`docs/llm-providers.md`](docs/llm-providers.md).
+- **Why two LLM tiers**: the creative tier (DeepSeek `-pro`, a reasoning model) carries writer/director quality work; the general tier (Claude `sonnet-4-6`) handles high-frequency planning / validation / Vision-Audit; the `-flash` tier keeps draft-compare & basic polish at sub-second latency.
+- **MiniMax safety net**: any primary LLM / video / image failure auto-routes to MiniMax (OpenAI-compatible) — surfaced live on the **API Health Board** (正常 / 额度用尽 / 配置缺失 / 不可达).
+- **XVERSE-Ent** is an **open-source MoE screenwriting model** you can self-host (vLLM / SGLang / ModelScope) and slot in as the writer/director LLM — set `XVERSE_ENABLED=true`.
+- **Swap anything** in `.env.local` (`OPENAI_*` / `OPENAI_CREATIVE_*` / `VEO_*` / `IMAGE_MODEL` / `VE_TTS_MODEL` / `MINIMAX_*`) — zero code change. See [`docs/llm-providers.md`](docs/llm-providers.md).
 
 ---
 
@@ -329,7 +321,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 1857/1857 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 1894/1894 must stay green. Add tests for new lib/service files.
 
 See [`CLAUDE.md`](CLAUDE.md) for the repo's "house style" + agent design notes.
 
@@ -340,7 +332,7 @@ See [`CLAUDE.md`](CLAUDE.md) for the repo's "house style" + agent design notes.
 - [`docs/llm-providers.md`](docs/llm-providers.md) — Swap LLM provider in 3 env vars
 - [`docs/SCREENSHOTS.md`](docs/SCREENSHOTS.md) — Module-by-module screenshot manifest
 - [`docs/MARKETING-en.md`](docs/MARKETING-en.md) · [`docs/MARKETING-zh.md`](docs/MARKETING-zh.md) — Pitch deck copy
-- [`ROADMAP.md`](ROADMAP.md) — Full sprint-by-sprint changelog (v2.10 → v9.0.2b) · [`VERSIONS.md`](VERSIONS.md) — version history table
+- [`ROADMAP.md`](ROADMAP.md) — Full sprint-by-sprint changelog (v2.10 → v9.2.0) · [`VERSIONS.md`](VERSIONS.md) — version history table
 - [`docs/COMPETITIVE-GAP-2026-05.md`](docs/COMPETITIVE-GAP-2026-05.md) — Honest analysis vs Sora/Kling/Vidu/Higgsfield
 
 ---
@@ -348,6 +340,27 @@ See [`CLAUDE.md`](CLAUDE.md) for the repo's "house style" + agent design notes.
 ## 📄 License
 
 MIT. Use it, fork it, build a startup on it. We just ask: if you ship a feature on top, send a PR back.
+
+---
+
+## 🙏 Acknowledgements
+
+Wind Comic stands on a lot of excellent open-source work:
+
+- **App & UI** — [Next.js](https://nextjs.org) (App Router + Turbopack) · [React 19](https://react.dev) · [Tailwind CSS v4](https://tailwindcss.com) · [Radix UI](https://www.radix-ui.com) · [Phosphor Icons](https://phosphoricons.com) + [Lucide](https://lucide.dev) · [Framer Motion](https://www.framer.com/motion/) · [React Flow](https://reactflow.dev) for the agent-workflow DAG
+- **Realtime & data** — [Yjs](https://github.com/yjs/yjs) + [y-websocket](https://github.com/yjs/y-websocket) for **CRDT** real-time collaboration · [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) + [node-postgres](https://node-postgres.com) for the dual-driver persistence layer
+- **Media & export** — [FFmpeg](https://ffmpeg.org) via [fluent-ffmpeg](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg) (CJK subtitle burn / audio mux) · pro NLE interchange through CMX3600 **EDL** · FCP7 **XML** · **AAF** (a from-scratch MS-CFB Compound File Binary writer, no third-party lib)
+- **Open models & engines** — [XVERSE-Ent](https://github.com/xverse-ai/XVERSE-Ent), an open-source **MoE screenwriting model** (self-hostable via vLLM / SGLang / ModelScope) · [FLUX.1 Kontext](https://blackforestlabs.ai) for image consistency · a provider-pluggable LLM/video chain (DeepSeek · Claude · MiniMax · Veo · Kling · Midjourney) over OpenAI-compatible endpoints
+- **Methods & algorithms** — Robert McKee story structure + Save-the-Cat 3-act beat analysis · **CRDT** (conflict-free replicated data types) for collaborative editing · `cref` / `sref` + 8-dimension character **DNA** for cross-shot identity consistency
+- **Tooling** — [TypeScript](https://www.typescriptlang.org) (strict) · [Vitest](https://vitest.dev) · [Stripe](https://stripe.com) — and every creator whose real-world feedback shaped the pipeline.
+
+---
+
+## ⭐ Star History
+
+If Wind Comic saved you time, a star helps other creators find it.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=ChrisChen667788/wind-comic&type=Date)](https://star-history.com/#ChrisChen667788/wind-comic&Date)
 
 ---
 
