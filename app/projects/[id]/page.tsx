@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces } from '@phosphor-icons/react';
+import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone } from '@phosphor-icons/react';
 import { CameoPanel } from '@/components/CameoPanel';
+import { DistributionPanel } from '@/components/project/distribution-panel';
 import { DirectorConsole } from '@/components/director-console';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
 import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-sidebar';
@@ -218,6 +219,8 @@ export default function ProjectDetailPage() {
     { key: 'param-linkage', label: '参数联动', icon: Braces, count: 0 },
     // v3.0 P0.1: 评论协作 — 项目级讨论 + 提及通知
     { key: 'comments', label: '评论协作', icon: MessageCircle, count: 0 },
+    // v9.1.2: 多平台分发 / 变现
+    { key: 'distribution', label: '分发', icon: Megaphone, count: 0 },
     { key: 'play', label: '完整播放', icon: Play, count: 0 },
   ];
 
@@ -774,6 +777,11 @@ export default function ProjectDetailPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* v9.1.2: 多平台分发 / 变现 */}
+          {activeTab === 'distribution' && (
+            <DistributionPanel projectId={id} />
           )}
 
           {/* 完整播放 */}
