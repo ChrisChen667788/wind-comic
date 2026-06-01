@@ -1941,8 +1941,8 @@ npm test
 > 预算护栏 + 创作者可见用量面板。与 v9.1 变现闭环、plan-gate 天然衔接。
 > 沿用「lib 纯逻辑+单测 → API → UI → tsc+全量+PG 往返」节奏, 每子版本独立可发布。
 
-- **v9.3.0 · 成本归集 lib (cost-rollup, 纯逻辑+单测)**:把 api_usage_events (+ 既有 cost_log) 归集成
-  per-provider / per-day / per-project 成本卷积 + 预算数学 (已用 vs 上限、按当前速率预测月末)。纯函数, 不碰 DB。
+- **v9.3.0 · 成本归集 lib (cost-rollup, 纯逻辑+单测)** ✅ 2026-06-02:`lib/cost-rollup` 把 `cost_log` 行归集成
+  per-engine / per-day / per-project 成本卷积 + 预算数学 (`computeBudget`: 已用 vs 上限 + 线性周期末预测 + none/ok/warn/over) + `buildCostSummary`。纯函数不碰 DB。tsc 0;11 项逻辑断言全绿 (tsx 直跑;vitest 因本机高负载待补全量)。主成本源 = cost_log (api_usage_events 是失败日志, v9.0.4d 已处理)。
 - **v9.3.1 · 用量看板端点 `GET /api/usage/summary`**:从 PG 取遥测 → cost-rollup → 返回
   `{ byProvider, byDay, activeAlerts, failureRates, budget }`;user / project / 窗口过滤;admin 全量 / 创作者限本人。
 - **v9.3.2 · 创作者用量面板 (dashboard)**:provider 花费条 + 每日趋势 + 预算环 + 活跃配额告警 banner;
