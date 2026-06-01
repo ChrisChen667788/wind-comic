@@ -1943,8 +1943,8 @@ npm test
 
 - **v9.3.0 · 成本归集 lib (cost-rollup, 纯逻辑+单测)** ✅ 2026-06-02:`lib/cost-rollup` 把 `cost_log` 行归集成
   per-engine / per-day / per-project 成本卷积 + 预算数学 (`computeBudget`: 已用 vs 上限 + 线性周期末预测 + none/ok/warn/over) + `buildCostSummary`。纯函数不碰 DB。tsc 0;11 项逻辑断言全绿 (tsx 直跑;vitest 因本机高负载待补全量)。主成本源 = cost_log (api_usage_events 是失败日志, v9.0.4d 已处理)。
-- **v9.3.1 · 用量看板端点 `GET /api/usage/summary`**:从 PG 取遥测 → cost-rollup → 返回
-  `{ byProvider, byDay, activeAlerts, failureRates, budget }`;user / project / 窗口过滤;admin 全量 / 创作者限本人。
+- **v9.3.1 · 用量看板端点 `GET /api/usage/summary`** ✅ 2026-06-02:从 `cost_log`(双驱动)→ cost-rollup → 返回
+  `{ cost:{totals,byEngine/Day/Project}, budget(当月), activeAlerts, failuresByProvider }`;`?days`/`?projectId`/`?capCny` 过滤;admin 全量(或 `?userId`)/ 创作者限本人。与 `/api/usage`(套餐配额)互补。tsc 0;数据路径冒烟 7/7(tsx);vitest 全量待补。
 - **v9.3.2 · 创作者用量面板 (dashboard)**:provider 花费条 + 每日趋势 + 预算环 + 活跃配额告警 banner;
   复用 API 健康看板组件语言, 创作者可见 (非仅 admin)。
 - **v9.3.3 · 预算护栏 (budget guards)**:user / team 软硬预算上限 —— 到阈值告警, 到上限 plan-gate
