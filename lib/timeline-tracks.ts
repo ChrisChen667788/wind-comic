@@ -11,7 +11,7 @@
  * 输出统一 TrackSegment 形状, UI 直接渲染:
  *   { id, type, startSec, durationSec, label, muted, isEdited }
  */
-import { db, now } from '@/lib/db';
+import { getDbDriver } from '@/lib/db-driver'; // v9.0.4c: 双驱动
 import { nanoid } from 'nanoid';
 import type { Script, ScriptShot } from '@/types/agents';
 
@@ -55,10 +55,9 @@ interface TrackEditRow {
   updated_at: string;
 }
 
-function readEdits(projectId: string): Map<string, TrackEditRow> {
-  const rows = db.prepare(
-    `SELECT * FROM project_track_edits WHERE project_id = ?`,
-  ).all(projectId) as TrackEditRow[];
+async function readEdits(projectId: string): Promise<Map<string, TrackEditRow>> {
+  const rows = await getDbDriver().query<TrackEditRow>(
+    `SELECT * FROM project_track_edits WHERE project_id = ?`, [projectId]);
   const out = new Map<string, TrackEditRow>();
   for (const r of rows) {
     out.set(`${r.track_type}:${r.segment_key}`, r);
@@ -164,13 +163,11 @@ function applyOverrides(
  * v3.1.3 P1: 查项目的 BGM 音频 URL (saveAsset(_, 'music', ...) 存在 media_urls[0]).
  * 没有 → null, 前端走 procedural waveform fallback.
  */
-function findProjectMusicUrl(projectId: string): string | null {
+async function findProjectMusicUrl(projectId: string): Promise<string | null> {
   try {
-    const row = db.prepare(
-      `SELECT media_urls FROM project_assets
-       WHERE project_id = ? AND type = 'music'
-       ORDER BY created_at DESC LIMIT 1`,
-    ).get(projectId) as { media_urls: string } | undefined;
+    const row = await getDbDriver().get<{ media_urls: string }>(
+      `SELECT media_urls FROM project_assets WHERE project_id = ? AND type = 'music' ORDER BY created_at DESC LIMIT 1`,
+      [projectId]);
     if (!row?.media_urls) return null;
     const arr = JSON.parse(row.media_urls);
     if (Array.isArray(arr) && typeof arr[0] === 'string') return arr[0];
@@ -184,11 +181,11 @@ function findProjectMusicUrl(projectId: string): string | null {
  * v6.2.4: 读项目落库的解说音轨 (project_assets type='narration', data 为
  * RenderedNarrationLike). 没有 → null.
  */
-function loadNarration(projectId: string): { narration: TrackSegment[]; subtitle: TrackSegment[] } | null {
+async function loadNarration(projectId: string): Promise<{ narration: TrackSegment[]; subtitle: TrackSegment[] } | null> {
   try {
-    const row = db.prepare(
+    const row = await getDbDriver().get<{ data: string }>(
       `SELECT data FROM project_assets WHERE project_id = ? AND type = 'narration' ORDER BY updated_at DESC LIMIT 1`,
-    ).get(projectId) as { data: string } | undefined;
+      [projectId]);
     if (!row?.data) return null;
     const data = JSON.parse(row.data);
     if (!Array.isArray(data?.segments)) return null;
@@ -205,22 +202,22 @@ function loadNarration(projectId: string): { narration: TrackSegment[]; subtitle
  * v3.1.3 P1: BGM 段挂 audioUrl, 前端切片画真波形.
  * v6.2.4: 若有落库解说音轨 → 增 narration 轨 + 把解说字幕并入 subtitle 轨 (可烧录).
  */
-export function computeTracks(
+export async function computeTracks(
   projectId: string,
   script: Script,
-): { bgm: TrackSegment[]; subtitle: TrackSegment[]; narration: TrackSegment[] } {
+): Promise<{ bgm: TrackSegment[]; subtitle: TrackSegment[]; narration: TrackSegment[] }> {
   const shots = Array.isArray(script.shots) ? script.shots : [];
-  const edits = readEdits(projectId);
+  const edits = await readEdits(projectId);
   const bgmDerived = deriveBgmSegments(shots);
   const subDerived = deriveSubtitleSegments(shots);
   const bgmSegments = applyOverrides('bgm', bgmDerived, edits);
-  const musicUrl = findProjectMusicUrl(projectId);
+  const musicUrl = await findProjectMusicUrl(projectId);
   if (musicUrl) {
     for (const seg of bgmSegments) seg.audioUrl = musicUrl;
   }
   const subtitle = applyOverrides('subtitle', subDerived, edits);
 
-  const narr = loadNarration(projectId);
+  const narr = await loadNarration(projectId);
   if (narr) {
     // 解说字幕并入字幕轨 (烧录时一起出); 解说音频单列 narration 轨
     subtitle.push(...narr.subtitle);
@@ -241,48 +238,45 @@ export interface SegmentOverride {
 /**
  * UPSERT 一组用户编辑. 透传所有提供的字段, undefined 字段不动 (合并语义).
  */
-export function applyTrackEdits(projectId: string, edits: SegmentOverride[]): void {
+export async function applyTrackEdits(projectId: string, edits: SegmentOverride[]): Promise<void> {
   if (!Array.isArray(edits) || edits.length === 0) return;
-  const txn = db.transaction(() => {
+  // v9.0.4c: 批量 UPSERT 走 DbDriver.transaction (双驱动, 跨编辑原子)
+  await getDbDriver().transaction(async (tx) => {
     for (const e of edits) {
       if (e.trackType !== 'bgm' && e.trackType !== 'subtitle') continue;
       if (!e.segmentKey || typeof e.segmentKey !== 'string') continue;
-      // 取现有 row (如有), 合并语义
-      const existing = db.prepare(
+      const existing = await tx.get<TrackEditRow>(
         `SELECT * FROM project_track_edits WHERE project_id = ? AND track_type = ? AND segment_key = ?`,
-      ).get(projectId, e.trackType, e.segmentKey) as TrackEditRow | undefined;
+        [projectId, e.trackType, e.segmentKey]);
       const muted = e.muted !== undefined ? (e.muted ? 1 : 0) : (existing?.muted ?? 0);
       const startOffset = e.startOffsetSec !== undefined ? e.startOffsetSec : existing?.start_offset_sec ?? null;
       const durationOverride = e.durationOverrideSec !== undefined ? e.durationOverrideSec : existing?.duration_override_sec ?? null;
       const customText = e.customText !== undefined ? e.customText : existing?.custom_text ?? null;
+      const ts = new Date().toISOString();
       if (existing) {
-        db.prepare(`
-          UPDATE project_track_edits
-          SET muted = ?, start_offset_sec = ?, duration_override_sec = ?, custom_text = ?, updated_at = ?
-          WHERE id = ?
-        `).run(muted, startOffset, durationOverride, customText, now(), existing.id);
+        await tx.run(
+          `UPDATE project_track_edits SET muted = ?, start_offset_sec = ?, duration_override_sec = ?, custom_text = ?, updated_at = ? WHERE id = ?`,
+          [muted, startOffset, durationOverride, customText, ts, existing.id]);
       } else {
-        db.prepare(`
-          INSERT INTO project_track_edits
-          (id, project_id, track_type, segment_key, muted, start_offset_sec, duration_override_sec, custom_text, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(nanoid(), projectId, e.trackType, e.segmentKey, muted, startOffset, durationOverride, customText, now());
+        await tx.run(
+          `INSERT INTO project_track_edits (id, project_id, track_type, segment_key, muted, start_offset_sec, duration_override_sec, custom_text, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [nanoid(), projectId, e.trackType, e.segmentKey, muted, startOffset, durationOverride, customText, ts]);
       }
     }
   });
-  txn();
 }
 
 /** 重置某段 (删 override 行, 回退到默认派生). */
-export function resetTrackEdit(projectId: string, trackType: TrackType, segmentKey: string): boolean {
-  const r = db.prepare(
+export async function resetTrackEdit(projectId: string, trackType: TrackType, segmentKey: string): Promise<boolean> {
+  const r = await getDbDriver().run(
     `DELETE FROM project_track_edits WHERE project_id = ? AND track_type = ? AND segment_key = ?`,
-  ).run(projectId, trackType, segmentKey);
+    [projectId, trackType, segmentKey]);
   return r.changes > 0;
 }
 
 /** 清空整个 project 的所有 track edits. */
-export function clearAllTrackEdits(projectId: string): number {
-  const r = db.prepare(`DELETE FROM project_track_edits WHERE project_id = ?`).run(projectId);
+export async function clearAllTrackEdits(projectId: string): Promise<number> {
+  const r = await getDbDriver().run(`DELETE FROM project_track_edits WHERE project_id = ?`, [projectId]);
   return r.changes;
 }

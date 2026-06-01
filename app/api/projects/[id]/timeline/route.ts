@@ -90,7 +90,7 @@ export async function GET(
   }));
   const totalDuration = shots.reduce((sum, s) => sum + (s.duration || 0), 0);
   // v3.1 F.1: 派生 BGM + subtitle 轨道
-  const tracks = computeTracks(projectId, script);
+  const tracks = await computeTracks(projectId, script);
   return NextResponse.json({ shots, totalDuration, tracks });
 }
 
@@ -143,19 +143,19 @@ export async function POST(
     const valid: SegmentOverride[] = body.trackEdits.filter((e: any) =>
       e && (e.trackType === 'bgm' || e.trackType === 'subtitle') && typeof e.segmentKey === 'string',
     );
-    if (valid.length > 0) applyTrackEdits(projectId, valid);
+    if (valid.length > 0) await applyTrackEdits(projectId, valid);
   }
   if (Array.isArray(body.trackResets)) {
     for (const r of body.trackResets) {
       if (r && typeof r.segmentKey === 'string' && (r.trackType === 'bgm' || r.trackType === 'subtitle')) {
-        resetTrackEdit(projectId, r.trackType, r.segmentKey);
+        await resetTrackEdit(projectId, r.trackType, r.segmentKey);
       }
     }
   }
 
   const totalDuration = script.shots.reduce((sum, s: ScriptShot) => sum + (s.duration || 5), 0);
   // 重新派生 tracks 给 client (含最新 override)
-  const tracks = computeTracks(projectId, script);
+  const tracks = await computeTracks(projectId, script);
   return NextResponse.json({
     shots: script.shots.map((s) => ({
       shotNumber: s.shotNumber,
