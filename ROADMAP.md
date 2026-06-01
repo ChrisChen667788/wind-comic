@@ -1925,7 +1925,7 @@ npm test
 
 - **v9.2 · 真 AAF 二进制导出** ✅ 2026-06-01 (v9.2.0):**自研最小 MS-CFB 容器**(`lib/aaf-export`:组合模型 + AAF-XML + writeCfb/buildAAF/isCfb,无第三方库,7 单测)+ `GET /api/projects/[id]/export-aaf` 对接 Avid;与 EDL/FCPXML 并列。诚实边界:真 CFB 二进制 + 内嵌 XML round-trip 一致,Avid 实机回导未验
 - **v9.2.1 · 渲染循环实时反馈面板** ✅ 2026-06-01:`lib/render-loop`(每镜状态归约 `deriveShotRenderStates` + 进度/ETA 聚合 `summarizeRenderLoop` + `formatEta`,10 单测)+ `GET /api/projects/[id]/render-loop`(`?snapshot=1` 单次 JSON / 默认 SSE 流,复用 `lib/sse`,收敛或断开即停)+ 技术监看「渲染循环」面板(初拉 snapshot→EventSource 实时回填,总进度条 + 逐镜状态/重试/耗时)+ 顺带补「导出 AAF (Avid)」按钮。tsc 0 / 158 文件 1904 测试。(进度为持久化资产最佳努力投影, 非管线内嵌事件)
-- **v9.2.2 · 草稿专用轻提示提速**:草稿对比/极速分镜用精简 system prompt(非完整 9KB McKee),目标单稿 flash <20s(当前 ~60s)
+- **v9.2.2 · 草稿专用轻提示提速** ✅ 2026-06-01:`lib/slim-prompts`(`getSlimWriterPrompt` ~0.5KB 三幕骨架 + JSON 契约,6 单测)替代草稿对比直挂的完整 McKee(实测 9153 字/8.9KB);`script-drafts.generateOneDraft` 改用之 + timeout 100s→45s。flash 推理负担骤降 → 单稿目标 <20s(此前 ~50-70s)。极速分镜 `buildShortVideoMessages` 本就精简(v7.6),无需改。tsc 0 / 159 文件 1910 测试。诚实边界:体积削减 ~94% 可验,<20s 为设计目标,未打真 LLM 实测
 - **v9.2.3 · 设计 P4.1**:项目页头部 editorial split 排版 + 「监视器蓝/示波绿」功能色 token(仅技术监看区,不动创作区品牌色)
 
 > **里程碑**:v9.0.x 绿 = 测试 flake 根治 + 可上 PG;v9.1.x 绿 = 短剧分发变现闭环;v9.2.x 绿 = 专业出片 + 体验提速。

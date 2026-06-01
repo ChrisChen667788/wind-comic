@@ -5,7 +5,8 @@
  *
  * 设计取舍:
  *   - 不调 orchestrator (避免有状态干扰: agentTalk/event/项目持久化等), 纯函数 LLM 调用
- *   - 复用 lib/mckee-skill 的 McKee writer prompt → 草稿质量与 runWriter 一致
+ *   - v9.2.2: 用 lib/slim-prompts 精简编剧提示 (~0.5KB) 替代完整 McKee (8.9KB) → flash 单稿 <20s
+ *     (此前直挂 9KB McKee, flash 推理负担重 ~50-70s)。骨架 (三幕/钩子/反转/悬念) + JSON 契约保留
  *   - N=1 时 temperature=0.7 (与 runWriter 默认一致, 等同"快草稿"); N=2/3 时分别加 0.95/1.2
  *     使第 2/3 版有显著差异(更激进的题材选择 / 更冒险的转场)
  *   - 单次失败不阻塞其他: Promise.allSettled, 失败的草稿返回 errorMessage 字段, UI 可显示"该版生成失败"
@@ -21,7 +22,7 @@
 
 import { API_CONFIG } from './config';
 import { callLLMWithFallback } from './llm-client';
-import { getMcKeeWriterPrompt } from './mckee-skill';
+import { getSlimWriterPrompt } from './slim-prompts';
 import { robustJsonParse } from './polish-json';
 import type { Script, ScriptShot } from '@/types/agents';
 
@@ -113,28 +114,23 @@ async function generateOneDraft(opts: {
   draftIndex: number;
   signal?: AbortSignal;
 }): Promise<Script> {
-  // 简化版 system prompt — McKee 框架 + 一次出 JSON (跳过 Two-Pass 规划阶段)
-  const systemPrompt =
-    getMcKeeWriterPrompt('', opts.style, {
-      isScriptAdaptation: false,
-      directorTotalShots: 6,
-      minShots: 4,
-      maxShots: 8,
-    }) +
-    `\n\n## 草稿模式特别约定\n` +
-    `这是用户对比草稿生成调用 (草稿 #${opts.draftIndex + 1}, 温度 ${opts.temperature})。\n` +
-    `输出严格 JSON, 形如 { "title": string, "synopsis": string (1-2 句), "shots": [...] }。\n` +
-    `不要在 JSON 前后加任何解释文本, 不要 \`\`\`json fence。\n` +
-    `每个 shot 必须含: shotNumber (1-based), sceneDescription, action, emotion, characters[], dialogue (可选), visualPrompt。`;
+  // v9.2.2: 精简编剧 system prompt (~0.5KB) 替代完整 McKee (8.9KB) —— flash 推理负担骤降,
+  //   单稿目标 <20s (此前 McKee 重提示 ~50-70s)。三幕骨架 (钩子/反转/悬念) + 严格 JSON 契约保留;
+  //   完整 McKee 仍由质量优先的主管线 runWriter 承担 (用户选定草稿后回到 create-stream)。
+  const systemPrompt = getSlimWriterPrompt(opts.style, {
+    minShots: 4,
+    maxShots: 8,
+    note: `草稿 #${opts.draftIndex + 1} · 温度 ${opts.temperature}`,
+  });
 
   const userMessage =
     `创意:${opts.idea}\n\n` +
     `画风:${opts.style}\n\n` +
     `输出长度: 4-8 个镜头的短剧, JSON 格式直出, 不要 markdown 包裹。`;
 
-  // v7.1: 草稿对比 = "快速比稿"场景, 用创意"快档" deepseek-v4-flash (推理 token 远少于 pro,
-  //   实测单稿 12-20s 且稳定出 JSON; pro 单稿 35-60s 且 reasoning 易吃光 token 预算导致空响应)。
-  //   质量优先的完整管线 runWriter 仍用 pro。75s 超时覆盖长尾, 主→MiniMax 全局兜底, 内置 <think> 剥离。
+  // v7.1/v9.2.2: 草稿对比 = "快速比稿"场景, 用创意"快档" deepseek-v4-flash + 精简提示 (见上)。
+  //   推理 token 远少于 pro, 配精简提示后单稿目标 <20s 且稳定出 JSON;
+  //   质量优先的完整管线 runWriter 仍用 pro + 完整 McKee。主→MiniMax 全局兜底, 内置 <think> 剥离。
   //   解析/校验失败再重试 1 次 (HA: flash 快, 重试代价低); 链路彻底失败 (超时/全挂) 不重试以控总时长。
   let lastErr = '草稿生成失败';
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -145,12 +141,11 @@ async function generateOneDraft(opts: {
       fast: true,
       temperature: opts.temperature,
       jsonMode: true,
-      // McKee 编剧提示 (9KB) 产出较丰富 (实测 ~11000 字 ≈ 5000 token); 给到 8000 防止截断,
-      // 截断会导致 JSON 解析失败→触发重试→时长翻倍。8000 留足头部余量, 首试即过的概率更高。
-      maxTokens: 8000,
-      // flash 正常 50-70s (McKee 提示重); 100s 给"flash过载重试 + MiniMax 兜底(推理模型 40-90s)"留余量,
-      // 避免兜底腿必然超时 (并行 2-3 稿仍 < route maxDuration 240)
-      timeoutMs: 100_000,
+      // 草稿 = 短剧 4-8 镜, 输出 ~2-3000 token; 6000 留足头部余量防截断 (截断→JSON 解析失败→重试翻倍)。
+      maxTokens: 6000,
+      // 精简提示后 flash 单稿 happy path ~12-20s; 45s/尝试 给 "flash 过载重试 + MiniMax 兜底" 留余量,
+      // 主+兜底各 45s 最坏 90s, 并行 2-3 稿仍 < route maxDuration 240。
+      timeoutMs: 45_000,
     });
     if (!res.ok || !res.content) {
       lastErr = res.error || 'LLM 返回空';
