@@ -31,6 +31,12 @@
   --border: #242220;
   --border-hover: #3A3735;
 
+  /* ─── v9.2.3 P4.1 技术监看功能色 (仅「技术监看」区: 监视器蓝 + 示波绿; 不动创作区品牌金) ─── */
+  --monitor-blue: #4DA3E0;
+  --monitor-blue-muted: rgba(77, 163, 224, 0.12);
+  --scope-green: #2BE6B0;
+  --scope-green-muted: rgba(43, 230, 176, 0.12);
+
   /* ─── v8.3 P1 字体栈 ─── */
   --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   --font-mono-stack: var(--font-mono), 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;

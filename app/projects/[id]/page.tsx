@@ -238,7 +238,7 @@ export default function ProjectDetailPage() {
                 <span className="cinema-eyebrow">PROJECT</span>
                 <span className="cinema-mono text-[10px] opacity-50">· {project.id?.slice(-8) || '——'}</span>
               </div>
-              <h1 className="cinema-headline text-lg truncate">{project.title}</h1>
+              <div className="cinema-headline text-lg truncate">{project.title}</div>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -277,13 +277,38 @@ export default function ProjectDetailPage() {
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Synopsis */}
-        {script?.synopsis && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-5 bg-white/5 border border-white/10 rounded-2xl">
-            <p className="text-sm text-gray-300 leading-relaxed">{script.synopsis}</p>
-            {script.theme && <p className="text-xs text-[#E8C547] mt-2">主题：{script.theme}</p>}
-          </motion.div>
-        )}
+        {/* v9.2.3 P4.1: editorial split 头部 — 杂志感非对称双栏 (宽标题栏 + 竖线分隔的 meta deck) */}
+        <motion.header
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="mb-8 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-6 lg:gap-10 items-start"
+        >
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="cinema-eyebrow">PROJECT</span>
+              <span className="cinema-mono text-[10px] opacity-50">· {project.id?.slice(-8) || '——'}</span>
+            </div>
+            <h1 className="cinema-headline text-3xl sm:text-4xl leading-[1.1] tracking-tight">{project.title}</h1>
+            {script?.synopsis && (
+              <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed max-w-2xl">{script.synopsis}</p>
+            )}
+            {script?.theme && (
+              <p className="mt-2 text-xs text-[var(--primary)]">主题 · {script.theme}</p>
+            )}
+          </div>
+          <dl className="lg:border-l lg:border-[var(--border)] lg:pl-8 grid grid-cols-2 lg:grid-cols-1 gap-x-8 gap-y-3 shrink-0">
+            {[
+              { label: '镜头', value: String(script?.shots?.length ?? 0) },
+              { label: '角色', value: String(Array.isArray(project.lockedCharacters) ? project.lockedCharacters.length : 0) },
+              { label: '评分', value: review ? `${review.overallScore}/100` : '—' },
+              { label: '状态', value: project.status === 'completed' ? '已完成' : '制作中' },
+            ].map((m) => (
+              <div key={m.label}>
+                <dt className="cinema-eyebrow !text-[9px] opacity-50">{m.label}</dt>
+                <dd className="cinema-mono text-base tabular-nums mt-0.5">{m.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </motion.header>
 
         {/* v2.11: 最近一次润色的行业体检单 (如果有) */}
         {scriptAsset?.data?.latestPolish ? (

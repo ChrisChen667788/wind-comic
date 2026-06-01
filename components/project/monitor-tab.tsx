@@ -75,7 +75,7 @@ export function MonitorTab({ projectId, storyboards = [] }: { projectId: string;
 
       {/* 出片对接 */}
       <div className="cinema-card !p-4">
-        <div className="cinema-eyebrow mb-2 flex items-center gap-1.5"><FileDown size={13} className="text-[var(--primary)]" /> 专业出片对接 · DaVinci / Premiere / Avid</div>
+        <div className="cinema-eyebrow mb-2 flex items-center gap-1.5"><FileDown size={13} className="text-[var(--monitor-blue)]" /> 专业出片对接 · DaVinci / Premiere / Avid</div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => download('edl')} className="cinema-btn-ghost !text-[11px]"><FileDown size={13} /> 导出 EDL (CMX3600)</button>
           <button onClick={() => download('fcpxml')} className="cinema-btn-ghost !text-[11px]"><FileDown size={13} /> 导出 FCP7 XML</button>
@@ -87,7 +87,7 @@ export function MonitorTab({ projectId, storyboards = [] }: { projectId: string;
       {/* 示波器 */}
       <div className="cinema-card !p-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="cinema-eyebrow flex items-center gap-1.5"><Activity size={13} className="text-[var(--accent)]" /> 视频示波器</span>
+          <span className="cinema-eyebrow flex items-center gap-1.5"><Activity size={13} className="text-[var(--scope-green)]" /> 视频示波器</span>
           {stats && (
             <span className="cinema-mono text-[10px] opacity-70 flex items-center gap-2">
               <Gauge size={11} /> 均亮 {stats.avgLuma} · 高光裁切 {(stats.clippedHighlights * 100).toFixed(1)}% · 暗部 {(stats.clippedShadows * 100).toFixed(1)}%
@@ -106,7 +106,7 @@ export function MonitorTab({ projectId, storyboards = [] }: { projectId: string;
                 const active = u === sel;
                 return (
                   <button key={sb.id || i} onClick={() => setSel(u)}
-                    className={`shrink-0 rounded-md overflow-hidden border-2 transition ${active ? 'border-[var(--primary)]' : 'border-transparent opacity-70 hover:opacity-100'}`}>
+                    className={`shrink-0 rounded-md overflow-hidden border-2 transition ${active ? 'border-[var(--scope-green)]' : 'border-transparent opacity-70 hover:opacity-100'}`}>
                     <img src={u} alt="" className="w-16 h-10 object-cover" />
                   </button>
                 );
@@ -156,7 +156,7 @@ function RenderLoopPanel({ projectId }: { projectId: string }) {
   if (!data || data.summary.total === 0) {
     return (
       <div className="cinema-card !p-4">
-        <div className="cinema-eyebrow mb-1 flex items-center gap-1.5"><FilmStrip size={13} className="text-[var(--accent)]" /> 渲染循环 · RENDER LOOP</div>
+        <div className="cinema-eyebrow mb-1 flex items-center gap-1.5"><FilmStrip size={13} className="text-[var(--monitor-blue)]" /> 渲染循环 · RENDER LOOP</div>
         <div className="cinema-mono text-[11px] opacity-50">剧本 / 分镜尚未生成 — 开始创作后这里实时显示每镜渲染进度。</div>
       </div>
     );
@@ -167,8 +167,8 @@ function RenderLoopPanel({ projectId }: { projectId: string }) {
     <div className="cinema-card !p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="cinema-eyebrow flex items-center gap-1.5">
-          <FilmStrip size={13} className="text-[var(--accent)]" /> 渲染循环 · RENDER LOOP
-          {live && <span className="inline-flex items-center gap-1 text-[9px] text-[var(--accent)]"><span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" /> LIVE</span>}
+          <FilmStrip size={13} className="text-[var(--monitor-blue)]" /> 渲染循环 · RENDER LOOP
+          {live && <span className="inline-flex items-center gap-1 text-[9px] text-[var(--monitor-blue)]"><span className="w-1.5 h-1.5 rounded-full bg-[var(--monitor-blue)] animate-pulse" /> LIVE</span>}
         </span>
         <span className="cinema-mono text-[10px] opacity-70 flex items-center gap-1.5">
           <Clock size={11} /> ETA {formatEta(s.etaMs)}{s.avgShotMs != null ? ` · 均 ${Math.round(s.avgShotMs / 1000)}s/镜` : ''}
@@ -177,7 +177,7 @@ function RenderLoopPanel({ projectId }: { projectId: string }) {
 
       <div className="flex items-center gap-2 mb-3">
         <div className="flex-1 h-2 rounded-full bg-[var(--border)] overflow-hidden">
-          <div className="h-full bg-[var(--primary)] transition-all duration-500" style={{ width: `${s.percent}%` }} />
+          <div className="h-full bg-[var(--monitor-blue)] transition-all duration-500" style={{ width: `${s.percent}%` }} />
         </div>
         <span className="cinema-mono text-[11px] tabular-nums">{s.done}/{s.total}</span>
         <span className="cinema-mono text-[11px] opacity-60 tabular-nums">{s.percent}%</span>
@@ -201,9 +201,9 @@ function RenderLoopPanel({ projectId }: { projectId: string }) {
 }
 
 function ShotStatusIcon({ status }: { status: ShotRenderState['status'] }) {
-  if (status === 'done') return <CheckCircle size={14} weight="fill" className="text-[var(--primary)] shrink-0" />;
+  if (status === 'done') return <CheckCircle size={14} weight="fill" className="text-[var(--scope-green)] shrink-0" />;
   if (status === 'failed') return <AlertCircle size={14} weight="fill" className="text-[var(--secondary)] shrink-0" />;
-  if (status === 'active') return <CircleNotch size={14} className="text-[var(--accent)] shrink-0 animate-spin" />;
+  if (status === 'active') return <CircleNotch size={14} className="text-[var(--monitor-blue)] shrink-0 animate-spin" />;
   return <span className="w-3.5 h-3.5 rounded-full border border-[var(--border)] shrink-0 inline-block" />;
 }
 
