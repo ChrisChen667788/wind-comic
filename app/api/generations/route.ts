@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
-import { db, now } from '@/lib/db';
+import { getDbDriver } from '@/lib/db-driver'; // v9.0.4: 双驱动
 import { getUserFromRequest } from '../auth/lib';
 
 function mockSvg(label: string, c1: string, c2: string): string {
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const payload = getUserFromRequest(request);
   if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
-  const rows = db.prepare('SELECT * FROM generations WHERE user_id = ? ORDER BY created_at DESC').all(payload.sub) as any[];
+  const rows = await getDbDriver().query<any>('SELECT * FROM generations WHERE user_id = ? ORDER BY created_at DESC', [payload.sub]);
   const data = rows.map((r) => ({
     id: r.id, projectId: r.project_id, prompt: r.prompt,
     style: r.style, status: r.status,
@@ -29,14 +29,15 @@ export async function POST(request: Request) {
   if (!prompt || !style) return NextResponse.json({ message: 'Missing prompt or style' }, { status: 400 });
 
   const id = nanoid();
-  const ts = now();
+  const ts = new Date().toISOString();
   const mockResults = [
     mockSvg('Generated 1', '#4c1d95', '#ec4899'),
     mockSvg('Generated 2', '#0e7490', '#4de0c2'),
   ];
 
-  db.prepare(`INSERT INTO generations (id, user_id, project_id, prompt, style, status, result_urls, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-    id, payload.sub, projectId || null, prompt, style, 'completed', JSON.stringify(mockResults), ts
+  await getDbDriver().run(
+    `INSERT INTO generations (id, user_id, project_id, prompt, style, status, result_urls, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, payload.sub, projectId || null, prompt, style, 'completed', JSON.stringify(mockResults), ts],
   );
 
   return NextResponse.json({ id, projectId: projectId || null, prompt, style, status: 'completed', resultUrls: mockResults, createdAt: ts }, { status: 201 });

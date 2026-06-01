@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
  * 余额不足 / 成员不存在 → 400.
  */
 export async function POST(request: NextRequest) {
-  const owner = ownerId(request);
+  const owner = await ownerId(request);
   const body = await request.json().catch(() => ({} as any));
   const memberId = typeof body?.memberId === 'string' ? body.memberId.trim() : '';
   if (!memberId) return NextResponse.json({ message: 'memberId 必填' }, { status: 400 });
@@ -19,10 +19,10 @@ export async function POST(request: NextRequest) {
     ? Math.max(0, Math.floor(body.cost))
     : costOf(String(body?.kind || 'image'), Number.isFinite(body?.units) ? body.units : 1);
 
-  const { pool, members } = loadTeam(owner);
+  const { pool, members } = await loadTeam(owner);
   const res = consume(members, memberId, cost);
   if (!res.ok) return NextResponse.json({ message: res.reason, cost }, { status: 400 });
 
-  saveTeam(owner, pool, res.members!);
+  await saveTeam(owner, pool, res.members!);
   return NextResponse.json({ ok: true, cost, member: res.member, summary: poolSummary(pool, res.members!) });
 }

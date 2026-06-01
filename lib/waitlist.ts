@@ -4,10 +4,11 @@
  * Beta 版 "申请内测" 功能 —— 用户提交邮箱 / 使用目的，管理员审批后发码。
  */
 
-import { db, now } from '@/lib/db';
+// v9.0.4: 全量异步化 (走 DbDriver, 双驱动); createInviteCode 改走 invite-repo (清 v9.0.3 defer)
+import { getDbDriver } from '@/lib/db-driver';
 import { nanoid } from 'nanoid';
 import type { WaitlistEntry } from '@/types/agents';
-import { createInviteCode } from '@/lib/invite-codes';
+import { createInviteCode } from '@/lib/repos/invite-repo';
 
 interface WaitlistRow {
   id: string;
@@ -39,77 +40,68 @@ export interface CreateWaitlistInput {
   source?: string;
 }
 
-export function createWaitlistEntry(input: CreateWaitlistInput): WaitlistEntry {
+export async function createWaitlistEntry(input: CreateWaitlistInput): Promise<WaitlistEntry> {
   const id = nanoid();
-  const ts = now();
-  db.prepare(
-    `INSERT INTO waitlist (id, email, purpose, source, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, input.email.trim().toLowerCase(), input.purpose ?? '', input.source ?? null, 'pending', ts);
-  return getWaitlistEntry(id)!;
+  const ts = new Date().toISOString();
+  await getDbDriver().run(
+    `INSERT INTO waitlist (id, email, purpose, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, input.email.trim().toLowerCase(), input.purpose ?? '', input.source ?? null, 'pending', ts],
+  );
+  return (await getWaitlistEntry(id))!;
 }
 
-export function getWaitlistEntry(id: string): WaitlistEntry | null {
-  const row = db.prepare('SELECT * FROM waitlist WHERE id = ?').get(id) as
-    | WaitlistRow
-    | undefined;
+export async function getWaitlistEntry(id: string): Promise<WaitlistEntry | null> {
+  const row = await getDbDriver().get<WaitlistRow>('SELECT * FROM waitlist WHERE id = ?', [id]);
   return row ? rowToEntry(row) : null;
 }
 
-export function findWaitlistByEmail(email: string): WaitlistEntry[] {
-  const rows = db
-    .prepare('SELECT * FROM waitlist WHERE email = ? ORDER BY created_at DESC')
-    .all(email.trim().toLowerCase()) as WaitlistRow[];
+export async function findWaitlistByEmail(email: string): Promise<WaitlistEntry[]> {
+  const rows = await getDbDriver().query<WaitlistRow>(
+    'SELECT * FROM waitlist WHERE email = ? ORDER BY created_at DESC', [email.trim().toLowerCase()],
+  );
   return rows.map(rowToEntry);
 }
 
-export function listWaitlistEntries(opts?: {
+export async function listWaitlistEntries(opts?: {
   status?: WaitlistEntry['status'];
   limit?: number;
-}): WaitlistEntry[] {
+}): Promise<WaitlistEntry[]> {
   const conds: string[] = [];
   const params: unknown[] = [];
-  if (opts?.status) {
-    conds.push('status = ?');
-    params.push(opts.status);
-  }
+  if (opts?.status) { conds.push('status = ?'); params.push(opts.status); }
   const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
   const limit = Math.min(Math.max(opts?.limit ?? 100, 1), 500);
-  const rows = db
-    .prepare(`SELECT * FROM waitlist ${where} ORDER BY created_at DESC LIMIT ?`)
-    .all(...params, limit) as WaitlistRow[];
+  const rows = await getDbDriver().query<WaitlistRow>(
+    `SELECT * FROM waitlist ${where} ORDER BY created_at DESC LIMIT ?`, [...params, limit],
+  );
   return rows.map(rowToEntry);
 }
 
-/**
- * 审批通过：生成新邀请码 + 绑定到 waitlist 条目 + 标记 approved
- */
-export function approveWaitlistEntry(
+/** 审批通过: 生成新邀请码 + 绑定 + 标记 approved. */
+export async function approveWaitlistEntry(
   id: string,
   adminId: string,
   source?: string,
-): WaitlistEntry | null {
-  const entry = getWaitlistEntry(id);
+): Promise<WaitlistEntry | null> {
+  const entry = await getWaitlistEntry(id);
   if (!entry) return null;
   if (entry.status !== 'pending') {
     throw new Error(`Cannot approve entry in status: ${entry.status}`);
   }
-
-  const invite = createInviteCode({
+  const invite = await createInviteCode({
     createdBy: adminId,
     source: source ?? entry.source ?? 'waitlist',
   });
-
-  const ts = now();
-  db.prepare(
+  await getDbDriver().run(
     `UPDATE waitlist SET status = 'approved', approved_at = ?, invite_code = ? WHERE id = ?`,
-  ).run(ts, invite.code, id);
+    [new Date().toISOString(), invite.code, id],
+  );
   return getWaitlistEntry(id);
 }
 
-export function rejectWaitlistEntry(id: string): WaitlistEntry | null {
-  const entry = getWaitlistEntry(id);
+export async function rejectWaitlistEntry(id: string): Promise<WaitlistEntry | null> {
+  const entry = await getWaitlistEntry(id);
   if (!entry) return null;
-  db.prepare(`UPDATE waitlist SET status = 'rejected' WHERE id = ?`).run(id);
+  await getDbDriver().run(`UPDATE waitlist SET status = 'rejected' WHERE id = ?`, [id]);
   return getWaitlistEntry(id);
 }

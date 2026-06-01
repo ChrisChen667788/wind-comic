@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   // 已有 pending / approved 记录时幂等返回
-  const existing = findWaitlistByEmail(body.email);
+  const existing = await findWaitlistByEmail(body.email);
   const alreadyActive = existing.find(
     e => e.status === 'pending' || e.status === 'approved',
   );
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const entry = createWaitlistEntry({
+  const entry = await createWaitlistEntry({
     email: body.email,
     purpose: body.purpose,
     source: body.source,
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   }
 
   const status = request.nextUrl.searchParams.get('status') || undefined;
-  const entries = listWaitlistEntries({
+  const entries = await listWaitlistEntries({
     status: status as WaitlistEntry['status'] | undefined,
   });
   return NextResponse.json({ entries, total: entries.length });

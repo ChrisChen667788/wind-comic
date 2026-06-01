@@ -214,8 +214,8 @@ describe('isInviteRequired', () => {
 // ──────────────────────────────────────────────────────────
 
 describe('waitlist', () => {
-  it('create + find by email', () => {
-    const e = createWaitlistEntry({
+  it('create + find by email', async () => {
+    const e = await createWaitlistEntry({
       email: 'WL1@test.local',
       purpose: 'for fun',
       source: 'landing',
@@ -223,30 +223,30 @@ describe('waitlist', () => {
     expect(e.status).toBe('pending');
     expect(e.email).toBe('wl1@test.local'); // 小写化
 
-    const found = findWaitlistByEmail('wl1@test.local');
+    const found = await findWaitlistByEmail('wl1@test.local');
     expect(found.length).toBeGreaterThan(0);
   });
 
-  it('approveWaitlistEntry 生成码并绑定', () => {
-    const e = createWaitlistEntry({ email: 'wl2@test.local', purpose: 'x' });
-    const approved = approveWaitlistEntry(e.id, ADMIN_ID);
+  it('approveWaitlistEntry 生成码并绑定', async () => {
+    const e = await createWaitlistEntry({ email: 'wl2@test.local', purpose: 'x' });
+    const approved = await approveWaitlistEntry(e.id, ADMIN_ID);
     expect(approved?.status).toBe('approved');
     expect(approved?.inviteCode).toBeTruthy();
     expect(approved?.approvedAt).toBeTruthy();
 
     // 生成的码能 validate 通过
-    expect(validateInviteCode(approved!.inviteCode!).ok).toBe(true);
+    expect((await validateInviteCode(approved!.inviteCode!)).ok).toBe(true);
   });
 
-  it('approveWaitlistEntry 对非 pending 状态抛错', () => {
-    const e = createWaitlistEntry({ email: 'wl3@test.local', purpose: 'x' });
-    approveWaitlistEntry(e.id, ADMIN_ID);
-    expect(() => approveWaitlistEntry(e.id, ADMIN_ID)).toThrow(/Cannot approve/);
+  it('approveWaitlistEntry 对非 pending 状态抛错', async () => {
+    const e = await createWaitlistEntry({ email: 'wl3@test.local', purpose: 'x' });
+    await approveWaitlistEntry(e.id, ADMIN_ID);
+    await expect(approveWaitlistEntry(e.id, ADMIN_ID)).rejects.toThrow(/Cannot approve/);
   });
 
-  it('rejectWaitlistEntry', () => {
-    const e = createWaitlistEntry({ email: 'wl4@test.local', purpose: 'x' });
-    const r = rejectWaitlistEntry(e.id);
+  it('rejectWaitlistEntry', async () => {
+    const e = await createWaitlistEntry({ email: 'wl4@test.local', purpose: 'x' });
+    const r = await rejectWaitlistEntry(e.id);
     expect(r?.status).toBe('rejected');
   });
 });
