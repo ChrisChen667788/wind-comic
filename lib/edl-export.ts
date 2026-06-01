@@ -5,7 +5,8 @@
  *   - buildEDL():    CMX3600 EDL (最通用, DaVinci/Premiere/Avid 都能读)
  *   - buildFCPXML(): FCP7 xmeml (DaVinci / Premiere 导入, 保留片段名 + 时长)
  *
- * 注: 真 AAF 为二进制容器, 需专门库; 这里用 EDL + FCPXML 覆盖 DaVinci/Premiere 对接 (更通用)。
+ * 注: EDL + FCPXML 覆盖 DaVinci/Premiere 对接 (最通用)。真 AAF (Avid) 为二进制 MS-CFB 容器,
+ *     已在 v9.2.0 由 lib/aaf-export 自实现 (无第三方库), 端点 /api/projects/[id]/export-aaf。
  */
 
 export interface EdlShot {
