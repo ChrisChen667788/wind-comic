@@ -22,7 +22,7 @@ export default async function OgImage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const found = getTemplateAssetForToken(token);
+  const found = await getTemplateAssetForToken(token);
 
   // 默认值 (token 不存在 / 已过期 仍要返回一张合理的图, 不要 500)
   let icon = '📄';

@@ -65,7 +65,7 @@ export async function POST(
     body.role === 'editor' || body.role === 'commenter' ? body.role : 'viewer';
   const expiresInDays = typeof body.expiresInDays === 'number' ? body.expiresInDays : null;
 
-  const token = createProjectShareToken({
+  const token = await createProjectShareToken({
     projectId, ownerUserId: userId, role,
     expiresInDays: expiresInDays === 0 ? null : expiresInDays,
   });
@@ -88,8 +88,8 @@ export async function GET(
   if (!isOwner(projectId, userId)) {
     return NextResponse.json({ error: '仅项目所有者可查看邀请列表' }, { status: 403 });
   }
-  const tokens = listShareTokensForProject(projectId);
-  const collaborators = listCollaborators(projectId);
+  const tokens = await listShareTokensForProject(projectId);
+  const collaborators = await listCollaborators(projectId);
   // 拼上 user info (name + avatar) 给 UI 渲染
   const collabsWithUser = collaborators.map((c) => {
     try {
@@ -123,13 +123,13 @@ export async function DELETE(
   const userIdToRemove = request.nextUrl.searchParams.get('userId');
 
   if (token) {
-    const ok = revokeProjectShareToken(token, userId);
+    const ok = await revokeProjectShareToken(token, userId);
     if (!ok) return NextResponse.json({ error: 'token 不存在或非创建者' }, { status: 404 });
     return NextResponse.json({ revoked: true });
   }
 
   if (userIdToRemove) {
-    const ok = removeCollaborator(projectId, userIdToRemove, userId);
+    const ok = await removeCollaborator(projectId, userIdToRemove, userId);
     if (!ok) return NextResponse.json({ error: '失败 — 仅 owner 可踢, 且不能踢自己' }, { status: 403 });
     return NextResponse.json({ removed: true });
   }
@@ -152,7 +152,7 @@ export async function PATCH(
   if (!targetUserId || !['viewer', 'commenter', 'editor'].includes(newRole)) {
     return NextResponse.json({ error: '缺 userId 或 role 非法 (viewer/commenter/editor)' }, { status: 400 });
   }
-  const ok = updateCollaboratorRole(projectId, targetUserId, newRole as ProjectRole, userId);
+  const ok = await updateCollaboratorRole(projectId, targetUserId, newRole as ProjectRole, userId);
   if (!ok) return NextResponse.json({ error: '失败 — 仅 owner 可改, 用户不存在' }, { status: 403 });
   return NextResponse.json({ updated: true, userId: targetUserId, role: newRole });
 }

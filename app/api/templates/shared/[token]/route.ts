@@ -34,12 +34,12 @@ function resolveOwnerName(userId: string): string | null {
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const found = getTemplateAssetForToken(token);
+  const found = await getTemplateAssetForToken(token);
   if (!found) {
     return NextResponse.json({ error: '分享链接不存在或已过期' }, { status: 404 });
   }
   // 公开读取 +view_count (失败容忍)
-  incrementViewCount(token);
+  await incrementViewCount(token);
   const ownerName = resolveOwnerName(found.token.ownerUserId);
   return NextResponse.json({
     token,

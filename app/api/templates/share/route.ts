@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
   }
 
-  const t = createShareToken({ assetId, ownerUserId: userId, expiresAt });
+  const t = await createShareToken({ assetId, ownerUserId: userId, expiresAt });
   return NextResponse.json({
     token: t.token,
     url: buildShareUrl(request, t.token),
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const userId = resolveUserId(request);
-  const tokens = listTokensForOwner(userId);
+  const tokens = await listTokensForOwner(userId);
   return NextResponse.json({
     tokens: tokens.map((t) => ({
       ...t,
@@ -90,7 +90,7 @@ export async function DELETE(request: NextRequest) {
   const userId = resolveUserId(request);
   const token = request.nextUrl.searchParams.get('token');
   if (!token) return NextResponse.json({ error: '缺 token 参数' }, { status: 400 });
-  const ok = deleteToken(token, userId);
+  const ok = await deleteToken(token, userId);
   if (!ok) return NextResponse.json({ error: 'token 不存在或不属于当前用户' }, { status: 404 });
   return NextResponse.json({ deleted: true, token });
 }

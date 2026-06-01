@@ -24,7 +24,7 @@ export async function generateMetadata({
   params: Promise<{ token: string }>;
 }): Promise<Metadata> {
   const { token } = await params;
-  const found = getTemplateAssetForToken(token);
+  const found = await getTemplateAssetForToken(token);
 
   if (!found) {
     return {

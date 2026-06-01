@@ -26,7 +26,7 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
-  const t = getProjectShareToken(token);
+  const t = await getProjectShareToken(token);
   if (!t) {
     return NextResponse.json({ error: '邀请链接无效或已过期' }, { status: 404 });
   }
@@ -46,7 +46,7 @@ export async function GET(
     | { name: string; avatar_url: string | null }
     | undefined;
 
-  incrementShareTokenViewCount(token);
+  await incrementShareTokenViewCount(token);
   return NextResponse.json({
     project: {
       id: proj.id,
@@ -69,7 +69,7 @@ export async function POST(
   if (!payload?.sub) {
     return NextResponse.json({ error: '需要登录后接受邀请' }, { status: 401 });
   }
-  const result = acceptProjectInvite({ token, userId: payload.sub });
+  const result = await acceptProjectInvite({ token, userId: payload.sub });
   if (!result.ok) {
     return NextResponse.json({ error: result.error || '接受失败' }, { status: 400 });
   }

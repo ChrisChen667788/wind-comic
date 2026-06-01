@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const userId = resolveUserId(request);
   const { token } = await params;
 
-  const found = getTemplateAssetForToken(token);
+  const found = await getTemplateAssetForToken(token);
   if (!found) {
     return NextResponse.json({ error: '分享链接不存在或已过期' }, { status: 404 });
   }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         clonedAt: new Date().toISOString(),
       },
     });
-    incrementCloneCount(token);
+    await incrementCloneCount(token);
     return NextResponse.json({
       newAssetId: newAsset.id,
       newAssetName: newAsset.name,
