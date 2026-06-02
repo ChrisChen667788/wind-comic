@@ -1930,7 +1930,8 @@ npm test
 
 > **里程碑**:v9.0.x 绿 = 测试 flake 根治 + 可上 PG;v9.1.x 绿 = 短剧分发变现闭环;v9.2.x 绿 = 专业出片 + 体验提速。**(v9.0.x / v9.1.x / v9.2.x 全部交付 → 阶段十一~十三达成)**
 
-- **v9.0.4d · 遥测/用量簇收尾上 DbDriver** ✅ 2026-06-02:`api-usage-tracker`(api_usage_events + api_quota_alerts)+ admin/api-status 读路径全异步化双驱动;PG 往返 7/7;两遥测测试 31/31。**遥测簇双驱动收口**。剩 yjs_docs / agent_workflows / preview_history / shot_vision_audits / plugin_chain_events 等更低频内部表留机会主义(默认 SQLite 无 split-brain)。
+- **v9.0.4d · 遥测/用量簇收尾上 DbDriver** ✅ 2026-06-02:`api-usage-tracker`(api_usage_events + api_quota_alerts)+ admin/api-status 读路径全异步化双驱动;PG 往返 7/7;两遥测测试 31/31。**遥测簇双驱动收口**。
+- **v9.0.4e · plugin_chain_events 上 DbDriver + TTS 模型统一** ✅ 2026-06-02:`plugin-chain-telemetry`(recordPluginEvent/aggregatePluginStats)异步化双驱动(PG 兼容:双引号别名保留驼峰 + Number 归一聚合)+ router 4 处 void + 测试 async;**TTS 债清**:minimax.service 3 处 `speech-2.8-hd`→`speech-02-hd` 统一。tsc 0 / plugin-telemetry 6/6 tsx;全量待下个窗口(本次 fork worker 被负载飙升打断, 环境性)。剩 `preview_history`/`quality_scores`/`shot_vision_audits`/`agent_workflows`/`yjs_docs`/`chat_messages` 留 v9.0.4f。
 
 ---
 
@@ -1959,7 +1960,7 @@ npm test
 
 | 隐患 | 位置 | 优先级 | Sprint |
 |---|---|---|---|
-| TTS 模型不一致 | `tts.service.ts:134` (speech-02) vs `minimax.service.ts:737` (speech-2.8-hd) | 中 | C.4 |
+| ~~TTS 模型不一致~~ ✅ v9.0.4e | minimax.service 3 处 `speech-2.8-hd`→`speech-02-hd` 统一 (与 tts.service 一致) | 中 | ✅ 已清 |
 | `lib/export.ts` PDF/视频 stub TODO | export.ts:11/47/52 | 低 | 不安排 — §2.3 已替代 |
 | `skills/skills-implementation.ts` 4 个 AI 能力占位 | skills-implementation.ts:43/96/145/190 | 低 | 不安排 — 实验性目录 |
 | SQLite 并发写锁(invite-codes 偶发) | better-sqlite3 并行写 | 中 | 等 PG 迁移解 |

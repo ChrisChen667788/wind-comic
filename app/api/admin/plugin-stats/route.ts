@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   const hours = hoursRaw != null ? Number(hoursRaw) : null;
   const sinceMs = hours != null && Number.isFinite(hours) && hours > 0 ? hours * 60 * 60 * 1000 : undefined;
 
-  const persisted = aggregatePluginStats(sinceMs);
+  const persisted = await aggregatePluginStats(sinceMs);
 
   return NextResponse.json({
     // 当前进程的运行配置

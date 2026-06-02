@@ -15,7 +15,8 @@
  */
 
 import { nanoid } from 'nanoid';
-import { db, now } from '@/lib/db';
+import { now } from '@/lib/db';
+import { getDbDriver } from '@/lib/db-driver';
 
 export type PluginEventKind = 'image' | 'video' | 'tts';
 export type PluginEventMode = 'primary' | 'shadow';
@@ -37,21 +38,22 @@ export interface PluginEvent {
 /**
  * 落一条 plugin 事件. best-effort — 拿不到 DB 就跳过, 永不抛 (业务路径上调用).
  */
-export function recordPluginEvent(ev: PluginEvent): void {
+export async function recordPluginEvent(ev: PluginEvent): Promise<void> {
   try {
-    db.prepare(
+    await getDbDriver().run(
       `INSERT INTO plugin_chain_events
         (id, kind, mode, outcome, provider, latency_ms, error, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      nanoid(),
-      ev.kind,
-      ev.mode,
-      ev.outcome,
-      ev.provider ?? null,
-      ev.latencyMs ?? null,
-      ev.error ? String(ev.error).slice(0, 200) : null,
-      now(),
+      [
+        nanoid(),
+        ev.kind,
+        ev.mode,
+        ev.outcome,
+        ev.provider ?? null,
+        ev.latencyMs ?? null,
+        ev.error ? String(ev.error).slice(0, 200) : null,
+        now(),
+      ],
     );
   } catch {
     // swallow — 遥测永远不能拖垮业务
@@ -86,7 +88,7 @@ const CUTOVER_MIN_SAMPLES = 50;
 /**
  * 聚合最近 sinceMs 毫秒内的事件 (不传 = 全部). 给 admin API.
  */
-export function aggregatePluginStats(sinceMs?: number): PluginStatsSummary {
+export async function aggregatePluginStats(sinceMs?: number): Promise<PluginStatsSummary> {
   const empty: PluginStatsSummary = { sinceMs: sinceMs ?? null, rows: [], cutoverReady: false };
   try {
     const params: any[] = [];
@@ -95,33 +97,40 @@ export function aggregatePluginStats(sinceMs?: number): PluginStatsSummary {
       where = 'WHERE created_at >= ?';
       params.push(new Date(Date.now() - sinceMs).toISOString());
     }
-    const rows = db.prepare(
+    const rows = (await getDbDriver().query(
       `SELECT
          kind,
-         COUNT(*) AS total,
-         SUM(CASE WHEN outcome = 'primary_hit' THEN 1 ELSE 0 END) AS primaryHit,
-         SUM(CASE WHEN outcome = 'primary_fallback' THEN 1 ELSE 0 END) AS primaryFallback,
-         SUM(CASE WHEN outcome = 'shadow_agree' THEN 1 ELSE 0 END) AS shadowAgree,
-         SUM(CASE WHEN outcome = 'shadow_disagree' THEN 1 ELSE 0 END) AS shadowDisagree,
-         AVG(latency_ms) AS avgLatencyMs
+         COUNT(*) AS "total",
+         SUM(CASE WHEN outcome = 'primary_hit' THEN 1 ELSE 0 END) AS "primaryHit",
+         SUM(CASE WHEN outcome = 'primary_fallback' THEN 1 ELSE 0 END) AS "primaryFallback",
+         SUM(CASE WHEN outcome = 'shadow_agree' THEN 1 ELSE 0 END) AS "shadowAgree",
+         SUM(CASE WHEN outcome = 'shadow_disagree' THEN 1 ELSE 0 END) AS "shadowDisagree",
+         AVG(latency_ms) AS "avgLatencyMs"
        FROM plugin_chain_events
        ${where}
        GROUP BY kind`,
-    ).all(...params) as any[];
+      params,
+    )) as any[];
 
     const out: PluginStatsRow[] = rows.map((r) => {
-      const primaryDenom = r.primaryHit + r.primaryFallback;
-      const shadowDenom = r.shadowAgree + r.shadowDisagree;
+      // PG 的 COUNT/SUM/AVG 返回 string/bigint → Number() 归一 (SQLite 已是 number)
+      const total = Number(r.total) || 0;
+      const primaryHit = Number(r.primaryHit) || 0;
+      const primaryFallback = Number(r.primaryFallback) || 0;
+      const shadowAgree = Number(r.shadowAgree) || 0;
+      const shadowDisagree = Number(r.shadowDisagree) || 0;
+      const primaryDenom = primaryHit + primaryFallback;
+      const shadowDenom = shadowAgree + shadowDisagree;
       return {
         kind: r.kind,
-        total: r.total,
-        primaryHit: r.primaryHit,
-        primaryFallback: r.primaryFallback,
-        shadowAgree: r.shadowAgree,
-        shadowDisagree: r.shadowDisagree,
-        primaryHitRate: primaryDenom > 0 ? r.primaryHit / primaryDenom : null,
-        shadowAgreeRate: shadowDenom > 0 ? r.shadowAgree / shadowDenom : null,
-        avgLatencyMs: r.avgLatencyMs != null ? Math.round(r.avgLatencyMs) : null,
+        total,
+        primaryHit,
+        primaryFallback,
+        shadowAgree,
+        shadowDisagree,
+        primaryHitRate: primaryDenom > 0 ? primaryHit / primaryDenom : null,
+        shadowAgreeRate: shadowDenom > 0 ? shadowAgree / shadowDenom : null,
+        avgLatencyMs: r.avgLatencyMs != null ? Math.round(Number(r.avgLatencyMs)) : null,
       };
     });
 

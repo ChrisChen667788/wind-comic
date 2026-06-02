@@ -51,13 +51,13 @@ async function runWithPlugin<T>(
     try {
       const { value, provider } = await tryPlugin();
       pluginChainStats.recordPrimaryHit();
-      recordPluginEvent({ kind, mode: 'primary', outcome: 'primary_hit', provider, latencyMs: Date.now() - t0 });
+      void recordPluginEvent({ kind, mode: 'primary', outcome: 'primary_hit', provider, latencyMs: Date.now() - t0 });
       return value;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       pluginChainStats.recordPrimaryFallback();
       pluginChainStats.recordError(`${kind}:${msg.slice(0, 30)}`);
-      recordPluginEvent({ kind, mode: 'primary', outcome: 'primary_fallback', latencyMs: Date.now() - t0, error: msg });
+      void recordPluginEvent({ kind, mode: 'primary', outcome: 'primary_fallback', latencyMs: Date.now() - t0, error: msg });
       return fallback();
     }
   }
@@ -71,12 +71,12 @@ async function runWithPlugin<T>(
       try {
         const { provider } = await tryPlugin();
         pluginChainStats.recordShadowAgreed();
-        recordPluginEvent({ kind, mode: 'shadow', outcome: 'shadow_agree', provider, latencyMs: Date.now() - t0 });
+        void recordPluginEvent({ kind, mode: 'shadow', outcome: 'shadow_agree', provider, latencyMs: Date.now() - t0 });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         pluginChainStats.recordShadowDisagreed();
         pluginChainStats.recordError(`${kind}-shadow:${msg.slice(0, 30)}`);
-        recordPluginEvent({ kind, mode: 'shadow', outcome: 'shadow_disagree', latencyMs: Date.now() - t0, error: msg });
+        void recordPluginEvent({ kind, mode: 'shadow', outcome: 'shadow_disagree', latencyMs: Date.now() - t0, error: msg });
       }
     })();
   }

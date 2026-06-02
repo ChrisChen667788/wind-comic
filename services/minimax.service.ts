@@ -913,7 +913,7 @@ export class MinimaxService {
     console.log(`[Minimax] Using T2A for ambient audio (fallback, duration hint=${duration}s)...`);
 
     const body = {
-      model: 'speech-2.8-hd',
+      model: 'speech-02-hd',
       text: `[ambient music] ${prompt}`.slice(0, 500),
       stream: false,
       voice_setting: {
@@ -979,7 +979,7 @@ export class MinimaxService {
       console.log(`[Minimax] TTS: voice=${voiceId}, text="${text.slice(0, 50)}..."`);
 
       const body = {
-        model: 'speech-2.8-hd',
+        model: 'speech-02-hd',
         text: text,
         stream: false,
         voice_setting: {
@@ -1045,7 +1045,7 @@ export class MinimaxService {
       throw new Error(`Minimax TTS: no audio in response: ${JSON.stringify(data).slice(0, 300)}`);
     } catch (error) {
       console.error('[Minimax] TTS error:', error);
-      _trackMinimaxError(error, 'speech-2.8-hd', 'generateSpeech');
+      _trackMinimaxError(error, 'speech-02-hd', 'generateSpeech');
       throw error;
     }
   }
