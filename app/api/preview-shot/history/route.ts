@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
   const tierProbe = checkPlan(request, 'free');
   const tier: Tier = (tierProbe.current as Tier) || 'free';
 
-  const entries = listForUser(userId, limit);
-  const quota = getQuotaState(userId, tier);
+  const entries = await listForUser(userId, limit);
+  const quota = await getQuotaState(userId, tier);
 
   return NextResponse.json({
     entries,
@@ -46,7 +46,7 @@ export async function DELETE(request: NextRequest) {
   const userId = resolveUserId(request);
   const id = request.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: '缺 id' }, { status: 400 });
-  const ok = deletePreview(id, userId);
+  const ok = await deletePreview(id, userId);
   if (!ok) return NextResponse.json({ error: '记录不存在或不属于当前用户' }, { status: 404 });
   return NextResponse.json({ deleted: true, id });
 }

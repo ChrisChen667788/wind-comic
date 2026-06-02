@@ -1482,7 +1482,7 @@ export class HybridOrchestrator {
       });
 
       // v2.11 #4: 如果本项目有上一轮 Editor 评分,把"低分维度强化提示"注入 Writer
-      const prevScoreX = this.projectId ? getLatestQualityScore(this.projectId) : null;
+      const prevScoreX = this.projectId ? await getLatestQualityScore(this.projectId) : null;
       const feedbackHintX = buildWriterFeedbackHint(prevScoreX);
       if (feedbackHintX) {
         console.log(`[Writer] reinforcing weak dimensions from last run score (overall=${prevScoreX?.overall})`);
@@ -1612,7 +1612,7 @@ export class HybridOrchestrator {
 
       // v2.11 #4: Writer-Editor 闭环 —— 把上一版的评分反馈注入本轮 prompt
       // 分<70 的维度会被拼进 userContext,引导模型针对性补弱点。
-      const prevScore = this.projectId ? getLatestQualityScore(this.projectId) : null;
+      const prevScore = this.projectId ? await getLatestQualityScore(this.projectId) : null;
       const feedbackHint = buildWriterFeedbackHint(prevScore);
       if (feedbackHint) {
         console.log(`[Writer] reinforcing weak dimensions from last run score (overall=${prevScore?.overall})`);

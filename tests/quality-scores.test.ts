@@ -49,8 +49,8 @@ describe('quality-scores (v2.11 #4)', () => {
     projectId = freshProjectId();
   });
 
-  it('insertQualityScore persists and round-trips', () => {
-    const row = insertQualityScore({
+  it('insertQualityScore persists and round-trips', async () => {
+    const row = await insertQualityScore({
       projectId,
       overall: 82,
       continuity: 85,
@@ -68,7 +68,7 @@ describe('quality-scores (v2.11 #4)', () => {
     expect(row.overall).toBe(82);
     expect(row.lighting).toBe(60);
 
-    const got = getLatestQualityScore(projectId);
+    const got = await getLatestQualityScore(projectId);
     expect(got).not.toBeNull();
     expect(got!.overall).toBe(82);
     expect(got!.sampleFrames).toHaveLength(2);
@@ -76,31 +76,31 @@ describe('quality-scores (v2.11 #4)', () => {
   });
 
   it('getLatestQualityScore returns the most recent by createdAt', async () => {
-    insertQualityScore({
+    await insertQualityScore({
       projectId, overall: 60, continuity: 60, lighting: 60, face: 60,
       narrative: 'v1', sampleFrames: [],
       suggestions: { continuity: [], lighting: [], face: [] },
     });
     // 等 5ms 以便 ISO 时间字符串不同 —— 对 SQLite lexicographic sort 关键
     await new Promise((r) => setTimeout(r, 5));
-    insertQualityScore({
+    await insertQualityScore({
       projectId, overall: 88, continuity: 85, lighting: 90, face: 90,
       narrative: 'v2 after rewrite', sampleFrames: [],
       suggestions: { continuity: [], lighting: [], face: [] },
     });
 
-    const latest = getLatestQualityScore(projectId);
+    const latest = await getLatestQualityScore(projectId);
     expect(latest?.overall).toBe(88);
     expect(latest?.narrative).toBe('v2 after rewrite');
 
-    const all = listQualityScores(projectId);
+    const all = await listQualityScores(projectId);
     expect(all).toHaveLength(2);
     expect(all[0].overall).toBe(88);
     expect(all[1].overall).toBe(60);
   });
 
-  it('clamps out-of-range dimensions to [0,100]', () => {
-    const row = insertQualityScore({
+  it('clamps out-of-range dimensions to [0,100]', async () => {
+    const row = await insertQualityScore({
       projectId,
       overall: 250,    // → 100
       continuity: -5,  // → 0

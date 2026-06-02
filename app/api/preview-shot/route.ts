@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
   // 用 checkPlan 借现成 user→tier 映射 (即便用户当前层不需 plan-gate, 这里只读 tier)
   const tierProbe = checkPlan(request, 'free');
   const userTier: Tier = (tierProbe.current as Tier) || 'free';
-  const quota = getQuotaState(userId, userTier);
+  const quota = await getQuotaState(userId, userTier);
   if (quota.blocked) {
     return NextResponse.json(
       {
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
   // v2.18 P2.2: 持久化到 preview_history (供 rate-limit 计数 + UI 历史面板用)
   let savedId: string | undefined;
   try {
-    const saved = insertPreview({
+    const saved = await insertPreview({
       userId,
       idea: cleanedIdea,
       style,
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 重新拉一次配额 (insertPreview 后 used+1) — 让前端能立即更新 chip
-  const updatedQuota = getQuotaState(userId, userTier);
+  const updatedQuota = await getQuotaState(userId, userTier);
 
   return NextResponse.json({
     historyId: savedId,

@@ -15,7 +15,8 @@
  *     - 连贯低 → 要求镜头衔接写明过渡动作 + 复述道具
  */
 
-import { db, now } from './db';
+import { now } from './db';
+import { getDbDriver } from './db-driver';
 import { nanoid } from 'nanoid';
 
 export interface QualityScoreDimensions {
@@ -51,7 +52,7 @@ export interface InsertQualityScoreInput {
   suggestions: QualityScoreSuggestions;
 }
 
-export function insertQualityScore(input: InsertQualityScoreInput): QualityScoreRow {
+export async function insertQualityScore(input: InsertQualityScoreInput): Promise<QualityScoreRow> {
   const row: QualityScoreRow = {
     id: `qs_${nanoid(12)}`,
     projectId: input.projectId,
@@ -68,49 +69,52 @@ export function insertQualityScore(input: InsertQualityScoreInput): QualityScore
     },
     createdAt: now(),
   };
-  db.prepare(`
-    INSERT INTO project_quality_scores
+  await getDbDriver().run(
+    `INSERT INTO project_quality_scores
       (id, project_id, overall_score, continuity_score, lighting_score, face_score,
        narrative, sample_frames, suggestions, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    row.id,
-    row.projectId,
-    row.overall,
-    row.continuity,
-    row.lighting,
-    row.face,
-    row.narrative,
-    JSON.stringify(row.sampleFrames),
-    JSON.stringify(row.suggestions),
-    row.createdAt,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      row.id,
+      row.projectId,
+      row.overall,
+      row.continuity,
+      row.lighting,
+      row.face,
+      row.narrative,
+      JSON.stringify(row.sampleFrames),
+      JSON.stringify(row.suggestions),
+      row.createdAt,
+    ],
   );
   return row;
 }
 
 /** 取某项目最近一次评分,没有返回 null */
-export function getLatestQualityScore(projectId: string): QualityScoreRow | null {
-  const raw = db.prepare(`
-    SELECT id, project_id, overall_score, continuity_score, lighting_score, face_score,
+export async function getLatestQualityScore(projectId: string): Promise<QualityScoreRow | null> {
+  const raw = (await getDbDriver().get(
+    `SELECT id, project_id, overall_score, continuity_score, lighting_score, face_score,
            narrative, sample_frames, suggestions, created_at
     FROM project_quality_scores
     WHERE project_id = ?
     ORDER BY created_at DESC
-    LIMIT 1
-  `).get(projectId) as any;
+    LIMIT 1`,
+    [projectId],
+  )) as any;
   if (!raw) return null;
   return mapRow(raw);
 }
 
 /** 取项目全部历史评分(用于"迭代历史"展示) */
-export function listQualityScores(projectId: string): QualityScoreRow[] {
-  const rows = db.prepare(`
-    SELECT id, project_id, overall_score, continuity_score, lighting_score, face_score,
+export async function listQualityScores(projectId: string): Promise<QualityScoreRow[]> {
+  const rows = (await getDbDriver().query(
+    `SELECT id, project_id, overall_score, continuity_score, lighting_score, face_score,
            narrative, sample_frames, suggestions, created_at
     FROM project_quality_scores
     WHERE project_id = ?
-    ORDER BY created_at DESC
-  `).all(projectId) as any[];
+    ORDER BY created_at DESC`,
+    [projectId],
+  )) as any[];
   return rows.map(mapRow);
 }
 

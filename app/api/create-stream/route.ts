@@ -603,10 +603,10 @@ export async function POST(request: NextRequest) {
           // 结果会写进 project_quality_scores,下次 runWriter 时自动读取
           if (editResult.finalVideoUrl) {
             scoreFinalVideo(editResult.finalVideoUrl, 4)
-              .then((score) => {
+              .then(async (score) => {
                 if (!score) return;
                 try {
-                  const row = insertQualityScore({
+                  const row = await insertQualityScore({
                     projectId,
                     overall: score.overall,
                     continuity: score.continuity,

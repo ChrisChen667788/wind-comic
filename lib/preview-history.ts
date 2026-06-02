@@ -9,7 +9,8 @@
  *   - 按 created_at 的 ISO 日期前缀 (yyyy-mm-dd) 切窗
  */
 
-import { db, now } from './db';
+import { now } from './db';
+import { getDbDriver } from './db-driver';
 import { nanoid } from 'nanoid';
 
 export interface PreviewHistoryEntry {
@@ -73,26 +74,27 @@ export interface InsertPreviewInput {
   warnings?: string[];
 }
 
-export function insertPreview(input: InsertPreviewInput): PreviewHistoryEntry {
+export async function insertPreview(input: InsertPreviewInput): Promise<PreviewHistoryEntry> {
   const id = nanoid();
   const createdAt = now();
   const warningsJson = JSON.stringify(input.warnings || []);
-  db.prepare(
+  await getDbDriver().run(
     `INSERT INTO preview_history
        (id, user_id, idea, style, aspect, image_url, video_url, prompt, elapsed_ms, warnings, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.userId,
-    (input.idea || '').slice(0, 500),
-    input.style || '',
-    input.aspect || '16:9',
-    input.imageUrl || null,
-    input.videoUrl || null,
-    (input.prompt || '').slice(0, 400),
-    Math.max(0, Math.round(input.elapsedMs || 0)),
-    warningsJson,
-    createdAt,
+    [
+      id,
+      input.userId,
+      (input.idea || '').slice(0, 500),
+      input.style || '',
+      input.aspect || '16:9',
+      input.imageUrl || null,
+      input.videoUrl || null,
+      (input.prompt || '').slice(0, 400),
+      Math.max(0, Math.round(input.elapsedMs || 0)),
+      warningsJson,
+      createdAt,
+    ],
   );
   return {
     id,
@@ -110,30 +112,29 @@ export function insertPreview(input: InsertPreviewInput): PreviewHistoryEntry {
 }
 
 /** 当天 (UTC date) 该 user 已用次数 — 给 rate-limit 用 */
-export function countTodayForUser(userId: string, refDate: Date = new Date()): number {
+export async function countTodayForUser(userId: string, refDate: Date = new Date()): Promise<number> {
   const dayPrefix = refDate.toISOString().slice(0, 10); // 'yyyy-mm-dd'
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) as c FROM preview_history
+  const row = (await getDbDriver().get(
+    `SELECT COUNT(*) as c FROM preview_history
        WHERE user_id = ? AND substr(created_at, 1, 10) = ?`,
-    )
-    .get(userId, dayPrefix) as { c: number } | undefined;
-  return row?.c ?? 0;
+    [userId, dayPrefix],
+  )) as { c: number | string } | undefined;
+  return Number(row?.c ?? 0); // PG COUNT 返字符串 → 归一
 }
 
-export function listForUser(userId: string, limit = 30): PreviewHistoryEntry[] {
-  const rows = db
-    .prepare(
-      `SELECT * FROM preview_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
-    )
-    .all(userId, Math.min(100, Math.max(1, limit))) as PreviewHistoryRow[];
+export async function listForUser(userId: string, limit = 30): Promise<PreviewHistoryEntry[]> {
+  const rows = (await getDbDriver().query(
+    `SELECT * FROM preview_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+    [userId, Math.min(100, Math.max(1, limit))],
+  )) as PreviewHistoryRow[];
   return rows.map(rowToEntry);
 }
 
-export function deletePreview(id: string, userId: string): boolean {
-  const result = db
-    .prepare(`DELETE FROM preview_history WHERE id = ? AND user_id = ?`)
-    .run(id, userId);
+export async function deletePreview(id: string, userId: string): Promise<boolean> {
+  const result = await getDbDriver().run(
+    `DELETE FROM preview_history WHERE id = ? AND user_id = ?`,
+    [id, userId],
+  );
   return result.changes > 0;
 }
 
@@ -159,9 +160,9 @@ export interface QuotaState {
   blocked: boolean;
 }
 
-export function getQuotaState(userId: string, tier: Tier): QuotaState {
+export async function getQuotaState(userId: string, tier: Tier): Promise<QuotaState> {
   const limit = PREVIEW_DAILY_LIMIT[tier] ?? PREVIEW_DAILY_LIMIT.free;
-  const used = countTodayForUser(userId);
+  const used = await countTodayForUser(userId);
   const remaining = Math.max(0, limit - used);
   return {
     tier,

@@ -1932,6 +1932,7 @@ npm test
 
 - **v9.0.4d · 遥测/用量簇收尾上 DbDriver** ✅ 2026-06-02:`api-usage-tracker`(api_usage_events + api_quota_alerts)+ admin/api-status 读路径全异步化双驱动;PG 往返 7/7;两遥测测试 31/31。**遥测簇双驱动收口**。
 - **v9.0.4e · plugin_chain_events 上 DbDriver + TTS 模型统一** ✅ 2026-06-02:`plugin-chain-telemetry`(recordPluginEvent/aggregatePluginStats)异步化双驱动(PG 兼容:双引号别名保留驼峰 + Number 归一聚合)+ router 4 处 void + 测试 async;**TTS 债清**:minimax.service 3 处 `speech-2.8-hd`→`speech-02-hd` 统一。tsc 0 / plugin-telemetry 6/6 tsx;全量待下个窗口(本次 fork worker 被负载飙升打断, 环境性)。剩 `preview_history`/`quality_scores`/`shot_vision_audits`/`agent_workflows`/`yjs_docs`/`chat_messages` 留 v9.0.4f。
+- **v9.0.4f · preview_history + project_quality_scores 上 DbDriver** ✅ 2026-06-02:`quality-scores`(insert/getLatest/list)+ `preview-history`(insert/countToday/list/delete/getQuotaState)异步化双驱动(PG 兼容:COUNT Number 归一 + deletePreview 用统一 changes);callers 全 await(create-stream `.then` 改 async + orchestrator×2 + preview-shot×3 + history route×3)+ 两测试 async。tsc 0 / 数据路径 8/8 tsx;全量+PG 往返待窗口。剩 `shot_vision_audits`/`agent_workflows`/`yjs_docs`(ws-server)/`chat_messages` 留 v9.0.4g。
 
 ---
 
