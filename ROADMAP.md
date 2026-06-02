@@ -1951,7 +1951,7 @@ npm test
 - **v9.3.4 · 预算护栏硬拦截落地** ✅ 2026-06-02:预算持久化(users 加 `budget_cap_cny`/`budget_hard_cap_cny`)+ `lib/budget-enforce`(getUserBudget/setUserBudget/monthSpentCny/`assertBudget`,7/7 tsx 真 SQLite)+ GET/POST `/api/usage/budget` + summary guard 改读服务端预算 + **首接 `/api/preview-shot` 出图前硬拦截(到硬上限→402)** + 面板预算改存服务端。tsc 0。**核心管线(create-stream)接入 → v9.3.5**;PG 列已写,ALTER+往返待重启 windcomic-pg
 - **v9.3.5 · 预算护栏接核心管线**(待规划):把 `assertBudget` 接进 create-stream 视频/图像生成前 + u2v/4k 等成本入口,统一硬拦截;需能跑全量 vitest 时安全改核心路径
 
-> **里程碑**:v9.3.x 绿 = 用量/成本从「埋在日志」变「创作者可见 + 预算可控」, 闭合 v9.1 变现的成本侧。**(v9.3.0/1/2/3 全交付 → 阶段十四达成;全量 vitest 待机器空闲补)**
+> **里程碑**:v9.3.x 绿 = 用量/成本从「埋在日志」变「创作者可见 + 预算可控」, 闭合 v9.1 变现的成本侧。**(v9.3.0/1/2/3/4 全交付 → 阶段十四达成;✅ 全量 vitest 163 文件/1944 已补绿, 清 v9.0.4d→v9.3.4 整串欠债)**
 
 ---
 
