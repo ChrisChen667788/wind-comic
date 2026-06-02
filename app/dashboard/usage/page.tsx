@@ -10,9 +10,10 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import {
   ChartLineUp, ArrowsClockwise as RefreshCw, CircleNotch as Loader2,
-  WarningCircle as AlertTriangle, CurrencyCny, Stack,
+  WarningCircle as AlertTriangle, CurrencyCny, Stack, ShieldCheck,
 } from '@phosphor-icons/react';
 import type { CostSummary, BudgetStatus } from '@/lib/cost-rollup';
+import type { BudgetGuardResult } from '@/lib/budget-guard';
 
 interface Alert { provider: string; model: string; alertType: string; occurrenceCount: number; errorMessage: string; }
 interface Summary {
@@ -20,6 +21,7 @@ interface Summary {
   window: { days: number; since: string };
   cost: CostSummary;
   budget: BudgetStatus;
+  guard: BudgetGuardResult;
   activeAlerts: Alert[];
   failuresByProvider: Array<{ provider: string; failed: number }>;
 }
@@ -35,18 +37,30 @@ const RING_STROKE: Record<string, string> = { ok: '#22D3A5', warn: '#E8C547', ov
 const ALERT_LABEL: Record<string, string> = {
   exhausted: '额度耗尽', saturated: '上游饱和', rate_limited: '限流', auth_failed: '鉴权失败', model_unavailable: '模型不可用',
 };
+const GUARD_TONE: Record<string, string> = {
+  none: 'text-[var(--muted)] border-white/10 bg-white/5',
+  ok: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/5',
+  warn: 'text-amber-300 border-amber-500/30 bg-amber-500/5',
+  soft_over: 'text-amber-300 border-amber-500/40 bg-amber-500/10',
+  hard_block: 'text-rose-300 border-rose-500/40 bg-rose-500/10',
+};
 const cny = (n: number) => `¥${(Number(n) || 0).toFixed(2)}`;
 
 export default function UsagePage() {
   const [days, setDays] = useState(30);
+  const [cap, setCap] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    try { return localStorage.getItem('wc_budget_cap') || ''; } catch { return ''; }
+  });
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
-  const load = useCallback(async (d: number) => {
+  const load = useCallback(async (d: number, capCny: string) => {
     setLoading(true); setErr('');
     try {
-      const r = await fetch(`/api/usage/summary?days=${d}`);
+      const q = capCny && Number(capCny) > 0 ? `&capCny=${Number(capCny)}` : '';
+      const r = await fetch(`/api/usage/summary?days=${d}${q}`);
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || '加载失败');
       setData(j);
@@ -57,7 +71,15 @@ export default function UsagePage() {
     }
   }, []);
 
-  useEffect(() => { load(days); }, [days, load]);
+  function updateCap(v: string) {
+    setCap(v);
+    try {
+      if (v && Number(v) > 0) localStorage.setItem('wc_budget_cap', v);
+      else localStorage.removeItem('wc_budget_cap');
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => { load(days, cap); }, [days, cap, load]);
 
   const b = data?.budget;
   const pct = b && b.pctUsed != null ? Math.max(0, Math.min(1, b.pctUsed)) : 0;
@@ -77,12 +99,17 @@ export default function UsagePage() {
           <div className="cinema-eyebrow flex items-center gap-1.5"><ChartLineUp size={14} className="text-[var(--primary)]" /> 用量与成本</div>
           <h1 className="cinema-headline text-2xl mt-1">成本可观测</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-1 cinema-mono text-[10px] opacity-70">
+            月预算 ¥
+            <input type="number" min={0} value={cap} onChange={(e) => updateCap(e.target.value)} placeholder="不限"
+              className="w-20 bg-[var(--surface)] border border-[var(--border)] rounded px-1.5 py-0.5 text-[11px] outline-none focus:border-[var(--primary)]" />
+          </label>
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)}
               className={`cinema-btn !text-[11px] !py-1 ${days === d ? 'cinema-btn-primary' : 'cinema-btn-ghost'}`}>近 {d} 天</button>
           ))}
-          <button onClick={() => load(days)} className="cinema-btn-ghost !p-1.5" title="刷新"><RefreshCw size={14} /></button>
+          <button onClick={() => load(days, cap)} className="cinema-btn-ghost !p-1.5" title="刷新"><RefreshCw size={14} /></button>
         </div>
       </div>
 
@@ -105,6 +132,15 @@ export default function UsagePage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 预算护栏状态条 */}
+          {data.guard.level !== 'none' && (
+            <div className={`cinema-card !p-3 border flex items-center gap-2 ${GUARD_TONE[data.guard.level] || GUARD_TONE.none}`}>
+              <ShieldCheck size={15} weight="fill" className="shrink-0" />
+              <span className="text-[12px] flex-1">{data.guard.message}</span>
+              {!data.guard.allow && <a href={data.guard.upgradeUrl} className="cinema-btn-ghost !text-[10px] shrink-0">去计费</a>}
             </div>
           )}
 

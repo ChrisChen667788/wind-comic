@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server';
 import { getDbDriver } from '@/lib/db-driver';
 import { getUserFromRequest } from '../../auth/lib';
 import { buildCostSummary, computeBudget, totalCostCny, type CostLogRow } from '@/lib/cost-rollup';
+import { evaluateBudgetGuard } from '@/lib/budget-guard';
 import { listActiveQuotaAlerts } from '@/lib/api-usage-tracker';
 
 export const runtime = 'nodejs';
@@ -78,6 +79,13 @@ export async function GET(request: Request) {
     periodDays: daysInMonth,
   });
 
+  // ── 预算护栏: 当月花费对软/硬上限裁决 (可带本次预估成本 ?pendingCostCny / 硬上限 ?hardCapCny) ──
+  const hardCapRaw = url.searchParams.get('hardCapCny');
+  const hardCapCny = hardCapRaw != null && hardCapRaw !== '' && Number.isFinite(Number(hardCapRaw)) ? Number(hardCapRaw) : null;
+  const pendingRaw = url.searchParams.get('pendingCostCny');
+  const pendingCostCny = pendingRaw != null && pendingRaw !== '' && Number.isFinite(Number(pendingRaw)) ? Number(pendingRaw) : 0;
+  const guard = evaluateBudgetGuard({ spentCny: budget.spentCny, capCny, hardCapCny, pendingCostCny });
+
   // ── 运维: 活跃配额告警 + 按 provider 失败计数 (窗口内) ──
   const activeAlerts = await listActiveQuotaAlerts({ windowMs: 60 * 60 * 1000 });
   const failRows = (await driver.query(
@@ -92,6 +100,7 @@ export async function GET(request: Request) {
     window: { days, since },
     cost,
     budget,
+    guard,
     activeAlerts,
     failuresByProvider,
   });

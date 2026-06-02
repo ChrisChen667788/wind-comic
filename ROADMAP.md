@@ -1947,10 +1947,9 @@ npm test
   `{ cost:{totals,byEngine/Day/Project}, budget(当月), activeAlerts, failuresByProvider }`;`?days`/`?projectId`/`?capCny` 过滤;admin 全量(或 `?userId`)/ 创作者限本人。与 `/api/usage`(套餐配额)互补。tsc 0;数据路径冒烟 7/7(tsx);vitest 全量待补。
 - **v9.3.2 · 创作者用量面板 (dashboard)** ✅ 2026-06-02:`app/dashboard/usage/page.tsx` 消费 `/api/usage/summary` →
   预算环(当月,SVG+none/ok/warn/over)+ 引擎花费条 + 每日成本趋势柱 + 活跃配额告警 banner + 7/30/90 天窗口;侧栏加「用量成本」入口。复用健康看板设计语言, 创作者可见。tsc 0。
-- **v9.3.3 · 预算护栏 (budget guards)**:user / team 软硬预算上限 —— 到阈值告警, 到上限 plan-gate
-  (复用 `lib/plan-gate`);护栏状态在面板 + 创作入口提示。
+- **v9.3.3 · 预算护栏 (budget guards)** ✅ 2026-06-02:`lib/budget-guard`(`evaluateBudgetGuard` 软/硬上限 + 阈值告警 + pending 成本预判 → allow/level/message/upgradeUrl,11/11 tsx)+ `/api/usage/summary` 加 `guard` 字段 + `/dashboard/usage` 月预算输入(localStorage)+ 护栏状态条。与 `lib/plan-gate` 正交。tsc 0。真正生成端点硬拦截留后续。**→ 阶段十四收官**
 
-> **里程碑**:v9.3.x 绿 = 用量/成本从「埋在日志」变「创作者可见 + 预算可控」, 闭合 v9.1 变现的成本侧。
+> **里程碑**:v9.3.x 绿 = 用量/成本从「埋在日志」变「创作者可见 + 预算可控」, 闭合 v9.1 变现的成本侧。**(v9.3.0/1/2/3 全交付 → 阶段十四达成;全量 vitest 待机器空闲补)**
 
 ---
 
