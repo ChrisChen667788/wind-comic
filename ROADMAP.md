@@ -1947,7 +1947,9 @@ npm test
   `{ cost:{totals,byEngine/Day/Project}, budget(当月), activeAlerts, failuresByProvider }`;`?days`/`?projectId`/`?capCny` 过滤;admin 全量(或 `?userId`)/ 创作者限本人。与 `/api/usage`(套餐配额)互补。tsc 0;数据路径冒烟 7/7(tsx);vitest 全量待补。
 - **v9.3.2 · 创作者用量面板 (dashboard)** ✅ 2026-06-02:`app/dashboard/usage/page.tsx` 消费 `/api/usage/summary` →
   预算环(当月,SVG+none/ok/warn/over)+ 引擎花费条 + 每日成本趋势柱 + 活跃配额告警 banner + 7/30/90 天窗口;侧栏加「用量成本」入口。复用健康看板设计语言, 创作者可见。tsc 0。
-- **v9.3.3 · 预算护栏 (budget guards)** ✅ 2026-06-02:`lib/budget-guard`(`evaluateBudgetGuard` 软/硬上限 + 阈值告警 + pending 成本预判 → allow/level/message/upgradeUrl,11/11 tsx)+ `/api/usage/summary` 加 `guard` 字段 + `/dashboard/usage` 月预算输入(localStorage)+ 护栏状态条。与 `lib/plan-gate` 正交。tsc 0。真正生成端点硬拦截留后续。**→ 阶段十四收官**
+- **v9.3.3 · 预算护栏判定 (budget guards)** ✅ 2026-06-02:`lib/budget-guard`(`evaluateBudgetGuard` 软/硬上限 + 阈值告警 + pending 成本预判 → allow/level/message/upgradeUrl,11/11 tsx)+ `/api/usage/summary` 加 `guard` 字段 + `/dashboard/usage` 护栏状态条。与 `lib/plan-gate` 正交。tsc 0。**→ 阶段十四 4 子版本判定层收官**
+- **v9.3.4 · 预算护栏硬拦截落地** ✅ 2026-06-02:预算持久化(users 加 `budget_cap_cny`/`budget_hard_cap_cny`)+ `lib/budget-enforce`(getUserBudget/setUserBudget/monthSpentCny/`assertBudget`,7/7 tsx 真 SQLite)+ GET/POST `/api/usage/budget` + summary guard 改读服务端预算 + **首接 `/api/preview-shot` 出图前硬拦截(到硬上限→402)** + 面板预算改存服务端。tsc 0。**核心管线(create-stream)接入 → v9.3.5**;PG 列已写,ALTER+往返待重启 windcomic-pg
+- **v9.3.5 · 预算护栏接核心管线**(待规划):把 `assertBudget` 接进 create-stream 视频/图像生成前 + u2v/4k 等成本入口,统一硬拦截;需能跑全量 vitest 时安全改核心路径
 
 > **里程碑**:v9.3.x 绿 = 用量/成本从「埋在日志」变「创作者可见 + 预算可控」, 闭合 v9.1 变现的成本侧。**(v9.3.0/1/2/3 全交付 → 阶段十四达成;全量 vitest 待机器空闲补)**
 

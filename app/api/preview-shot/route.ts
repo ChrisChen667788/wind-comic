@@ -116,6 +116,16 @@ export async function POST(request: NextRequest) {
 
   console.log(`[preview-shot] user=${userId} style=${style} aspect=${aspect} videoToo=${videoToo} prompt="${visualPrompt.slice(0, 80)}..."`);
 
+  // v9.3.4: 预算护栏硬拦截 — 到月度硬上限则拦 (试拍粗估: 图 ~¥0.3, +视频段 ~¥1.5)
+  const { assertBudget } = await import('@/lib/budget-enforce');
+  const budgetCheck = await assertBudget({ userId, pendingCostCny: videoToo ? 1.8 : 0.3 });
+  if (!budgetCheck.allow) {
+    return NextResponse.json(
+      { error: budgetCheck.guard.message, guard: budgetCheck.guard },
+      { status: 402 }, // Payment Required — 月度预算硬上限
+    );
+  }
+
   const t0 = Date.now();
   const warnings: string[] = [];
 

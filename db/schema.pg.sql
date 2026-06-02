@@ -351,7 +351,7 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_url TEXT,
   locale TEXT DEFAULT 'zh',
   created_at TEXT NOT NULL
-, invite_code_used TEXT, subscription_tier TEXT NOT NULL DEFAULT 'free', subscription_status TEXT, stripe_customer_id TEXT, email_notify_pref TEXT DEFAULT 'mentions');
+, invite_code_used TEXT, subscription_tier TEXT NOT NULL DEFAULT 'free', subscription_status TEXT, stripe_customer_id TEXT, email_notify_pref TEXT DEFAULT 'mentions', budget_cap_cny REAL, budget_hard_cap_cny REAL);
 CREATE TABLE IF NOT EXISTS waitlist (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL,

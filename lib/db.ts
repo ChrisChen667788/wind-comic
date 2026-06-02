@@ -279,6 +279,11 @@ addColumnIfMissing('projects', 'output_config', 'TEXT');                      //
 // v2.0 给 users 表加 invite_code_used 字段，用于审计哪个码引入了用户
 addColumnIfMissing('users', 'invite_code_used', 'TEXT');
 
+// v9.3.4 (2026-06-02): 用户月预算护栏 —— budget_cap_cny 软上限(预算目标) + budget_hard_cap_cny 硬上限(绝对线);
+// null = 不设防。生成端点经 lib/budget-enforce.assertBudget 读这两列 + 当月 cost_log 花费裁决, 到硬上限拦截。
+addColumnIfMissing('users', 'budget_cap_cny', 'REAL');
+addColumnIfMissing('users', 'budget_hard_cap_cny', 'REAL');
+
 // v2.9 (2026-04-21): 资产持久化 —— 外链/tmp URL 会过期,persistent_url 指向
 // 本机 .storage/assets/<sha256>.<ext> 的持久化副本,是兜底路径。
 // serve-file 路由优先读 persistent_url,失败时才回退到原始 media_urls。

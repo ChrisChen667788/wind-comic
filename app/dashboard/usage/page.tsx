@@ -48,19 +48,15 @@ const cny = (n: number) => `¥${(Number(n) || 0).toFixed(2)}`;
 
 export default function UsagePage() {
   const [days, setDays] = useState(30);
-  const [cap, setCap] = useState<string>(() => {
-    if (typeof window === 'undefined') return '';
-    try { return localStorage.getItem('wc_budget_cap') || ''; } catch { return ''; }
-  });
+  const [cap, setCap] = useState('');
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
-  const load = useCallback(async (d: number, capCny: string) => {
+  const load = useCallback(async (d: number) => {
     setLoading(true); setErr('');
     try {
-      const q = capCny && Number(capCny) > 0 ? `&capCny=${Number(capCny)}` : '';
-      const r = await fetch(`/api/usage/summary?days=${d}${q}`);
+      const r = await fetch(`/api/usage/summary?days=${d}`);
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || '加载失败');
       setData(j);
@@ -71,15 +67,25 @@ export default function UsagePage() {
     }
   }, []);
 
-  function updateCap(v: string) {
-    setCap(v);
-    try {
-      if (v && Number(v) > 0) localStorage.setItem('wc_budget_cap', v);
-      else localStorage.removeItem('wc_budget_cap');
-    } catch { /* ignore */ }
-  }
+  // v9.3.4: 月预算改存服务端 — 初次拉已存值
+  useEffect(() => {
+    fetch('/api/usage/budget').then((r) => (r.ok ? r.json() : null)).then((b) => {
+      if (b && b.capCny != null) setCap(String(b.capCny));
+    }).catch(() => {});
+  }, []);
 
-  useEffect(() => { load(days, cap); }, [days, cap, load]);
+  // 失焦保存预算 → 重算 guard
+  const saveCap = useCallback(async () => {
+    try {
+      await fetch('/api/usage/budget', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ capCny: cap && Number(cap) > 0 ? Number(cap) : null }),
+      });
+    } catch { /* ignore */ }
+    load(days);
+  }, [cap, days, load]);
+
+  useEffect(() => { load(days); }, [days, load]);
 
   const b = data?.budget;
   const pct = b && b.pctUsed != null ? Math.max(0, Math.min(1, b.pctUsed)) : 0;
@@ -102,14 +108,14 @@ export default function UsagePage() {
         <div className="flex items-center gap-2 flex-wrap">
           <label className="flex items-center gap-1 cinema-mono text-[10px] opacity-70">
             月预算 ¥
-            <input type="number" min={0} value={cap} onChange={(e) => updateCap(e.target.value)} placeholder="不限"
+            <input type="number" min={0} value={cap} onChange={(e) => setCap(e.target.value)} onBlur={saveCap} placeholder="不限"
               className="w-20 bg-[var(--surface)] border border-[var(--border)] rounded px-1.5 py-0.5 text-[11px] outline-none focus:border-[var(--primary)]" />
           </label>
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)}
               className={`cinema-btn !text-[11px] !py-1 ${days === d ? 'cinema-btn-primary' : 'cinema-btn-ghost'}`}>近 {d} 天</button>
           ))}
-          <button onClick={() => load(days, cap)} className="cinema-btn-ghost !p-1.5" title="刷新"><RefreshCw size={14} /></button>
+          <button onClick={() => load(days)} className="cinema-btn-ghost !p-1.5" title="刷新"><RefreshCw size={14} /></button>
         </div>
       </div>
 

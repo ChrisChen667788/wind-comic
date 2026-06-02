@@ -13,6 +13,7 @@ import { getDbDriver } from '@/lib/db-driver';
 import { getUserFromRequest } from '../../auth/lib';
 import { buildCostSummary, computeBudget, totalCostCny, type CostLogRow } from '@/lib/cost-rollup';
 import { evaluateBudgetGuard } from '@/lib/budget-guard';
+import { getUserBudget } from '@/lib/budget-enforce';
 import { listActiveQuotaAlerts } from '@/lib/api-usage-tracker';
 
 export const runtime = 'nodejs';
@@ -33,10 +34,10 @@ export async function GET(request: Request) {
   const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
   const projectId = (url.searchParams.get('projectId') || '').trim();
-  const capRaw = url.searchParams.get('capCny');
-  const capCny = capRaw != null && capRaw !== '' && Number.isFinite(Number(capRaw)) ? Number(capRaw) : null;
   // admin 可看全量 (scopeUserId=null) 或指定 userId; 创作者锁本人
   const scopeUserId = isAdmin ? (url.searchParams.get('userId') || null) : userId;
+  // v9.3.4: 预算从服务端 (users 列) 读, 不再走 ?capCny
+  const { capCny, hardCapCny } = await getUserBudget(scopeUserId || userId);
 
   // ── 展示窗口: cost_log 卷积 ──
   const filters = ['created_at > ?'];
@@ -79,12 +80,8 @@ export async function GET(request: Request) {
     periodDays: daysInMonth,
   });
 
-  // ── 预算护栏: 当月花费对软/硬上限裁决 (可带本次预估成本 ?pendingCostCny / 硬上限 ?hardCapCny) ──
-  const hardCapRaw = url.searchParams.get('hardCapCny');
-  const hardCapCny = hardCapRaw != null && hardCapRaw !== '' && Number.isFinite(Number(hardCapRaw)) ? Number(hardCapRaw) : null;
-  const pendingRaw = url.searchParams.get('pendingCostCny');
-  const pendingCostCny = pendingRaw != null && pendingRaw !== '' && Number.isFinite(Number(pendingRaw)) ? Number(pendingRaw) : 0;
-  const guard = evaluateBudgetGuard({ spentCny: budget.spentCny, capCny, hardCapCny, pendingCostCny });
+  // ── 预算护栏: 当月花费对软/硬上限裁决 (看板视角, 不含本次操作成本) ──
+  const guard = evaluateBudgetGuard({ spentCny: budget.spentCny, capCny, hardCapCny });
 
   // ── 运维: 活跃配额告警 + 按 provider 失败计数 (窗口内) ──
   const activeAlerts = await listActiveQuotaAlerts({ windowMs: 60 * 60 * 1000 });
