@@ -1957,6 +1957,22 @@ npm test
 
 ---
 
+## 5.14 阶段十五 · v9.4 — 质量与一致性深化 (Quality & Consistency)
+
+> 起点 (2026-06-02): 已有完整质量信号基础设施 —— Vision 每镜质检 (`lib/vision-audit`, `shot_vision_audits`) +
+> 成片 3 维评分 (`lib/quality-scores`, Editor 打分 → Writer 反馈闭环) + cref/sref/8 维 DNA 一致性。
+> 本阶段把这些「事后看分」深化成「**发布门禁 + 自动重生闭环 + 一致性可视**」, 放大竞品最难追的护城河。
+> 沿用「lib 纯逻辑+单测 → API/UI → tsc+全量+(PG 往返)」节奏。
+
+- **v9.4.0 · 成片质量门禁 lib (quality-gate, 纯逻辑+单测)** ✅ 2026-06-02:`evaluateQualityGate({filmAudit, qualityScore, thresholds})` 综合 Vision 每镜聚合 (avgScore/fail 比例/verdict) + 成片 3 维 (overall/连贯/光影/脸) → `pass`/`warn`/`block` 发布就绪 + 不达标原因 + 最弱镜 + 偏弱维度。纯函数, 与 vision-audit/quality-scores 解耦 (本地最小形)。tsc 0 / 10 单测绿。
+- **v9.4.1 · 质量门禁接导出/发布端点**:导出 (export / export-platform / distribution) 前查 gate, `block` 时 warn/拦 (warn 放行带提示);项目页「发布就绪」徽章 (复用 monitor 设计语言)。
+- **v9.4.2 · Vision 重生闭环深化**:`aggregateFilmAudit` 的 weakest 镜 → 重生计划 (优先级 + 针对性 issue 提示) + 面板「一键重拍弱镜」批量入口。
+- **v9.4.3 · 一致性报告**:聚合每镜/成片的 face/lighting/continuity → 项目级一致性视图 + 趋势 (跨迭代轮次)。
+
+> **里程碑**:v9.4.x 绿 = 质量从「事后看分」变「发布前门禁 + 弱点自动重拍」, 一致性可量化可视, 放大护城河。
+
+---
+
 ## 6. 技术债清单(待清理)
 
 | 隐患 | 位置 | 优先级 | Sprint |
