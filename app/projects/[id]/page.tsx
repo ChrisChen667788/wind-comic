@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone } from '@phosphor-icons/react';
+import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand } from '@phosphor-icons/react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { DistributionPanel } from '@/components/project/distribution-panel';
 import { CoverCandidatesPanel } from '@/components/project/cover-candidates-panel';
@@ -24,6 +24,7 @@ import { PacingChart } from '@/components/project/pacing-chart';
 import { ReviewStatusBadge } from '@/components/project/review-status-badge';
 import { CinemaTimeline } from '@/components/project/cinema-timeline';
 import { VisionAuditTab } from '@/components/project/vision-audit-tab';
+import { OneClickFilmPanel } from '@/components/project/oneclick-film-panel';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
@@ -191,6 +192,11 @@ export default function ProjectDetailPage() {
   const characters = assets.filter((a: any) => a.type === 'character');
   const scenes = assets.filter((a: any) => a.type === 'scene');
   const storyboards = assets.filter((a: any) => a.type === 'storyboard').sort((a: any, b: any) => (a.shotNumber || 0) - (b.shotNumber || 0));
+  // v9.4.6: 一键成片闭环要用的「镜号→分镜 prompt」(防御式取, 取不到的镜面板会跳过)
+  const shotPrompts = storyboards.map((s: any) => ({
+    shotNumber: s.shotNumber || 0,
+    prompt: s.prompt || (s.data && typeof s.data === 'object' ? s.data.prompt : '') || '',
+  }));
   const videos = assets.filter((a: any) => a.type === 'video').sort((a: any, b: any) => (a.shotNumber || 0) - (b.shotNumber || 0));
   const timeline = assets.find((a: any) => a.type === 'timeline');
   const review = project.directorNotes;
@@ -214,6 +220,7 @@ export default function ProjectDetailPage() {
     { key: 'pacing', label: '节奏分析', icon: BarChart3, count: script?.pacingReport?.warnings?.length || 0 },
     // v3.4.1: 成片质检 — 每镜画面对剧本的 Vision 评分
     { key: 'vision-audit', label: '成片质检', icon: ScanEye, count: 0 },
+    { key: 'oneclick', label: '一键成片', icon: MagicWand, count: 0 },
     // v8.0: 技术监看台 — 视频示波器 + EDL/XML 出片对接
     { key: 'monitor', label: '技术监看', icon: Gauge, count: 0 },
     // v8.2: 参数联动 — JSON ↔ 可视化同步
@@ -738,6 +745,11 @@ export default function ProjectDetailPage() {
           {/* v3.4.1: 成片质检 — Vision 看画面对不对得上剧本 */}
           {activeTab === 'vision-audit' && (
             <VisionAuditTab projectId={id} onJumpToWorkshop={() => setActiveTab('workshop')} />
+          )}
+
+          {/* v9.4.6: 一键成片自愈闭环(对标可灵, 我们多自检+自动重拍) */}
+          {activeTab === 'oneclick' && (
+            <OneClickFilmPanel projectId={id} shotPrompts={shotPrompts} />
           )}
 
           {/* v8.0 技术监看台 — 视频示波器 + EDL/XML 出片对接 */}

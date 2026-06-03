@@ -1969,6 +1969,7 @@ npm test
 - **v9.4.2 · Vision 重生闭环深化** ✅ 2026-06-04:新 `lib/rebirth-plan` —— 每镜质检 → 重生计划(低于阈值的镜按分升序排优先级 + 最弱维度 + 针对性修补提示 `focusHint`)。「成片质检」面板加「重生计划」段(优先级徽章 + 焦点提示)+「一键去工坊重拍」批量按钮(`onJumpToWorkshop` → page `setActiveTab('workshop')`)。纯逻辑解耦,9 单测,tsc 0。**为「一键成片」闭环自愈提供复用引擎。**
 - **v9.4.3 · 多参 Elements(对标可灵 · 一致性)** ✅ 2026-06-04:新 `lib/reference-elements` —— 把 `multimodal-ref` 自由文本 `role` 升级为结构化 `elementRole`(角色/风格/场景/道具/运镜/音色),`bindElements()` 按角色路由进既有一致性管线(character→cref+DNA · style→sref/Style Bible · scene/prop→构图 · motion→运镜 · voice→TTS)+ `elementCompleteness()` 可灵式「加元素」引导。比可灵更深(落到 DNA/cref/sref 整套)。12 单测,tsc 0。详见 `docs/kling-fusion-analysis.md`。
 - **v9.4.4 · 一键成片闭环(对标可灵 · 质量)** ✅ 2026-06-04:新 `lib/oneclick-film` —— `planOneClickFilm`(idea + 多参元素 → 成片计划 + 自愈策略)+ `decideIteration`(每轮生成质检后裁决 done/rebirth/blocked)。复用 `reference-elements` + `quality-gate`(v9.4.1)+ `rebirth-plan`(v9.4.2)拼成**闭环自愈**:可灵一键成片是开环,我们生成后每镜质检、低分镜自动重拍、门禁达标才出片。9 单测,tsc 0。
+- **v9.4.6 · 可灵融合落 UI / 执行层** ✅ 2026-06-04:让 v9.4.3/v9.4.4 的融合「可见可用」。① **多参元素货架**(`multimodal-ref-shelf`):每个参考可标结构化元素角色(角色/风格/场景/道具/运镜/音色)+「元素完整度」引导条,经 `reference-elements` 路由进 cref/sref/DNA。② **一键成片自愈闭环面板**(`oneclick-film-panel`,项目页新「一键成片」tab):真跑通 `oneclick-film` 闭环 —— 质检(`vision-audit/run`)→ `decideIteration` 裁决 → 自动重拍弱镜(`regenerate-storyboard` 带最弱维度 steer)→ 复检,**上轮数 + 停止 + 运行前确认**三重保护 + 实时日志。tsc 0。
 - **v9.4.5 · 一致性报告**:聚合每镜/成片的 face/lighting/continuity → 项目级一致性视图 + 趋势 (跨迭代轮次)。
 
 > **里程碑**:v9.4.x 绿 = 质量从「事后看分」变「发布前门禁 + 弱点自动重拍」, 一致性可量化可视, 放大护城河。
