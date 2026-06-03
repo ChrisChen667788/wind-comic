@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS cases (
   cover_url TEXT NOT NULL,
   author_name TEXT NOT NULL,
   author_avatar TEXT,
+  video_url TEXT,
   metrics TEXT,
   created_at TEXT NOT NULL
 );

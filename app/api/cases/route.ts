@@ -6,7 +6,7 @@ export async function GET() {
   const data = rows.map((r) => ({
     id: r.id, title: r.title, category: r.category,
     coverUrl: r.cover_url, authorName: r.author_name,
-    authorAvatar: r.author_avatar,
+    authorAvatar: r.author_avatar, videoUrl: r.video_url || null,
     metrics: JSON.parse(r.metrics || '{}'), createdAt: r.created_at,
   }));
   return NextResponse.json(data);

@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS cases (
   cover_url TEXT NOT NULL,
   author_name TEXT NOT NULL,
   author_avatar TEXT,
+  video_url TEXT,
   metrics TEXT,
   created_at TEXT NOT NULL
 );
@@ -283,6 +284,18 @@ addColumnIfMissing('users', 'invite_code_used', 'TEXT');
 // null = 不设防。生成端点经 lib/budget-enforce.assertBudget 读这两列 + 当月 cost_log 花费裁决, 到硬上限拦截。
 addColumnIfMissing('users', 'budget_cap_cny', 'REAL');
 addColumnIfMissing('users', 'budget_hard_cap_cny', 'REAL');
+
+// v9.5.3 (2026-06-03): 灵感库案例加示意播放视频 video_url。
+// 示意片段引用自公开影视作品(《英雄联盟:双城之战 / Arcane》, Netflix·Riot·Fortiche),
+// 仅供个人学习与画风参考、非商业用途,版权归原作者所有 (见 public/cases/NOTICE.md)。
+addColumnIfMissing('cases', 'video_url', 'TEXT');
+// 已 seed 过的库也补上示意视频 (幂等: 仅在 video_url 为空时写);标题匹配 demo 案例。
+try {
+  const setCaseVideo = db.prepare(`UPDATE cases SET video_url = ? WHERE title = ? AND (video_url IS NULL OR video_url = '')`);
+  setCaseVideo.run('/cases/clip-a.mp4', '霓虹回响');
+  setCaseVideo.run('/cases/clip-b.mp4', '星潮旅人');
+  setCaseVideo.run('/cases/clip-c.mp4', '月华藏境');
+} catch { /* 表为空或并发, 忽略 */ }
 
 // v2.9 (2026-04-21): 资产持久化 —— 外链/tmp URL 会过期,persistent_url 指向
 // 本机 .storage/assets/<sha256>.<ext> 的持久化副本,是兜底路径。
@@ -687,15 +700,16 @@ export function seed() {
         projectStmt.run(nanoid(), demoUserId, p.title, p.description, JSON.stringify(p.covers), p.status, now(), now());
       }
 
-      const caseStmt = db.prepare(`INSERT INTO cases (id, title, category, cover_url, author_name, author_avatar, metrics, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-      const demoCases = [
-        { title: '月华藏境', category: '东方幻想', cover: seedSvg(400, 300, '#312e81', '#f9a8d4', '月华藏境'), author: '青枫漫剧 Studio' },
-        { title: '霓虹回响', category: '赛博都市', cover: seedSvg(400, 300, '#0c4a6e', '#ef319f', '霓虹回响'), author: 'QingFeng Lab' },
-        { title: '星潮旅人', category: '科幻冒险', cover: seedSvg(400, 300, '#1e1b4b', '#4de0c2', '星潮旅人'), author: '青枫漫剧 Studio' },
+      const caseStmt = db.prepare(`INSERT INTO cases (id, title, category, cover_url, author_name, author_avatar, video_url, metrics, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      // video 为示意播放片段(引用自公开影视《双城之战》, 仅供学习/画风参考, 非商用; 见 public/cases/NOTICE.md)
+      const demoCases: { title: string; category: string; cover: string; author: string; video?: string }[] = [
+        { title: '月华藏境', category: '东方幻想', cover: seedSvg(400, 300, '#312e81', '#f9a8d4', '月华藏境'), author: '青枫漫剧 Studio', video: '/cases/clip-c.mp4' },
+        { title: '霓虹回响', category: '赛博都市', cover: seedSvg(400, 300, '#0c4a6e', '#ef319f', '霓虹回响'), author: 'QingFeng Lab', video: '/cases/clip-a.mp4' },
+        { title: '星潮旅人', category: '科幻冒险', cover: seedSvg(400, 300, '#1e1b4b', '#4de0c2', '星潮旅人'), author: '青枫漫剧 Studio', video: '/cases/clip-b.mp4' },
         { title: '云岚日记', category: '治愈日常', cover: seedSvg(400, 300, '#064e3b', '#a78bfa', '云岚日记'), author: 'QingFeng Lab' },
       ];
       for (const c of demoCases) {
-        caseStmt.run(nanoid(), c.title, c.category, c.cover, c.author, AVATAR, JSON.stringify({ likes: Math.floor(Math.random() * 1000) + 200, views: Math.floor(Math.random() * 5000) + 800 }), now());
+        caseStmt.run(nanoid(), c.title, c.category, c.cover, c.author, AVATAR, c.video || null, JSON.stringify({ likes: Math.floor(Math.random() * 1000) + 200, views: Math.floor(Math.random() * 5000) + 800 }), now());
       }
 
       db.prepare(`INSERT INTO generations (id, user_id, project_id, prompt, style, status, result_urls, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
