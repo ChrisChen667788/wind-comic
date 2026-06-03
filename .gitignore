@@ -65,9 +65,10 @@ next-env.d.ts
 # IDE / agent workspace
 /.claude/
 
-# runtime-generated hero assets (produced by `npm run generate:hero`)
-/public/hero-cover.jpg
-/public/hero-loop.mp4
+# hero assets: 已改为「提交的固定素材」(v9.5.0 起 = 用户提供片段, 入库版本控制)
+# 如需重新 AI 生成可跑 `npm run generate:hero`(会覆盖本地文件)
+# /public/hero-cover.jpg
+# /public/hero-loop.mp4
 
 # v4.x: 测试隔离 DB (vitest 专用, 不入库)
 data/qfmj.test.db

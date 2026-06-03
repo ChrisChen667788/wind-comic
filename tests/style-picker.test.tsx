@@ -7,22 +7,22 @@ import { StylePicker } from '@/components/creation/StylePicker';
 import { STYLE_PRESETS } from '@/lib/style-presets';
 
 describe('StylePicker', () => {
-  it('默认渲染所有 60 个风格', () => {
+  it('默认渲染所有 62 个风格', () => {
     render(<StylePicker />);
     const grid = screen.getByTestId('style-grid');
     // 每个卡片 data-testid=style-card-<id>
     const cards = grid.querySelectorAll('[data-testid^="style-card-"]');
     expect(cards.length).toBe(STYLE_PRESETS.length);
-    expect(cards.length).toBe(60);
+    expect(cards.length).toBe(62);
   });
 
-  it('点击 "动画" tab 只剩 12 个动画风格', () => {
+  it('点击 "动画" tab 只剩 14 个动画风格', () => {
     render(<StylePicker />);
     fireEvent.click(screen.getByTestId('style-tab-anime'));
     const cards = screen
       .getByTestId('style-grid')
       .querySelectorAll('[data-testid^="style-card-"]');
-    expect(cards.length).toBe(12);
+    expect(cards.length).toBe(14);
   });
 
   it('"热门" tab 只显示 popularity>=85 且不超过 24 个', () => {

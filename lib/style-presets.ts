@@ -1,7 +1,7 @@
 /**
- * 风格预设库 v1 —— 60 个初始风格
+ * 风格预设库 —— 62 个风格 (初版 60, anime 类后补「美漫 / 原神崩坏」二次元两款)
  *
- * 分类：realistic / anime / artistic / retro / experimental，每类 12 个。
+ * 分类：realistic / anime / artistic / retro / experimental;anime 14 个, 其余各 12。
  *
  * 缩略图统一由 MJ API 通过 `scripts/generate-style-thumbnails.ts` 生成，
  * 输出到 `public/styles/<id>.jpg`。
@@ -128,7 +128,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     popularity: 80,
   },
 
-  // ========== ANIME 动漫 (12) ==========
+  // ========== ANIME 动漫 (14) ==========
   {
     id: 'modern-anime',
     name: '日漫现代',
@@ -241,6 +241,26 @@ export const STYLE_PRESETS: StylePreset[] = [
     promptFragment: 'modern donghua 3D animation style, stylized cel look, vivid color, cinematic action, Nezha style',
     recommendedEngine: 'viduq3',
     popularity: 84,
+  },
+  {
+    id: 'american-comic',
+    name: '美漫',
+    nameEn: 'American Comic',
+    category: 'anime',
+    thumbnail: '/styles/american-comic.jpg',
+    promptFragment: 'American superhero comic book style, bold black ink outlines, dramatic cross-hatching, Ben-Day halftone dots, dynamic foreshortening, saturated primary colors, Marvel DC graphic novel aesthetic',
+    recommendedEngine: 'seedance2',
+    popularity: 86,
+  },
+  {
+    id: 'mihoyo-game',
+    name: '原神崩坏',
+    nameEn: 'Game Anime (miHoYo)',
+    category: 'anime',
+    thumbnail: '/styles/mihoyo-game.jpg',
+    promptFragment: 'anime game cinematic render, polished 3D cel shading, miHoYo Genshin Impact Honkai aesthetic, gacha fantasy character design, vibrant gradient rim lighting, glossy highlights, open world JRPG splash art',
+    recommendedEngine: 'seedance2',
+    popularity: 93,
   },
 
   // ========== ARTISTIC 艺术 (12) ==========
@@ -581,19 +601,20 @@ export const STYLE_PRESETS: StylePreset[] = [
   },
 ];
 
-// 静态校验：确保恰好 60 条，每类 12 条（开发期断言，打包后 tree-shake）
+// 静态校验：确保恰好 62 条 (anime 14，其余各 12；开发期断言，打包后 tree-shake)
 if (process.env.NODE_ENV !== 'production') {
   const total = STYLE_PRESETS.length;
-  if (total !== 60) {
-    console.warn(`[style-presets] expected 60 styles, got ${total}`);
+  if (total !== 62) {
+    console.warn(`[style-presets] expected 62 styles, got ${total}`);
   }
   const byCategory = STYLE_PRESETS.reduce<Record<string, number>>((acc, s) => {
     acc[s.category] = (acc[s.category] ?? 0) + 1;
     return acc;
   }, {});
+  const expectedByCategory: Record<string, number> = { realistic: 12, anime: 14, artistic: 12, retro: 12, experimental: 12 };
   for (const cat of ['realistic', 'anime', 'artistic', 'retro', 'experimental'] as const) {
-    if (byCategory[cat] !== 12) {
-      console.warn(`[style-presets] category "${cat}" should have 12 styles, got ${byCategory[cat] ?? 0}`);
+    if (byCategory[cat] !== expectedByCategory[cat]) {
+      console.warn(`[style-presets] category "${cat}" should have ${expectedByCategory[cat]} styles, got ${byCategory[cat] ?? 0}`);
     }
   }
   // id 去重检查
