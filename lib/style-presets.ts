@@ -1,7 +1,7 @@
 /**
- * 风格预设库 —— 62 个风格 (初版 60, anime 类后补「美漫 / 原神崩坏」二次元两款)
+ * 风格预设库 —— 64 个风格 (初版 60, anime 类后补「美漫 / 原神崩坏 / 雾山水墨 / 海棠唯美」四款)
  *
- * 分类：realistic / anime / artistic / retro / experimental;anime 14 个, 其余各 12。
+ * 分类：realistic / anime / artistic / retro / experimental;anime 16 个, 其余各 12。
  *
  * 缩略图统一由 MJ API 通过 `scripts/generate-style-thumbnails.ts` 生成，
  * 输出到 `public/styles/<id>.jpg`。
@@ -261,6 +261,26 @@ export const STYLE_PRESETS: StylePreset[] = [
     promptFragment: 'anime game cinematic render, polished 3D cel shading, miHoYo Genshin Impact Honkai aesthetic, gacha fantasy character design, vibrant gradient rim lighting, glossy highlights, open world JRPG splash art',
     recommendedEngine: 'seedance2',
     popularity: 93,
+  },
+  {
+    id: 'wushan-ink',
+    name: '雾山水墨',
+    nameEn: 'Ink-Wash Action',
+    category: 'anime',
+    thumbnail: '/styles/wushan-ink.jpg',
+    promptFragment: 'Chinese ink-wash donghua, sumi-e brush strokes, dynamic wuxia martial action, splattered flying ink, bold negative space, monochrome with a single vivid accent color, Fog Hill of Five Elements aesthetic',
+    recommendedEngine: 'viduq3',
+    popularity: 87,
+  },
+  {
+    id: 'haitang-ethereal',
+    name: '海棠唯美',
+    nameEn: 'Ethereal Donghua',
+    category: 'anime',
+    thumbnail: '/styles/haitang-ethereal.jpg',
+    promptFragment: 'ethereal Chinese donghua, lush painterly backgrounds, warm tungsten lantern glow, Fujian tulou roundhouse architecture, flowing hanfu silk, dreamlike folklore atmosphere, soft bloom, Big Fish Begonia aesthetic',
+    recommendedEngine: 'kling3',
+    popularity: 86,
   },
 
   // ========== ARTISTIC 艺术 (12) ==========
@@ -601,17 +621,17 @@ export const STYLE_PRESETS: StylePreset[] = [
   },
 ];
 
-// 静态校验：确保恰好 62 条 (anime 14，其余各 12；开发期断言，打包后 tree-shake)
+// 静态校验：确保恰好 64 条 (anime 16，其余各 12；开发期断言，打包后 tree-shake)
 if (process.env.NODE_ENV !== 'production') {
   const total = STYLE_PRESETS.length;
-  if (total !== 62) {
-    console.warn(`[style-presets] expected 62 styles, got ${total}`);
+  if (total !== 64) {
+    console.warn(`[style-presets] expected 64 styles, got ${total}`);
   }
   const byCategory = STYLE_PRESETS.reduce<Record<string, number>>((acc, s) => {
     acc[s.category] = (acc[s.category] ?? 0) + 1;
     return acc;
   }, {});
-  const expectedByCategory: Record<string, number> = { realistic: 12, anime: 14, artistic: 12, retro: 12, experimental: 12 };
+  const expectedByCategory: Record<string, number> = { realistic: 12, anime: 16, artistic: 12, retro: 12, experimental: 12 };
   for (const cat of ['realistic', 'anime', 'artistic', 'retro', 'experimental'] as const) {
     if (byCategory[cat] !== expectedByCategory[cat]) {
       console.warn(`[style-presets] category "${cat}" should have ${expectedByCategory[cat]} styles, got ${byCategory[cat] ?? 0}`);
