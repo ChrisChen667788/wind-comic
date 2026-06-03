@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CircleNotch as Loader2, Scan as ScanEye, ArrowsClockwise as RefreshCw } from '@phosphor-icons/react';
 import { VisionAuditPanel, type VisionAuditShot, type VisionAuditSummaryShape } from './vision-audit-panel';
+import { PublishReadinessBadge } from './publish-readiness-badge';
 
 export function VisionAuditTab({ projectId }: { projectId: string }) {
   const [audits, setAudits] = useState<VisionAuditShot[]>([]);
@@ -18,6 +19,7 @@ export function VisionAuditTab({ projectId }: { projectId: string }) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runMsg, setRunMsg] = useState<string | null>(null);
+  const [readyKey, setReadyKey] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -51,6 +53,7 @@ export function VisionAuditTab({ projectId }: { projectId: string }) {
       setAudits(body.audits || []);
       setSummary(body.summary || null);
       setRunMsg(`质检完成: ${body.scored}/${body.requested} 镜评分${body.skipped ? `, ${body.skipped} 镜跳过` : ''}`);
+      setReadyKey((k) => k + 1); // 质检数据变了 → 刷新发布就绪门禁徽章
     } catch (e) {
       setError(e instanceof Error ? e.message : '运行失败');
     } finally {
@@ -77,6 +80,8 @@ export function VisionAuditTab({ projectId }: { projectId: string }) {
 
       {runMsg && <div className="text-[11px] text-emerald-400">{runMsg}</div>}
       {error && <div className="text-[11px] text-rose-400">✗ {error}</div>}
+
+      <PublishReadinessBadge projectId={projectId} refreshKey={readyKey} />
 
       {loading ? (
         <div className="flex items-center gap-2 text-white/50 text-sm py-8 justify-center">
