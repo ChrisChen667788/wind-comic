@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 1000" font-family="'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A0F1C"/>
+      <stop offset="0.55" stop-color="#0A0D16"/>
+      <stop offset="1" stop-color="#07080E"/>
+    </linearGradient>
+    <radialGradient id="goldGlow" cx="0.5" cy="0" r="0.8">
+      <stop offset="0" stop-color="#E8C547" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#E8C547" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="spineGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8C547"/>
+      <stop offset="1" stop-color="#4DE0C2"/>
+    </linearGradient>
+    <linearGradient id="railGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E8C547"/>
+      <stop offset="0.5" stop-color="#5BA8FF"/>
+      <stop offset="1" stop-color="#4DE0C2"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrowD" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L8,5 L0,10 z" fill="#4DE0C2" opacity="0.9"/>
+    </marker>
+    <marker id="arrowR" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,5 L0,10 z" fill="#5BA8FF" opacity="0.9"/>
+    </marker>
+    <style>
+      .h1{ fill:#F2F0E6; font-size:30px; font-weight:700; letter-spacing:.2px; }
+      .gold{ fill:#E8C547; }
+      .sub{ fill:#8A93A6; font-size:14px; }
+      .bandTag{ font-size:12px; font-weight:700; letter-spacing:2px; }
+      .node{ fill:rgba(255,255,255,0.028); stroke:rgba(255,255,255,0.09); stroke-width:1; }
+      .nt{ fill:#EAEDF4; font-size:16px; font-weight:600; }
+      .ns{ fill:#7E879A; font-size:11.5px; }
+      .band{ fill:rgba(255,255,255,0.014); stroke:rgba(255,255,255,0.05); stroke-width:1; }
+      .flow{ fill:none; stroke-dasharray:5 9; stroke-width:2; stroke-linecap:round; animation:dash 2.4s linear infinite; }
+      .rail{ fill:none; stroke:url(#railGrad); stroke-dasharray:5 10; stroke-width:2.4; stroke-linecap:round; opacity:.9; animation:dash 2.6s linear infinite; }
+      .hub{ fill:rgba(232,197,71,0.07); stroke:rgba(232,197,71,0.5); stroke-width:1.2; }
+      .tick{ stroke:rgba(255,255,255,0.14); stroke-width:1; }
+      .dot{ filter:url(#soft); }
+      .pulse{ animation:glow 2.8s ease-in-out infinite; }
+      @keyframes dash{ to{ stroke-dashoffset:-200; } }
+      @keyframes glow{ 0%,100%{ opacity:.45; } 50%{ opacity:1; } }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect width="1600" height="420" fill="url(#goldGlow)"/>
+
+  <!-- title -->
+  <text x="56" y="52" class="h1"><tspan class="gold">Wind Comic</tspan>  ·  System Architecture</text>
+  <text x="57" y="80" class="sub">One line of text → one finished short drama  ·  honest multi-agent pipeline  ·  bring-your-own LLM  ·  12+ plug-in media engines</text>
+
+  <!-- ===== spine connectors (top-down control/data flow) ===== -->
+  <path id="sp1" d="M800,208 V232" class="flow" stroke="url(#spineGrad)" marker-end="url(#arrowD)"/>
+  <path id="sp2" d="M800,324 V348" class="flow" stroke="url(#spineGrad)" marker-end="url(#arrowD)"/>
+  <path id="sp3" d="M800,556 V580" class="flow" stroke="url(#spineGrad)" marker-end="url(#arrowD)"/>
+  <path id="sp4" d="M800,776 V800" class="flow" stroke="url(#spineGrad)" marker-end="url(#arrowD)"/>
+  <circle r="3.4" fill="#E8C547" cx="800" cy="208" class="dot"><animateMotion dur="2.2s" repeatCount="indefinite"><mpath xlink:href="#sp1"/></animateMotion></circle>
+  <circle r="3.4" fill="#7FE9D2" cx="800" cy="324" class="dot"><animateMotion dur="2.2s" begin="0.4s" repeatCount="indefinite"><mpath xlink:href="#sp2"/></animateMotion></circle>
+  <circle r="3.4" fill="#7FE9D2" cx="800" cy="556" class="dot"><animateMotion dur="2.2s" begin="0.8s" repeatCount="indefinite"><mpath xlink:href="#sp3"/></animateMotion></circle>
+  <circle r="3.4" fill="#7FE9D2" cx="800" cy="776" class="dot"><animateMotion dur="2.2s" begin="1.2s" repeatCount="indefinite"><mpath xlink:href="#sp4"/></animateMotion></circle>
+
+  <!-- ===== (1) CLIENT ===== -->
+  <rect x="56" y="104" width="1488" height="104" rx="16" class="band"/>
+  <text x="80" y="130" class="bandTag" fill="#5BA8FF">① CLIENT  ·  Next.js 16 · React 19</text>
+  <g>
+    <rect x="176" y="142" width="296" height="56" rx="10" class="node"/><text x="192" y="168" class="nt">Creation Studio</text><text x="192" y="186" class="ns">@-mention prompt IDE · style gallery</text>
+    <rect x="512" y="142" width="296" height="56" rx="10" class="node"/><text x="528" y="168" class="nt">Director Console</text><text x="528" y="186" class="ns">4-stage pipeline · single-stage rerun</text>
+    <rect x="848" y="142" width="296" height="56" rx="10" class="node"/><text x="864" y="168" class="nt">Cinema Timeline</text><text x="864" y="186" class="ns">multi-track · Yjs real-time collab</text>
+    <rect x="1184" y="142" width="296" height="56" rx="10" class="node"/><text x="1200" y="168" class="nt">Dashboards</text><text x="1200" y="186" class="ns">usage · budget · API health</text>
+  </g>
+
+  <!-- ===== (2) ORCHESTRATION ===== -->
+  <rect x="56" y="232" width="1488" height="92" rx="16" class="band"/>
+  <text x="80" y="258" class="bandTag" fill="#E8C547">② ORCHESTRATION</text>
+  <rect x="176" y="266" width="632" height="50" rx="10" class="node"/><text x="192" y="290" class="nt">Hybrid Orchestrator</text><text x="192" y="307" class="ns">stage planning · dependency DAG · BYO-LLM fallback</text>
+  <rect x="848" y="266" width="632" height="50" rx="10" class="node"/><text x="864" y="290" class="nt">Plugin-Chain Router</text><text x="864" y="307" class="ns">provider selection · telemetry · graceful degradation</text>
+
+  <!-- ===== (3) AGENTS ===== -->
+  <rect x="56" y="348" width="1488" height="208" rx="16" class="band"/>
+  <text x="80" y="372" class="bandTag" fill="#E8C547">③ MULTI-AGENT PIPELINE</text>
+  <rect x="176" y="384" width="1304" height="40" rx="9" class="hub"/>
+  <circle cx="200" cy="404" r="4" fill="#E8C547" class="pulse"/>
+  <text x="216" y="409" class="nt" fill="#F0DC8E">Director — orchestrates every stage, enforces consistency contracts</text>
+  <!-- director → specialists hints -->
+  <g class="tick">
+    <line x1="261" y1="424" x2="261" y2="452"/><line x1="450" y1="424" x2="450" y2="452"/><line x1="639" y1="424" x2="639" y2="452"/><line x1="828" y1="424" x2="828" y2="452"/><line x1="1017" y1="424" x2="1017" y2="452"/><line x1="1206" y1="424" x2="1206" y2="452"/><line x1="1395" y1="424" x2="1395" y2="452"/>
+  </g>
+  <!-- 7 specialists -->
+  <g>
+    <rect x="176" y="452" width="170" height="74" rx="10" class="node"/><text x="261" y="486" class="nt" text-anchor="middle">Writer</text><text x="261" y="506" class="ns" text-anchor="middle">McKee 3-act</text>
+    <rect x="365" y="452" width="170" height="74" rx="10" class="node"/><text x="450" y="486" class="nt" text-anchor="middle">Char Designer</text><text x="450" y="506" class="ns" text-anchor="middle">8-dim DNA lock</text>
+    <rect x="554" y="452" width="170" height="74" rx="10" class="node"/><text x="639" y="486" class="nt" text-anchor="middle">Scene Designer</text><text x="639" y="506" class="ns" text-anchor="middle">world look</text>
+    <rect x="743" y="452" width="170" height="74" rx="10" class="node"/><text x="828" y="486" class="nt" text-anchor="middle">Storyboard</text><text x="828" y="506" class="ns" text-anchor="middle">vision-audited</text>
+    <rect x="932" y="452" width="170" height="74" rx="10" class="node"/><text x="1017" y="486" class="nt" text-anchor="middle">Video Producer</text><text x="1017" y="506" class="ns" text-anchor="middle">engine race</text>
+    <rect x="1121" y="452" width="170" height="74" rx="10" class="node"/><text x="1206" y="486" class="nt" text-anchor="middle">Editor</text><text x="1206" y="506" class="ns" text-anchor="middle">j/l-cut · subs</text>
+    <rect x="1310" y="452" width="170" height="74" rx="10" class="node"/><text x="1395" y="486" class="nt" text-anchor="middle">Producer</text><text x="1395" y="506" class="ns" text-anchor="middle">final QC</text>
+  </g>
+  <!-- pipeline rail (flowing) -->
+  <path id="rail" d="M261,544 H1395" class="rail" marker-end="url(#arrowR)"/>
+  <g class="tick"><line x1="261" y1="526" x2="261" y2="544"/><line x1="450" y1="526" x2="450" y2="544"/><line x1="639" y1="526" x2="639" y2="544"/><line x1="828" y1="526" x2="828" y2="544"/><line x1="1017" y1="526" x2="1017" y2="544"/><line x1="1206" y1="526" x2="1206" y2="544"/><line x1="1395" y1="526" x2="1395" y2="544"/></g>
+  <circle r="3.6" fill="#FFE9A6" cx="261" cy="544" class="dot"><animateMotion dur="3.4s" repeatCount="indefinite"><mpath xlink:href="#rail"/></animateMotion></circle>
+  <circle r="3.6" fill="#9BD0FF" cx="261" cy="544" class="dot"><animateMotion dur="3.4s" begin="1.1s" repeatCount="indefinite"><mpath xlink:href="#rail"/></animateMotion></circle>
+  <circle r="3.6" fill="#7FE9D2" cx="261" cy="544" class="dot"><animateMotion dur="3.4s" begin="2.2s" repeatCount="indefinite"><mpath xlink:href="#rail"/></animateMotion></circle>
+
+  <!-- ===== (4) ENGINES ===== -->
+  <rect x="56" y="580" width="1488" height="196" rx="16" class="band"/>
+  <text x="80" y="604" class="bandTag" fill="#5BA8FF">④ LLM GATEWAY  &amp;  MEDIA ENGINES</text>
+  <!-- LLM row -->
+  <rect x="176" y="616" width="540" height="50" rx="10" class="node"/><text x="192" y="640" class="nt">DeepSeek v4-pro / v4-flash</text><text x="192" y="657" class="ns">primary reasoning + drafting</text>
+  <path d="M724,641 H892" class="flow" stroke="#5BA8FF" marker-end="url(#arrowR)"/>
+  <text x="730" y="632" class="ns" fill="#9BD0FF">on error · timeout · out-of-credit</text>
+  <rect x="900" y="616" width="360" height="50" rx="10" class="node"/><text x="916" y="640" class="nt">MiniMax fallback</text><text x="916" y="657" class="ns">universal 3-tier health board</text>
+  <rect x="1284" y="616" width="196" height="50" rx="10" class="node" stroke="rgba(232,197,71,0.3)"/><text x="1300" y="640" class="nt" font-size="14">BYO-LLM</text><text x="1300" y="657" class="ns">3 env vars · 0 code</text>
+  <!-- providers row -->
+  <text x="176" y="700" class="ns" fill="#A78BFA" font-weight="700" letter-spacing="1">MEDIA PROVIDERS · 12+ plug-in</text>
+  <rect x="176" y="710" width="300" height="50" rx="10" class="node"/><text x="192" y="732" class="nt" font-size="14">Image</text><text x="192" y="750" class="ns">MiniMax image-01 · Midjourney</text>
+  <rect x="496" y="710" width="340" height="50" rx="10" class="node"/><text x="512" y="732" class="nt" font-size="14">Video · engine race</text><text x="512" y="750" class="ns">Seedance · Kling · Veo · Vidu</text>
+  <rect x="856" y="710" width="260" height="50" rx="10" class="node"/><text x="872" y="732" class="nt" font-size="14">TTS</text><text x="872" y="750" class="ns">MiniMax speech-02-hd</text>
+  <rect x="1136" y="710" width="344" height="50" rx="10" class="node"/><text x="1152" y="732" class="nt" font-size="14">Lipsync</text><text x="1152" y="750" class="ns">Kling · Sync.so · Hailuo</text>
+
+  <!-- ===== (5) PLATFORM ===== -->
+  <rect x="56" y="800" width="1488" height="120" rx="16" class="band"/>
+  <text x="80" y="824" class="bandTag" fill="#4DE0C2">⑤ PLATFORM  ·  quality · data · realtime</text>
+  <rect x="176" y="836" width="296" height="64" rx="10" class="node"/><text x="192" y="864" class="nt">Vision Audit</text><text x="192" y="884" class="ns">auto-regenerate shots &lt; 70</text>
+  <rect x="512" y="836" width="296" height="64" rx="10" class="node"/><text x="528" y="864" class="nt">Quality Gate</text><text x="528" y="884" class="ns">publish-readiness verdict</text>
+  <rect x="848" y="836" width="296" height="64" rx="10" class="node"/><text x="864" y="864" class="nt">DbDriver</text><text x="864" y="884" class="ns">SQLite ⇄ PostgreSQL (dual)</text>
+  <rect x="1184" y="836" width="296" height="64" rx="10" class="node"/><text x="1200" y="864" class="nt">Realtime &amp; Export</text><text x="1200" y="884" class="ns">Yjs CRDT · AAF / EDL</text>
+
+  <text x="56" y="958" class="ns" fill="#5C6473">github.com/ChrisChen667788/wind-comic   ·   data flows top-down; the Director threads control across every agent · 流动虚线 = 数据/控制走向</text>
+</svg>

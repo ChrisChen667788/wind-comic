@@ -30,6 +30,9 @@ const outPath = path.join(root, 'docs', 'modelscope-intro.md');
 let md = fs.readFileSync(srcPath, 'utf8');
 const before = md;
 
+// 0) 架构图 SVG → PNG: raw 把 .svg 当 text/plain 发, ModelScope 渲染不出 → 映射到同名已导出 PNG (image/png 可渲染)
+md = md.replace(/src="assets\/diagrams\/([^"]+)\.svg"/g, `src="${RAW}/assets/diagrams/$1.png"`);
+
 // 1) 图片/资源相对路径 → raw 绝对链 (HTML <img src> 与 markdown ![](...))
 md = md.replace(/src="assets\//g, `src="${RAW}/assets/`);
 md = md.replace(/\]\(assets\//g, `](${RAW}/assets/`);

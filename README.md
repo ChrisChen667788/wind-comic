@@ -50,6 +50,26 @@ It works because it doesn't try to be one giant model. It's an **honest multi-ag
 
 ---
 
+## 🏗 Architecture
+
+Three views of the same engine. **Open on GitHub to watch them animate** — flowing dashes trace live data &amp; control paths, traveling dots are data packets moving through the pipeline.
+
+<p align="center"><img src="assets/diagrams/architecture.svg" alt="Wind Comic system architecture — Next.js client · orchestration · 8-agent pipeline · LLM gateway · 12+ media engines · quality / data / realtime platform" width="100%" /></p>
+
+<sub>**System architecture** — five layers, top to bottom. The **Director** threads control across all eight agents; the **LLM gateway** falls back DeepSeek → MiniMax with zero code change; **12+ media engines** plug in behind one router; everything lands on a **dual-driver** (SQLite ⇄ PostgreSQL) platform.</sub>
+
+<p align="center"><img src="assets/diagrams/sequence.svg" alt="Sequence diagram — one idea to one finished film, with the Vision-Audit retry loop and multi-engine race" width="100%" /></p>
+
+<sub>**Sequence** — the lifecycle of one *idea → film* request, time flowing down. Two signature beats: the **Vision-Audit retry loop** (auto-regenerate any shot scoring &lt; 70) and the **multi-engine race** (Seedance / Kling / Veo / Vidu — first good clip wins).</sub>
+
+<p align="center"><img src="assets/diagrams/dataflow.svg" alt="Data-flow diagram — the artifact refinery from text to final.mp4, persisted to DbDriver and the asset store" width="100%" /></p>
+
+<sub>**Data flow** — the artifact refinery. One line of text is refined stage-by-stage (`TEXT → JSON → PNG → IMG → MP4`); every artifact is persisted to the dual-driver DB + asset store and is independently reusable, so any stage can be re-run in isolation.</sub>
+
+> 🎞️ Diagrams are **animated SVG, authored as code** in [`assets/diagrams/`](assets/diagrams/) — crisp at any zoom, versioned with the source. *(Animation renders on GitHub; the ModelScope mirror shows static PNG.)*
+
+---
+
 ## 🆕 New in v6 → v9 — from *demo* to *production platform*
 
 > v3 shipped the pipeline. **v6 turned it into a production studio; v7–v9 hardened it into a platform.** Reusable characters, a prompt IDE, novel→season auto-splitting with real voiceover, a 60-style gallery, a director's control room, team credit budgets, an industry-grade script audit (**Polish Pro**, v7.1), a **premium design pass** (v8.3), a **fully-migrated Postgres backend** (v9), and a live API health board — every screen below is a **real capture of the running app**.

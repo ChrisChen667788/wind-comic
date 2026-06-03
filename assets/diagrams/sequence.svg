@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 980" font-family="'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A0F1C"/><stop offset="0.6" stop-color="#0A0D16"/><stop offset="1" stop-color="#07080E"/>
+    </linearGradient>
+    <radialGradient id="glow2" cx="0.5" cy="0" r="0.8"><stop offset="0" stop-color="#5BA8FF" stop-opacity="0.12"/><stop offset="1" stop-color="#5BA8FF" stop-opacity="0"/></radialGradient>
+    <filter id="soft2" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <marker id="mF" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#9BD0FF"/></marker>
+    <marker id="mT" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#7FE9D2"/></marker>
+    <marker id="mR" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#FB7185"/></marker>
+    <marker id="mG" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#34D399"/></marker>
+    <style>
+      .h1{ fill:#F2F0E6; font-size:30px; font-weight:700; } .gold{ fill:#E8C547; }
+      .sub{ fill:#8A93A6; font-size:14px; }
+      .life{ stroke:rgba(255,255,255,0.12); stroke-width:1.4; stroke-dasharray:2 7; }
+      .head{ fill:rgba(255,255,255,0.03); stroke-width:1.2; }
+      .hl{ font-size:14.5px; font-weight:600; fill:#EAEDF4; } .hs{ font-size:10.5px; fill:#7E879A; }
+      .msg{ fill:none; stroke-width:2; stroke-dasharray:6 7; stroke-linecap:round; animation:dash 2s linear infinite; }
+      .ret{ fill:none; stroke-width:1.6; stroke-dasharray:3 6; stroke-linecap:round; opacity:.8; animation:dash 2.2s linear infinite reverse; }
+      .ml{ font-size:12.5px; fill:#C7CDDA; } .mlx{ font-size:11px; fill:#828B9E; }
+      .dot{ filter:url(#soft2); }
+      .loopbox{ fill:rgba(251,113,133,0.06); stroke:rgba(251,113,133,0.4); stroke-width:1; stroke-dasharray:4 4; }
+      @keyframes dash{ to{ stroke-dashoffset:-160; } }
+      @keyframes pulse{ 0%,100%{opacity:.5} 50%{opacity:1} } .pulse{ animation:pulse 2.4s ease-in-out infinite; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="980" fill="url(#bg2)"/>
+  <rect width="1600" height="360" fill="url(#glow2)"/>
+  <text x="56" y="52" class="h1"><tspan class="gold">Sequence</tspan>  ·  one idea → one finished film</text>
+  <text x="57" y="80" class="sub">time flows downward  ·  the Director threads control  ·  Vision-Audit retry loop + multi-engine race are the signature beats</text>
+
+  <!-- lifelines -->
+  <g>
+    <!-- User 150, Orch 373, Director 596, Agents 819, Engines 1042, VisionQA 1265, EdPr 1488 -->
+    <line x1="150" y1="150" x2="150" y2="908" class="life"/>
+    <line x1="373" y1="150" x2="373" y2="908" class="life"/>
+    <line x1="596" y1="150" x2="596" y2="908" class="life"/>
+    <line x1="819" y1="150" x2="819" y2="908" class="life"/>
+    <line x1="1042" y1="150" x2="1042" y2="908" class="life"/>
+    <line x1="1265" y1="150" x2="1265" y2="908" class="life"/>
+    <line x1="1488" y1="150" x2="1488" y2="908" class="life"/>
+  </g>
+  <!-- heads -->
+  <g>
+    <rect x="68" y="96" width="164" height="52" rx="10" class="head" stroke="#5BA8FF"/><text x="150" y="120" class="hl" text-anchor="middle">User</text><text x="150" y="137" class="hs" text-anchor="middle">idea · style · ratio</text>
+    <rect x="291" y="96" width="164" height="52" rx="10" class="head" stroke="#E8C547"/><text x="373" y="120" class="hl" text-anchor="middle">Orchestrator</text><text x="373" y="137" class="hs" text-anchor="middle">hybrid · plugin-chain</text>
+    <rect x="514" y="96" width="164" height="52" rx="10" class="head" stroke="#F0DC8E"/><text x="596" y="120" class="hl" text-anchor="middle">Director</text><text x="596" y="137" class="hs" text-anchor="middle">总控 · contracts</text>
+    <rect x="737" y="96" width="164" height="52" rx="10" class="head" stroke="#A78BFA"/><text x="819" y="120" class="hl" text-anchor="middle">Creative Agents</text><text x="819" y="137" class="hs" text-anchor="middle">writer · designer · board</text>
+    <rect x="960" y="96" width="164" height="52" rx="10" class="head" stroke="#8F78F0"/><text x="1042" y="120" class="hl" text-anchor="middle">Media Engines</text><text x="1042" y="137" class="hs" text-anchor="middle">image · video · TTS</text>
+    <rect x="1183" y="96" width="164" height="52" rx="10" class="head" stroke="#4DE0C2"/><text x="1265" y="120" class="hl" text-anchor="middle">Vision QA</text><text x="1265" y="137" class="hs" text-anchor="middle">audit · quality gate</text>
+    <rect x="1406" y="96" width="164" height="52" rx="10" class="head" stroke="#34D399"/><text x="1488" y="120" class="hl" text-anchor="middle">Editor / Producer</text><text x="1488" y="137" class="hs" text-anchor="middle">cut · QC · final</text>
+  </g>
+
+  <!-- messages -->
+  <!-- 1 User->Orch -->
+  <path id="m1" d="M150,196 H373" class="msg" stroke="#5BA8FF" marker-end="url(#mF)"/><text x="156" y="188" class="ml">submit idea + style + 9:16</text>
+  <circle r="3.2" fill="#9BD0FF" cx="150" cy="196" class="dot"><animateMotion dur="1.8s" repeatCount="indefinite"><mpath xlink:href="#m1"/></animateMotion></circle>
+  <!-- 2 Orch->Director -->
+  <path id="m2" d="M373,242 H596" class="msg" stroke="#E8C547" marker-end="url(#mF)"/><text x="379" y="234" class="ml">plan request</text>
+  <circle r="3.2" fill="#FFE9A6" cx="373" cy="242" class="dot"><animateMotion dur="1.8s" begin="0.3s" repeatCount="indefinite"><mpath xlink:href="#m2"/></animateMotion></circle>
+  <!-- 3 Director->Agents (Writer) -->
+  <path id="m3" d="M596,288 H819" class="msg" stroke="#E8C547" marker-end="url(#mF)"/><text x="602" y="280" class="ml">Writer · McKee 3-act → script</text>
+  <circle r="3.2" fill="#FFE9A6" cx="596" cy="288" class="dot"><animateMotion dur="1.8s" begin="0.6s" repeatCount="indefinite"><mpath xlink:href="#m3"/></animateMotion></circle>
+  <!-- 4 Agents->Director return -->
+  <path d="M819,330 H596" class="ret" stroke="#A78BFA" marker-end="url(#mF)"/><text x="602" y="324" class="mlx">↩ Style Bible key-art + 8-dim character DNA</text>
+  <!-- 5 Director->Agents (storyboard) -->
+  <path id="m5" d="M596,378 H819" class="msg" stroke="#E8C547" marker-end="url(#mF)"/><text x="602" y="370" class="ml">Storyboard · render N shots (sref chain)</text>
+  <circle r="3.2" fill="#FFE9A6" cx="596" cy="378" class="dot"><animateMotion dur="1.8s" begin="0.2s" repeatCount="indefinite"><mpath xlink:href="#m5"/></animateMotion></circle>
+  <!-- 6 Agents->Engines image -->
+  <path id="m6" d="M819,424 H1042" class="msg" stroke="#A78BFA" marker-end="url(#mF)"/><text x="825" y="416" class="ml">image gen · MiniMax / Midjourney</text>
+  <circle r="3.2" fill="#C9B8FF" cx="819" cy="424" class="dot"><animateMotion dur="1.8s" begin="0.4s" repeatCount="indefinite"><mpath xlink:href="#m6"/></animateMotion></circle>
+  <!-- 7 Engines->VisionQA -->
+  <path id="m7" d="M1042,470 H1265" class="msg" stroke="#8F78F0" marker-end="url(#mT)"/><text x="1048" y="462" class="ml">rendered shots → audit</text>
+  <circle r="3.2" fill="#C9B8FF" cx="1042" cy="470" class="dot"><animateMotion dur="1.8s" begin="0.6s" repeatCount="indefinite"><mpath xlink:href="#m7"/></animateMotion></circle>
+
+  <!-- 8 Vision retry loop -->
+  <rect x="1150" y="498" width="360" height="48" rx="8" class="loopbox"/>
+  <path id="m8" d="M1265,540 C1330,560 1360,524 1300,512" class="ret" stroke="#FB7185" marker-end="url(#mR)"/>
+  <text x="1168" y="518" class="ml" fill="#FCA5B4">loop · score &lt; 70</text><text x="1168" y="535" class="mlx">→ regenerate weakest shot (≤ 3×)</text>
+  <circle cx="1490" cy="522" r="3.4" fill="#FB7185" class="pulse"/>
+  <!-- 9 VisionQA->Director pass -->
+  <path d="M1265,586 H596" class="ret" stroke="#4DE0C2" marker-end="url(#mT)"/><text x="602" y="580" class="mlx" fill="#8FE6D6">↩ all shots pass ≥ 70 · Quality Gate verdict</text>
+
+  <!-- 10 Director->Engines video -->
+  <path id="m10" d="M596,632 H1042" class="msg" stroke="#E8C547" marker-end="url(#mF)"/><text x="602" y="624" class="ml">Video Producer · engine race</text>
+  <circle r="3.2" fill="#FFE9A6" cx="596" cy="632" class="dot"><animateMotion dur="2.4s" repeatCount="indefinite"><mpath xlink:href="#m10"/></animateMotion></circle>
+  <!-- 11 Engines self race -->
+  <path d="M1042,656 C1120,648 1120,690 1050,684" class="ret" stroke="#8F78F0" marker-end="url(#mF)"/><text x="1062" y="664" class="mlx">Seedance · Kling · Veo · Vidu — first good wins</text>
+  <!-- 12 Engines self TTS -->
+  <path d="M1042,712 C1120,706 1120,742 1050,738" class="ret" stroke="#8F78F0" marker-end="url(#mF)"/><text x="1062" y="720" class="mlx">TTS speech-02-hd + Lipsync (Kling / Sync.so / Hailuo)</text>
+  <!-- 13 Engines->EdPr -->
+  <path id="m13" d="M1042,766 H1488" class="msg" stroke="#8F78F0" marker-end="url(#mG)"/><text x="1048" y="758" class="ml">clips + voice + subtitles</text>
+  <circle r="3.2" fill="#C9B8FF" cx="1042" cy="766" class="dot"><animateMotion dur="2.4s" begin="0.5s" repeatCount="indefinite"><mpath xlink:href="#m13"/></animateMotion></circle>
+  <!-- 14 EdPr self -->
+  <path d="M1488,790 C1556,784 1556,820 1496,816" class="ret" stroke="#34D399" marker-end="url(#mG)"/><text x="1230" y="800" class="mlx" text-anchor="end">j/l-cut · BGM per act · burn CJK subtitles ↻</text>
+  <!-- 15 EdPr->User final -->
+  <path id="m15" d="M1488,848 H150" class="msg" stroke="#34D399" stroke-width="2.4" marker-end="url(#mG)"/><text x="156" y="840" class="ml" fill="#86EFAC">⬇ final.mp4 — consistent cast, real CJK subs, publish-ready</text>
+  <circle r="3.8" fill="#86EFAC" cx="1488" cy="848" class="dot"><animateMotion dur="3s" repeatCount="indefinite"><mpath xlink:href="#m15"/></animateMotion></circle>
+
+  <text x="56" y="946" class="mlx" fill="#5C6473">github.com/ChrisChen667788/wind-comic   ·   实线流动箭头 = 主链路数据走向 · 虚线回箭 = 回传/重试 · 红框 = Vision 自愈循环</text>
+</svg>

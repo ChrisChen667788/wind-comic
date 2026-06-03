@@ -41,6 +41,26 @@
 
 ---
 
+## 🏗 系统架构
+
+同一套引擎的三种视角。**在 GitHub 上打开即会动** —— 流动虚线 = 实时数据/控制走向,移动光点 = 在流水线里穿行的数据包。
+
+<p align="center"><img src="assets/diagrams/architecture.svg" alt="Wind Comic 系统架构图" width="100%" /></p>
+
+<sub>**系统架构** —— 自上而下五层。**导演**把控制线穿过全部 8 个 Agent;**LLM 网关**零改码 DeepSeek → MiniMax 兜底;**12+ 媒体引擎**统一挂在一个路由后;最终全部落到**双驱动**(SQLite ⇄ PostgreSQL)平台。</sub>
+
+<p align="center"><img src="assets/diagrams/sequence.svg" alt="时序图 —— 一次成片请求的生命周期" width="100%" /></p>
+
+<sub>**时序图** —— 一次「一句话 → 成片」请求的生命周期,时间自上而下。两个标志性环节:**Vision 质检自愈循环**(任何镜头 &lt; 70 分自动重生)+ **多引擎竞速**(Seedance / Kling / Veo / Vidu,第一条达标的片段胜出)。</sub>
+
+<p align="center"><img src="assets/diagrams/dataflow.svg" alt="数据流程图 —— 素材精炼厂" width="100%" /></p>
+
+<sub>**数据流程** —— 素材精炼厂。一句话被逐级精炼(`TEXT → JSON → PNG → IMG → MP4`);每一级产物都落库(双驱动)+ 存档、可独立复用,任意一级都能单独重跑。</sub>
+
+> 🎞️ 三张图都是**用代码手写的动画 SVG**,源文件在 [`assets/diagrams/`](assets/diagrams/) —— 任意缩放都清晰、跟源码一起版本管理。*(GitHub 上动画生效;ModelScope 镜像用静态 PNG。)*
+
+---
+
 ## 🆕 v6 新增 —— 从「能跑的 demo」进化成「能用的工作室」
 
 > v3 交付了流水线;**v6 把它做成了一个生产级工作室。** 可复用角色库、提示词 IDE、长篇小说→自动分集 + 真配音、60 套风格画廊、导演级控片台、团队积分预算、Postgres 就绪后端,以及一块实时 API 健康看板 —— 下方每一张都是**运行中产品的真实截图**。

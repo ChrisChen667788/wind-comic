@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 566" font-family="'Inter','SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A0F1C"/><stop offset="0.6" stop-color="#0A0D16"/><stop offset="1" stop-color="#07080E"/></linearGradient>
+    <radialGradient id="glow3" cx="0.5" cy="0" r="0.85"><stop offset="0" stop-color="#4DE0C2" stop-opacity="0.12"/><stop offset="1" stop-color="#4DE0C2" stop-opacity="0"/></radialGradient>
+    <linearGradient id="refine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E8C547"/><stop offset="0.5" stop-color="#A78BFA"/><stop offset="1" stop-color="#34D399"/></linearGradient>
+    <filter id="soft3" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <marker id="aR3" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#C9D2E0"/></marker>
+    <marker id="aD3" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#4DE0C2"/></marker>
+    <marker id="aRetry" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0,0 L9,5 L0,10 z" fill="#FB7185"/></marker>
+    <style>
+      .h1{ fill:#F2F0E6; font-size:30px; font-weight:700; } .gold{ fill:#E8C547; }
+      .sub{ fill:#8A93A6; font-size:14px; }
+      .card{ fill:rgba(255,255,255,0.028); stroke:rgba(255,255,255,0.1); stroke-width:1; }
+      .ct{ fill:#EAEDF4; font-size:15px; font-weight:600; } .cs{ fill:#7E879A; font-size:10.5px; }
+      .chip{ fill:rgba(167,139,250,0.14); stroke:rgba(167,139,250,0.4); stroke-width:1; }
+      .chipT{ fill:#C9B8FF; font-size:10.5px; font-weight:700; letter-spacing:.5px; }
+      .flow{ fill:none; stroke-width:2.4; stroke-dasharray:5 8; stroke-linecap:round; animation:dash 1.9s linear infinite; }
+      .tap{ fill:none; stroke:#4DE0C2; stroke-width:1.6; stroke-dasharray:4 7; stroke-linecap:round; opacity:.7; animation:dash 2.2s linear infinite; }
+      .bus{ fill:none; stroke:url(#refine); stroke-width:2.6; stroke-dasharray:6 9; stroke-linecap:round; animation:dash 2.6s linear infinite; }
+      .retry{ fill:none; stroke:#FB7185; stroke-width:1.8; stroke-dasharray:4 6; stroke-linecap:round; opacity:.85; animation:dash 2s linear infinite reverse; }
+      .cyl{ fill:rgba(255,255,255,0.03); stroke:rgba(255,255,255,0.14); stroke-width:1.2; }
+      .cylTop{ fill:rgba(255,255,255,0.06); stroke:rgba(255,255,255,0.16); stroke-width:1.2; }
+      .dot{ filter:url(#soft3); }
+      @keyframes dash{ to{ stroke-dashoffset:-170; } }
+    </style>
+  </defs>
+
+  <rect width="1600" height="720" fill="url(#bg3)"/>
+  <rect width="1600" height="300" fill="url(#glow3)"/>
+  <text x="56" y="50" class="h1"><tspan class="gold">Data Flow</tspan>  ·  the artifact refinery</text>
+  <text x="57" y="78" class="sub">one line of text refines stage-by-stage into a finished film — every artifact is persisted &amp; reusable  ·  TEXT → JSON → PNG → IMG → MP4</text>
+
+  <!-- main refinery: 7 stage cards. centers 155,370,585,800,1015,1230,1445 -->
+  <g>
+    <rect x="60"  y="120" width="190" height="122" rx="12" class="card"/><text x="76" y="150" class="ct">Idea</text><text x="76" y="170" class="cs">one-line prompt</text><rect x="76" y="196" width="78" height="24" rx="6" class="chip"/><text x="115" y="212" class="chipT" text-anchor="middle">TEXT</text>
+    <rect x="275" y="120" width="190" height="122" rx="12" class="card"/><text x="291" y="150" class="ct">Script</text><text x="291" y="170" class="cs">scenes · dialogue</text><text x="291" y="184" class="cs">· shot list</text><rect x="291" y="196" width="78" height="24" rx="6" class="chip"/><text x="330" y="212" class="chipT" text-anchor="middle">JSON</text>
+    <rect x="490" y="120" width="190" height="122" rx="12" class="card"/><text x="506" y="150" class="ct">Key Art + DNA</text><text x="506" y="170" class="cs">Style Bible frame</text><text x="506" y="184" class="cs">· 8-dim identity</text><rect x="506" y="196" width="110" height="24" rx="6" class="chip"/><text x="561" y="212" class="chipT" text-anchor="middle">PNG · VEC</text>
+    <rect x="705" y="120" width="190" height="122" rx="12" class="card"/><text x="721" y="150" class="ct">Storyboard</text><text x="721" y="170" class="cs">N shots</text><text x="721" y="184" class="cs">· sref-chained</text><rect x="721" y="196" width="86" height="24" rx="6" class="chip"/><text x="764" y="212" class="chipT" text-anchor="middle">IMG ×N</text>
+    <rect x="920" y="120" width="190" height="122" rx="12" class="card"/><text x="936" y="150" class="ct">Footage</text><text x="936" y="170" class="cs">clip per shot</text><text x="936" y="184" class="cs">· engine race</text><rect x="936" y="196" width="90" height="24" rx="6" class="chip"/><text x="981" y="212" class="chipT" text-anchor="middle">MP4 ×N</text>
+    <rect x="1135" y="120" width="190" height="122" rx="12" class="card"/><text x="1151" y="150" class="ct">Audio</text><text x="1151" y="170" class="cs">TTS voice</text><text x="1151" y="184" class="cs">· BGM per act</text><rect x="1151" y="196" width="96" height="24" rx="6" class="chip"/><text x="1199" y="212" class="chipT" text-anchor="middle">WAV · MP3</text>
+    <rect x="1350" y="120" width="190" height="122" rx="12" class="card" stroke="rgba(52,211,153,0.45)"/><text x="1366" y="150" class="ct">Final Cut</text><text x="1366" y="170" class="cs">j/l-cut · BGM</text><text x="1366" y="184" class="cs">· burned CJK subs</text><rect x="1366" y="196" width="70" height="24" rx="6" class="chip" stroke="rgba(52,211,153,0.5)" fill="rgba(52,211,153,0.14)"/><text x="1401" y="212" class="chipT" fill="#86EFAC" text-anchor="middle">MP4</text>
+  </g>
+  <!-- refinery flow arrows (between cards) -->
+  <g>
+    <path id="f1" d="M250,181 H275" class="flow" stroke="#E8C547" marker-end="url(#aR3)"/>
+    <path id="f2" d="M465,181 H490" class="flow" stroke="#C5A24F" marker-end="url(#aR3)"/>
+    <path id="f3" d="M680,181 H705" class="flow" stroke="#A78BFA" marker-end="url(#aR3)"/>
+    <path id="f4" d="M895,181 H920" class="flow" stroke="#A78BFA" marker-end="url(#aR3)"/>
+    <path id="f5" d="M1110,181 H1135" class="flow" stroke="#8FA6F0" marker-end="url(#aR3)"/>
+    <path id="f6" d="M1325,181 H1350" class="flow" stroke="#34D399" marker-end="url(#aR3)"/>
+  </g>
+  <circle r="3.4" fill="#FFE9A6" cx="250" cy="181" class="dot"><animateMotion dur="1.5s" repeatCount="indefinite"><mpath xlink:href="#f1"/></animateMotion></circle>
+  <circle r="3.4" fill="#C9B8FF" cx="680" cy="181" class="dot"><animateMotion dur="1.5s" begin="0.3s" repeatCount="indefinite"><mpath xlink:href="#f3"/></animateMotion></circle>
+  <circle r="3.4" fill="#9BD0FF" cx="1110" cy="181" class="dot"><animateMotion dur="1.5s" begin="0.6s" repeatCount="indefinite"><mpath xlink:href="#f5"/></animateMotion></circle>
+  <circle r="3.6" fill="#86EFAC" cx="1325" cy="181" class="dot"><animateMotion dur="1.5s" begin="0.2s" repeatCount="indefinite"><mpath xlink:href="#f6"/></animateMotion></circle>
+
+  <!-- persistence taps down to bus (centers) -->
+  <g>
+    <path id="t1" d="M155,242 V326" class="tap"/><path id="t2" d="M370,242 V326" class="tap"/><path id="t3" d="M585,242 V326" class="tap"/><path id="t4" d="M800,242 V326" class="tap"/><path id="t5" d="M1015,242 V326" class="tap"/><path id="t6" d="M1230,242 V326" class="tap"/><path id="t7" d="M1445,242 V326" class="tap"/>
+  </g>
+  <circle r="2.8" fill="#7FE9D2" cx="155" cy="242" class="dot"><animateMotion dur="1.7s" repeatCount="indefinite"><mpath xlink:href="#t1"/></animateMotion></circle>
+  <circle r="2.8" fill="#7FE9D2" cx="800" cy="242" class="dot"><animateMotion dur="1.7s" begin="0.5s" repeatCount="indefinite"><mpath xlink:href="#t4"/></animateMotion></circle>
+  <circle r="2.8" fill="#7FE9D2" cx="1445" cy="242" class="dot"><animateMotion dur="1.7s" begin="0.9s" repeatCount="indefinite"><mpath xlink:href="#t7"/></animateMotion></circle>
+
+  <!-- persistence bus -->
+  <path id="bus" d="M155,326 H1445" class="bus"/>
+  <text x="56" y="331" class="cs" fill="#9aa3b4" text-anchor="end" transform="translate(96,0)"> </text>
+  <text x="800" y="313" class="cs" text-anchor="middle" fill="#9AA3B4" letter-spacing="1">PERSISTENCE BUS · every stage is written &amp; reusable</text>
+  <circle r="3.2" fill="#FFE9A6" cx="155" cy="326" class="dot"><animateMotion dur="3s" repeatCount="indefinite"><mpath xlink:href="#bus"/></animateMotion></circle>
+  <circle r="3.2" fill="#7FE9D2" cx="155" cy="326" class="dot"><animateMotion dur="3s" begin="1.5s" repeatCount="indefinite"><mpath xlink:href="#bus"/></animateMotion></circle>
+
+  <!-- stores: down from bus to two cylinders -->
+  <path d="M470,326 V366" class="tap"/><path d="M1130,326 V366" class="tap"/>
+  <!-- DbDriver cylinder cx=470 -->
+  <g>
+    <rect x="260" y="380" width="420" height="96" class="cyl"/>
+    <path d="M260,476 A210 20 0 0 0 680 476" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1.2"/>
+    <ellipse cx="470" cy="380" rx="210" ry="20" class="cylTop"/>
+    <text x="470" y="416" class="ct" text-anchor="middle" font-size="17">DbDriver</text>
+    <text x="470" y="438" class="cs" text-anchor="middle" font-size="12" fill="#9AA3B4">SQLite ⇄ PostgreSQL · dual-driver</text>
+    <text x="470" y="458" class="cs" text-anchor="middle">projects · scripts · quality_scores · shot_vision_audits</text>
+  </g>
+  <!-- Asset Store cylinder cx=1130 -->
+  <g>
+    <rect x="920" y="380" width="420" height="96" class="cyl"/>
+    <path d="M920,476 A210 20 0 0 0 1340 476" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1.2"/>
+    <ellipse cx="1130" cy="380" rx="210" ry="20" class="cylTop"/>
+    <text x="1130" y="416" class="ct" text-anchor="middle" font-size="17">Asset Store</text>
+    <text x="1130" y="438" class="cs" text-anchor="middle" font-size="12" fill="#9AA3B4">public/ · project_assets</text>
+    <text x="1130" y="458" class="cs" text-anchor="middle">key-art · shots · clips · audio · final.mp4</text>
+  </g>
+
+  <!-- vision-audit feedback loop: Footage/Storyboard regen < 70 -->
+  <path id="vloop" d="M965,242 C965,300 740,300 740,250" class="retry" marker-end="url(#aRetry)"/>
+  <rect x="772" y="262" width="156" height="22" rx="6" fill="rgba(251,113,133,0.08)" stroke="rgba(251,113,133,0.35)" stroke-width="1"/>
+  <text x="850" y="277" class="cs" fill="#FCA5B4" text-anchor="middle" font-size="11">Vision Audit · regen &lt; 70</text>
+
+  <text x="56" y="540" class="cs" fill="#5C6473">github.com/ChrisChen667788/wind-comic   ·   顶部实线 = 数据精炼主链(类型逐级转化) · 向下虚线 = 落库/存档 · 红弧 = Vision 质检自愈回流</text>
+</svg>
