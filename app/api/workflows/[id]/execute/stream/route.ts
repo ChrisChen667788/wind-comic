@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const payload = getUserFromRequest(request);
   if (!payload) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
 
-  const wf = getWorkflow(id);
+  const wf = await getWorkflow(id);
   if (!wf) return new Response(JSON.stringify({ error: '工作流不存在' }), { status: 404 });
   if (wf.userId !== payload.sub) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
 

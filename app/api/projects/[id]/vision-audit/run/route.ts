@@ -91,13 +91,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     while (cursor < tasks.length) {
       const my = tasks[cursor++];
       const r = await auditShotVsScript(my.imageUrl, my.ctx);
-      if (r) { saveShotAudit(id, r); okCount++; }
+      if (r) { await saveShotAudit(id, r); okCount++; }
       else { failCount++; }
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, worker));
 
-  const audits = getProjectAudits(id);
+  const audits = await getProjectAudits(id);
   return NextResponse.json({
     projectId: id,
     requested: tasks.length,

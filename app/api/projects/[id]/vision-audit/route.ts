@@ -22,7 +22,7 @@ export const runtime = 'nodejs';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const audits = getProjectAudits(id);
+  const audits = await getProjectAudits(id);
   const summary = aggregateFilmAudit(audits);
   return NextResponse.json({ projectId: id, audits, summary });
 }
@@ -45,11 +45,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const shotNumber = Number(raw?.shotNumber);
     if (!Number.isFinite(shotNumber)) continue;
     const norm = normalizeAuditResult(raw, shotNumber);
-    saveShotAudit(id, norm);
+    await saveShotAudit(id, norm);
     saved.push(norm);
   }
 
-  const audits = getProjectAudits(id);
+  const audits = await getProjectAudits(id);
   return NextResponse.json({
     projectId: id,
     savedCount: saved.length,

@@ -137,45 +137,45 @@ describe('v4.1 · STEP_CATALOG', () => {
 // ─── persistence ────────────────────────────────────────────────────────────
 
 describe('v4.1 · saveWorkflow / get / list / delete', () => {
-  it('saves a valid workflow', () => {
+  it('saves a valid workflow', async () => {
     const user = 'u-' + nanoid();
     const g = defaultWorkflow('我的流水线');
     g.id = 'wf_' + nanoid(8);
-    const saved = saveWorkflow(user, g);
+    const saved = await saveWorkflow(user, g);
     expect(saved.name).toBe('我的流水线');
-    expect(getWorkflow(g.id)?.userId).toBe(user);
+    expect((await getWorkflow(g.id))?.userId).toBe(user);
   });
 
-  it('refuses to save an invalid workflow', () => {
+  it('refuses to save an invalid workflow', async () => {
     const g = wf([{ id: 'a', kind: 'director', label: 'd', dependsOn: ['a'] }]);
-    expect(() => saveWorkflow('u', g)).toThrow(/校验失败/);
+    await expect(saveWorkflow('u', g)).rejects.toThrow(/校验失败/);
   });
 
-  it('update by same owner works; other owner rejected', () => {
+  it('update by same owner works; other owner rejected', async () => {
     const owner = 'owner-' + nanoid();
     const g = defaultWorkflow();
     g.id = 'wf_' + nanoid(8);
-    saveWorkflow(owner, g);
+    await saveWorkflow(owner, g);
     g.name = '改名了';
-    expect(saveWorkflow(owner, g).name).toBe('改名了');
-    expect(() => saveWorkflow('intruder', g)).toThrow(/创建者/);
+    expect((await saveWorkflow(owner, g)).name).toBe('改名了');
+    await expect(saveWorkflow('intruder', g)).rejects.toThrow(/创建者/);
   });
 
-  it('lists owner workflows', () => {
+  it('lists owner workflows', async () => {
     const owner = 'owner-list-' + nanoid();
     const a = defaultWorkflow('A'); a.id = 'wf_' + nanoid(8);
     const b = defaultWorkflow('B'); b.id = 'wf_' + nanoid(8);
-    saveWorkflow(owner, a);
-    saveWorkflow(owner, b);
-    expect(listWorkflows(owner)).toHaveLength(2);
+    await saveWorkflow(owner, a);
+    await saveWorkflow(owner, b);
+    expect(await listWorkflows(owner)).toHaveLength(2);
   });
 
-  it('delete by owner; non-owner rejected', () => {
+  it('delete by owner; non-owner rejected', async () => {
     const owner = 'owner-del-' + nanoid();
     const g = defaultWorkflow(); g.id = 'wf_' + nanoid(8);
-    saveWorkflow(owner, g);
-    expect(() => deleteWorkflow(g.id, 'nope')).toThrow(/创建者/);
-    expect(deleteWorkflow(g.id, owner)).toBe(true);
-    expect(getWorkflow(g.id)).toBeNull();
+    await saveWorkflow(owner, g);
+    await expect(deleteWorkflow(g.id, 'nope')).rejects.toThrow(/创建者/);
+    expect(await deleteWorkflow(g.id, owner)).toBe(true);
+    expect(await getWorkflow(g.id)).toBeNull();
   });
 });

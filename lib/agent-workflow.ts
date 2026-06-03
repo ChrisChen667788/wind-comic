@@ -10,8 +10,8 @@
  * 单测: tests/v4-1-agent-workflow.test.ts.
  */
 
-import { nanoid } from 'nanoid';
-import { db, now } from './db';
+import { now } from './db';
+import { getDbDriver } from './db-driver';
 import { validateWorkflow, type WorkflowGraph } from './agent-workflow-core';
 
 // 纯核心 (类型 / STEP_CATALOG / validateWorkflow / topoSort / defaultWorkflow) 已拆到
@@ -38,37 +38,38 @@ function mapRow(r: any): StoredWorkflow {
 }
 
 /** 保存 (新建或更新). 校验不过抛错. owner 不匹配抛错. */
-export function saveWorkflow(userId: string, graph: WorkflowGraph): StoredWorkflow {
+export async function saveWorkflow(userId: string, graph: WorkflowGraph): Promise<StoredWorkflow> {
   const v = validateWorkflow(graph);
   if (!v.valid) throw new Error('工作流校验失败: ' + v.errors.join('; '));
-  const existing = db.prepare(`SELECT * FROM agent_workflows WHERE id = ?`).get(graph.id) as any;
+  const driver = getDbDriver();
+  const existing = await driver.get(`SELECT * FROM agent_workflows WHERE id = ?`, [graph.id]) as any;
   const ts = now();
   if (existing) {
     if (existing.user_id !== userId) throw new Error('只有创建者能修改工作流');
-    db.prepare(`UPDATE agent_workflows SET name=?, graph_json=?, updated_at=? WHERE id=?`)
-      .run(graph.name, JSON.stringify(graph), ts, graph.id);
+    await driver.run(`UPDATE agent_workflows SET name=?, graph_json=?, updated_at=? WHERE id=?`,
+      [graph.name, JSON.stringify(graph), ts, graph.id]);
   } else {
-    db.prepare(`INSERT INTO agent_workflows (id, user_id, name, graph_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`)
-      .run(graph.id, userId, graph.name, JSON.stringify(graph), ts, ts);
+    await driver.run(`INSERT INTO agent_workflows (id, user_id, name, graph_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      [graph.id, userId, graph.name, JSON.stringify(graph), ts, ts]);
   }
-  return getWorkflow(graph.id)!;
+  return (await getWorkflow(graph.id))!;
 }
 
-export function getWorkflow(id: string): StoredWorkflow | null {
-  const r = db.prepare(`SELECT * FROM agent_workflows WHERE id = ?`).get(id) as any;
+export async function getWorkflow(id: string): Promise<StoredWorkflow | null> {
+  const r = await getDbDriver().get(`SELECT * FROM agent_workflows WHERE id = ?`, [id]) as any;
   return r ? mapRow(r) : null;
 }
 
-export function listWorkflows(userId: string): StoredWorkflow[] {
-  const rows = db.prepare(`SELECT * FROM agent_workflows WHERE user_id = ? ORDER BY updated_at DESC`).all(userId) as any[];
+export async function listWorkflows(userId: string): Promise<StoredWorkflow[]> {
+  const rows = await getDbDriver().query(`SELECT * FROM agent_workflows WHERE user_id = ? ORDER BY updated_at DESC`, [userId]) as any[];
   return rows.map(mapRow);
 }
 
-export function deleteWorkflow(id: string, userId: string): boolean {
-  const wf = getWorkflow(id);
+export async function deleteWorkflow(id: string, userId: string): Promise<boolean> {
+  const wf = await getWorkflow(id);
   if (!wf) return false;
   if (wf.userId !== userId) throw new Error('只有创建者能删除工作流');
-  db.prepare(`DELETE FROM agent_workflows WHERE id = ?`).run(id);
+  await getDbDriver().run(`DELETE FROM agent_workflows WHERE id = ?`, [id]);
   return true;
 }
 

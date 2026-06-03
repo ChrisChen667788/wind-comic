@@ -116,35 +116,35 @@ describe('v3.4 · aggregateFilmAudit', () => {
 // ─── persistence (真 SQLite) ─────────────────────────────────────────────────
 
 describe('v3.4 · saveShotAudit / getProjectAudits', () => {
-  it('saves and reads back', () => {
+  it('saves and reads back', async () => {
     const pid = 'test-audit-' + nanoid();
-    saveShotAudit(pid, mk(1, 85));
-    saveShotAudit(pid, mk(2, 60));
-    const audits = getProjectAudits(pid);
+    await saveShotAudit(pid, mk(1, 85));
+    await saveShotAudit(pid, mk(2, 60));
+    const audits = await getProjectAudits(pid);
     expect(audits).toHaveLength(2);
     expect(audits[0].shotNumber).toBe(1);
     expect(audits[0].score).toBe(85);
     expect(audits[1].verdict).toBe('warn');
   });
 
-  it('UPSERT overwrites same shot', () => {
+  it('UPSERT overwrites same shot', async () => {
     const pid = 'test-audit-' + nanoid();
-    saveShotAudit(pid, mk(1, 50));
-    saveShotAudit(pid, mk(1, 95)); // re-audit shot 1
-    const audits = getProjectAudits(pid);
+    await saveShotAudit(pid, mk(1, 50));
+    await saveShotAudit(pid, mk(1, 95)); // re-audit shot 1
+    const audits = await getProjectAudits(pid);
     expect(audits).toHaveLength(1);
     expect(audits[0].score).toBe(95);
   });
 
-  it('round-trips issues array', () => {
+  it('round-trips issues array', async () => {
     const pid = 'test-audit-' + nanoid();
     const r: ShotAuditResult = { ...mk(1, 40), issues: ['跑题', '缺人物'] };
-    saveShotAudit(pid, r);
-    const back = getProjectAudits(pid);
+    await saveShotAudit(pid, r);
+    const back = await getProjectAudits(pid);
     expect(back[0].issues).toEqual(['跑题', '缺人物']);
   });
 
-  it('empty project → empty array', () => {
-    expect(getProjectAudits('nonexistent-' + nanoid())).toEqual([]);
+  it('empty project → empty array', async () => {
+    expect(await getProjectAudits('nonexistent-' + nanoid())).toEqual([]);
   });
 });

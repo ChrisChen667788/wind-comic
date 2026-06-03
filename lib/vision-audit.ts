@@ -23,7 +23,8 @@ import OpenAI from 'openai';
 import { nanoid } from 'nanoid';
 import { API_CONFIG } from './config';
 import { toVisionImageInput, safeParseJson } from './cameo-vision';
-import { db, now } from './db';
+import { now } from './db';
+import { getDbDriver } from './db-driver';
 
 export interface ShotScriptContext {
   shotNumber: number;
@@ -221,17 +222,19 @@ export async function auditShotVsScript(
 // ─── Persistence ────────────────────────────────────────────────────────────
 
 /** 落一条镜头审核结果. UPSERT — 同 project+shot 重审会覆盖. */
-export function saveShotAudit(projectId: string, r: ShotAuditResult): void {
+export async function saveShotAudit(projectId: string, r: ShotAuditResult): Promise<void> {
   try {
-    db.prepare(`DELETE FROM shot_vision_audits WHERE project_id = ? AND shot_number = ?`).run(projectId, r.shotNumber);
-    db.prepare(
+    const driver = getDbDriver();
+    await driver.run(`DELETE FROM shot_vision_audits WHERE project_id = ? AND shot_number = ?`, [projectId, r.shotNumber]);
+    await driver.run(
       `INSERT INTO shot_vision_audits
         (id, project_id, shot_number, score, verdict, scene_match, action_match, mood_match, composition, issues, reasoning, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      nanoid(), projectId, r.shotNumber, r.score, r.verdict,
-      r.dimensions.sceneMatch, r.dimensions.actionMatch, r.dimensions.moodMatch, r.dimensions.composition,
-      JSON.stringify(r.issues), r.reasoning, now(),
+      [
+        nanoid(), projectId, r.shotNumber, r.score, r.verdict,
+        r.dimensions.sceneMatch, r.dimensions.actionMatch, r.dimensions.moodMatch, r.dimensions.composition,
+        JSON.stringify(r.issues), r.reasoning, now(),
+      ],
     );
   } catch (e) {
     console.warn('[VisionAudit] saveShotAudit failed:', e instanceof Error ? e.message : e);
@@ -239,11 +242,12 @@ export function saveShotAudit(projectId: string, r: ShotAuditResult): void {
 }
 
 /** 读一个项目全部镜头审核结果 (shot_number 升序). */
-export function getProjectAudits(projectId: string): ShotAuditResult[] {
+export async function getProjectAudits(projectId: string): Promise<ShotAuditResult[]> {
   try {
-    const rows = db.prepare(
+    const rows = await getDbDriver().query(
       `SELECT * FROM shot_vision_audits WHERE project_id = ? ORDER BY shot_number ASC`,
-    ).all(projectId) as any[];
+      [projectId],
+    ) as any[];
     return rows.map((row) => ({
       shotNumber: row.shot_number,
       score: row.score,

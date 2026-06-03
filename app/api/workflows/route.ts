@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const payload = getUserFromRequest(request);
   if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const url = new URL(request.url);
-  const out: any = { workflows: listWorkflows(payload.sub) };
+  const out: any = { workflows: await listWorkflows(payload.sub) };
   if (url.searchParams.get('template') === '1') out.template = defaultWorkflow();
   return NextResponse.json(out);
 }
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (!v.valid) return NextResponse.json({ error: '校验失败', errors: v.errors }, { status: 400 });
 
   try {
-    const saved = saveWorkflow(payload.sub, body);
+    const saved = await saveWorkflow(payload.sub, body);
     return NextResponse.json({ workflow: saved });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'save failed' }, { status: 400 });
