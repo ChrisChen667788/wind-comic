@@ -9,7 +9,8 @@
  * 纯展示组件 — 数据由父组件从 /api/projects/[id]/vision-audit 拿后传入.
  */
 
-import { Warning as AlertTriangle, CheckCircle as CheckCircle2, XCircle, Eye, FilmStrip as Film } from '@phosphor-icons/react';
+import { Warning as AlertTriangle, CheckCircle as CheckCircle2, XCircle, Eye, FilmStrip as Film, ArrowsClockwise } from '@phosphor-icons/react';
+import { buildRebirthPlan } from '@/lib/rebirth-plan';
 
 export interface VisionAuditShot {
   shotNumber: number;
@@ -40,6 +41,8 @@ export interface VisionAuditPanelProps {
   summary: VisionAuditSummaryShape | null | undefined;
   /** 点击某镜 (跳转 / 触发重生) 回调. */
   onShotClick?: (shotNumber: number) => void;
+  /** v9.4.2: 「一键重拍弱镜」批量入口 (把低分镜列表交给父组件, 通常跳镜头工坊重拍). */
+  onReshootWeak?: (shotNumbers: number[]) => void;
 }
 
 const VERDICT_LABEL: Record<VisionAuditSummaryShape['verdict'], string> = {
@@ -86,7 +89,8 @@ function DimBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-export function VisionAuditPanel({ audits, summary, onShotClick }: VisionAuditPanelProps) {
+export function VisionAuditPanel({ audits, summary, onShotClick, onReshootWeak }: VisionAuditPanelProps) {
+  const rebirthPlan = buildRebirthPlan(audits);
   if (!summary || summary.shotCount === 0) {
     return (
       <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-white/50 text-sm">
@@ -137,6 +141,39 @@ export function VisionAuditPanel({ audits, summary, onShotClick }: VisionAuditPa
           </div>
         )}
       </div>
+
+      {/* v9.4.2: 重生计划 — 低分镜按优先级 + 针对性修补提示 */}
+      {rebirthPlan.count > 0 && (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-2 text-amber-300 text-sm font-medium">
+              <ArrowsClockwise className="w-4 h-4" /> 重生计划 · {rebirthPlan.count} 个弱镜建议重拍
+            </div>
+            {onReshootWeak && (
+              <button
+                onClick={() => onReshootWeak(rebirthPlan.shots.map((s) => s.shotNumber))}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/15 border border-amber-500/40 text-amber-200 hover:bg-amber-500/25 transition-colors inline-flex items-center gap-1.5"
+              >
+                <ArrowsClockwise className="w-3.5 h-3.5" /> 一键去工坊重拍
+              </button>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {rebirthPlan.shots.map((s) => (
+              <button
+                key={s.shotNumber}
+                onClick={() => onShotClick?.(s.shotNumber)}
+                className="w-full text-left flex items-start gap-2.5 px-2.5 py-2 rounded-lg bg-black/20 border border-white/5 hover:border-amber-500/30 transition-colors"
+              >
+                <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold flex items-center justify-center tabular-nums">{s.priority}</span>
+                <span className="shrink-0 text-xs text-white/70 mt-0.5">镜 {s.shotNumber}</span>
+                <span className={`shrink-0 text-xs font-semibold tabular-nums mt-0.5 ${scoreColor(s.score)}`}>{s.score}</span>
+                <span className="text-[11px] text-white/55 leading-relaxed">{s.focusHint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 逐镜 */}
       <div className="space-y-2">

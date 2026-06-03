@@ -12,7 +12,7 @@ import { CircleNotch as Loader2, Scan as ScanEye, ArrowsClockwise as RefreshCw }
 import { VisionAuditPanel, type VisionAuditShot, type VisionAuditSummaryShape } from './vision-audit-panel';
 import { PublishReadinessBadge } from './publish-readiness-badge';
 
-export function VisionAuditTab({ projectId }: { projectId: string }) {
+export function VisionAuditTab({ projectId, onJumpToWorkshop }: { projectId: string; onJumpToWorkshop?: (shotNumbers: number[]) => void }) {
   const [audits, setAudits] = useState<VisionAuditShot[]>([]);
   const [summary, setSummary] = useState<VisionAuditSummaryShape | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +88,12 @@ export function VisionAuditTab({ projectId }: { projectId: string }) {
           <Loader2 className="w-4 h-4 animate-spin" /> 加载中…
         </div>
       ) : (
-        <VisionAuditPanel audits={audits} summary={summary} />
+        <VisionAuditPanel
+          audits={audits}
+          summary={summary}
+          onShotClick={(n) => onJumpToWorkshop?.([n])}
+          onReshootWeak={(shots) => onJumpToWorkshop?.(shots)}
+        />
       )}
     </div>
   );

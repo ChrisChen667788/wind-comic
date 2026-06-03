@@ -1966,7 +1966,7 @@ npm test
 
 - **v9.4.0 · 成片质量门禁 lib (quality-gate, 纯逻辑+单测)** ✅ 2026-06-02:`evaluateQualityGate({filmAudit, qualityScore, thresholds})` 综合 Vision 每镜聚合 (avgScore/fail 比例/verdict) + 成片 3 维 (overall/连贯/光影/脸) → `pass`/`warn`/`block` 发布就绪 + 不达标原因 + 最弱镜 + 偏弱维度。纯函数, 与 vision-audit/quality-scores 解耦 (本地最小形)。tsc 0 / 10 单测绿。
 - **v9.4.1 · 发布就绪端点 + 徽章** ✅ 2026-06-03:新建只读 `GET /api/projects/[id]/publish-readiness`(聚合 `getProjectAudits→aggregateFilmAudit` + `getLatestQualityScore` → `evaluateQualityGate`) + 「成片质检」tab 顶 `<PublishReadinessBadge>` 状态条(pass/warn/block 配色 + message + 不达标原因 + 最弱镜,质检跑完自动刷新;两路质量信号皆缺则隐藏交给空状态)。**非破坏性**:只暴露裁决不改导出行为。导出端点 `block` 硬拦截(+「仍要导出」bypass)留 v9.4.1b/后续。tsc 0 / quality-gate 10 测绿。
-- **v9.4.2 · Vision 重生闭环深化**:`aggregateFilmAudit` 的 weakest 镜 → 重生计划 (优先级 + 针对性 issue 提示) + 面板「一键重拍弱镜」批量入口。
+- **v9.4.2 · Vision 重生闭环深化** ✅ 2026-06-04:新 `lib/rebirth-plan` —— 每镜质检 → 重生计划(低于阈值的镜按分升序排优先级 + 最弱维度 + 针对性修补提示 `focusHint`)。「成片质检」面板加「重生计划」段(优先级徽章 + 焦点提示)+「一键去工坊重拍」批量按钮(`onJumpToWorkshop` → page `setActiveTab('workshop')`)。纯逻辑解耦,9 单测,tsc 0。**为「一键成片」闭环自愈提供复用引擎。**
 - **v9.4.3 · 一致性报告**:聚合每镜/成片的 face/lighting/continuity → 项目级一致性视图 + 趋势 (跨迭代轮次)。
 
 > **里程碑**:v9.4.x 绿 = 质量从「事后看分」变「发布前门禁 + 弱点自动重拍」, 一致性可量化可视, 放大护城河。

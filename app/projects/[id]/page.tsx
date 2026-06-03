@@ -737,7 +737,7 @@ export default function ProjectDetailPage() {
 
           {/* v3.4.1: 成片质检 — Vision 看画面对不对得上剧本 */}
           {activeTab === 'vision-audit' && (
-            <VisionAuditTab projectId={id} />
+            <VisionAuditTab projectId={id} onJumpToWorkshop={() => setActiveTab('workshop')} />
           )}
 
           {/* v8.0 技术监看台 — 视频示波器 + EDL/XML 出片对接 */}
