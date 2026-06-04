@@ -14,6 +14,7 @@ import { useLocale } from '@/hooks/use-locale';
 export default function Home() {
   const { t } = useLocale();
   const [cases, setCases] = useState<any[]>([]);
+  const [playingCase, setPlayingCase] = useState<string | null>(null); // v9.5.4: 案例卡点击播放示意片段
   // 英雄封面资产探测:
   //   - /hero-loop.mp4  运行 `npm run generate:hero` 生成的循环动画
   //   - /hero-cover.jpg 同脚本生成的静态封面 (视频不可用时的 fallback)
@@ -270,8 +271,21 @@ export default function Home() {
             {(cases.length ? cases : featureHighlights.map((f, i) => ({ id: String(i), title: f.title, coverUrl: f.image, category: 'AI Short' }))).map((item: any) => (
               <div key={item.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-[20px] overflow-hidden text-left group transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
                 <div className="relative h-[180px] overflow-hidden">
-                  <img src={item.coverUrl || item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  <button aria-label="播放" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[46px] rounded-full border border-[var(--border)] bg-[rgba(0,0,0,0.5)] text-white grid place-items-center cursor-pointer hover:bg-[rgba(0,0,0,0.65)] transition-colors"><Play size={18} weight="fill" className="ml-0.5" /></button>
+                  {playingCase === item.id && item.videoUrl ? (
+                    <video src={item.videoUrl} className="w-full h-full object-cover bg-black" autoPlay loop playsInline controls />
+                  ) : (
+                    <>
+                      <img src={item.coverUrl || item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      <button
+                        aria-label="播放"
+                        onClick={() => item.videoUrl && setPlayingCase(item.id)}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[46px] rounded-full border border-[var(--border)] bg-[rgba(0,0,0,0.5)] text-white grid place-items-center cursor-pointer hover:bg-[rgba(0,0,0,0.65)] transition-colors"
+                      >
+                        <Play size={18} weight="fill" className="ml-0.5" />
+                      </button>
+                      {item.videoUrl && <span className="absolute top-2.5 left-2.5 text-[10px] px-1.5 py-0.5 rounded bg-black/55 text-white/80 border border-white/10 backdrop-blur-sm">示意片段</span>}
+                    </>
+                  )}
                 </div>
                 <div className="p-4">
                   <span className="text-xs text-[var(--soft)]">{item.category || 'AI Short'}</span>
