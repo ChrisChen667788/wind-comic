@@ -575,6 +575,11 @@ export class HybridOrchestrator {
       'Anime 3D':     { keywords: 'high-quality 3D donghua Chinese animation, dramatic volumetric lighting, CG animation, ornate detailed characters', genre: '3D国创' },
       'Cinematic':    { keywords: 'photorealistic cinematic wide shot, Roger Deakins cinematography, anamorphic lens, film grain 35mm, epic scale', genre: '电影写实' },
       'Ghibli':       { keywords: 'Studio Ghibli hand-painted watercolor animation, warm golden light, whimsical pastoral, Hayao Miyazaki style, gentle and cozy', genre: '吉卜力' },
+      // v9.5.5: 对齐风格画廊新增画风(en 与「LOOK · 画风预设」一致,keywords 复用画廊 promptFragment)
+      'American Comic':       { keywords: 'American superhero comic book style, bold black ink outlines, dramatic cross-hatching, Ben-Day halftone dots, dynamic foreshortening, saturated primary colors, Marvel DC graphic novel aesthetic', genre: '美漫' },
+      'Game Anime (miHoYo)':  { keywords: 'anime game cinematic render, polished 3D cel shading, miHoYo Genshin Impact Honkai aesthetic, gacha fantasy character design, vibrant gradient rim lighting, glossy highlights, open world JRPG splash art', genre: '原神崩坏' },
+      'Ink-Wash Action':      { keywords: 'Chinese ink-wash donghua, sumi-e brush strokes, dynamic wuxia martial action, splattered flying ink, bold negative space, monochrome with a single vivid accent color, Fog Hill of Five Elements aesthetic', genre: '雾山水墨' },
+      'Ethereal Donghua':     { keywords: 'ethereal Chinese donghua, lush painterly backgrounds, warm tungsten lantern glow, Fujian tulou roundhouse architecture, flowing hanfu silk, dreamlike folklore atmosphere, soft bloom, Big Fish Begonia aesthetic', genre: '海棠唯美' },
     };
     const matched = styleMap[style];
     if (matched) {

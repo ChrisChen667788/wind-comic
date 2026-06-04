@@ -41,6 +41,11 @@ const stylePresets = [
   { id: 'anime-3d', label: '3D国创', en: 'Anime 3D', color: 'from-amber-600 to-orange-700', icon: '🏮', desc: '国漫风格' },
   { id: 'cinematic', label: '电影写实', en: 'Cinematic', color: 'from-neutral-700 to-neutral-900', icon: '🎬', desc: '院线品质' },
   { id: 'ghibli', label: '吉卜力风', en: 'Ghibli', color: 'from-green-600 to-emerald-800', icon: '🍃', desc: '温暖治愈' },
+  // v9.5.5: 与风格画廊新增画风对齐 (二次元 / 国漫细分);en 用画廊 nameEn,预览图复用 /styles/<id>.jpg
+  { id: 'american-comic', label: '美漫', en: 'American Comic', color: 'from-red-700 to-amber-600', icon: '💥', desc: '美式超英漫画' },
+  { id: 'mihoyo-game', label: '原神崩坏', en: 'Game Anime (miHoYo)', color: 'from-sky-500 to-violet-600', icon: '🎮', desc: '游戏 CG 二次元' },
+  { id: 'wushan-ink', label: '雾山水墨', en: 'Ink-Wash Action', color: 'from-stone-600 to-zinc-800', icon: '🖌️', desc: '水墨飞白动作' },
+  { id: 'haitang-ethereal', label: '海棠唯美', en: 'Ethereal Donghua', color: 'from-orange-500 to-rose-600', icon: '🏮', desc: '唯美梦幻国漫' },
 ];
 
 // Dynamically load MJ-generated style preview images

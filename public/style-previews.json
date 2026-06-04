@@ -6,5 +6,9 @@
   "cyber-neon": "https://image2.midjourneycloud.com/c3ff253d-e8d3-4f01-807d-49ede8c297c2_0_0.png",
   "anime-3d": "https://image2.midjourneycloud.com/b7ad079d-1978-4810-aaa3-b277a452e887_0_0.png",
   "cinematic": "https://image2.midjourneycloud.com/4a672854-2d9f-40e2-a54b-a4a9d84a7351_0_0.png",
-  "ghibli": "https://image2.midjourneycloud.com/48e47a2c-bcbc-4860-ad0f-cef60ae9f697_0_0.png"
+  "ghibli": "https://image2.midjourneycloud.com/48e47a2c-bcbc-4860-ad0f-cef60ae9f697_0_0.png",
+  "american-comic": "/styles/american-comic.jpg",
+  "mihoyo-game": "/styles/mihoyo-game.jpg",
+  "wushan-ink": "/styles/wushan-ink.jpg",
+  "haitang-ethereal": "/styles/haitang-ethereal.jpg"
 }
