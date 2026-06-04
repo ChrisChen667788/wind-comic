@@ -13,6 +13,8 @@ import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { buildInitialNodes, initialEdges } from '@/components/pipeline-canvas';
 import { storyTemplates, type StoryTemplate } from '@/lib/story-templates';
 import { CharacterLockSection, type LockedCharacter } from '@/components/create/character-lock-section';
+import { MultimodalRefShelf } from '@/components/multimodal-ref-shelf';
+import type { ReferenceAsset } from '@/lib/multimodal-ref';
 // v2.13 cinema redesign — opt-in primitives, 不影响其他页
 import {
   SlateCard,
@@ -105,6 +107,7 @@ export default function DashboardCreatePage() {
   const [aspect, setAspect] = useState(aspectOptions[0]);
   // v2.12 Phase 1: 多角色锁脸 (1-3 人,前置在创作管线里)
   const [lockedCharacters, setLockedCharacters] = useState<LockedCharacter[]>([]);
+  const [references, setReferences] = useState<ReferenceAsset[]>([]); // v9.5.6: 多参元素(对标可灵 Elements)
   // v2.14 P1.1: 全局默认镜头语言 — 选了之后所有镜头都默认走这个运镜, 单镜可在分镜调整时覆盖
   const [cameraDefault, setCameraDefault] = useState<string | null>(null);
   // v2.15 G9: 草稿数 (1=直接走 Writer; 2/3=先 hit /api/script-drafts 拿对比卡, 用户选完再走完整流程)
@@ -227,6 +230,8 @@ export default function DashboardCreatePage() {
           cameraDefault: cameraDefault || undefined,
           // v2.19 P0.2: 试拍图 → 第 1 镜首帧复用 (orchestrator 跳过 generateImage)
           previewSeedImage: opts?.previewSeedImage || undefined,
+          // v9.5.6: 多参元素(角色/风格/场景/道具/...)— create-stream 经 bindElements 路由进 cref/sref/构图
+          references: references.length ? references : undefined,
         }),
       });
       if (!response.ok) throw new Error('创作失败');
@@ -776,6 +781,11 @@ export default function DashboardCreatePage() {
             value={lockedCharacters}
             onChange={setLockedCharacters}
           />
+
+          {/* v9.5.6: 多参元素货架(对标可灵 Elements)— 角色/风格/场景/道具/运镜/音色 → 路由进 cref/sref/构图 */}
+          <div className="mt-5">
+            <MultimodalRefShelf refs={references} onChange={setReferences} />
+          </div>
 
           <FilmStripDivider label="ACT 2 · 镜头规格" />
 
