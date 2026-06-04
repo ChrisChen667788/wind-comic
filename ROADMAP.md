@@ -1972,6 +1972,7 @@ npm test
 - **v9.4.6 · 可灵融合落 UI / 执行层** ✅ 2026-06-04:让 v9.4.3/v9.4.4 的融合「可见可用」。① **多参元素货架**(`multimodal-ref-shelf`):每个参考可标结构化元素角色(角色/风格/场景/道具/运镜/音色)+「元素完整度」引导条,经 `reference-elements` 路由进 cref/sref/DNA。② **一键成片自愈闭环面板**(`oneclick-film-panel`,项目页新「一键成片」tab):真跑通 `oneclick-film` 闭环 —— 质检(`vision-audit/run`)→ `decideIteration` 裁决 → 自动重拍弱镜(`regenerate-storyboard` 带最弱维度 steer)→ 复检,**上轮数 + 停止 + 运行前确认**三重保护 + 实时日志。tsc 0。
 - **v9.4.7 · 多参真用进初始生成** ✅ 2026-06-04:`create-stream` 接 `bindElements(references)` —— 角色元素→cref+DNA、风格元素→seed/sref(非破坏式兜底,只取 http(s),不覆盖用户显式选择)。至此货架的元素角色从「捕获+透传」到「初始生成即生效」,多参 100% 用上。tsc 0。
 - **v9.4.8 · 多参 scene/prop 注入收尾** ✅ 2026-06-04:`hybrid-orchestrator` 加 `setSceneReferences`,分镜渲染链把场景/道具元素作**低优先构图附加参考**(只填 4 张上限剩余 slot,不挤占角色/画风锚)。至此多参全角色(角色→cref · 风格→seed · 场景/道具→构图参考)真用进初始生成,**多参 100% 用满**。tsc 0。
+- **v9.4.9 · 多参深化 + 一键成片闭环 e2e** ✅ 2026-06-04:**A** 闭环端到端模拟测试(planOneClickFilm+decideIteration 多轮跑通);**B1** scene/prop 进场景设计阶段;**B2** 每元素 cw 强度(对标可灵 element weight:ReferenceElement.weight + 货架 cw 滑块 + create-stream 多参路径 → setPrimaryCharacterCw,不与 CAMEO LOCK 冲突)。tsc 0 + 27 单测。
 - **v9.4.5 · 一致性报告(阶段十五收官)** ✅ 2026-06-04:新 `lib/consistency-report`(纯逻辑)—— `buildConsistencyReport(scores)` 把跨轮成片 3 维评分(连贯/光影/脸,`listQualityScores` newest-first)聚合成 最新各维 + 跨轮趋势(↑/↓/持平)+ 最弱维 + chronological 序列。只读端点 `GET /consistency` + `ConsistencyReportPanel`(3 维最新分 + 跨轮 sparkline + 趋势 delta + 最弱维),挂「成片质检」tab。5 单测,tsc 0。**至此阶段十五 v9.4.0–v9.4.8 全交付。**
 
 > **里程碑**:v9.4.x 绿 = 质量从「事后看分」变「发布前门禁 + 弱点自动重拍」, 一致性可量化可视, 放大护城河。

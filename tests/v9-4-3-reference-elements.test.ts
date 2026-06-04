@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   inferElementRole, bindElements, elementCompleteness, MAX_PER_ELEMENT_ROLE,
+  clampElementWeight, ELEMENT_WEIGHT_DEFAULT,
   type ReferenceElement,
 } from '@/lib/reference-elements';
 
@@ -98,5 +99,29 @@ describe('v9.4.3 · elementCompleteness', () => {
     ]);
     expect(c.score).toBe(100); // 40+25+20+15
     expect(c.counts.prop).toBe(1);
+  });
+});
+
+describe('v9.4.9 · 元素强度 (cw)', () => {
+  it('clampElementWeight: 夹紧 25-125 / 四舍五入 / NaN→默认', () => {
+    expect(clampElementWeight(10)).toBe(25);
+    expect(clampElementWeight(200)).toBe(125);
+    expect(clampElementWeight(87.6)).toBe(88);
+    expect(clampElementWeight(NaN)).toBe(ELEMENT_WEIGHT_DEFAULT);
+    expect(clampElementWeight('abc')).toBe(ELEMENT_WEIGHT_DEFAULT);
+  });
+
+  it('bindElements 暴露首个角色元素的 primaryCharacterWeight(夹紧)', () => {
+    const b = bindElements([
+      mk({ elementRole: 'character', weight: 130 }),
+      mk({ elementRole: 'character', weight: 60 }),
+      mk({ elementRole: 'style', weight: 100 }),
+    ]);
+    expect(b.primaryCharacterWeight).toBe(125); // 首个角色 130 → 夹紧 125
+  });
+
+  it('无角色 weight → primaryCharacterWeight undefined', () => {
+    expect(bindElements([mk({ elementRole: 'character' })]).primaryCharacterWeight).toBeUndefined();
+    expect(bindElements([mk({ elementRole: 'style', weight: 100 })]).primaryCharacterWeight).toBeUndefined();
   });
 });

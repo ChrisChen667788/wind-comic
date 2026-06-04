@@ -316,6 +316,7 @@ export class HybridOrchestrator {
   // 只接受 http(s) URL, data:/svg/mock 图自动忽略。
   private previewSeedImage: string = '';
   private sceneRefImages: string[] = []; // v9.4.6: 多参「场景/道具」元素 → 分镜构图附加参考(低优先)
+  private userPrimaryCw?: number; // v9.4.9: 多参角色元素的 cref 强度 (cw) 覆盖,仅多参路径设
 
   // v2.20 P0.1: Style Bible 帧 — 全片视觉锚点. Director plan 解析完后立刻渲染 1 张,
   // 作为 Character Designer / Scene Designer / Storyboard Renderer 的第 1 张 sref.
@@ -389,6 +390,16 @@ export class HybridOrchestrator {
       .filter((u) => typeof u === 'string' && u.startsWith('http'))
       .slice(0, 2);
     if (this.sceneRefImages.length) console.log(`[Scene-Ref] ${this.sceneRefImages.length} 多参场景/道具参考已挂(低优先构图条件)`);
+  }
+
+  /**
+   * v9.4.9: 多参「角色」元素的强度(cref cw)覆盖。仅在多参角色路径(用户没用 CAMEO LOCK)由
+   * create-stream 设置,故全片用同一主角 cw,不与 lockedCharacters 的 per-shot cw 冲突。25-125。
+   */
+  setPrimaryCharacterCw(cw: number) {
+    if (typeof cw !== 'number' || !Number.isFinite(cw)) return;
+    this.userPrimaryCw = Math.max(25, Math.min(125, Math.round(cw)));
+    console.log(`[Cameo] Multi-ref character cw override: ${this.userPrimaryCw}`);
   }
 
   /**
@@ -2259,6 +2270,8 @@ ${raw.slice(0, 2000)}
         secondaryCharRef: this.characterImageUrls[1],
         maxRefs: 4,
       });
+      // v9.4.9: 多参「场景/道具」元素 → 场景设计阶段附加参考(场景图最该吃场景参考,优先于次角色)
+      for (const u of this.sceneRefImages) if (u && !baseRefs.includes(u)) baseRefs.push(u);
       // v2.20 P0.1: Style Bible 作为首位 sref — 锁全片画风
       const progressiveRefs = prependStyleAnchor(this.styleAnchorImageUrl, baseRefs).slice(0, 4);
       const finalSref = progressiveRefs[0] || srefUrl;
@@ -2710,7 +2723,7 @@ ${shots.map((s, i) => {
           aspectRatio: this.aspect || '16:9',
           label: `Shot ${sb.shotNumber}`,
           cref: crefUrl,
-          cw: refsPick.cw,
+          cw: this.userPrimaryCw ?? refsPick.cw, // v9.4.9: 多参角色元素 cw 覆盖(仅多参路径设)
           sref: finalSref,
           referenceImages: refsWithBible.length > 0 ? refsWithBible : undefined,
         }),

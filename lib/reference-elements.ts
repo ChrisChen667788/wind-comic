@@ -31,6 +31,20 @@ export interface ReferenceElement extends ReferenceAsset {
   elementRole?: ElementRole;
   /** 元素显示名。 */
   label?: string;
+  /** v9.4.9: 元素强度(对齐可灵 element weight)。角色元素 = cref cw(25-125,越大越锁脸)。 */
+  weight?: number;
+}
+
+/** cref 强度(cw)区间,与 CAMEO LOCK 一致。 */
+export const ELEMENT_WEIGHT_MIN = 25;
+export const ELEMENT_WEIGHT_MAX = 125;
+export const ELEMENT_WEIGHT_DEFAULT = 100;
+
+/** 夹紧元素强度到合法 cw 区间。 */
+export function clampElementWeight(w: unknown): number {
+  const v = typeof w === 'number' ? w : Number(w);
+  if (!Number.isFinite(v)) return ELEMENT_WEIGHT_DEFAULT;
+  return Math.max(ELEMENT_WEIGHT_MIN, Math.min(ELEMENT_WEIGHT_MAX, Math.round(v)));
 }
 
 /** 各角色元素上限(对齐可灵「最多约 4 元素」+ 我们按角色细分)。 */
@@ -74,6 +88,8 @@ export interface ElementBinding {
   byRole: Record<ElementRole, ReferenceElement[]>;
   /** 实际路由进管线的元素数 */
   routed: number;
+  /** v9.4.9: 首个角色元素的强度(cref cw),未设则 undefined */
+  primaryCharacterWeight?: number;
 }
 
 /**
@@ -101,6 +117,7 @@ export function bindElements(elements: ReferenceElement[]): ElementBinding {
     voiceAudios: urls('voice'),
     byRole,
     routed: (Object.values(byRole) as ReferenceElement[][]).reduce((n, a) => n + a.length, 0),
+    primaryCharacterWeight: typeof byRole.character[0]?.weight === 'number' ? clampElementWeight(byRole.character[0].weight) : undefined,
   };
 }
 

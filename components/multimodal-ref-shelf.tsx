@@ -15,7 +15,8 @@ import {
   type ReferenceAsset, type RefKind,
 } from '@/lib/multimodal-ref';
 import {
-  ELEMENT_ROLE_LABEL, inferElementRole, elementCompleteness,
+  ELEMENT_ROLE_LABEL, inferElementRole, elementCompleteness, clampElementWeight,
+  ELEMENT_WEIGHT_MIN, ELEMENT_WEIGHT_MAX, ELEMENT_WEIGHT_DEFAULT,
   type ElementRole, type ReferenceElement,
 } from '@/lib/reference-elements';
 
@@ -43,6 +44,10 @@ export function MultimodalRefShelf({
 
   const setRole = (id: string, role: ElementRole) =>
     apply(elements.map((r) => (r.id === id ? { ...r, elementRole: role } : r)));
+
+  // v9.4.9: 角色元素强度(cref cw)
+  const setWeight = (id: string, weight: number) =>
+    apply(elements.map((r) => (r.id === id ? { ...r, weight: clampElementWeight(weight) } : r)));
 
   const addFromFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -147,6 +152,19 @@ export function MultimodalRefShelf({
                     <option key={er} value={er}>{ELEMENT_ROLE_LABEL[er]}</option>
                   ))}
                 </select>
+                {/* v9.4.9: 角色元素强度 (cref cw, 越大越锁脸) */}
+                {role === 'character' && (
+                  <div className="mt-1 flex items-center gap-1" title="角色强度 cw(25-125,越大越锁脸)">
+                    <span className="text-[9px] text-gray-500 shrink-0">cw</span>
+                    <input
+                      type="range" min={ELEMENT_WEIGHT_MIN} max={ELEMENT_WEIGHT_MAX} step={5}
+                      value={r.weight ?? ELEMENT_WEIGHT_DEFAULT}
+                      onChange={(e) => setWeight(r.id, Number(e.target.value))}
+                      className="w-10 h-1 accent-[#E8C547] cursor-pointer"
+                    />
+                    <span className="text-[9px] text-gray-300 tabular-nums w-5 text-right">{r.weight ?? ELEMENT_WEIGHT_DEFAULT}</span>
+                  </div>
+                )}
               </div>
             );
           })}

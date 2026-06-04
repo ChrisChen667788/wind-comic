@@ -236,9 +236,12 @@ export async function POST(request: NextRequest) {
           } catch {}
         }
         // v9.4.6: 多参「角色」元素兜底 → cref (用户没显式锁角色时, 多参角色图自动锁主角)
+        // v9.4.9: 同时把该角色元素的强度 (weight) 作为 cref cw 覆盖
         if (!effectiveCameoRef && boundCref) {
           effectiveCameoRef = boundCref;
-          send('status', { message: '多参:角色元素已锁主角 (cref + DNA)' });
+          const cw = elementBinding.primaryCharacterWeight;
+          if (typeof cw === 'number') orchestrator.setPrimaryCharacterCw(cw);
+          send('status', { message: `多参:角色元素已锁主角 (cref + DNA${typeof cw === 'number' ? `, cw ${cw}` : ''})` });
         }
         if (effectiveCameoRef) {
           orchestrator.setPrimaryCharacterRef(effectiveCameoRef);
