@@ -180,6 +180,13 @@ export async function POST(request: NextRequest) {
           if (!previewSeedImage && boundSref) send('status', { message: '多参:风格元素已锚定整片画风 (sref)' });
         }
 
+        // v9.4.6 收尾: 多参「场景/道具」元素 → 分镜构图附加参考(低优先, 不挤占角色/画风锚)
+        const boundSceneRefs = [...elementBinding.sceneImages, ...elementBinding.propImages].filter(isHttpRef);
+        if (boundSceneRefs.length) {
+          orchestrator.setSceneReferences(boundSceneRefs);
+          send('status', { message: `多参:${boundSceneRefs.length} 个场景/道具元素已挂为构图参考` });
+        }
+
         // ── v2.9 P0 Cameo: 注入项目级主角脸参考图(锁死全片 IP)──
         // 优先级: primaryCharacterRef > lockedCharacters[0] > projects.primary_character_ref
         // 必须在 runCharacterDesigner 之前锁,否则会被自动首帧覆盖

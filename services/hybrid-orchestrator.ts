@@ -315,6 +315,7 @@ export class HybridOrchestrator {
   // 直接当作第 1 镜的 storyboard 渲染结果, 跳过对应的 MJ 生成调用。
   // 只接受 http(s) URL, data:/svg/mock 图自动忽略。
   private previewSeedImage: string = '';
+  private sceneRefImages: string[] = []; // v9.4.6: 多参「场景/道具」元素 → 分镜构图附加参考(低优先)
 
   // v2.20 P0.1: Style Bible 帧 — 全片视觉锚点. Director plan 解析完后立刻渲染 1 张,
   // 作为 Character Designer / Scene Designer / Storyboard Renderer 的第 1 张 sref.
@@ -377,6 +378,17 @@ export class HybridOrchestrator {
     this.primaryCharacterRef = url;
     this.primaryCharacterRefLocked = true;
     console.log(`[Cameo] Primary character face locked from user: ${url.slice(0, 60)}...`);
+  }
+
+  /**
+   * v9.4.6: 多参「场景/道具」元素 → 分镜构图附加参考图。低优先(排在 cref/sref/Style Bible 之后,
+   * 只填 4 张参考上限里的剩余 slot,不挤占角色脸/画风锚),只接受 http(s),上限 2。
+   */
+  setSceneReferences(urls: string[]) {
+    this.sceneRefImages = (Array.isArray(urls) ? urls : [])
+      .filter((u) => typeof u === 'string' && u.startsWith('http'))
+      .slice(0, 2);
+    if (this.sceneRefImages.length) console.log(`[Scene-Ref] ${this.sceneRefImages.length} 多参场景/道具参考已挂(低优先构图条件)`);
   }
 
   /**
@@ -2671,6 +2683,8 @@ ${shots.map((s, i) => {
         for (const u of refsPick.extraCrefs) if (u && !progressiveRefs.includes(u)) progressiveRefs.push(u);
       }
       if (srefUrl) progressiveRefs.push(srefUrl);
+      // v9.4.6: 多参「场景/道具」元素作低优先构图附加参考(排在 cref/sref 之后, 只填 4 张上限的剩余 slot)
+      for (const u of this.sceneRefImages) if (u && !progressiveRefs.includes(u)) progressiveRefs.push(u);
       const recentRendered = this.renderedStoryboardUrls.slice(-2);
       for (const url of recentRendered) {
         if (!progressiveRefs.includes(url)) {
