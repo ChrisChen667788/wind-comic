@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CircleNotch as Loader2, Scan as ScanEye, ArrowsClockwise as RefreshCw } from '@phosphor-icons/react';
 import { VisionAuditPanel, type VisionAuditShot, type VisionAuditSummaryShape } from './vision-audit-panel';
 import { PublishReadinessBadge } from './publish-readiness-badge';
+import { ConsistencyReportPanel } from './consistency-report-panel';
 
 export function VisionAuditTab({ projectId, onJumpToWorkshop }: { projectId: string; onJumpToWorkshop?: (shotNumbers: number[]) => void }) {
   const [audits, setAudits] = useState<VisionAuditShot[]>([]);
@@ -82,6 +83,8 @@ export function VisionAuditTab({ projectId, onJumpToWorkshop }: { projectId: str
       {error && <div className="text-[11px] text-rose-400">✗ {error}</div>}
 
       <PublishReadinessBadge projectId={projectId} refreshKey={readyKey} />
+
+      <ConsistencyReportPanel projectId={projectId} refreshKey={readyKey} />
 
       {loading ? (
         <div className="flex items-center gap-2 text-white/50 text-sm py-8 justify-center">
