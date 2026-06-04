@@ -11,6 +11,7 @@ import { persistAsset } from '@/lib/asset-storage';
 import { scoreFinalVideo } from '@/lib/editor-score';
 import { insertQualityScore } from '@/lib/quality-scores';
 import { enrichScenesFromWriterScript } from '@/lib/scene-enrich';
+import { bindElements } from '@/lib/reference-elements';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ export const activeOrchestrators: Map<string, HybridOrchestrator> = new Map();
 // v2.13.5: enrichScenesFromWriterScript 移到 lib/scene-enrich.ts (纯函数, 单测覆盖)
 
 export async function POST(request: NextRequest) {
-  const { idea: rawIdea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage } = await request.json();
+  const { idea: rawIdea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references } = await request.json();
 
   if (!rawIdea || !rawIdea.trim()) {
     return new Response(JSON.stringify({ error: '请提供故事创意' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -166,8 +167,17 @@ export async function POST(request: NextRequest) {
         // v2.19 P0.2: 试拍图复用 — 用户在 create 页 "试拍 1 镜" 接受了某张图,
         // 直接当第 1 镜的 storyboard 渲染结果, 跳一次 MJ 调用 + 把整片画风锚定到那张图。
         // setter 内部校验 http(s) URL, 非法值会被忽略, 不阻塞主流程。
-        if (previewSeedImage && typeof previewSeedImage === 'string') {
-          orchestrator.setPreviewSeedImage(previewSeedImage);
+        // v9.4.6: 多参元素 → 路由进既有 cref/seed 通道。只取 http(s)(data:URI 上传由 setter 自然忽略),
+        // 且只在用户没显式给时兜底, 不覆盖用户选择。元素角色由货架标 / inferElementRole 推断。
+        const elementBinding = bindElements(Array.isArray(references) ? references : []);
+        const isHttpRef = (u?: string) => typeof u === 'string' && /^https?:\/\//i.test(u);
+        const boundCref = elementBinding.crefImages.find(isHttpRef);
+        const boundSref = elementBinding.srefImages.find(isHttpRef);
+
+        const effectiveSeed = (previewSeedImage && typeof previewSeedImage === 'string' ? previewSeedImage : '') || boundSref || '';
+        if (effectiveSeed) {
+          orchestrator.setPreviewSeedImage(effectiveSeed);
+          if (!previewSeedImage && boundSref) send('status', { message: '多参:风格元素已锚定整片画风 (sref)' });
         }
 
         // ── v2.9 P0 Cameo: 注入项目级主角脸参考图(锁死全片 IP)──
@@ -217,6 +227,11 @@ export async function POST(request: NextRequest) {
             const row = db.prepare('SELECT primary_character_ref FROM projects WHERE id = ?').get(clientProjectId) as { primary_character_ref?: string } | undefined;
             if (row?.primary_character_ref) effectiveCameoRef = row.primary_character_ref;
           } catch {}
+        }
+        // v9.4.6: 多参「角色」元素兜底 → cref (用户没显式锁角色时, 多参角色图自动锁主角)
+        if (!effectiveCameoRef && boundCref) {
+          effectiveCameoRef = boundCref;
+          send('status', { message: '多参:角色元素已锁主角 (cref + DNA)' });
         }
         if (effectiveCameoRef) {
           orchestrator.setPrimaryCharacterRef(effectiveCameoRef);
