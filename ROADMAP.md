@@ -2002,7 +2002,9 @@ npm test
 
 - **v9.6.5 · T3 性能成本竖切(成本归因接真实计费数据)** ✅ 2026-06-04:把 v9.6.0 的 `cost-attribution` 地基接上真实 `cost_log` 数据做成完整竖切。① **lib 扩展**:`classifyEngineCategory(engine)`(顺序敏感:口型>TTS>视频>图像>LLM,避免 `gpt-sovits` 误判)+ `costEventsFromCostLog(rows)`(cost_log 行 → 计费事件)。② **端点** `GET /api/projects/[id]/cost`:查本项目 cost_log → 归类 → `attributeCost` → 总价 + 各类目占比(降序)+ 最贵类目 + 省钱提示(与 `/api/usage/summary` 全局/月度卷积正交)。③ **面板** `cost-attribution-panel` 挂「**技术监看**」tab(与性能监看同列):总成本 + 各类目占比条 + 💡 省钱提示,无数据空态。验证:**tsc 0 + 7 单测**(引擎归类含顺序敏感 + cost_log 映射 + 端到端归因),cost-attribution 既有 6 单测无回归。
 
-> **里程碑(达成)**:阶段十六交付**两条完整竖切** —— **T1 配音口型**(v9.6.1–v9.6.4 lib→API→UI→门禁/重拍)+ **T3 性能成本**(v9.6.0 地基 + v9.6.5 接真实计费做成项目级成本归因竖切)。剩 **T2 模板市场** 待开。
+- **v9.6.6 · T2 模板市场开篇(模板抽取/评分/检索 lib)** ✅ 2026-06-04:新 `lib/template-market`(零依赖纯逻辑)开 T2 地基 —— 把出片好的项目沉淀成可复用 `FilmTemplate`(画风 + 多参元素概览 + 节奏 + 体量 + 质量分 + 标签)。① `summarizeElements(byRole)` 复用 `reference-elements` byRole → 角色计数概览;② `scoreTemplate(signals)` 由源项目质量信号(发布门禁 0.5 / 一致性 0.25 / 多参完整度 0.15 / 口型 0.10,缺信号权重归一,全缺 60)算模板质量分;③ `extractTemplate(input)` 抽取 + 派生标签;④ `searchTemplates / rankTemplates` 检索(画风/类型/关键词/最低质量)+ 相关度·质量排序。复用 T1/T3/阶段十五的质量信号当模板分,**融合而非另起**。验证:**tsc 0 + 11 单测**。**T2 开篇只落纯逻辑地基,持久化 + 市场 UI + 一键起片留后续。**
+
+> **里程碑(达成)**:阶段十六三主题全部落地 —— **T1 配音口型**完整竖切(v9.6.1–v9.6.4 lib→API→UI→门禁/重拍)+ **T3 性能成本**完整竖切(v9.6.0 地基 + v9.6.5 接真实计费)+ **T2 模板市场**开篇地基(v9.6.6 抽取/评分/检索 lib)。三条线都复用既有质量/多参/成本信号,**完美融合不生硬**。
 
 ---
 
