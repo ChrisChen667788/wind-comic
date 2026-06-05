@@ -27,6 +27,16 @@ export interface QualityDimsLike {
   face: number;
 }
 
+/** 口型就绪度的最小形 (对齐 lipsync-plan.LipSyncPlan;v9.6.4 融门禁)。 */
+export interface LipSyncGateLike {
+  /** 对白镜数;0 → 无对白, 不参与门禁 */
+  lines: number;
+  /** 整片口型就绪度 0-100 */
+  readiness: number;
+  /** none/pass/warn/block */
+  level: 'none' | 'pass' | 'warn' | 'block';
+}
+
 export interface QualityGateThresholds {
   /** Vision 平均分门槛, 低于 → warn。默认 70 */
   minAvgScore: number;
@@ -82,18 +92,21 @@ function num(n: unknown): number {
 export function evaluateQualityGate(input: {
   filmAudit?: FilmAuditLike | null;
   qualityScore?: QualityDimsLike | null;
+  lipSync?: LipSyncGateLike | null;
   thresholds?: Partial<QualityGateThresholds>;
 }): QualityGateResult {
   const t = { ...DEFAULT_QUALITY_THRESHOLDS, ...(input.thresholds || {}) };
   const fa = input.filmAudit || null;
   const qs = input.qualityScore || null;
+  const ls = input.lipSync || null;
+  const lsActive = !!ls && num(ls.lines) > 0;
 
   const blockReasons: string[] = [];
   const warnReasons: string[] = [];
   const failedDimensions: string[] = [];
   const weakestShots = fa && Array.isArray(fa.weakestShots) ? fa.weakestShots.slice(0, 3) : [];
 
-  if (!fa && !qs) {
+  if (!fa && !qs && !lsActive) {
     return {
       level: 'warn', ready: true,
       reasons: ['尚无质检 / 成片评分数据 — 建议先跑 Vision 质检与成片打分再发布'],
@@ -130,6 +143,18 @@ export function evaluateQualityGate(input: {
         const r = `${DIM_LABEL[dim]}维度偏低 (${num(qs[dim])} < ${t.weakDimThreshold})`;
         if (!warnReasons.includes(r)) warnReasons.push(r);
       }
+    }
+  }
+
+  // ── 口型就绪度 (v9.6.4 融门禁) ──
+  // 口型是「增强」维度: 对不上只升到 warn (不硬拦发布), 但要在门禁里显形 + 进偏弱维度。
+  if (lsActive && ls) {
+    if (ls.level === 'block') {
+      warnReasons.push(`口型多处对不上 (就绪度 ${Math.round(num(ls.readiness))})`);
+      if (!failedDimensions.includes('口型')) failedDimensions.push('口型');
+    } else if (ls.level === 'warn') {
+      warnReasons.push(`口型部分对不上 (就绪度 ${Math.round(num(ls.readiness))})`);
+      if (!failedDimensions.includes('口型')) failedDimensions.push('口型');
     }
   }
 

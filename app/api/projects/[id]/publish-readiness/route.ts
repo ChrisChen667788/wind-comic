@@ -16,6 +16,9 @@ import { NextResponse } from 'next/server';
 import { getProjectAudits, aggregateFilmAudit } from '@/lib/vision-audit';
 import { getLatestQualityScore } from '@/lib/quality-scores';
 import { evaluateQualityGate } from '@/lib/quality-gate';
+import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { dialogueLinesFromShots, buildLipSyncPlan } from '@/lib/lipsync-plan';
+import type { ScriptShot } from '@/types/agents';
 
 export const runtime = 'nodejs';
 
@@ -26,12 +29,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const filmAudit = audits.length ? aggregateFilmAudit(audits) : null;
   const qualityScore = await getLatestQualityScore(id);
 
-  const gate = evaluateQualityGate({ filmAudit, qualityScore });
+  // v9.6.4 融门禁:口型就绪度作为「增强」维度并入门禁(只升 warn, 不硬拦发布)。
+  let lipSync: { lines: number; readiness: number; level: 'none' | 'pass' | 'warn' | 'block' } | null = null;
+  try {
+    const scriptRows = await listAssetsByType(id, 'script');
+    let script: { shots?: ScriptShot[] } = {};
+    try { script = JSON.parse(scriptRows[0]?.data || '{}'); } catch { script = {}; }
+    const shots: ScriptShot[] = Array.isArray(script.shots) ? script.shots : [];
+    const plan = buildLipSyncPlan(dialogueLinesFromShots(shots));
+    lipSync = { lines: plan.lines, readiness: plan.readiness, level: plan.level };
+  } catch { /* 口型为增强信号,失败不影响门禁主体 */ }
+
+  const gate = evaluateQualityGate({ filmAudit, qualityScore, lipSync });
 
   return NextResponse.json({
     projectId: id,
     gate,
     hasAudit: audits.length > 0,
     hasQualityScore: !!qualityScore,
+    hasLipSync: !!lipSync && lipSync.lines > 0,
+    lipSync,
   });
 }

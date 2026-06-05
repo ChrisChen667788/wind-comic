@@ -7,7 +7,8 @@
  * 挂在「成片质检」tab(与一致性报告同列成片质量信号)。无对白 → 自动隐藏。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Microphone, Play, Stop } from '@phosphor-icons/react';
+import { Microphone, Play, Stop, ArrowsClockwise } from '@phosphor-icons/react';
+import { lipSyncReshootHints } from '@/lib/lipsync-plan';
 
 type Viseme = 'sil' | 'MBP' | 'FV' | 'aa' | 'E' | 'I' | 'O' | 'U';
 interface VisemeKeyframe { t: number; viseme: Viseme; mouthOpen: number; }
@@ -40,7 +41,7 @@ function mouthOpenAt(frames: VisemeKeyframe[], t: number): number {
   return v;
 }
 
-export function LipSyncPanel({ projectId }: { projectId: string }) {
+export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: string; onJumpToWorkshop?: (shotNumbers: number[]) => void }) {
   const [plan, setPlan] = useState<LipSyncPlan | null>(null);
   const [selShot, setSelShot] = useState<number | null>(null);
   const [open, setOpen] = useState(0);      // 当前张口量(动画驱动)
@@ -90,6 +91,7 @@ export function LipSyncPanel({ projectId }: { projectId: string }) {
 
   if (!plan || plan.lines === 0) return null;
   const lv = LEVEL_STYLE[plan.level];
+  const reshoot = lipSyncReshootHints(plan); // v9.6.4 融门禁:口型对不上 → 可执行重拍提示
   // 嘴:闭合 ry≈1.5,全开 ry≈12
   const mouthRy = 1.5 + open * 10.5;
 
@@ -165,6 +167,36 @@ export function LipSyncPanel({ projectId }: { projectId: string }) {
           </button>
         ))}
       </div>
+
+      {/* 口型重拍建议(融门禁:对不上 → 可执行修法 + 一键去工坊) */}
+      {reshoot.count > 0 && (
+        <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.04] p-2.5 mb-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] text-amber-300/90 font-medium">口型重拍建议 · {reshoot.count}</span>
+            {onJumpToWorkshop && (
+              <button
+                onClick={() => onJumpToWorkshop(reshoot.shots.map((s) => s.shotNumber))}
+                className="cinema-btn !px-2 !py-0.5 !text-[10px] inline-flex items-center gap-1"
+              >
+                <ArrowsClockwise className="w-3 h-3" /> 一键去工坊重拍
+              </button>
+            )}
+          </div>
+          <div className="space-y-1">
+            {reshoot.shots.map((s) => (
+              <button
+                key={s.shotNumber}
+                onClick={() => { stop(); setSelShot(s.shotNumber); }}
+                className="w-full text-left flex items-start gap-2 text-[11px] text-white/55 hover:text-white/80"
+              >
+                <span className="text-white/35 shrink-0">#{s.shotNumber}</span>
+                <span className="text-amber-300/70 shrink-0">{s.reason}</span>
+                <span className="min-w-0">{s.focusHint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 汇总提示 */}
       <div className="space-y-1">

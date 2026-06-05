@@ -87,7 +87,7 @@ export function VisionAuditTab({ projectId, onJumpToWorkshop }: { projectId: str
 
       <ConsistencyReportPanel projectId={projectId} refreshKey={readyKey} />
 
-      <LipSyncPanel projectId={projectId} />
+      <LipSyncPanel projectId={projectId} onJumpToWorkshop={onJumpToWorkshop} />
 
       {loading ? (
         <div className="flex items-center gap-2 text-white/50 text-sm py-8 justify-center">

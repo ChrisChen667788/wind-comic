@@ -244,6 +244,55 @@ export function buildLipSyncPlan(lines: DialogueLine[]): LipSyncPlan {
   return { lines: perLine.length, perLine, readiness, level: levelOf(perLine.length, readiness), weakest, hints };
 }
 
+export interface LipSyncReshoot {
+  shotNumber: number;
+  score: number;
+  /** 主问题(画外音 / 景别过远 / 台词溢出) */
+  reason: string;
+  /** 怎么修(可执行重拍提示) */
+  focusHint: string;
+}
+
+export interface LipSyncReshootPlan {
+  /** 需重拍/调整的对白镜(可对齐度升序,最差在前) */
+  shots: LipSyncReshoot[];
+  count: number;
+  message: string;
+}
+
+/**
+ * 把口型计划里「对不上」的句子转成可执行重拍提示(融进重拍计划 / 「去工坊重拍」)。
+ * 优先级:画外音 > 景别过远 > 台词溢出。默认最多 8 条。
+ */
+export function lipSyncReshootHints(plan: LipSyncPlan, opts: { maxShots?: number } = {}): LipSyncReshootPlan {
+  const maxShots = typeof opts.maxShots === 'number' && opts.maxShots > 0 ? opts.maxShots : 8;
+  const weak = (plan?.perLine || []).filter((p) => p.alignment.issues.length > 0);
+  const sorted = [...weak].sort((a, b) => a.alignment.score - b.alignment.score).slice(0, maxShots);
+
+  const shots: LipSyncReshoot[] = sorted.map((p) => {
+    const who = p.speaker || '说话人';
+    const a = p.alignment;
+    let reason: string; let focusHint: string;
+    if (!a.speakerOnScreen) {
+      reason = '画外音';
+      focusHint = `把「${who}」拍进画面(出镜),或这句改走旁白 / 画外音处理 —— 否则无脸可对口型`;
+    } else if (!a.faceVisible) {
+      reason = '景别过远';
+      focusHint = `补一镜 MCU/CU 拍「${who}」面部,口型才对得上`;
+    } else {
+      reason = '台词溢出镜头窗';
+      focusHint = `放慢语速或加长该镜时长,避免口型被截断;长句可拆成两镜`;
+    }
+    return { shotNumber: p.shotNumber, score: a.score, reason, focusHint };
+  });
+
+  return {
+    shots,
+    count: shots.length,
+    message: shots.length ? `${shots.length} 句对白口型对不上,建议重拍 / 调整` : '口型全部对得上,无需重拍',
+  };
+}
+
 /**
  * 把分镜数组映射成对白行(顺序累加镜头时间窗)。type-only 引 ScriptShot,client 安全。
  * 说话人取 characters[0];onScreen 取整 characters;窗用 duration 顺序累加(缺省每镜 3s)。
