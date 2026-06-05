@@ -20,6 +20,32 @@ export const COST_CATEGORY_LABEL: Record<CostCategory, string> = {
 
 const ALL_CATS: CostCategory[] = ['llm', 'image', 'video', 'tts', 'lipsync', 'other'];
 
+/**
+ * 把 cost_log 的 `engine` 字符串归类到成本类目(v9.6.5,接真实计费数据)。
+ * 顺序敏感:口型 > TTS > 视频 > 图像 > LLM(避免 "gpt-sovits" 误判成 LLM)。
+ */
+export function classifyEngineCategory(engine: string): CostCategory {
+  const e = (engine || '').toLowerCase();
+  if (!e) return 'other';
+  if (/lip|wav2lip|sadtalker|musetalk|viseme|talkinghead/.test(e)) return 'lipsync';
+  if (/tts|speech|sovits|cosyvoice|voice|f5-|edge-tts|azure-tts|elevenlabs|audio/.test(e)) return 'tts';
+  if (/video|kling|hailuo|s2v|flf|cogvideo|runway|veo|seedance|wan-|hunyuan-video|t2v|i2v|minimax-video|vidu/.test(e)) return 'video';
+  if (/image|img|flux|sdxl|sd-|stable-diffusion|kontext|qwen-image|seedream|dalle|gpt-image|midjourney|ideogram|recraft|nano-banana|janus|seededit/.test(e)) return 'image';
+  if (/gpt|claude|qwen|deepseek|glm|llama|gemini|moonshot|kimi|doubao|ernie|spark|yi-|abab|o1|o3|grok|chat|llm|text/.test(e)) return 'llm';
+  return 'other';
+}
+
+/** 把 cost_log 行(engine + costCny)映射成计费事件(category 由 engine 归类)。 */
+export function costEventsFromCostLog(
+  rows: Array<{ engine?: string | null; costCny?: number | null }>,
+): CostEvent[] {
+  return (Array.isArray(rows) ? rows : []).map((r) => ({
+    category: classifyEngineCategory(r?.engine || ''),
+    costCny: num(r?.costCny),
+    label: (r?.engine || '').trim() || undefined,
+  }));
+}
+
 export interface CostEvent {
   category: CostCategory;
   costCny: number;

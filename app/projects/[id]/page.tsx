@@ -25,6 +25,7 @@ import { ReviewStatusBadge } from '@/components/project/review-status-badge';
 import { CinemaTimeline } from '@/components/project/cinema-timeline';
 import { VisionAuditTab } from '@/components/project/vision-audit-tab';
 import { OneClickFilmPanel } from '@/components/project/oneclick-film-panel';
+import { CostAttributionPanel } from '@/components/project/cost-attribution-panel';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
@@ -754,7 +755,11 @@ export default function ProjectDetailPage() {
 
           {/* v8.0 技术监看台 — 视频示波器 + EDL/XML 出片对接 */}
           {activeTab === 'monitor' && (
-            <MonitorTab projectId={id} storyboards={storyboards} />
+            <div className="space-y-4">
+              <MonitorTab projectId={id} storyboards={storyboards} />
+              {/* v9.6.5 T3 性能成本:项目级成本归因 */}
+              <CostAttributionPanel projectId={id} />
+            </div>
           )}
 
           {/* v8.2 参数联动 — JSON ↔ 可视化同步 */}

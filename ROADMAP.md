@@ -2000,6 +2000,10 @@ npm test
 - **v9.6.4 · 口型融门禁(并进发布门禁 + 重拍计划)** ✅ 2026-06-04:让口型不再是孤岛面板,而是融进既有质量系统。① **quality-gate 扩展**(非破坏):`evaluateQualityGate` 加可选 `lipSync` 入参 —— 口型作「**增强**」维度,`block`/`warn` 只升门禁到 warn(**不硬拦发布**,口型本是增强项)+ 进偏弱维度「口型」;不传则行为不变。② **publish-readiness 端点**接入:读剧本 → `buildLipSyncPlan` → 喂 gate,返回 `lipSync` 摘要。③ **重拍提示**:`lipSyncReshootHints(plan)` 把对不上的句按可对齐度升序转成可执行修法(画外音→出镜/转旁白 · 景别过远→补 MCU/CU · 台词溢出→放慢/加长/拆句),口型面板加「口型重拍建议」段 + **一键去工坊重拍**(复用 `onJumpToWorkshop`)。验证:**tsc 0 + 9 单测**(gate 融合 6 + reshoot 3),quality-gate 既有 10 单测无回归。
 > **里程碑(达成)**:阶段十六 **T1 配音口型**全链交付 —— 口型轨 lib(v9.6.1)+ API/UI 动画嘴(v9.6.2)+ CJK 真音素提保真(v9.6.3)+ **融进发布门禁 / 重拍计划**(v9.6.4)。口型从「可见」到「可评分、可驱动、可门禁、可重拍」,与 Vision 质检 / 一致性同列成片质量系统。
 
+- **v9.6.5 · T3 性能成本竖切(成本归因接真实计费数据)** ✅ 2026-06-04:把 v9.6.0 的 `cost-attribution` 地基接上真实 `cost_log` 数据做成完整竖切。① **lib 扩展**:`classifyEngineCategory(engine)`(顺序敏感:口型>TTS>视频>图像>LLM,避免 `gpt-sovits` 误判)+ `costEventsFromCostLog(rows)`(cost_log 行 → 计费事件)。② **端点** `GET /api/projects/[id]/cost`:查本项目 cost_log → 归类 → `attributeCost` → 总价 + 各类目占比(降序)+ 最贵类目 + 省钱提示(与 `/api/usage/summary` 全局/月度卷积正交)。③ **面板** `cost-attribution-panel` 挂「**技术监看**」tab(与性能监看同列):总成本 + 各类目占比条 + 💡 省钱提示,无数据空态。验证:**tsc 0 + 7 单测**(引擎归类含顺序敏感 + cost_log 映射 + 端到端归因),cost-attribution 既有 6 单测无回归。
+
+> **里程碑(达成)**:阶段十六交付**两条完整竖切** —— **T1 配音口型**(v9.6.1–v9.6.4 lib→API→UI→门禁/重拍)+ **T3 性能成本**(v9.6.0 地基 + v9.6.5 接真实计费做成项目级成本归因竖切)。剩 **T2 模板市场** 待开。
+
 ---
 
 ## 6. 技术债清单(待清理)
