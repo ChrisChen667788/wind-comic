@@ -1992,7 +1992,11 @@ npm test
 
 - **v9.6.0 · 成本归因 lib 开篇 (cost-attribution, 纯逻辑+单测)** ✅ 2026-06-04:新 `lib/cost-attribution` —— `attributeCost(events)` 把一次创作的逐阶段开销(LLM/图像/视频/TTS/口型/其它)归因成 总价 + 各类目占比(降序)+ 最贵类目 + 针对性省钱提示。与 `cost-rollup`(月度聚合)正交:这是**项目级**「这一单钱花在哪、怎么省」视图。6 单测, tsc 0。**作为阶段十六 T3 地基, 同时为 T1/T2 留口(口型/模板成本可并入归因)。**
 
-> **里程碑(进行中)**:阶段十六开篇 = 出片体验新方向落地一块最低耦合地基, 待产品确认主题(T1 配音口型 / T2 模板市场 / T3 性能成本)后深挖。
+> **产品定向 (2026-06-04)**:用户选 **T1 配音口型** 深挖(出片观感增益最大)。以下按「lib 纯逻辑+单测 → API → UI」往深做。
+
+- **v9.6.1 · 口型规划 lib (lipsync-plan, 纯逻辑+单测)** ✅ 2026-06-04:新 `lib/lipsync-plan` —— 补上「台词 → 口型时间轴」缺口(此前有 prosody/对白覆盖/字幕轴,独缺口型)。① `estimateSpeechSeconds(text, speed)` 从文本估语音时长(语速可调,复用 prosody.speed);② `planVisemes(line)` 把一句对白在镜头时间窗里切成 **viseme 关键帧**(8 类口型 sil/MBP/FV/aa/E/I/O/U + 张口量 0..1 包络),供下游驱动嘴部动画(粗粒度结构驱动、确定性,留真 phonemizer 后续细化);③ `scoreLineAlignment(line)` 口型**可对齐度**(说话人是否在画面 −50 / 景别够不够拍脸 −30 / 台词时长是否溢出镜头窗 −20);④ `buildLipSyncPlan(lines)` 聚合成 每句轨 + 整片就绪度(**复用 quality-gate 的 pass/warn/block**)+ 最弱句 + 提示;`dialogueLinesFromShots(shots)` 把分镜映射成对白行(时间窗顺序累加)。16 单测, tsc 0。**T1 地基:口型可见、可评分、可驱动。**
+
+> **里程碑(进行中)**:阶段十六开篇 = 出片体验新方向落地地基, 现深挖 **T1 配音口型**(v9.6.1 口型轨 + 可对齐度 lib;下接 API 端点 + UI 面板)。
 
 ---
 
