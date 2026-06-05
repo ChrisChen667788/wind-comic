@@ -1995,7 +1995,7 @@ npm test
 > **产品定向 (2026-06-04)**:用户选 **T1 配音口型** 深挖(出片观感增益最大)。以下按「lib 纯逻辑+单测 → API → UI」往深做。
 
 - **v9.6.1 · 口型规划 lib (lipsync-plan, 纯逻辑+单测)** ✅ 2026-06-04:新 `lib/lipsync-plan` —— 补上「台词 → 口型时间轴」缺口(此前有 prosody/对白覆盖/字幕轴,独缺口型)。① `estimateSpeechSeconds(text, speed)` 从文本估语音时长(语速可调,复用 prosody.speed);② `planVisemes(line)` 把一句对白在镜头时间窗里切成 **viseme 关键帧**(8 类口型 sil/MBP/FV/aa/E/I/O/U + 张口量 0..1 包络),供下游驱动嘴部动画(粗粒度结构驱动、确定性,留真 phonemizer 后续细化);③ `scoreLineAlignment(line)` 口型**可对齐度**(说话人是否在画面 −50 / 景别够不够拍脸 −30 / 台词时长是否溢出镜头窗 −20);④ `buildLipSyncPlan(lines)` 聚合成 每句轨 + 整片就绪度(**复用 quality-gate 的 pass/warn/block**)+ 最弱句 + 提示;`dialogueLinesFromShots(shots)` 把分镜映射成对白行(时间窗顺序累加)。16 单测, tsc 0。**T1 地基:口型可见、可评分、可驱动。**
-
+- **v9.6.2 · 配音口型 API + UI(让 T1「可见可用」)** ✅ 2026-06-04:① 只读端点 `GET /api/projects/[id]/lipsync`(读剧本 `script.shots` → `dialogueLinesFromShots` → `buildLipSyncPlan`,同 consistency/publish-readiness 只读模式);② `components/project/lipsync-panel` 挂「成片质检」tab(与一致性报告同列):整片就绪度徽章(pass/warn/block + 就绪度分)+ 每句可对齐度(点击切换 + 问题提示)+ 选中句的 **viseme 张口包络 sparkline** + 一张 **按关键帧实时动画的嘴**(▶ 播放,rAF 驱动 jaw-open 随 viseme 轨开合)。无对白镜自动隐藏。验证:**tsc 0**(端到端真渲染留浏览器实测)。
 > **里程碑(进行中)**:阶段十六开篇 = 出片体验新方向落地地基, 现深挖 **T1 配音口型**(v9.6.1 口型轨 + 可对齐度 lib;下接 API 端点 + UI 面板)。
 
 ---
