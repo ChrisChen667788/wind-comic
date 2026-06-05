@@ -14,6 +14,7 @@
  */
 
 import type { ScriptShot } from '@/types/agents';
+import { commonCharVowel, type MouthVowel } from './pinyin-viseme';
 
 /** 紧凑 viseme 集(口型类):静默/闭嘴 · 双唇闭合(m/b/p)· 唇齿(f/v)· 五个元音开口形。 */
 export type Viseme = 'sil' | 'MBP' | 'FV' | 'aa' | 'E' | 'I' | 'O' | 'U';
@@ -50,14 +51,20 @@ export interface DialogueLine {
 
 const CJK = /[一-鿿㐀-䶿]/;
 const LATIN_VOWEL: Record<string, Viseme> = { a: 'aa', e: 'E', i: 'I', o: 'O', u: 'U', y: 'I' };
-/** CJK 无音素器 → 按码点确定性循环开口形(粗粒度但稳定,非随机)。 */
+/** 主元音 → viseme(CJK 音素器命中常用字时用)。 */
+const VOWEL_TO_VISEME: Record<MouthVowel, Viseme> = { a: 'aa', o: 'O', e: 'E', i: 'I', u: 'U' };
+/** CJK 未收录字 → 按码点确定性循环开口形(粗粒度兜底,非随机)。 */
 const CJK_CYCLE: Viseme[] = ['aa', 'E', 'I', 'O', 'U'];
 
 function charViseme(ch: string): Viseme | null {
   if (/\s/.test(ch)) return null;                 // 空白:跳过
   if (/[，。！？、；:,.!?;…—-]/.test(ch)) return 'sil'; // 标点:闭口停顿
   const lower = ch.toLowerCase();
-  if (CJK.test(ch)) return CJK_CYCLE[ch.charCodeAt(0) % CJK_CYCLE.length];
+  if (CJK.test(ch)) {
+    const v = commonCharVowel(ch);                // v9.6.3 提保真:常用字 → 真主元音
+    if (v) return VOWEL_TO_VISEME[v];
+    return CJK_CYCLE[ch.charCodeAt(0) % CJK_CYCLE.length]; // 未收录字兜底
+  }
   if (LATIN_VOWEL[lower]) return LATIN_VOWEL[lower];
   if ('mbp'.includes(lower)) return 'MBP';
   if ('fv'.includes(lower)) return 'FV';
