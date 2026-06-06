@@ -2024,6 +2024,9 @@ npm test
 ### 5.17 阶段十六精修 · 配音音色路由 + 口型质检回环
 
 - **v9.7.4 · 批量配音音色按角色路由** ✅ 2026-06-04:`shot-audio` 之前全片一个嗓 → 现按角色名分配**稳定且互异**的音色。新 `lib/voice-routing`(纯逻辑,复用 `character-studio.VOICE_CATALOG` 4 音色 + gender/age):`inferGenderFromName`(中文称谓 hint 推性别)+ `buildVoiceRouting(names)`(首次出现顺序 + 性别池内轮转 → 同性别多角色不撞嗓、同名跨镜永远同嗓)。`shot-audio` 用 `characters[0]` 路由 voiceId(`body.voiceId` 仍可强制全片统一,back-compat),资产 + 成本记账带 speaker。验证:**tsc 0 + 6 单测**(性别推断 / 同性别不撞嗓 / 确定性+空名跳过 / 音色池回绕 / 兜底)。
+- **v9.7.5 · 口型质检回环(渲染后复评 + 弱镜自动重渲)** ✅ 2026-06-04:口型渲染(已写回为该镜 video)后跑一遍 Vision 质检,弱镜自动重渲。新 `lib/lipsync-qc`(纯逻辑,**复用 `buildRebirthPlan`**):`planLipSyncQc({audits, threshold=70, round, maxRounds=2, onlyShots})` → 裁决 `done`(全达标)/`rerender`(给弱镜号,分数升序)/`stop`(到轮上限转人工),`onlyShots` 限定只评本批口型镜。`lipsync-batch-panel` 加「**质检回环**」开关 + QC 阶段(`vision-audit/run` 复评 → `planLipSyncQc` → 弱镜 `lipsync/render` 重渲,≤2 轮、可停)。验证:**tsc 0 + 5 单测**(done/rerender/stop/onlyShots 过滤/自定义阈值)。
+
+> **里程碑(达成)**:阶段十六 T1 精修收口 —— 配音**按角色多音色**(v9.7.4)+ 口型**渲染后自动质检重渲**(v9.7.5)。配音口型从「一键出片」升级到「**多嗓 + 自愈**」,复用既有 VOICE_CATALOG / rebirth-plan / vision-audit,零新引擎。
 
 ## 6. 技术债清单(待清理)
 

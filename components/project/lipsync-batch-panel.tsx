@@ -8,15 +8,51 @@
  */
 import { useRef, useState } from 'react';
 import { Lightning, CircleNotch as Loader2, X } from '@phosphor-icons/react';
+import { planLipSyncQc } from '@/lib/lipsync-qc';
+
+const QC_MAX_ROUNDS = 2;
 
 type LogKind = 'info' | 'ok' | 'warn' | 'err';
 const logColor = (k: LogKind) => (k === 'ok' ? 'text-emerald-400' : k === 'warn' ? 'text-amber-400' : k === 'err' ? 'text-rose-400' : 'text-white/45');
 
 export function LipSyncBatchPanel({ projectId, shotNumbers }: { projectId: string; shotNumbers: number[] }) {
   const [running, setRunning] = useState(false);
+  const [qcEnabled, setQcEnabled] = useState(true);
   const [log, setLog] = useState<{ kind: LogKind; text: string }[]>([]);
   const stopRef = useRef(false);
   const addLog = (kind: LogKind, text: string) => setLog((l) => [...l, { kind, text }]);
+
+  /** 渲染单镜口型,返回是否成功;configured===false → 抛出让上层终止。 */
+  async function renderShot(n: number): Promise<boolean> {
+    const r = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync/render`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shotNumber: n }),
+    });
+    const b = await r.json().catch(() => ({}));
+    if (b.configured === false) throw new Error(b.message || '口型引擎未配置');
+    if (b.ok) { addLog('ok', `镜 ${n} ✓${b.writtenBack ? ' 已写回分镜' : ''}`); return true; }
+    addLog('warn', `镜 ${n}:${b.message || '渲染失败'}`);
+    return false;
+  }
+
+  /** 口型质检回环:Vision 质检口型视频 → planLipSyncQc 裁决 → 弱镜自动重渲(≤ QC_MAX_ROUNDS 轮)。 */
+  async function qcLoop() {
+    for (let round = 1; round <= QC_MAX_ROUNDS; round++) {
+      if (stopRef.current) { addLog('warn', '已手动停止'); return; }
+      addLog('info', `口型质检 第 ${round}/${QC_MAX_ROUNDS} 轮:Vision 复评…`);
+      const ar = await fetch(`/api/projects/${encodeURIComponent(projectId)}/vision-audit/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const ab = await ar.json().catch(() => ({}));
+      const audits = (ab.audits || []) as Array<{ shotNumber: number; score: number }>;
+      const verdict = planLipSyncQc({ audits, round, maxRounds: QC_MAX_ROUNDS, onlyShots: shotNumbers });
+      if (verdict.decision === 'done') { addLog('ok', verdict.message); return; }
+      if (verdict.decision === 'stop') { addLog('warn', verdict.message); return; }
+      addLog('warn', verdict.message);
+      for (const n of verdict.weakShots) {
+        if (stopRef.current) { addLog('warn', '已手动停止'); return; }
+        addLog('info', `重渲弱镜 ${n} 口型…`);
+        try { await renderShot(n); } catch (e) { addLog('err', `${e instanceof Error ? e.message : '重渲失败'} —— 已终止`); return; }
+      }
+    }
+  }
 
   async function run() {
     if (running || !shotNumbers.length) return;
@@ -33,19 +69,19 @@ export function LipSyncBatchPanel({ projectId, shotNumbers }: { projectId: strin
       addLog('ok', `配音完成 ${aBody.synthesized}/${aBody.total}`);
 
       // 步骤 2:逐镜真渲染口型(自动取音 + 写回)
-      let done = 0;
+      let done = 0; let engineMissing = false;
       for (const n of shotNumbers) {
         if (stopRef.current) { addLog('warn', '已手动停止'); break; }
         addLog('info', `渲染镜 ${n} 口型…`);
-        const r = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync/render`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shotNumber: n }),
-        });
-        const b = await r.json().catch(() => ({}));
-        if (b.configured === false) { addLog('err', `${b.message || '口型引擎未配置'} —— 已终止`); break; }
-        if (b.ok) { done++; addLog('ok', `镜 ${n} ✓${b.writtenBack ? ' 已写回分镜' : ''}`); }
-        else addLog('warn', `镜 ${n}:${b.message || '渲染失败'}`);
+        try { if (await renderShot(n)) done++; }
+        catch (e) { engineMissing = true; addLog('err', `${e instanceof Error ? e.message : '渲染失败'} —— 已终止`); break; }
       }
-      addLog(done ? 'ok' : 'warn', `一键全片完成:${done}/${shotNumbers.length} 镜出口型${done ? '(已进时间线/分镜)' : ''}`);
+      addLog(done ? 'ok' : 'warn', `渲染完成:${done}/${shotNumbers.length} 镜出口型${done ? '(已进时间线/分镜)' : ''}`);
+
+      // 步骤 3:口型质检回环(可选)—— Vision 复评 → 弱镜自动重渲
+      if (qcEnabled && done > 0 && !engineMissing && !stopRef.current) {
+        await qcLoop();
+      }
     } catch (e) {
       addLog('err', e instanceof Error ? e.message : '批处理失败');
     } finally { setRunning(false); }
@@ -60,6 +96,10 @@ export function LipSyncBatchPanel({ projectId, shotNumbers }: { projectId: strin
           <Lightning className="w-3.5 h-3.5" /> 一键全片口型 · {shotNumbers.length} 句对白(配音 → 渲染 → 写回)
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          <label className="text-[10px] text-white/45 inline-flex items-center gap-1 cursor-pointer" title="渲染后跑 Vision 质检,弱镜自动重渲(≤2 轮)">
+            <input type="checkbox" checked={qcEnabled} disabled={running} onChange={(e) => setQcEnabled(e.target.checked)} className="accent-current w-3 h-3" />
+            质检回环
+          </label>
           {running && (
             <button onClick={() => { stopRef.current = true; }} className="cinema-btn !px-2 !py-1 !text-[10px] inline-flex items-center gap-1">
               <X className="w-3 h-3" /> 停止
