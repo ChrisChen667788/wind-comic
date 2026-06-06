@@ -25,7 +25,16 @@ const DEFAULT_VOICE = 'narrator_male_cn';
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const rows = await listAssetsByType(id, 'shot-audio');
-  const shots = rows.map((r) => r.shot_number).filter((n): n is number => typeof n === 'number').sort((a, b) => a - b);
+  const shots = rows
+    .filter((r) => typeof r.shot_number === 'number')
+    .map((r) => {
+      let audioUrl: string | undefined;
+      try { const u = JSON.parse(r.media_urls || '[]'); audioUrl = Array.isArray(u) ? u[0] : undefined; } catch { /* ignore */ }
+      let durationSec: number | undefined; let speaker: string | undefined;
+      try { const d = JSON.parse(r.data || '{}'); durationSec = d?.durationSec; speaker = d?.speaker; } catch { /* ignore */ }
+      return { shotNumber: r.shot_number as number, audioUrl, durationSec, speaker };
+    })
+    .sort((a, b) => a.shotNumber - b.shotNumber);
   return NextResponse.json({ count: shots.length, shots });
 }
 

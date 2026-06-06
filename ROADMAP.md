@@ -2028,6 +2028,10 @@ npm test
 
 > **里程碑(达成)**:阶段十六 T1 精修收口 —— 配音**按角色多音色**(v9.7.4)+ 口型**渲染后自动质检重渲**(v9.7.5)。配音口型从「一键出片」升级到「**多嗓 + 自愈**」,复用既有 VOICE_CATALOG / rebirth-plan / vision-audit,零新引擎。
 
+### 5.18 阶段十六精修 II · 口型-音频对齐专项评分 + 音色手动覆盖
+
+- **v9.7.6 · 口型-音频对齐度专项评分** ✅ 2026-06-04:通用 Vision 画面分管不了「嘴开合跟没跟上声音」→ 加专项维度。新 `lib/lipsync-align`(纯逻辑,client 安全):`rmsEnvelope`(PCM→逐窗能量)/`resample`/`visemeEnvelope`(张口包络阶梯采样)/`pearson`/`bestLag`(±时延找最佳相关,检测音画漂移)/`scoreLipAudioAlignment`(张口包络 vs 能量包络 → 最佳时延处正相关 → 0-100 + verdict + lagSec)。`shot-audio` GET 返每镜 audioUrl;`lipsync-panel` 加「**测音画对齐**」(浏览器 Web Audio 解码该镜配音 → `rmsEnvelope` → 评分,显示分 + 「跟得上/基本同步/对不上」+ 音频超前/滞后)。验证:**tsc 0 + 8 单测**(pearson/resample/rms/viseme 包络/bestLag/对齐高分/反相低分/检出时延)。
+
 ## 6. 技术债清单(待清理)
 
 | 隐患 | 位置 | 优先级 | Sprint |

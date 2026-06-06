@@ -7,8 +7,9 @@
  * 挂在「成片质检」tab(与一致性报告同列成片质量信号)。无对白 → 自动隐藏。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Microphone, Play, Stop, ArrowsClockwise, FilmSlate, CircleNotch, SpeakerHigh } from '@phosphor-icons/react';
+import { Microphone, Play, Stop, ArrowsClockwise, FilmSlate, CircleNotch, SpeakerHigh, Waveform } from '@phosphor-icons/react';
 import { lipSyncReshootHints } from '@/lib/lipsync-plan';
+import { rmsEnvelope, scoreLipAudioAlignment } from '@/lib/lipsync-align';
 import { LipSyncBatchPanel } from './lipsync-batch-panel';
 
 type Viseme = 'sil' | 'MBP' | 'FV' | 'aa' | 'E' | 'I' | 'O' | 'U';
@@ -52,6 +53,9 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
   const [renderMsg, setRenderMsg] = useState<{ ok: boolean; text: string; videoUrl?: string } | null>(null);
   const [synthingAudio, setSynthingAudio] = useState(false);
   const [audioMsg, setAudioMsg] = useState<string | null>(null);
+  const [aligning, setAligning] = useState(false);
+  const [alignResult, setAlignResult] = useState<{ shotNumber: number; score: number; verdict: string; lagSec: number } | null>(null);
+  const audioUrlsRef = useRef<Map<number, string>>(new Map());
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
 
@@ -71,6 +75,15 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
         const er = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync/render`);
         const eb = await er.json();
         if (alive && er.ok) setEngine({ configured: !!eb.configured, hint: eb.hint });
+      } catch { /* 静默 */ }
+      try {
+        const sr = await fetch(`/api/projects/${encodeURIComponent(projectId)}/shot-audio`);
+        const sb = await sr.json();
+        if (alive && sr.ok && Array.isArray(sb.shots)) {
+          const m = new Map<number, string>();
+          for (const s of sb.shots) if (s.audioUrl) m.set(s.shotNumber, s.audioUrl);
+          audioUrlsRef.current = m;
+        }
       } catch { /* 静默 */ }
     })();
     return () => { alive = false; if (rafRef.current) cancelAnimationFrame(rafRef.current); };
@@ -127,6 +140,30 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
       setAudioMsg(e instanceof Error ? e.message : '配音合成失败');
     } finally { setSynthingAudio(false); }
   }, [projectId]);
+
+  // 口型-音频对齐专项评分(v9.7.6):浏览器 Web Audio 解码该镜配音 → 能量包络 → 与张口包络算相关
+  const measureAlign = useCallback(async () => {
+    if (!selected) return;
+    const url = audioUrlsRef.current.get(selected.shotNumber);
+    if (!url) { setAlignResult(null); setAudioMsg('该镜尚无配音 —— 先「合成全片配音」再测对齐'); return; }
+    setAligning(true);
+    try {
+      const AC: typeof AudioContext | undefined = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) throw new Error('浏览器不支持 Web Audio');
+      const ac = new AC();
+      const arr = await fetch(url).then((r) => r.arrayBuffer());
+      const audio = await ac.decodeAudioData(arr);
+      const energy = rmsEnvelope(audio.getChannelData(0), 64);
+      ac.close();
+      const r = scoreLipAudioAlignment({
+        visemes: selected.visemes.map((f) => ({ t: f.t, mouthOpen: f.mouthOpen })),
+        audioEnergy: energy, durationSec: audio.duration || (selected.windowSec.end - selected.windowSec.start),
+      });
+      setAlignResult({ shotNumber: selected.shotNumber, score: r.score, verdict: r.verdict, lagSec: r.lagSec });
+    } catch (e) {
+      setAudioMsg(e instanceof Error ? e.message : '对齐测量失败');
+    } finally { setAligning(false); }
+  }, [selected]);
 
   if (!plan || plan.lines === 0) return null;
   const lv = LEVEL_STYLE[plan.level];
@@ -199,8 +236,27 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
                   {rendering ? <CircleNotch className="w-3 h-3 animate-spin" /> : <FilmSlate className="w-3 h-3" />}
                   {rendering ? '渲染中…' : '真渲染口型'}
                 </button>
+                <button
+                  onClick={measureAlign}
+                  disabled={aligning}
+                  title="浏览器解码该镜配音 → 测「嘴开合 vs 声音能量」对齐度"
+                  className="cinema-btn !px-2 !py-1 !text-[10px] inline-flex items-center gap-1 disabled:opacity-50"
+                >
+                  {aligning ? <CircleNotch className="w-3 h-3 animate-spin" /> : <Waveform className="w-3 h-3" />}
+                  {aligning ? '测量中…' : '测音画对齐'}
+                </button>
               </div>
               <div className="text-xs text-white/75 truncate mb-1.5">「{selected.text}」</div>
+              {alignResult && alignResult.shotNumber === selected.shotNumber && (
+                <div className="text-[11px] mb-1.5 flex items-center gap-2">
+                  <span className="text-white/45">音画对齐</span>
+                  <span className={`font-medium ${scoreColor(alignResult.score)}`}>{alignResult.score}</span>
+                  <span className="text-white/35">
+                    {alignResult.verdict === 'good' ? '口型跟得上声音' : alignResult.verdict === 'fair' ? '基本同步' : '明显对不上'}
+                    {Math.abs(alignResult.lagSec) >= 0.05 ? ` · 音频${alignResult.lagSec > 0 ? '滞后' : '超前'} ${Math.abs(alignResult.lagSec)}s` : ''}
+                  </span>
+                </div>
+              )}
               {/* 张口包络:每个关键帧一根柱 */}
               <div className="flex items-end gap-px h-6">
                 {selected.visemes.map((f, i) => (
