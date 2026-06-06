@@ -2031,6 +2031,9 @@ npm test
 ### 5.18 阶段十六精修 II · 口型-音频对齐专项评分 + 音色手动覆盖
 
 - **v9.7.6 · 口型-音频对齐度专项评分** ✅ 2026-06-04:通用 Vision 画面分管不了「嘴开合跟没跟上声音」→ 加专项维度。新 `lib/lipsync-align`(纯逻辑,client 安全):`rmsEnvelope`(PCM→逐窗能量)/`resample`/`visemeEnvelope`(张口包络阶梯采样)/`pearson`/`bestLag`(±时延找最佳相关,检测音画漂移)/`scoreLipAudioAlignment`(张口包络 vs 能量包络 → 最佳时延处正相关 → 0-100 + verdict + lagSec)。`shot-audio` GET 返每镜 audioUrl;`lipsync-panel` 加「**测音画对齐**」(浏览器 Web Audio 解码该镜配音 → `rmsEnvelope` → 评分,显示分 + 「跟得上/基本同步/对不上」+ 音频超前/滞后)。验证:**tsc 0 + 8 单测**(pearson/resample/rms/viseme 包络/bestLag/对齐高分/反相低分/检出时延)。
+- **v9.7.7 · 音色手动覆盖货架(挑 / 试听,覆盖自动路由)** ✅ 2026-06-04:在 v9.7.4 自动路由上加用户手动覆盖。`voice-routing` 加纯函数 `effectiveVoice(speaker, {force,overrides,routing})`(优先级 force > 覆盖 > 路由 > 默认)。新端点 `GET/POST /api/projects/[id]/voice-overrides`(角色→音色,存 `project_assets type='voice-overrides'`)+ `POST /api/voice-sample`(合成一句样例供试听,引擎未配 → 优雅提示)。`shot-audio` 读覆盖 → `effectiveVoice` 定每镜音色。新 `components/project/voice-shelf`(挂「配音口型」面板,默认折叠):全片角色 + 下拉挑 `VOICE_CATALOG` 音色(label·tone)+「试听」(Web Audio 播样例)+「自动/手动」标 +「保存」。验证:**tsc 0 + 7 单测**(voice-routing +effectiveVoice 优先级 1 例)。
+
+> **里程碑(达成)**:阶段十六 T1 精修 II 收口 —— 口型质检加「**嘴-声对齐**」专项维度(v9.7.6)+ 配音音色「自动路由 + **手动挑/试听覆盖**」(v9.7.7)。配音口型既能自动多嗓,也能逐角色人工调校。
 
 ## 6. 技术债清单(待清理)
 

@@ -2,7 +2,7 @@
  * v9.7.4 — lib/voice-routing 单测(角色 → 音色:性别推断 + 稳定互异路由)。
  */
 import { describe, it, expect } from 'vitest';
-import { inferGenderFromName, buildVoiceRouting, voiceForCharacter, DEFAULT_VOICE_ID } from '@/lib/voice-routing';
+import { inferGenderFromName, buildVoiceRouting, voiceForCharacter, effectiveVoice, DEFAULT_VOICE_ID } from '@/lib/voice-routing';
 
 describe('v9.7.4 · inferGenderFromName', () => {
   it('称谓 hint 推性别', () => {
@@ -46,5 +46,16 @@ describe('v9.7.4 · voiceForCharacter', () => {
     const r = buildVoiceRouting(['张大哥']);
     expect(voiceForCharacter('张大哥', r)).toBe('young_male_cn');
     expect(voiceForCharacter('')).toBe(DEFAULT_VOICE_ID);
+  });
+});
+
+describe('v9.7.7 · effectiveVoice 优先级', () => {
+  const routing = buildVoiceRouting(['张大哥']); // 张大哥 → young_male_cn
+  it('force > override > routing > default', () => {
+    expect(effectiveVoice('张大哥', { force: 'narrator_female_cn', overrides: { 张大哥: 'young_female_cn' }, routing })).toBe('narrator_female_cn');
+    expect(effectiveVoice('张大哥', { overrides: { 张大哥: 'young_female_cn' }, routing })).toBe('young_female_cn');
+    expect(effectiveVoice('张大哥', { routing })).toBe('young_male_cn');
+    expect(effectiveVoice('路人', { routing })).toBe(DEFAULT_VOICE_ID);
+    expect(effectiveVoice('', {})).toBe(DEFAULT_VOICE_ID);
   });
 });

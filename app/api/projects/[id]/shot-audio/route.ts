@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { listAssetsByType, deleteAssetsByType, createAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { deriveProsody } from '@/lib/tts-prosody';
-import { buildVoiceRouting } from '@/lib/voice-routing';
+import { buildVoiceRouting, effectiveVoice } from '@/lib/voice-routing';
 import { getDbDriver } from '@/lib/db-driver';
 import { getUserFromRequest } from '../../../auth/lib';
 import { recordCostLog, estimateTtsCostCny } from '@/lib/repos/cost-log-repo';
@@ -19,8 +19,6 @@ import type { ScriptShot } from '@/types/agents';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const DEFAULT_VOICE = 'narrator_male_cn';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -60,6 +58,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // 角色 → 音色路由(首次出现顺序 + 性别池轮转,稳定互异);forceVoice 时不用
   const routing = forceVoice ? null : buildVoiceRouting(dialogueShots.map((s) => (s.characters?.[0] || '')));
+  // 用户手动覆盖(v9.7.7,优先级最高,仅次于 forceVoice)
+  let overrides: Record<string, string> = {};
+  try {
+    const ovRows = await listAssetsByType(id, 'voice-overrides');
+    overrides = JSON.parse(ovRows[0]?.data || '{}')?.overrides || {};
+  } catch { overrides = {}; }
 
   await import('@/lib/tts-providers/builtins'); // 副作用:注册内置 TTS provider
   const { dispatchTTSGenerate } = await import('@/lib/tts-providers/registry');
@@ -71,7 +75,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   for (const s of dialogueShots) {
     try {
       const speaker = (s.characters?.[0] || '').trim();
-      const voiceId = forceVoice || routing?.get(speaker) || DEFAULT_VOICE;
+      const voiceId = effectiveVoice(speaker, { force: forceVoice || undefined, overrides, routing: routing || undefined });
       const prosody = deriveProsody({ emotion: s.emotion, emotionTemperature: s.emotionTemperature });
       const r = await dispatchTTSGenerate({ text: s.dialogue!, voiceId, language: 'zh-CN', speed: prosody.speed, pitch: prosody.pitch });
       if (!r.result) { results.push({ shotNumber: s.shotNumber, ok: false, error: 'no-engine' }); continue; }

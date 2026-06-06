@@ -60,3 +60,17 @@ export function voiceForCharacter(name: string, routing?: Map<string, string>): 
   if (routing && routing.has(n)) return routing.get(n)!;
   return buildVoiceRouting([n]).get(n) || DEFAULT_VOICE_ID;
 }
+
+/**
+ * 有效音色优先级:全片强制 force > 用户手动覆盖 overrides[角色] > 自动路由 routing > 默认。
+ */
+export function effectiveVoice(
+  speaker: string,
+  opts: { force?: string; overrides?: Record<string, string>; routing?: Map<string, string> } = {},
+): string {
+  if (opts.force && opts.force.trim()) return opts.force.trim();
+  const n = (speaker || '').trim();
+  if (n && opts.overrides && opts.overrides[n]) return opts.overrides[n];
+  if (n && opts.routing && opts.routing.has(n)) return opts.routing.get(n)!;
+  return DEFAULT_VOICE_ID;
+}

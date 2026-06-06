@@ -11,6 +11,7 @@ import { Microphone, Play, Stop, ArrowsClockwise, FilmSlate, CircleNotch, Speake
 import { lipSyncReshootHints } from '@/lib/lipsync-plan';
 import { rmsEnvelope, scoreLipAudioAlignment } from '@/lib/lipsync-align';
 import { LipSyncBatchPanel } from './lipsync-batch-panel';
+import { VoiceShelf } from './voice-shelf';
 
 type Viseme = 'sil' | 'MBP' | 'FV' | 'aa' | 'E' | 'I' | 'O' | 'U';
 interface VisemeKeyframe { t: number; viseme: Viseme; mouthOpen: number; }
@@ -201,6 +202,9 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
         </button>
         {audioMsg && <span className="text-[10px] text-white/45 truncate">{audioMsg}</span>}
       </div>
+
+      {/* 角色音色货架:手动挑 / 试听,覆盖自动路由 */}
+      <VoiceShelf projectId={projectId} characters={plan.perLine.map((l) => l.speaker || '')} />
 
       {/* 一键全片口型:配音 → 逐镜渲染 → 写回(复用 oneclick 编排骨架) */}
       <LipSyncBatchPanel projectId={projectId} shotNumbers={plan.perLine.map((l) => l.shotNumber)} />
