@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Microphone, Play, Stop, ArrowsClockwise, FilmSlate, CircleNotch, SpeakerHigh } from '@phosphor-icons/react';
 import { lipSyncReshootHints } from '@/lib/lipsync-plan';
+import { LipSyncBatchPanel } from './lipsync-batch-panel';
 
 type Viseme = 'sil' | 'MBP' | 'FV' | 'aa' | 'E' | 'I' | 'O' | 'U';
 interface VisemeKeyframe { t: number; viseme: Viseme; mouthOpen: number; }
@@ -163,6 +164,9 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
         </button>
         {audioMsg && <span className="text-[10px] text-white/45 truncate">{audioMsg}</span>}
       </div>
+
+      {/* 一键全片口型:配音 → 逐镜渲染 → 写回(复用 oneclick 编排骨架) */}
+      <LipSyncBatchPanel projectId={projectId} shotNumbers={plan.perLine.map((l) => l.shotNumber)} />
 
       {/* 选中句:动画嘴 + 张口包络 sparkline */}
       {selected && (
