@@ -7,7 +7,7 @@
  * 挂在「成片质检」tab(与一致性报告同列成片质量信号)。无对白 → 自动隐藏。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Microphone, Play, Stop, ArrowsClockwise } from '@phosphor-icons/react';
+import { Microphone, Play, Stop, ArrowsClockwise, FilmSlate, CircleNotch } from '@phosphor-icons/react';
 import { lipSyncReshootHints } from '@/lib/lipsync-plan';
 
 type Viseme = 'sil' | 'MBP' | 'FV' | 'aa' | 'E' | 'I' | 'O' | 'U';
@@ -46,6 +46,9 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
   const [selShot, setSelShot] = useState<number | null>(null);
   const [open, setOpen] = useState(0);      // 当前张口量(动画驱动)
   const [playing, setPlaying] = useState(false);
+  const [engine, setEngine] = useState<{ configured: boolean; hint?: string } | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const [renderMsg, setRenderMsg] = useState<{ ok: boolean; text: string; videoUrl?: string } | null>(null);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
 
@@ -61,6 +64,11 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
           setSelShot(p.weakest?.shotNumber ?? p.perLine[0]?.shotNumber ?? null);
         }
       } catch { /* 静默:增强信息 */ }
+      try {
+        const er = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync/render`);
+        const eb = await er.json();
+        if (alive && er.ok) setEngine({ configured: !!eb.configured, hint: eb.hint });
+      } catch { /* 静默 */ }
     })();
     return () => { alive = false; if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [projectId]);
@@ -89,6 +97,22 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
     rafRef.current = requestAnimationFrame(tick);
   }, [selected]);
 
+  const renderLipSync = useCallback(async () => {
+    if (!selected) return;
+    setRendering(true); setRenderMsg(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync/render`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shotNumber: selected.shotNumber, visemes: selected.visemes }),
+      });
+      const b = await res.json();
+      if (b.ok && b.videoUrl) setRenderMsg({ ok: true, text: `口型视频已生成(${b.provider})`, videoUrl: b.videoUrl });
+      else setRenderMsg({ ok: false, text: b.message || b.hint || '渲染失败' });
+    } catch (e) {
+      setRenderMsg({ ok: false, text: e instanceof Error ? e.message : '渲染失败' });
+    } finally { setRendering(false); }
+  }, [projectId, selected]);
+
   if (!plan || plan.lines === 0) return null;
   const lv = LEVEL_STYLE[plan.level];
   const reshoot = lipSyncReshootHints(plan); // v9.6.4 融门禁:口型对不上 → 可执行重拍提示
@@ -101,9 +125,16 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
         <div className="flex items-center gap-2 text-white/80 text-sm font-medium">
           <Microphone className="w-4 h-4" /> 配音口型 · {plan.lines} 句对白
         </div>
-        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${lv.cls}`}>
-          {lv.label} · 就绪度 {plan.readiness}
-        </span>
+        <div className="flex items-center gap-2">
+          {engine && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${engine.configured ? 'text-sky-300 border-sky-400/30 bg-sky-400/10' : 'text-white/35 border-white/10'}`} title={engine.hint || ''}>
+              引擎{engine.configured ? '已配置' : '未配置'}
+            </span>
+          )}
+          <span className={`text-[11px] px-2 py-0.5 rounded-full border ${lv.cls}`}>
+            {lv.label} · 就绪度 {plan.readiness}
+          </span>
+        </div>
       </div>
 
       {/* 选中句:动画嘴 + 张口包络 sparkline */}
@@ -128,6 +159,15 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
                   {playing ? <Stop className="w-3 h-3" /> : <Play className="w-3 h-3" />}
                   {playing ? '停止' : '播放口型'}
                 </button>
+                <button
+                  onClick={renderLipSync}
+                  disabled={rendering}
+                  title={engine && !engine.configured ? (engine.hint || '') : '调用口型引擎真渲染这一镜'}
+                  className="cinema-btn cinema-btn-primary !px-2 !py-1 !text-[10px] inline-flex items-center gap-1 disabled:opacity-50"
+                >
+                  {rendering ? <CircleNotch className="w-3 h-3 animate-spin" /> : <FilmSlate className="w-3 h-3" />}
+                  {rendering ? '渲染中…' : '真渲染口型'}
+                </button>
               </div>
               <div className="text-xs text-white/75 truncate mb-1.5">「{selected.text}」</div>
               {/* 张口包络:每个关键帧一根柱 */}
@@ -141,6 +181,14 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
                   />
                 ))}
               </div>
+              {renderMsg && (
+                <div className={`text-[11px] mt-1.5 ${renderMsg.ok ? 'text-emerald-400' : 'text-white/45'}`}>
+                  {renderMsg.text}
+                  {renderMsg.ok && renderMsg.videoUrl && (
+                    <a href={renderMsg.videoUrl} target="_blank" rel="noreferrer" className="ml-1 underline text-emerald-300">查看视频</a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
