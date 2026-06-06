@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 // v8.3 P1: lucide → Phosphor (ultra-thin Light weight, Taste Skill 推荐, 摆脱 AI 默认观感)
 import {
   SquaresFour, Kanban, Sparkle, BookOpen, User,
-  SignOut, CaretLeft, CaretRight, Package, PenNib, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning, ChartLineUp,
+  SignOut, CaretLeft, CaretRight, Package, PenNib, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning, ChartLineUp, Stack,
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 
@@ -27,6 +27,8 @@ const navItems = [
   // v6.3: 风格模板画廊
   { href: '/dashboard/styles', label: '风格画廊', icon: Palette },
   { href: '/dashboard/cases', label: '灵感库', icon: BookOpen },
+  // v9.6.8 (阶段十六 T2): 模板市场 — 把出片好的项目沉淀成可复用模板, 一键起片
+  { href: '/dashboard/templates', label: '模板市场', icon: Stack },
   { href: '/dashboard/profile', label: '账户', icon: User },
   // v6.5: 团队工作区 — 主账号按成员分配积分额度
   { href: '/dashboard/team', label: '团队', icon: UsersThree },

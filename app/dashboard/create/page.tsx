@@ -102,6 +102,17 @@ export default function DashboardCreatePage() {
         sessionStorage.removeItem('qfmj-create-style');
       }
     } catch { /* ignore */ }
+    // v9.6.8 (T2 模板市场): 「用此模板起片」经 sessionStorage 预填 画风 + 多参元素 + 锁定角色
+    try {
+      const tplRaw = sessionStorage.getItem('qfmj-create-template');
+      if (tplRaw) {
+        const tpl = JSON.parse(tplRaw) as { style?: string; styleEn?: string; references?: ReferenceAsset[]; lockedCharacters?: LockedCharacter[] };
+        if (tpl.styleEn || tpl.style) setStyle(tpl.styleEn || tpl.style!);
+        if (Array.isArray(tpl.references) && tpl.references.length) setReferences(tpl.references);
+        if (Array.isArray(tpl.lockedCharacters) && tpl.lockedCharacters.length) setLockedCharacters(tpl.lockedCharacters);
+        sessionStorage.removeItem('qfmj-create-template');
+      }
+    } catch { /* ignore */ }
   }, [searchParams]);
   const [duration, setDuration] = useState(durationOptions[1]); // 默认5秒
   const [aspect, setAspect] = useState(aspectOptions[0]);
