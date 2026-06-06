@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { listAssetsByType, deleteAssetsByType, createAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { deriveProsody } from '@/lib/tts-prosody';
+import { buildVoiceRouting } from '@/lib/voice-routing';
 import { getDbDriver } from '@/lib/db-driver';
 import { getUserFromRequest } from '../../../auth/lib';
 import { recordCostLog, estimateTtsCostCny } from '@/lib/repos/cost-log-repo';
@@ -31,7 +32,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = (await request.json().catch(() => ({}))) as { voiceId?: string };
-  const voiceId = (body.voiceId || '').trim() || DEFAULT_VOICE;
+  // body.voiceId → 全片统一(back-compat);否则按角色路由(v9.7.4)
+  const forceVoice = (body.voiceId || '').trim();
 
   // 成本记账用 userId(token 优先,否则首个用户)
   let userId = getUserFromRequest(request)?.sub || null;
@@ -47,6 +49,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const dialogueShots = shots.filter((s) => (s.dialogue || '').trim());
   if (!dialogueShots.length) return NextResponse.json({ ok: false, message: '无对白镜 —— 无需合成配音' });
 
+  // 角色 → 音色路由(首次出现顺序 + 性别池轮转,稳定互异);forceVoice 时不用
+  const routing = forceVoice ? null : buildVoiceRouting(dialogueShots.map((s) => (s.characters?.[0] || '')));
+
   await import('@/lib/tts-providers/builtins'); // 副作用:注册内置 TTS provider
   const { dispatchTTSGenerate } = await import('@/lib/tts-providers/registry');
 
@@ -56,6 +61,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   for (const s of dialogueShots) {
     try {
+      const speaker = (s.characters?.[0] || '').trim();
+      const voiceId = forceVoice || routing?.get(speaker) || DEFAULT_VOICE;
       const prosody = deriveProsody({ emotion: s.emotion, emotionTemperature: s.emotionTemperature });
       const r = await dispatchTTSGenerate({ text: s.dialogue!, voiceId, language: 'zh-CN', speed: prosody.speed, pitch: prosody.pitch });
       if (!r.result) { results.push({ shotNumber: s.shotNumber, ok: false, error: 'no-engine' }); continue; }
@@ -63,7 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!p) { results.push({ shotNumber: s.shotNumber, ok: false, error: 'persist-failed' }); continue; }
       await createAsset({
         projectId: id, type: 'shot-audio', name: `配音 · 镜 ${s.shotNumber}`,
-        data: { text: s.dialogue, durationSec: r.result.duration, provider: r.result.provider, voiceId },
+        data: { text: s.dialogue, durationSec: r.result.duration, provider: r.result.provider, voiceId, speaker: speaker || undefined },
         mediaUrls: [p.url], shotNumber: s.shotNumber, version: 1,
       });
       synthesized++;
