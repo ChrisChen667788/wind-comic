@@ -12,6 +12,8 @@ import { NextResponse } from 'next/server';
 import { getDbDriver } from '@/lib/db-driver';
 import { listAssetsByType, createAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
+import { getUserFromRequest } from '../../../../auth/lib';
+import { recordCostLog, estimateLipsyncCostCny } from '@/lib/repos/cost-log-repo';
 import { dialogueLinesFromShots, planVisemes } from '@/lib/lipsync-plan';
 import {
   lipSyncEngineConfigured, listLipSyncProviders, dispatchLipSyncGenerate,
@@ -45,6 +47,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     visemes?: Array<{ t: number; viseme: string; mouthOpen: number }>;
   };
   const d = getDbDriver();
+  let userId = getUserFromRequest(request)?.sub || null;
+  if (!userId) {
+    const first = await d.get<{ id: string }>('SELECT id FROM users ORDER BY created_at ASC LIMIT 1', []);
+    userId = first?.id || null;
+  }
 
   // 1) 说话人脸:body 优先,否则取该镜分镜图
   let faceUrl = (body.faceUrl || '').trim();
@@ -99,6 +106,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       writtenBack = true;
     } catch { /* 写回失败不影响返回渲染结果 */ }
   }
+
+  // v9.7.2 成本记账(T3 自动归类 lipsync);失败不阻断
+  await recordCostLog({
+    userId, projectId: id, engine: `lipsync-${result.provider}`,
+    durationSec: result.durationSec,
+    costCny: estimateLipsyncCostCny(result.estCostCny, result.durationSec),
+    metadata: { kind: 'lipsync-render', shotNumber: body.shotNumber, provider: result.provider },
+  });
 
   return NextResponse.json({ configured: true, ok: true, shotNumber: body.shotNumber, ...result, videoUrl, writtenBack, tried });
 }

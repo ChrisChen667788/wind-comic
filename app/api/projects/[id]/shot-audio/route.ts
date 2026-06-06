@@ -11,6 +11,9 @@ import { NextResponse } from 'next/server';
 import { listAssetsByType, deleteAssetsByType, createAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { deriveProsody } from '@/lib/tts-prosody';
+import { getDbDriver } from '@/lib/db-driver';
+import { getUserFromRequest } from '../../../auth/lib';
+import { recordCostLog, estimateTtsCostCny } from '@/lib/repos/cost-log-repo';
 import type { ScriptShot } from '@/types/agents';
 
 export const runtime = 'nodejs';
@@ -29,6 +32,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const body = (await request.json().catch(() => ({}))) as { voiceId?: string };
   const voiceId = (body.voiceId || '').trim() || DEFAULT_VOICE;
+
+  // 成本记账用 userId(token 优先,否则首个用户)
+  let userId = getUserFromRequest(request)?.sub || null;
+  if (!userId) {
+    const first = await getDbDriver().get<{ id: string }>('SELECT id FROM users ORDER BY created_at ASC LIMIT 1', []);
+    userId = first?.id || null;
+  }
 
   const scriptRows = await listAssetsByType(id, 'script');
   let script: { shots?: ScriptShot[] } = {};
@@ -58,6 +68,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
       synthesized++;
       results.push({ shotNumber: s.shotNumber, ok: true, audioUrl: p.url });
+      // v9.7.2 成本记账(T3 自动归类 tts);失败不阻断
+      await recordCostLog({
+        userId, projectId: id, engine: `tts-${r.result.provider}`,
+        durationSec: r.result.duration,
+        costCny: estimateTtsCostCny(r.result.duration, (s.dialogue || '').length),
+        metadata: { kind: 'shot-audio', shotNumber: s.shotNumber, voiceId },
+      });
     } catch (e) {
       results.push({ shotNumber: s.shotNumber, ok: false, error: e instanceof Error ? e.message : 'failed' });
     }

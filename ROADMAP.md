@@ -2016,6 +2016,7 @@ npm test
 > **里程碑(达成)**:阶段十六续两条线收口 —— **T2 模板市场**闭环(v9.6.7 持久化 + v9.6.8 市场/一键起片)+ **T1 口型真渲染**(v9.6.9 引擎子系统 + v9.7.0 render 端点/UI,可插拔自托管 wav2lip/SadTalker)。
 
 - **v9.7.1 · 口型真渲染进成片管线(自动取音 + 写回分镜/时间线)** ✅ 2026-06-04:把 T1 真渲染从「需手传 audioUrl」打通成「**自动取音 + 渲染结果回流成片**」。① **每镜配音落资产**:新 `POST /api/projects/[id]/shot-audio` 把各对白镜台词经 TTS(prosody 随情绪 v2.9:`deriveProsody → speed/pitch`)合成 → `persistAsset` 落盘 → 存 `project_assets type='shot-audio'`(shot_number 索引,覆盖式);无引擎 → 优雅 `{configured:false}`。② **render 自动取音**:`/lipsync/render` 缺 `audioUrl` 时按 shot_number 自动取 `shot-audio` 资产。③ **写回管线**:渲染成功 → `persistAsset` + 存 `type='video'` 该镜资产(**新 `updated_at` → `timeline`/分镜 `loadShotMedia` 自动取最新口型版**,非破坏式,原视频留史)。④ **UI**:`lipsync-panel` 加「**合成全片配音**」按钮 + 真渲染成功提示「已写回分镜/时间线」。验证:**tsc 0**(真链路需 `MINIMAX_API_KEY` 出音 + `LIPSYNC_API_URL` 出片,留用户环境实测)。**至此口型真正进成片:台词→配音资产→口型视频→回流时间线。**
+- **v9.7.2 · TTS / 口型成本记账(点亮 T3 成本面板)** ✅ 2026-06-04:v9.3 成本可观测一直只读 cost_log、**无生产写入**(T3 面板实际常空)。本版补**首个生产写入器**:新 `lib/repos/cost-log-repo`(async 双驱动)`recordCostLog`(userId 缺失/负成本/异常 → false 不阻断)+ `estimateTtsCostCny`(~¥0.02/s 或按字)/`estimateLipsyncCostCny`(引擎值优先,否则 ~¥0.15/s 最低 ¥0.1)。`shot-audio` 每段配音记一笔 `engine=tts-<provider>`、`render` 每镜口型记一笔 `engine=lipsync-<provider>` —— engine 串带类目关键词,`classifyEngineCategory` 自动归类,**T3 项目成本面板即显 TTS / 口型两项开销**。验证:**tsc 0 + 5 单测**(估算 / 归类 tts·lipsync / 落库+项目归因 / userId 缺失·负成本→false)。**成本闭环:生成即记账 → T3 自动显形。**
 
 ---
 
