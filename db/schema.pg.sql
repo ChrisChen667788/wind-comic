@@ -364,12 +364,33 @@ CREATE TABLE IF NOT EXISTS waitlist (
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS yjs_docs (
-  doc_name TEXT PRIMARY KEY,                     
-  state BYTEA NOT NULL,                           
+  doc_name TEXT PRIMARY KEY,
+  state BYTEA NOT NULL,
   update_count INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+-- v9.6.7 (阶段十六 T2 模板市场): 可复用成片模板 (画风+多参元素+节奏+一键起片预填)
+CREATE TABLE IF NOT EXISTS film_templates (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT,
+  title TEXT NOT NULL,
+  style TEXT NOT NULL DEFAULT '',
+  genre TEXT,
+  pacing_tone TEXT,
+  shot_count INTEGER NOT NULL DEFAULT 0,
+  quality INTEGER NOT NULL DEFAULT 60,
+  elements TEXT NOT NULL DEFAULT '[]',
+  tags TEXT NOT NULL DEFAULT '[]',
+  payload TEXT,
+  source_project_id TEXT,
+  visibility TEXT NOT NULL DEFAULT 'public',
+  use_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_film_templates_market ON film_templates(visibility, quality);
+CREATE INDEX IF NOT EXISTS idx_film_templates_owner ON film_templates(owner_id);
 CREATE INDEX IF NOT EXISTS idx_api_quota_alerts_active ON api_quota_alerts(provider, acknowledged_at);
 CREATE INDEX IF NOT EXISTS idx_api_quota_alerts_recent ON api_quota_alerts(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_api_usage_provider_created ON api_usage_events(provider, created_at);

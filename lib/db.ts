@@ -253,6 +253,28 @@ CREATE TABLE IF NOT EXISTS api_quota_alerts (
 );
 CREATE INDEX IF NOT EXISTS idx_api_quota_alerts_active ON api_quota_alerts(provider, acknowledged_at);
 CREATE INDEX IF NOT EXISTS idx_api_quota_alerts_recent ON api_quota_alerts(last_seen_at);
+
+-- v9.6.7 (阶段十六 T2 模板市场): 把出片好的项目沉淀成可复用模板 (画风+多参元素+节奏+一键起片预填)
+CREATE TABLE IF NOT EXISTS film_templates (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT,                                -- 创建者 (可空: demo)
+  title TEXT NOT NULL,
+  style TEXT NOT NULL DEFAULT '',               -- 画风 (LOOK 预设 id/en)
+  genre TEXT,
+  pacing_tone TEXT,                             -- 节奏基调
+  shot_count INTEGER NOT NULL DEFAULT 0,
+  quality INTEGER NOT NULL DEFAULT 60,          -- 模板质量分 0-100 (源项目质量沉淀)
+  elements TEXT NOT NULL DEFAULT '[]',          -- JSON: TemplateElementSummary[]
+  tags TEXT NOT NULL DEFAULT '[]',              -- JSON: string[]
+  payload TEXT,                                 -- JSON: 一键起片预填 (style/references/genre/pacing/lockedCharacters)
+  source_project_id TEXT,
+  visibility TEXT NOT NULL DEFAULT 'public',    -- 'public' | 'private'
+  use_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_film_templates_market ON film_templates(visibility, quality);
+CREATE INDEX IF NOT EXISTS idx_film_templates_owner ON film_templates(owner_id);
 `);
 
 // Safe ALTER TABLE — add columns if missing

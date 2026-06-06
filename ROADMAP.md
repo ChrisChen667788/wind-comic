@@ -2006,6 +2006,10 @@ npm test
 
 > **里程碑(达成)**:阶段十六三主题全部落地 —— **T1 配音口型**完整竖切(v9.6.1–v9.6.4 lib→API→UI→门禁/重拍)+ **T3 性能成本**完整竖切(v9.6.0 地基 + v9.6.5 接真实计费)+ **T2 模板市场**开篇地基(v9.6.6 抽取/评分/检索 lib)。三条线都复用既有质量/多参/成本信号,**完美融合不生硬**。
 
+### 5.16 阶段十六续 · T2 模板市场闭环 + T1 口型真渲染
+
+- **v9.6.7 · T2 模板持久化(film_templates 表 + repo)** ✅ 2026-06-04:`film_templates` 表(SQLite canonical `db.ts` + `db/schema.pg.sql` 镜像,双驱动)—— 模板的 画风/类型/节奏/元素概览/质量分/标签 + **一键起片预填 `payload`**(style/references/genre/pacing/lockedCharacters)+ 公开度 + use_count。新 `lib/repos/template-repo`(async DbDriver):`saveTemplate / getTemplate / listMarketTemplates`(取公开 → 复用 `searchTemplates` 过滤排序)`/ listOwnerTemplates / recordTemplateUse`。验证:**tsc 0 + 4 repo 单测(真 SQLite)+ PG 往返**(windcomic-pg:建表 + 默认值 + 增删查通过)。
+
 ---
 
 ## 6. 技术债清单(待清理)
