@@ -10,7 +10,8 @@
  */
 import { NextResponse } from 'next/server';
 import { getDbDriver } from '@/lib/db-driver';
-import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { listAssetsByType, createAsset } from '@/lib/repos/asset-repo';
+import { persistAsset } from '@/lib/asset-storage';
 import { dialogueLinesFromShots, planVisemes } from '@/lib/lipsync-plan';
 import {
   lipSyncEngineConfigured, listLipSyncProviders, dispatchLipSyncGenerate,
@@ -57,9 +58,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (!faceUrl) return NextResponse.json({ configured: true, ok: false, message: '缺说话人脸:先生成该镜分镜图,或显式传 faceUrl' });
 
-  // 2) 配音音频:必须由调用方提供(TTS 音频非独立资产)
-  const audioUrl = (body.audioUrl || '').trim();
-  if (!audioUrl) return NextResponse.json({ configured: true, ok: false, message: '缺配音音频:请先合成该镜 TTS 并传 audioUrl' });
+  // 2) 配音音频:body 优先,否则自动取该镜 shot-audio 资产(v9.7.1)
+  let audioUrl = (body.audioUrl || '').trim();
+  if (!audioUrl && typeof body.shotNumber === 'number') {
+    const sa = await d.get<any>(
+      `SELECT media_urls FROM project_assets WHERE project_id = ? AND type = 'shot-audio' AND shot_number = ? ORDER BY version DESC LIMIT 1`,
+      [id, body.shotNumber],
+    );
+    audioUrl = jsonArr(sa?.media_urls)[0] || '';
+  }
+  if (!audioUrl) return NextResponse.json({ configured: true, ok: false, message: '缺配音音频:先在面板「合成配音」(或传 audioUrl)' });
 
   // 3) viseme 轨:body 优先,否则从剧本该镜推
   let visemes = Array.isArray(body.visemes) ? body.visemes : undefined;
@@ -75,5 +83,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!result) {
     return NextResponse.json({ configured: true, ok: false, message: '口型渲染失败(引擎链全失败)', tried }, { status: 502 });
   }
-  return NextResponse.json({ configured: true, ok: true, shotNumber: body.shotNumber, ...result, tried });
+
+  // v9.7.2 写回成片管线:落盘 + 存为该镜 video 资产(新 updated_at → 时间线/分镜自动取最新口型版)。
+  let videoUrl = result.videoUrl;
+  let writtenBack = false;
+  if (typeof body.shotNumber === 'number') {
+    try {
+      const p = await persistAsset(result.videoUrl, { ext: '.mp4', contentType: 'video/mp4' });
+      if (p) videoUrl = p.url;
+      await createAsset({
+        projectId: id, type: 'video', name: `口型 · 镜 ${body.shotNumber}`,
+        data: { source: 'lipsync', provider: result.provider, audioUrl, faceUrl, upstreamId: result.upstreamId },
+        mediaUrls: [videoUrl], shotNumber: body.shotNumber, version: 1,
+      });
+      writtenBack = true;
+    } catch { /* 写回失败不影响返回渲染结果 */ }
+  }
+
+  return NextResponse.json({ configured: true, ok: true, shotNumber: body.shotNumber, ...result, videoUrl, writtenBack, tried });
 }

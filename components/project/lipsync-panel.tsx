@@ -7,7 +7,7 @@
  * 挂在「成片质检」tab(与一致性报告同列成片质量信号)。无对白 → 自动隐藏。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Microphone, Play, Stop, ArrowsClockwise, FilmSlate, CircleNotch } from '@phosphor-icons/react';
+import { Microphone, Play, Stop, ArrowsClockwise, FilmSlate, CircleNotch, SpeakerHigh } from '@phosphor-icons/react';
 import { lipSyncReshootHints } from '@/lib/lipsync-plan';
 
 type Viseme = 'sil' | 'MBP' | 'FV' | 'aa' | 'E' | 'I' | 'O' | 'U';
@@ -49,6 +49,8 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
   const [engine, setEngine] = useState<{ configured: boolean; hint?: string } | null>(null);
   const [rendering, setRendering] = useState(false);
   const [renderMsg, setRenderMsg] = useState<{ ok: boolean; text: string; videoUrl?: string } | null>(null);
+  const [synthingAudio, setSynthingAudio] = useState(false);
+  const [audioMsg, setAudioMsg] = useState<string | null>(null);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
 
@@ -106,12 +108,24 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
         body: JSON.stringify({ shotNumber: selected.shotNumber, visemes: selected.visemes }),
       });
       const b = await res.json();
-      if (b.ok && b.videoUrl) setRenderMsg({ ok: true, text: `口型视频已生成(${b.provider})`, videoUrl: b.videoUrl });
+      if (b.ok && b.videoUrl) setRenderMsg({ ok: true, text: `口型视频已生成(${b.provider})${b.writtenBack ? ' · 已写回分镜/时间线' : ''}`, videoUrl: b.videoUrl });
       else setRenderMsg({ ok: false, text: b.message || b.hint || '渲染失败' });
     } catch (e) {
       setRenderMsg({ ok: false, text: e instanceof Error ? e.message : '渲染失败' });
     } finally { setRendering(false); }
   }, [projectId, selected]);
+
+  const synthAudio = useCallback(async () => {
+    setSynthingAudio(true); setAudioMsg(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/shot-audio`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const b = await res.json();
+      if (b.ok) setAudioMsg(`已合成 ${b.synthesized}/${b.total} 句配音 —— 现在「真渲染口型」可自动取音`);
+      else setAudioMsg(b.message || '配音合成失败');
+    } catch (e) {
+      setAudioMsg(e instanceof Error ? e.message : '配音合成失败');
+    } finally { setSynthingAudio(false); }
+  }, [projectId]);
 
   if (!plan || plan.lines === 0) return null;
   const lv = LEVEL_STYLE[plan.level];
@@ -135,6 +149,19 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
             {lv.label} · 就绪度 {plan.readiness}
           </span>
         </div>
+      </div>
+
+      {/* 配音合成(给真渲染供音):合成全片对白 TTS → shot-audio 资产,render 自动取音 */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={synthAudio}
+          disabled={synthingAudio}
+          className="cinema-btn !px-2.5 !py-1 !text-[10px] inline-flex items-center gap-1 disabled:opacity-50"
+        >
+          {synthingAudio ? <CircleNotch className="w-3 h-3 animate-spin" /> : <SpeakerHigh className="w-3 h-3" />}
+          {synthingAudio ? '合成中…' : '合成全片配音'}
+        </button>
+        {audioMsg && <span className="text-[10px] text-white/45 truncate">{audioMsg}</span>}
       </div>
 
       {/* 选中句:动画嘴 + 张口包络 sparkline */}
