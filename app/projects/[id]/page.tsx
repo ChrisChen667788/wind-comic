@@ -22,7 +22,7 @@ import { buildTargetId } from '@/lib/comments-shared';
 import { useAuth } from '@/components/auth-provider';
 import { PacingChart } from '@/components/project/pacing-chart';
 import { ReviewStatusBadge } from '@/components/project/review-status-badge';
-import { CinemaTimeline } from '@/components/project/cinema-timeline';
+import dynamic from 'next/dynamic';
 import { VisionAuditTab } from '@/components/project/vision-audit-tab';
 import { OneClickFilmPanel } from '@/components/project/oneclick-film-panel';
 import { CostAttributionPanel } from '@/components/project/cost-attribution-panel';
@@ -36,6 +36,14 @@ import { EmotionRhythmChart } from '@/components/project/emotion-rhythm-chart';
 import { computeEmotionCurve } from '@/lib/emotion-curve';
 import { MonitorTab } from '@/components/project/monitor-tab';
 import { ParamLinkagePanel } from '@/components/project/param-linkage-panel';
+
+// 代码分割:时间线是 projects 详情页里最重的组件(~1182 行 + 拖拽/音频依赖),
+// 且仅在 activeTab==='timeline' 时渲染 → 动态懒加载,移出首屏 bundle。
+// ssr:false:纯客户端组件,无需服务端渲染。
+const CinemaTimeline = dynamic(
+  () => import('@/components/project/cinema-timeline').then((m) => m.CinemaTimeline),
+  { ssr: false, loading: () => <div className="p-8 text-center text-sm opacity-60">加载时间线…</div> },
+);
 
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
