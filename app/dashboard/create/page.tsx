@@ -31,6 +31,7 @@ import { ScriptDraftsCompare } from '@/components/create/script-drafts-compare';
 import { StyleLoraLibrary } from '@/components/create/style-lora-library';
 import { TemplateLibraryPicker } from '@/components/create/template-library-picker';
 import { PreviewShotModal } from '@/components/create/preview-shot-modal';
+import { DemoModeBanner } from '@/components/demo-mode-banner';
 import type { ScriptDraft } from '@/lib/script-drafts';
 
 // Pika-style art presets with visual indicators and color themes
@@ -627,6 +628,9 @@ export default function DashboardCreatePage() {
           onCancel={() => setShowPreview(false)}
         />
       )}
+
+      {/* v10.1.2: 演示模式提示 — 无图像/视频引擎 key 时,告知产出为占位/示意 + 指引启用 */}
+      <DemoModeBanner />
 
       {/* ── 顶部:场记板 (Slate) 形式标题 + Action — 替代单调 h2 ── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start mb-6">
