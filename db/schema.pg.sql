@@ -386,11 +386,28 @@ CREATE TABLE IF NOT EXISTS film_templates (
   source_project_id TEXT,
   visibility TEXT NOT NULL DEFAULT 'public',
   use_count INTEGER NOT NULL DEFAULT 0,
+  rating_sum INTEGER NOT NULL DEFAULT 0,
+  rating_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_film_templates_market ON film_templates(visibility, quality);
 CREATE INDEX IF NOT EXISTS idx_film_templates_owner ON film_templates(owner_id);
+-- v9.7.16 (T2 评分/收藏)
+CREATE TABLE IF NOT EXISTS template_ratings (
+  template_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  rating INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (template_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS template_favorites (
+  user_id TEXT NOT NULL,
+  template_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, template_id)
+);
+CREATE INDEX IF NOT EXISTS idx_template_favorites_user ON template_favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_quota_alerts_active ON api_quota_alerts(provider, acknowledged_at);
 CREATE INDEX IF NOT EXISTS idx_api_quota_alerts_recent ON api_quota_alerts(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_api_usage_provider_created ON api_usage_events(provider, created_at);

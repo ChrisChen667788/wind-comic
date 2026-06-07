@@ -270,11 +270,29 @@ CREATE TABLE IF NOT EXISTS film_templates (
   source_project_id TEXT,
   visibility TEXT NOT NULL DEFAULT 'public',    -- 'public' | 'private'
   use_count INTEGER NOT NULL DEFAULT 0,
+  rating_sum INTEGER NOT NULL DEFAULT 0,        -- v9.7.16 评分聚合(均分 = sum/count)
+  rating_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_film_templates_market ON film_templates(visibility, quality);
 CREATE INDEX IF NOT EXISTS idx_film_templates_owner ON film_templates(owner_id);
+
+-- v9.7.16 (T2 评分/收藏): 每用户对模板的评分(去重) + 收藏
+CREATE TABLE IF NOT EXISTS template_ratings (
+  template_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  rating INTEGER NOT NULL,                       -- 1-5
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (template_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS template_favorites (
+  user_id TEXT NOT NULL,
+  template_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, template_id)
+);
+CREATE INDEX IF NOT EXISTS idx_template_favorites_user ON template_favorites(user_id);
 `);
 
 // Safe ALTER TABLE — add columns if missing
@@ -311,6 +329,9 @@ addColumnIfMissing('users', 'budget_hard_cap_cny', 'REAL');
 // 示意片段引用自公开影视作品(《英雄联盟:双城之战 / Arcane》, Netflix·Riot·Fortiche),
 // 仅供个人学习与画风参考、非商业用途,版权归原作者所有 (见 public/cases/NOTICE.md)。
 addColumnIfMissing('cases', 'video_url', 'TEXT');
+// v9.7.16: 模板评分聚合(旧 film_templates 补列)
+addColumnIfMissing('film_templates', 'rating_sum', 'INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('film_templates', 'rating_count', 'INTEGER NOT NULL DEFAULT 0');
 // 已 seed 过的库也补上示意视频 (幂等: 仅在 video_url 为空时写);标题匹配 demo 案例。
 try {
   const setCaseVideo = db.prepare(`UPDATE cases SET video_url = ? WHERE title = ? AND (video_url IS NULL OR video_url = '')`);

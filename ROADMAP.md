@@ -2060,6 +2060,7 @@ npm test
 
 - **v9.7.14 · 发布徽章四维明细** ✅ 2026-06-04:`publish-readiness-badge` 此前只显 level+原因 → 现加**四维质量明细网格**:画面对剧本 / 一致性 / 口型可对齐 / 实测口型对齐,每行 状态点(达标绿/偏弱黄/未测灰)+ 明细(就绪分 / 均分)。数据全来自 `publish-readiness` 已返的 gate+lipSync+lipAudioAlign(badge 改存整个 body,显示条件加 hasLipSync/hasLipAudioAlign)。验证:**tsc 0**(纯展示)。
 - **v9.7.15 · 对齐分进模板质量分** ✅ 2026-06-04:`scoreTemplate` 加 `lipAudioAlign`(实测口型-音频对齐均分,权重 0.15;缺则不计、权重归一);`save-template` 读项目 `lipsync-align` 资产算均分 → 喂 `extractTemplate` signals → 测过对齐的项目存模板时质量分更准(实测对齐差则模板分降)。验证:**tsc 0 + template-market +2 断言**(单信号归一 / 对齐拉低总分 78)。
+- **v9.7.16 · T2 模板评分 / 收藏** ✅ 2026-06-04:模板市场加用户互动。**Schema**(双驱动 + live PG):`film_templates` +`rating_sum/rating_count`;新 `template_ratings`(每用户每模板一评分,去重 PK)+ `template_favorites`(每用户收藏,PK)。**repo**:`rateTemplate`(1-5 夹紧 + upsert + 重算聚合)/ `getUserRating` / `toggleFavorite` / `listFavoriteIds` / `listFavoriteTemplates`,`StoredTemplate` 加 `ratingAvg/ratingCount`。**API**:`POST /templates/[id]/rate`、`POST /templates/[id]/favorite`、`GET /templates?fav=1` + 返 `favoriteIds`。**UI**:市场卡 ⭐ 点星打分(显均分+评分数)+ ♥ 收藏 + 顶部「只看收藏」筛选。验证:**tsc 0 + 8 repo 单测(真 SQLite:多用户聚合/去重 re-rate/夹紧/收藏 toggle/幂等)+ PG 往返**(ALTER+建表+评分 smoke)。
 
 ## 6. 技术债清单(待清理)
 

@@ -32,6 +32,9 @@ export interface StoredTemplate extends FilmTemplate {
   payload?: TemplatePayload | null;
   visibility: 'public' | 'private';
   useCount: number;
+  /** v9.7.16 评分均分 0-5(1 位小数;无评分 → 0) */
+  ratingAvg: number;
+  ratingCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,6 +60,8 @@ function mapRow(r: any): StoredTemplate {
     payload: safeJson<TemplatePayload | null>(r.payload, null),
     visibility: r.visibility === 'private' ? 'private' : 'public',
     useCount: r.use_count ?? 0,
+    ratingCount: r.rating_count ?? 0,
+    ratingAvg: (r.rating_count ?? 0) > 0 ? Math.round(((r.rating_sum ?? 0) / r.rating_count) * 10) / 10 : 0,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -119,4 +124,60 @@ export async function recordTemplateUse(id: string): Promise<boolean> {
   if (!t) return false;
   await getDbDriver().run(`UPDATE film_templates SET use_count = use_count + 1 WHERE id = ?`, [id]);
   return true;
+}
+
+// ─── v9.7.16 评分 / 收藏 ───────────────────────────────────────────────────
+
+/** 用户对模板评分(1-5,去重 upsert)→ 重算聚合 → 返 {avg, count}。模板不存在 → null。 */
+export async function rateTemplate(templateId: string, userId: string, rating: number): Promise<{ avg: number; count: number } | null> {
+  const d = getDbDriver();
+  if (!(await getTemplate(templateId))) return null;
+  const r = Math.max(1, Math.min(5, Math.round(Number(rating) || 0)));
+  const ts = new Date().toISOString();
+  await d.run(
+    `INSERT INTO template_ratings (template_id, user_id, rating, created_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT (template_id, user_id) DO UPDATE SET rating = excluded.rating, created_at = excluded.created_at`,
+    [templateId, userId, r, ts],
+  );
+  const agg = await d.get<{ c: number; s: number }>(
+    `SELECT COUNT(*) AS c, COALESCE(SUM(rating), 0) AS s FROM template_ratings WHERE template_id = ?`, [templateId],
+  );
+  const count = Number(agg?.c) || 0;
+  const sum = Number(agg?.s) || 0;
+  await d.run(`UPDATE film_templates SET rating_sum = ?, rating_count = ? WHERE id = ?`, [sum, count, templateId]);
+  return { avg: count > 0 ? Math.round((sum / count) * 10) / 10 : 0, count };
+}
+
+export async function getUserRating(templateId: string, userId: string): Promise<number | null> {
+  const r = await getDbDriver().get<{ rating: number }>(`SELECT rating FROM template_ratings WHERE template_id = ? AND user_id = ?`, [templateId, userId]);
+  return r ? Number(r.rating) : null;
+}
+
+/** 收藏 / 取消收藏(on=true 收藏,false 取消)。返回最终是否已收藏。 */
+export async function toggleFavorite(userId: string, templateId: string, on: boolean): Promise<boolean> {
+  const d = getDbDriver();
+  if (on) {
+    await d.run(
+      `INSERT INTO template_favorites (user_id, template_id, created_at) VALUES (?, ?, ?)
+       ON CONFLICT (user_id, template_id) DO NOTHING`,
+      [userId, templateId, new Date().toISOString()],
+    );
+    return true;
+  }
+  await d.run(`DELETE FROM template_favorites WHERE user_id = ? AND template_id = ?`, [userId, templateId]);
+  return false;
+}
+
+export async function listFavoriteIds(userId: string): Promise<string[]> {
+  const rows = await getDbDriver().query<{ template_id: string }>(`SELECT template_id FROM template_favorites WHERE user_id = ?`, [userId]);
+  return rows.map((r) => r.template_id);
+}
+
+/** 我收藏的模板(按收藏时间倒序),映射成完整 StoredTemplate。 */
+export async function listFavoriteTemplates(userId: string): Promise<StoredTemplate[]> {
+  const rows = await getDbDriver().query<any>(
+    `SELECT t.* FROM film_templates t JOIN template_favorites f ON f.template_id = t.id WHERE f.user_id = ? ORDER BY f.created_at DESC`,
+    [userId],
+  );
+  return rows.map(mapRow);
 }
