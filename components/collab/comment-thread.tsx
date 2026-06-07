@@ -20,6 +20,7 @@ import { Trash as Trash2, ChatCircle as MessageCircle, PaperPlaneTilt as Send, C
 import { MentionTextarea } from './mention-textarea';
 import type { CommentRowShape as CommentRow, CommentTargetType, CommentAttachmentShape } from '@/lib/comments-shared';
 import { useYjs } from '@/hooks/use-yjs';
+import { subscribeSSE } from '@/lib/sse-client';
 
 interface FetchedComment extends CommentRow {}
 interface Thread { root: FetchedComment; replies: FetchedComment[] }
@@ -246,18 +247,22 @@ export function CommentThread({
   // 初次 + WS 重连时拉 server 端权威列表 (Yjs 仅做实时 push, 不做权威源)
   useEffect(() => {
     fetchComments();
-    // 没启实时, 走老的轮询路径
-    if (!enableRealtime && pollIntervalMs > 0) {
-      const t = setInterval(fetchComments, pollIntervalMs);
-      return () => clearInterval(t);
+    // v10.2.0: 未启 Yjs 实时时,改用 SSE 推送(项目评论频道)取代固定轮询;轮询降为慢速兜底。
+    if (!enableRealtime) {
+      const sub = subscribeSSE(`/api/projects/${encodeURIComponent(projectId)}/comments/stream`, {
+        onEvent: (ev) => { if (ev.event === 'comment') fetchComments(); },
+      });
+      const fallbackMs = pollIntervalMs > 0 ? Math.max(pollIntervalMs, 90_000) : 0;
+      const t = fallbackMs > 0 ? setInterval(fetchComments, fallbackMs) : null;
+      return () => { sub.close(); if (t) clearInterval(t); };
     }
-    // 实时模式下: 仍保留低频轮询作为 WS 断连兜底, 间隔显著拉长省电
+    // Yjs 实时模式: 仍保留低频轮询作为 WS 断连兜底, 间隔显著拉长省电
     if (enableRealtime && pollIntervalMs > 0) {
       const fallbackInterval = Math.max(pollIntervalMs, 60_000) * 4; // ≥4 分钟
       const t = setInterval(fetchComments, fallbackInterval);
       return () => clearInterval(t);
     }
-  }, [fetchComments, pollIntervalMs, enableRealtime]);
+  }, [fetchComments, pollIntervalMs, enableRealtime, projectId]);
 
   // Yjs Y.Array 监听 — 新评论 push 进来, 按 targetId filter 后 merge 到 state
   useEffect(() => {

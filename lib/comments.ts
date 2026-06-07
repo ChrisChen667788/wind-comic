@@ -410,6 +410,16 @@ export async function createCommentAsync(input: CreateCommentInput): Promise<Cre
     return { comment: rowToComment(row!), notifiedUserIds: Array.from(notifyIds), notifyRecords };
   });
 
+  // 实时推送 (SSE · 进程内事件总线 · best-effort): 评论落库后即时通知订阅的前端
+  // —— comment 频道驱动评论区实时刷新, notif 频道驱动通知铃实时更新, 取代轮询.
+  try {
+    const { emitComment, emitNotification } = await import('@/lib/event-bus');
+    emitComment(input.projectId, { commentId: result.comment.id });
+    for (const uid of result.notifiedUserIds) {
+      emitNotification(uid, { commentId: result.comment.id, projectId: input.projectId });
+    }
+  } catch { /* 推送失败不影响评论已落库 */ }
+
   // 事务外 best-effort 邮件 (与同步版一致)
   void (async () => {
     try {

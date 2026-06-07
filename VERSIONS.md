@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v10.1**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v10.2**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v10.1**:**vitest 2124/2124 通过,tsc 0 错误**(SQLite/Postgres 双驱动)。
+> 截至 **v10.2**:**vitest 2129/2129 通过,tsc 0 错误**(SQLite/Postgres 双驱动)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -21,6 +21,7 @@
 | 平台化 | v4.0 – v4.2 (+.1) | Cameo IP 经济、Agent 编排引擎、Postgres 迁移 |
 | 生产工作室 → 平台 | v6 – v9 | 角色库/提示词 IDE/长篇分集、控片台、团队、Polish Pro、精品设计、PG 双驱动、变现分发、质量一致性深化 |
 | **阶段十六 · 出片体验** | **v9.6 – v10.1** | **配音口型全链(规划→预览→评分→门禁→真渲染→自愈)· 模板市场(存/评分/收藏/一键起片)· 成本归因 + 预算护栏 · 口型零配置兜底引擎** |
+| **平台加固 + 实时** | **v10.0.3 – v10.2** | **截图真实化 · 上线安全三件套(JWT fail-fast / 登录注册限流 / demo 降权)· 工程卫生(删死代码 / 项目页代码分割)· 演示模式就绪度提示 · 实时推送(通知 + 评论轮询 → SSE)** |
 
 ---
 
@@ -179,6 +180,7 @@
 | **v6.4** | 2026-05-24 | `386f22a` | 导演级全链路编辑(对标火山控片):`lib/pipeline-stages`(4 环节模型 + 按 updatedAt 推 空/就绪/待更新 stale + 下游失效分析,8 单测)+ 项目页「导演台」tab(`director-console`:流水线可视化 + 进度 + 跳节点编辑 + 重跑下游影响);项目 API 补 updatedAt |
 | **v6.5** | 2026-05-24 | `ea346b7` | 团队工作区 + 积分额度分配(对标火山团队协作):`lib/team-credits`(额度数学 + 分配校验 + RBAC,12 单测)+ `team_allocations` 表 + `GET/PUT /api/team/allocations`(超额拒绝)+ `/dashboard/team`(池总览 + 成员额度编辑 + 添加/移除)+ 侧栏入口。**阶段八对标六版全交付** |
 | **v6.2.3** | 2026-05-24 | `1bd634e` | 解说音轨接真 TTS + N 集并行编排:`lib/season-orchestrator`(`runPool` 有界并发池 + `orchestrateSeason`)+ `lib/narration-synth`(解说计划真出音频 → 按真实时长重排时轴 + 字幕,单段失败降级,synth 注入可单测,13 单测)+ `POST /api/narration/synthesize` + `POST /api/season/narrate`(整季有界并发)+ story-intake「整季并行解说音轨」按钮 + 逐集结果面板 |
+| **v10.2.0** | 2026-06-07 | `(本次)` | **实时:轮询 → SSE(通知 + 评论)**:通知铃 / 评论区此前靠 `setInterval` 固定轮询。改为**进程内事件总线 + SSE 推送**:新增 `lib/event-bus.ts`(`globalThis` 单例 `EventEmitter`,`emitNotification/emitComment/subscribe`,+5 单测)—— `createCommentAsync` 事务提交后 emit 评论频道 + 被通知者频道;新端点 `GET /api/notifications/stream`(用户私有,用户解析与 `/api/notifications` GET 一致)+ `GET /api/projects/[id]/comments/stream`(项目作用域),复用 `lib/sse.ts` 的 `createSSEResponse`,25s keepalive、客户端断开即清理订阅。前端 `lib/sse-client.ts`(fetch 流式 + 复用 `parseSSEChunk`,可带 `Bearer` 头[EventSource 不能]、断线指数退避重连)接进 `notification-bell` + `comment-thread`:**SSE 即时推、轮询降为 ≥90s 慢速兜底**;鉴权 / 行为与原轮询一致,仅去掉高频请求。单实例足够(多实例需换 Redis pub/sub)。验证:**tsc 0 + 全量 vitest 2129/2129(+5)+ 端到端实跑**(开评论流 → POST 评论 → 同进程总线 → SSE 收到 `comment` 帧 = `SSE_E2E_OK`,测试评论已清理)。 |
 | **v10.1.2** | 2026-06-07 | `d916c02` | **演示模式就绪度提示(克隆即跑更友好)**:除口型(v10.1.0 已零配置)外,图像/视频/TTS 仍需 BYO key,没配时管线退化为占位/示意资产却**此前无提示**。新增纯函数 `lib/engine-readiness.ts`(`computeReadiness`:各引擎 available 标志 → `demoMode`=缺图像或视频 + 每引擎 label/启用提示,+5 单测)+ `GET /api/runtime/readiness`(聚合 image/video/tts provider 注册表 `available()` + `lipSyncEngineConfigured()`,**只判定、不回传密钥**)+ `components/demo-mode-banner.tsx`(创作工坊顶部金色**可关闭**条:「演示模式 · 图像/视频引擎未配置 → 生成用占位/示意资产;口型已零配置可用」+ 指向 `/dashboard/health`)。验证:**tsc 0 + 全量 vitest 2124/2124(+5)+ puppeteer 实测**(拦截 readiness 置 `demoMode=true` → 横幅渲染 DEMO_BANNER_OK;真机已配 key → `demoMode=false` 不打扰)。 |
 | **v10.1.1** | 2026-06-07 | `403e852` | **深层模块截图刷 v10**(回应「README 深层模块仍是 v6–v8 旧图」):用已登录会话 token + puppeteer 无头,逐页截 5 张登录态实测图入 `assets/v10/`:**导演台**(`director-console`,11-tab 控片台 + 锁角色 + 4 环节流水线)· **长篇分集**(`story-intake`,粘小说→分 3 集 + 叙事模式)· **团队工作区**(`team`,积分池 + 成员额度 + 邀请)· **Cinema 时间线**(`cinema-timeline`,6 镜 20s 多轨;先点开懒加载 tab 再截)· **完整成片站**(`final-film`,11-tab + 成片播放)。README(中英)对应 5 图换 v10、横幅改「部分已刷新 / 部分保留早期」;**风格画廊 / API 健康 / Polish Pro 审稿 / 角色工坊** 如实保留 v6–v8(它们展示更完整示例输出:整屏网格 / 实时余额 / 完整审稿 / 三视图)。同步测试徽章 2103→**2119**、补 v10.1 零配置口型一句。重跑 `gen-modelscope-intro`。验证:**5 图皆登录态、数据充实、非占位**;tsc 0。 |
 | **v10.1.0** | 2026-06-07 | `ad1be1a` | **口型零配置兜底引擎(开箱即出"会动嘴"的成片)**:阶段十六 T1 此前只有自托管 `wav2lip-http`(需 `LIPSYNC_API_URL`),不配则整条配音口型链产不出成片。新增**本地 2D 口型引擎** `local-2d`(`lib/lipsync-providers/local-2d.ts`,优先级 100、低于真引擎 50):用 viseme 轨驱动 **8 张口型贴图**(`public/lipsync/mouths/{sil,MBP,FV,aa,E,I,O,U}.png`,一次性 puppeteer 栅格化)在说话人脸(或纯色底)下方「口型条」按时间窗口切换,muxin 配音 → **ffmpeg 合成 `data:video/mp4`**(`ffmpeg-static` 随包二进制 + 系统路径兜底;`next.config` 标记 server-external 防打包破坏路径)。纯函数分段器 `lib/lipsync-segments.ts`(关键帧→连续覆盖 [0,dur] 的 viseme 分段 + per-viseme `enable` 并集表达式)+9 单测。`lipSyncEngineConfigured()` 自此默认 true → 渲染/写回/成本/批量/质检全链**无缝复用**,无需 BYO。真引擎一旦配置仍优先。`env LIPSYNC_LOCAL_DISABLE=1` 可关。验证:**tsc 0 + 全量 vitest 2119/2119 + 端到端实跑**(经 render 路由产出 h264 720×720 + aac 2.44s mp4、帧内可见口型条动嘴、写回成片管线)。 |

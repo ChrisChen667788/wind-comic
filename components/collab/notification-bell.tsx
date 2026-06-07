@@ -19,6 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { subscribeSSE } from '@/lib/sse-client';
 
 interface NotificationItem {
   id: string;
@@ -77,10 +78,14 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
 
   useEffect(() => {
     refresh();
-    if (pollIntervalMs > 0) {
-      const t = setInterval(refresh, pollIntervalMs);
-      return () => clearInterval(t);
-    }
+    // v10.2.0: 实时改 SSE —— 有新通知即推 → 立即 refresh;轮询降级为慢速兜底(SSE 断线时保活)。
+    // 不带 token,与 refresh 的 fetch 鉴权一致(同一用户解析),行为零变化、仅多了推送。
+    const sub = subscribeSSE('/api/notifications/stream', {
+      onEvent: (ev) => { if (ev.event === 'notification') refresh(); },
+    });
+    const fallbackMs = pollIntervalMs > 0 ? Math.max(pollIntervalMs, 90_000) : 0;
+    const t = fallbackMs > 0 ? setInterval(refresh, fallbackMs) : null;
+    return () => { sub.close(); if (t) clearInterval(t); };
   }, [refresh, pollIntervalMs]);
 
   const markRead = async (id: string) => {
