@@ -2050,6 +2050,12 @@ npm test
 
 > **里程碑(达成)**:阶段十六精修 IV 收口 —— 口型**漂移自动校正**(v9.7.11:测时延→平移补偿→重渲)+ 模板市场**可视化预览片**(v9.7.12)。T1 口型自愈再进一步(不止重渲,还校时延),T2 市场从文字卡升级到可视化片头。
 
+### 5.21 阶段十六精修 V · 预览片落盘 + 对齐分进门禁
+
+- **v9.7.13 · 模板预览片落盘 + 音画对齐进发布门禁** ✅ 2026-06-04:① **预览片落盘**:`save-template` 不再直存源项目资产 URL,而是 `persistAsset` 把首镜图/视频**拷成 .storage 独立副本**(内容寻址)→ 源项目删了模板预览仍在;落盘失败回退原 URL。② **音画对齐进门禁**:`quality-gate` 加 `lipAudioAlign`(measuredShots/weakShots/avgScore)输入 —— 实测对齐有弱镜或均分 <75 → warn + 偏弱维度「口型对齐」(增强维度不硬拦)。新端点 `GET/POST /api/projects/[id]/lipsync-align`(存实测对齐分,`type='lipsync-align'` 资产,合并式);面板「测音画对齐」+ 批量 QC 算完即 POST 存分;`publish-readiness` 读对齐资产 → 聚合(measured/weak<60/avg)→ 喂 gate,返 `lipAudioAlign`。验证:**tsc 0 + quality-gate +4 单测**(有弱镜 warn / 均分偏低 warn / 高分 pass / measured0 无数据)。
+
+> **里程碑(达成)**:阶段十六精修 V —— 模板预览**落盘不失效**(v9.7.13①)+ 发布门禁纳入**实测嘴-声对齐**(v9.7.13②)。成片质量结论现含 画面对剧本 / 一致性 / 口型可对齐 / **实测口型-音频对齐** 多维。
+
 ## 6. 技术债清单(待清理)
 
 | 隐患 | 位置 | 优先级 | Sprint |

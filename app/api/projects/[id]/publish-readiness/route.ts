@@ -40,7 +40,22 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     lipSync = { lines: plan.lines, readiness: plan.readiness, level: plan.level };
   } catch { /* 口型为增强信号,失败不影响门禁主体 */ }
 
-  const gate = evaluateQualityGate({ filmAudit, qualityScore, lipSync });
+  // v9.7.14:实测口型-音频对齐分(面板/批量 QC 存的)并入门禁(增强维度,只升 warn)。
+  let lipAudioAlign: { measuredShots: number; weakShots: number; avgScore: number } | null = null;
+  try {
+    const alignRows = await listAssetsByType(id, 'lipsync-align');
+    const scores: Record<string, number> = JSON.parse(alignRows[0]?.data || '{}')?.scores || {};
+    const vals = Object.values(scores).map(Number).filter((n) => Number.isFinite(n));
+    if (vals.length) {
+      lipAudioAlign = {
+        measuredShots: vals.length,
+        weakShots: vals.filter((s) => s < 60).length,
+        avgScore: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
+      };
+    }
+  } catch { /* 对齐为增强信号,失败不影响门禁主体 */ }
+
+  const gate = evaluateQualityGate({ filmAudit, qualityScore, lipSync, lipAudioAlign });
 
   return NextResponse.json({
     projectId: id,
@@ -49,5 +64,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     hasQualityScore: !!qualityScore,
     hasLipSync: !!lipSync && lipSync.lines > 0,
     lipSync,
+    hasLipAudioAlign: !!lipAudioAlign,
+    lipAudioAlign,
   });
 }

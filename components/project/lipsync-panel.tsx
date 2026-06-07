@@ -163,6 +163,10 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
       const aa = autoAlignVisemes({ visemes: flat, audioEnergy: energy, durationSec });
       const corrected = Math.abs(aa.offsetSec) >= 0.05 ? shiftVisemeTrack(selected.visemes, aa.offsetSec) : undefined;
       setAlignResult({ shotNumber: selected.shotNumber, score: r.score, verdict: r.verdict, lagSec: r.lagSec, corrected, before: aa.before, after: aa.after });
+      // v9.7.14:存实测对齐分 → publish-readiness 发布门禁据此并入「口型对齐」维度
+      fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync-align`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scores: { [selected.shotNumber]: r.score } }),
+      }).catch(() => {});
     } catch (e) {
       setAudioMsg(e instanceof Error ? e.message : '对齐测量失败');
     } finally { setAligning(false); }

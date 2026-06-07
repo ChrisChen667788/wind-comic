@@ -70,6 +70,12 @@ export function LipSyncBatchPanel({ projectId, shotNumbers }: { projectId: strin
         } catch { /* 单镜解码失败则跳过(不参与对齐判定) */ }
       }
       ac.close();
+      // v9.7.14:存实测对齐分 → 并入发布门禁
+      if (Object.keys(out).length) {
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync-align`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scores: out }),
+        }).catch(() => {});
+      }
     } catch { /* 对齐分不可得则只用 Vision 分 */ }
     return out;
   }

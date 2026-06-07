@@ -14,6 +14,7 @@ import { evaluateQualityGate } from '@/lib/quality-gate';
 import { dialogueLinesFromShots, buildLipSyncPlan } from '@/lib/lipsync-plan';
 import { extractTemplate, type TemplateElementSummary } from '@/lib/template-market';
 import { saveTemplate } from '@/lib/repos/template-repo';
+import { persistAsset } from '@/lib/asset-storage';
 import type { ScriptShot } from '@/types/agents';
 
 export const runtime = 'nodejs';
@@ -61,8 +62,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
     try { const u = JSON.parse(row?.media_urls || '[]'); return Array.isArray(u) && u[0] ? u[0] : undefined; } catch { return undefined; }
   };
-  const previewUrl = await firstMedia('storyboard');
-  const previewVideoUrl = await firstMedia('video');
+  // v9.7.13:落盘独立副本(内容寻址进 .storage)→ 源项目删了预览仍在;落盘失败回退原 URL
+  let previewUrl = await firstMedia('storyboard');
+  let previewVideoUrl = await firstMedia('video');
+  if (previewUrl) { try { const p = await persistAsset(previewUrl, { ext: '.jpg', contentType: 'image/jpeg' }); if (p?.url) previewUrl = p.url; } catch { /* 保留原 URL */ } }
+  if (previewVideoUrl) { try { const p = await persistAsset(previewVideoUrl, { ext: '.mp4', contentType: 'video/mp4' }); if (p?.url) previewVideoUrl = p.url; } catch { /* 保留原 URL */ } }
 
   // 角色音色覆盖(v9.7.9:带进模板,一键起片复用)
   let voiceOverrides: Record<string, string> = {};

@@ -37,6 +37,16 @@ export interface LipSyncGateLike {
   level: 'none' | 'pass' | 'warn' | 'block';
 }
 
+/** 口型-音频对齐(实测,v9.7.14)的最小形;measuredShots=0 → 未测, 不参与门禁。 */
+export interface LipAudioAlignLike {
+  /** 已实测对齐的镜数 */
+  measuredShots: number;
+  /** 对齐分低于阈值的镜数 */
+  weakShots: number;
+  /** 平均对齐分 0-100 */
+  avgScore: number;
+}
+
 export interface QualityGateThresholds {
   /** Vision 平均分门槛, 低于 → warn。默认 70 */
   minAvgScore: number;
@@ -93,6 +103,7 @@ export function evaluateQualityGate(input: {
   filmAudit?: FilmAuditLike | null;
   qualityScore?: QualityDimsLike | null;
   lipSync?: LipSyncGateLike | null;
+  lipAudioAlign?: LipAudioAlignLike | null;
   thresholds?: Partial<QualityGateThresholds>;
 }): QualityGateResult {
   const t = { ...DEFAULT_QUALITY_THRESHOLDS, ...(input.thresholds || {}) };
@@ -100,13 +111,15 @@ export function evaluateQualityGate(input: {
   const qs = input.qualityScore || null;
   const ls = input.lipSync || null;
   const lsActive = !!ls && num(ls.lines) > 0;
+  const la = input.lipAudioAlign || null;
+  const laActive = !!la && num(la.measuredShots) > 0;
 
   const blockReasons: string[] = [];
   const warnReasons: string[] = [];
   const failedDimensions: string[] = [];
   const weakestShots = fa && Array.isArray(fa.weakestShots) ? fa.weakestShots.slice(0, 3) : [];
 
-  if (!fa && !qs && !lsActive) {
+  if (!fa && !qs && !lsActive && !laActive) {
     return {
       level: 'warn', ready: true,
       reasons: ['尚无质检 / 成片评分数据 — 建议先跑 Vision 质检与成片打分再发布'],
@@ -155,6 +168,17 @@ export function evaluateQualityGate(input: {
     } else if (ls.level === 'warn') {
       warnReasons.push(`口型部分对不上 (就绪度 ${Math.round(num(ls.readiness))})`);
       if (!failedDimensions.includes('口型')) failedDimensions.push('口型');
+    }
+  }
+
+  // ── 口型-音频对齐(实测,v9.7.14)──「增强」维度,只升 warn。
+  if (laActive && la) {
+    if (num(la.weakShots) > 0) {
+      warnReasons.push(`口型-音频对齐:${num(la.weakShots)}/${num(la.measuredShots)} 镜对不上声音 (均分 ${Math.round(num(la.avgScore))})`);
+      if (!failedDimensions.includes('口型对齐')) failedDimensions.push('口型对齐');
+    } else if (num(la.avgScore) < 75) {
+      warnReasons.push(`口型-音频对齐均分偏低 (${Math.round(num(la.avgScore))})`);
+      if (!failedDimensions.includes('口型对齐')) failedDimensions.push('口型对齐');
     }
   }
 

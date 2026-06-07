@@ -50,6 +50,30 @@ describe('v9.6.4 · quality-gate 口型融合', () => {
   });
 });
 
+describe('v9.7.14 · 口型-音频对齐进门禁', () => {
+  it('实测有弱镜 → warn + 「口型对齐」进偏弱维度(增强维度不硬拦)', () => {
+    const g = evaluateQualityGate({ qualityScore: goodDims, lipAudioAlign: { measuredShots: 5, weakShots: 2, avgScore: 58 } });
+    expect(g.level).toBe('warn');
+    expect(g.ready).toBe(true);
+    expect(g.failedDimensions).toContain('口型对齐');
+    expect(g.reasons.join()).toMatch(/对不上声音/);
+  });
+  it('无弱镜但均分偏低 → warn', () => {
+    const g = evaluateQualityGate({ qualityScore: goodDims, lipAudioAlign: { measuredShots: 4, weakShots: 0, avgScore: 70 } });
+    expect(g.level).toBe('warn');
+    expect(g.reasons.join()).toMatch(/对齐均分偏低/);
+  });
+  it('均分高 + 无弱镜 → 不引入对齐原因(pass)', () => {
+    const g = evaluateQualityGate({ qualityScore: goodDims, lipAudioAlign: { measuredShots: 6, weakShots: 0, avgScore: 90 } });
+    expect(g.level).toBe('pass');
+    expect(g.failedDimensions).not.toContain('口型对齐');
+  });
+  it('measuredShots 0 + 无其它 → 回「无数据」warn(非破坏)', () => {
+    const g = evaluateQualityGate({ lipAudioAlign: { measuredShots: 0, weakShots: 0, avgScore: 0 } });
+    expect(g.message).toMatch(/未质检/);
+  });
+});
+
 describe('v9.6.4 · lipSyncReshootHints', () => {
   const wide = line({ shotNumber: 1, speaker: 'A', text: '你好啊', onScreen: ['A'], shotSize: 'wide shot 远景', startSec: 0, endSec: 3 });       // 70
   const overflow = line({ shotNumber: 2, speaker: 'A', text: '这是一句非常长的台词需要说很久很久很久', onScreen: ['A'], startSec: 0, endSec: 1 }); // 80
