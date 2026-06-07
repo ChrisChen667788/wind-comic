@@ -275,15 +275,24 @@ export default function Home() {
                     <video src={item.videoUrl} className="w-full h-full object-cover bg-black" autoPlay loop playsInline controls />
                   ) : (
                     <>
-                      <img src={item.coverUrl || item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                      <button
-                        aria-label="播放"
-                        onClick={() => item.videoUrl && setPlayingCase(item.id)}
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[46px] rounded-full border border-[var(--border)] bg-[rgba(0,0,0,0.5)] text-white grid place-items-center cursor-pointer hover:bg-[rgba(0,0,0,0.65)] transition-colors"
-                      >
-                        <Play size={18} weight="fill" className="ml-0.5" />
-                      </button>
-                      {item.videoUrl && <span className="absolute top-2.5 left-2.5 text-[10px] px-1.5 py-0.5 rounded bg-black/55 text-white/80 border border-white/10 backdrop-blur-sm">示意片段</span>}
+                      {/* v9.5.5 修复:有视频的卡片静音循环自动播放真片段,而非 gradient 占位 */}
+                      {item.videoUrl ? (
+                        <video src={item.videoUrl} className="w-full h-full object-cover bg-black transition-transform duration-300 group-hover:scale-105" autoPlay muted loop playsInline preload="metadata" />
+                      ) : (
+                        <img src={item.coverUrl || item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      )}
+                      {item.videoUrl && (
+                        <>
+                          <span className="absolute top-2.5 left-2.5 text-[10px] px-1.5 py-0.5 rounded bg-black/55 text-white/80 border border-white/10 backdrop-blur-sm">示意片段</span>
+                          <button
+                            aria-label="有声播放"
+                            onClick={() => setPlayingCase(item.id)}
+                            className="absolute top-2.5 right-2.5 z-10 text-[10px] px-2 py-1 rounded-full bg-black/55 text-white/90 border border-white/15 backdrop-blur-sm inline-flex items-center gap-1 cursor-pointer hover:bg-black/75 transition-all"
+                          >
+                            <Play size={10} weight="fill" /> 有声播放
+                          </button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>

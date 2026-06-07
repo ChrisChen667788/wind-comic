@@ -55,17 +55,26 @@ export default function CasesPage() {
                 />
               ) : (
                 <>
-                  <img src={c.coverUrl} alt={c.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  {/* v9.5.5 修复:有视频的卡片直接静音循环自动播放(展示真片段),非仅 gradient 占位 */}
+                  {c.videoUrl ? (
+                    <video
+                      src={c.videoUrl}
+                      className="w-full h-full object-cover bg-black transition-transform duration-300 group-hover:scale-105"
+                      autoPlay muted loop playsInline preload="metadata"
+                    />
+                  ) : (
+                    <img src={c.coverUrl} alt={c.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  )}
                   {c.videoUrl && (
                     <>
+                      <span className="absolute top-2.5 left-2.5 text-[10px] px-1.5 py-0.5 rounded bg-black/55 text-white/80 border border-white/10 backdrop-blur-sm">示意片段</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); setPlayingId(c.id); }}
-                        aria-label="播放示意片段"
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[46px] rounded-full border border-[var(--border)] bg-[rgba(0,0,0,0.5)] text-white cursor-pointer hover:bg-[rgba(0,0,0,0.7)] hover:scale-110 transition-all"
+                        aria-label="有声播放"
+                        className="absolute top-2.5 right-2.5 z-10 text-[10px] px-2 py-1 rounded-full bg-black/55 text-white/90 border border-white/15 backdrop-blur-sm inline-flex items-center gap-1 cursor-pointer hover:bg-black/75 transition-all"
                       >
-                        <Play weight="fill" className="w-4 h-4 mx-auto" />
+                        <Play weight="fill" className="w-2.5 h-2.5" /> 有声播放
                       </button>
-                      <span className="absolute top-2.5 left-2.5 text-[10px] px-1.5 py-0.5 rounded bg-black/55 text-white/80 border border-white/10 backdrop-blur-sm">示意片段</span>
                     </>
                   )}
 
