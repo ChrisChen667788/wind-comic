@@ -31,6 +31,10 @@ describe('v9.6.6 · scoreTemplate', () => {
     expect(scoreTemplate({ publishLevel: 'pass', consistency: 80, completeness: 100, lipSyncReadiness: 50 })).toBe(85);
     // 只有一致性 → 权重归一后 = 该值
     expect(scoreTemplate({ consistency: 80 })).toBe(80);
+    // v9.7.15:只有实测对齐 → 归一后 = 该值
+    expect(scoreTemplate({ lipAudioAlign: 84 })).toBe(84);
+    // 实测对齐拉低总分(pass 90 + 对齐 40,权重 0.5/0.15 → (45+6)/0.65=78.46→78)
+    expect(scoreTemplate({ publishLevel: 'pass', lipAudioAlign: 40 })).toBe(78);
   });
 });
 

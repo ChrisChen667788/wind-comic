@@ -54,6 +54,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     lipSync: { lines: lsPlan.lines, readiness: lsPlan.readiness, level: lsPlan.level },
   });
 
+  // v9.7.15:实测口型-音频对齐均分(若测过)→ 进模板质量分
+  let lipAudioAlignAvg: number | null = null;
+  try {
+    const alignRows = await listAssetsByType(id, 'lipsync-align');
+    const scores: Record<string, number> = JSON.parse(alignRows[0]?.data || '{}')?.scores || {};
+    const vals = Object.values(scores).map(Number).filter((n) => Number.isFinite(n));
+    if (vals.length) lipAudioAlignAvg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  } catch { lipAudioAlignAvg = null; }
+
   // 市场卡片预览(v9.7.12:首镜分镜图 + 首镜成片视频)
   const firstMedia = async (type: string): Promise<string | undefined> => {
     const row = await d.get<any>(
@@ -91,6 +100,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       publishLevel: gate.level,
       consistency: qualityScore?.overall ?? null,
       lipSyncReadiness: lsPlan.lines ? lsPlan.readiness : null,
+      lipAudioAlign: lipAudioAlignAvg,
     },
     sourceProjectId: id,
   });

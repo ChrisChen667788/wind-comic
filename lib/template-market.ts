@@ -48,6 +48,8 @@ export interface TemplateQualitySignals {
   completeness?: number | null;
   /** 口型就绪度 0-100 */
   lipSyncReadiness?: number | null;
+  /** 实测口型-音频对齐均分 0-100(v9.7.15) */
+  lipAudioAlign?: number | null;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -69,8 +71,8 @@ const PUBLISH_BASE: Record<NonNullable<TemplateQualitySignals['publishLevel']>, 
 };
 
 /**
- * 模板质量分:发布门禁为主(权重 0.5),一致性 0.25 / 多参完整度 0.15 / 口型 0.10;
- * 缺的信号不计、权重在场信号间归一。全缺 → 60(未知中性)。
+ * 模板质量分:发布门禁为主(权重 0.5),一致性 0.25 / 多参完整度 0.15 / 口型就绪 0.10 /
+ * 实测口型-音频对齐 0.15;缺的信号不计、权重在场信号间归一。全缺 → 60(未知中性)。
  */
 export function scoreTemplate(signals: TemplateQualitySignals = {}): number {
   const parts: Array<{ w: number; v: number }> = [];
@@ -78,6 +80,7 @@ export function scoreTemplate(signals: TemplateQualitySignals = {}): number {
   if (signals.consistency != null) parts.push({ w: 0.25, v: clamp(num(signals.consistency), 0, 100) });
   if (signals.completeness != null) parts.push({ w: 0.15, v: clamp(num(signals.completeness), 0, 100) });
   if (signals.lipSyncReadiness != null) parts.push({ w: 0.10, v: clamp(num(signals.lipSyncReadiness), 0, 100) });
+  if (signals.lipAudioAlign != null) parts.push({ w: 0.15, v: clamp(num(signals.lipAudioAlign), 0, 100) });
   if (!parts.length) return 60;
   const wsum = parts.reduce((s, p) => s + p.w, 0);
   const score = parts.reduce((s, p) => s + p.w * p.v, 0) / wsum;
