@@ -338,6 +338,7 @@ try {
   setCaseVideo.run('/cases/clip-a.mp4', '霓虹回响');
   setCaseVideo.run('/cases/clip-b.mp4', '星潮旅人');
   setCaseVideo.run('/cases/clip-c.mp4', '月华藏境');
+  setCaseVideo.run('/cases/clip-d.mp4', '云岚日记'); // v10.0 第 4 段(用户 6月7日 片段)
 } catch { /* 表为空或并发, 忽略 */ }
 
 // v2.9 (2026-04-21): 资产持久化 —— 外链/tmp URL 会过期,persistent_url 指向
@@ -749,7 +750,7 @@ export function seed() {
         { title: '月华藏境', category: '东方幻想', cover: seedSvg(400, 300, '#312e81', '#f9a8d4', '月华藏境'), author: '青枫漫剧 Studio', video: '/cases/clip-c.mp4' },
         { title: '霓虹回响', category: '赛博都市', cover: seedSvg(400, 300, '#0c4a6e', '#ef319f', '霓虹回响'), author: 'QingFeng Lab', video: '/cases/clip-a.mp4' },
         { title: '星潮旅人', category: '科幻冒险', cover: seedSvg(400, 300, '#1e1b4b', '#4de0c2', '星潮旅人'), author: '青枫漫剧 Studio', video: '/cases/clip-b.mp4' },
-        { title: '云岚日记', category: '治愈日常', cover: seedSvg(400, 300, '#064e3b', '#a78bfa', '云岚日记'), author: 'QingFeng Lab' },
+        { title: '云岚日记', category: '治愈日常', cover: seedSvg(400, 300, '#064e3b', '#a78bfa', '云岚日记'), author: 'QingFeng Lab', video: '/cases/clip-d.mp4' },
       ];
       for (const c of demoCases) {
         caseStmt.run(nanoid(), c.title, c.category, c.cover, c.author, AVATAR, c.video || null, JSON.stringify({ likes: Math.floor(Math.random() * 1000) + 200, views: Math.floor(Math.random() * 5000) + 800 }), now());
