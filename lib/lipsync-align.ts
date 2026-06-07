@@ -11,6 +11,7 @@ export interface VisemeFrameLike { t: number; mouthOpen: number; }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /** PCM 样本 → 逐窗 RMS 能量包络(windowCount 个点)。供服务端/客户端解码后调用。 */
 export function rmsEnvelope(samples: ArrayLike<number>, windowCount: number): number[] {
@@ -123,4 +124,44 @@ export function scoreLipAudioAlignment(input: {
   const lagSec = round2(((input.durationSec > 0 ? input.durationSec : 1) * lag) / n);
   const verdict: AlignVerdict = score >= 75 ? 'good' : score >= 50 ? 'fair' : 'poor';
   return { score, correlation: round2(corr), lagSec, verdict };
+}
+
+/** 把 viseme 轨整体平移 offsetSec(正=往后);负时刻的帧丢弃。保留其余字段(viseme 名等)。 */
+export function shiftVisemeTrack<T extends { t: number }>(frames: T[], offsetSec: number): T[] {
+  const off = Number.isFinite(offsetSec) ? offsetSec : 0;
+  const list = Array.isArray(frames) ? frames : [];
+  if (!off) return list.map((f) => ({ ...f }));
+  return list
+    .map((f) => ({ ...f, t: round3(f.t + off) }))
+    .filter((f) => f.t >= 0);
+}
+
+export interface AutoAlignResult {
+  /** 检出的漂移(秒,正=音频滞后→嘴往后移补偿) */
+  offsetSec: number;
+  /** 校正前(零时延裸对齐)分 */
+  before: number;
+  /** 校正后(零时延)分 */
+  after: number;
+  /** 平移补偿后的 viseme 轨(供重渲) */
+  visemes: VisemeFrameLike[];
+}
+
+/**
+ * 自动校正音画漂移:`bestLag` 测出时延 → 把 viseme 轨平移补偿 → 给出校正前后裸对齐分 + 校正后轨。
+ * before/after 用**零时延**裸对齐衡量(maxLagFrac=0),才看得出补偿带来的提升。
+ */
+export function autoAlignVisemes(input: {
+  visemes: VisemeFrameLike[];
+  audioEnergy: number[];
+  durationSec: number;
+  n?: number;
+  maxLagFrac?: number;
+}): AutoAlignResult {
+  const full = scoreLipAudioAlignment(input);          // 全搜 → 拿 lagSec
+  const offsetSec = full.lagSec;
+  const shifted = shiftVisemeTrack(input.visemes, offsetSec);
+  const before = scoreLipAudioAlignment({ ...input, maxLagFrac: 0 }).score;          // 裸(零时延)
+  const after = scoreLipAudioAlignment({ ...input, visemes: shifted, maxLagFrac: 0 }).score;
+  return { offsetSec, before, after, visemes: shifted };
 }

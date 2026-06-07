@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Microphone, Play, Stop, ArrowsClockwise, FilmSlate, CircleNotch, SpeakerHigh, Waveform } from '@phosphor-icons/react';
 import { lipSyncReshootHints } from '@/lib/lipsync-plan';
-import { rmsEnvelope, scoreLipAudioAlignment } from '@/lib/lipsync-align';
+import { rmsEnvelope, scoreLipAudioAlignment, autoAlignVisemes, shiftVisemeTrack } from '@/lib/lipsync-align';
 import { LipSyncBatchPanel } from './lipsync-batch-panel';
 import { VoiceShelf } from './voice-shelf';
 
@@ -55,7 +55,7 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
   const [synthingAudio, setSynthingAudio] = useState(false);
   const [audioMsg, setAudioMsg] = useState<string | null>(null);
   const [aligning, setAligning] = useState(false);
-  const [alignResult, setAlignResult] = useState<{ shotNumber: number; score: number; verdict: string; lagSec: number } | null>(null);
+  const [alignResult, setAlignResult] = useState<{ shotNumber: number; score: number; verdict: string; lagSec: number; corrected?: VisemeKeyframe[]; before?: number; after?: number } | null>(null);
   const audioUrlsRef = useRef<Map<number, string>>(new Map());
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
@@ -114,13 +114,13 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
     rafRef.current = requestAnimationFrame(tick);
   }, [selected]);
 
-  const renderLipSync = useCallback(async () => {
+  const renderLipSync = useCallback(async (visemesOverride?: VisemeKeyframe[]) => {
     if (!selected) return;
     setRendering(true); setRenderMsg(null);
     try {
       const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync/render`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shotNumber: selected.shotNumber, visemes: selected.visemes }),
+        body: JSON.stringify({ shotNumber: selected.shotNumber, visemes: visemesOverride && visemesOverride.length ? visemesOverride : selected.visemes }),
       });
       const b = await res.json();
       if (b.ok && b.videoUrl) setRenderMsg({ ok: true, text: `口型视频已生成(${b.provider})${b.writtenBack ? ' · 已写回分镜/时间线' : ''}`, videoUrl: b.videoUrl });
@@ -156,11 +156,13 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
       const audio = await ac.decodeAudioData(arr);
       const energy = rmsEnvelope(audio.getChannelData(0), 64);
       ac.close();
-      const r = scoreLipAudioAlignment({
-        visemes: selected.visemes.map((f) => ({ t: f.t, mouthOpen: f.mouthOpen })),
-        audioEnergy: energy, durationSec: audio.duration || (selected.windowSec.end - selected.windowSec.start),
-      });
-      setAlignResult({ shotNumber: selected.shotNumber, score: r.score, verdict: r.verdict, lagSec: r.lagSec });
+      const durationSec = audio.duration || (selected.windowSec.end - selected.windowSec.start);
+      const flat = selected.visemes.map((f) => ({ t: f.t, mouthOpen: f.mouthOpen }));
+      const r = scoreLipAudioAlignment({ visemes: flat, audioEnergy: energy, durationSec });
+      // v9.7.11 漂移自动校正:测时延 → 平移补偿后的轨(保留 viseme 字段供重渲)
+      const aa = autoAlignVisemes({ visemes: flat, audioEnergy: energy, durationSec });
+      const corrected = Math.abs(aa.offsetSec) >= 0.05 ? shiftVisemeTrack(selected.visemes, aa.offsetSec) : undefined;
+      setAlignResult({ shotNumber: selected.shotNumber, score: r.score, verdict: r.verdict, lagSec: r.lagSec, corrected, before: aa.before, after: aa.after });
     } catch (e) {
       setAudioMsg(e instanceof Error ? e.message : '对齐测量失败');
     } finally { setAligning(false); }
@@ -232,7 +234,7 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
                   {playing ? '停止' : '播放口型'}
                 </button>
                 <button
-                  onClick={renderLipSync}
+                  onClick={() => renderLipSync()}
                   disabled={rendering}
                   title={engine && !engine.configured ? (engine.hint || '') : '调用口型引擎真渲染这一镜'}
                   className="cinema-btn cinema-btn-primary !px-2 !py-1 !text-[10px] inline-flex items-center gap-1 disabled:opacity-50"
@@ -259,6 +261,16 @@ export function LipSyncPanel({ projectId, onJumpToWorkshop }: { projectId: strin
                     {alignResult.verdict === 'good' ? '口型跟得上声音' : alignResult.verdict === 'fair' ? '基本同步' : '明显对不上'}
                     {Math.abs(alignResult.lagSec) >= 0.05 ? ` · 音频${alignResult.lagSec > 0 ? '滞后' : '超前'} ${Math.abs(alignResult.lagSec)}s` : ''}
                   </span>
+                  {alignResult.corrected && alignResult.corrected.length > 0 && (
+                    <button
+                      onClick={() => renderLipSync(alignResult.corrected)}
+                      disabled={rendering}
+                      title={`检出漂移,平移补偿后重渲(裸对齐 ${alignResult.before}→${alignResult.after})`}
+                      className="cinema-btn !px-1.5 !py-0.5 !text-[10px] inline-flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <ArrowsClockwise className="w-2.5 h-2.5" /> 校正漂移重渲
+                    </button>
+                  )}
                 </div>
               )}
               {/* 张口包络:每个关键帧一根柱 */}

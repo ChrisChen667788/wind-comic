@@ -2042,6 +2042,11 @@ npm test
 
 > **里程碑(达成)**:阶段十六精修 III 收口 —— 口型质检 **画面 + 音画双维度自愈**(v9.7.8)+ 模板复用 **连音色配置一起带走**(v9.7.9)。T1 配音口型 与 T2 模板市场 打通:出片好的项目(含逐角色音色)→ 存模板 → 一键起片连音色复用。
 
+### 5.20 阶段十六精修 IV · 漂移自动校正 + 模板预览片
+
+- **运维补丁(2026-06-04)**:windcomic-pg 的 `cases` 表 `ALTER ADD video_url` + 从 SQLite 同步 4 条案例(3 条带 clip URL),防将来切 `DB_DRIVER=pg` 时灵感库空/无视频(临时脚本跑完即删,密钥只走 env 不打印)。
+- **v9.7.11 · 口型漂移自动校正** ✅ 2026-06-04:`bestLag` 已能测音画时延 → 现把时延平移回 viseme 轨补偿。`lipsync-align` 加 `shiftVisemeTrack(frames, offsetSec)`(整体平移、保留 viseme 字段、丢负时刻)+ `autoAlignVisemes({visemes,audioEnergy,durationSec})`(测时延 → 平移补偿 → 给校正前后**零时延裸对齐分** + 校正轨)。`lipsync-panel`「测音画对齐」顺带算补偿轨,漂移 ≥0.05s 时显「**校正漂移重渲**」按钮 → 把平移后的 viseme 轨传 `/lipsync/render`(已支持 body.visemes)→ 下次渲染嘴对齐声音。验证:**tsc 0 + 11 单测**(原 8 + shift 保留字段/丢负 + autoAlign 检漂移/不降 + 无漂移≈0)。
+
 ## 6. 技术债清单(待清理)
 
 | 隐患 | 位置 | 优先级 | Sprint |

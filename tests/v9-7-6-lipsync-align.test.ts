@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   rmsEnvelope, resample, visemeEnvelope, pearson, bestLag, scoreLipAudioAlignment,
+  shiftVisemeTrack, autoAlignVisemes,
   type VisemeFrameLike,
 } from '@/lib/lipsync-align';
 
@@ -57,5 +58,32 @@ describe('v9.7.6 · scoreLipAudioAlignment', () => {
     const r = scoreLipAudioAlignment({ visemes: fr, audioEnergy: [0, 0, 0, 1, 1, 0, 0, 1], durationSec: 1, n: 8 });
     expect(r.lagSec).toBeGreaterThan(0);
     expect(r.score).toBeGreaterThanOrEqual(90); // 校正时延后高度对齐
+  });
+});
+
+describe('v9.7.11 · 漂移自动校正', () => {
+  it('shiftVisemeTrack:整体平移 + 保留字段 + 丢负时刻', () => {
+    const fr = [{ t: 0, mouthOpen: 1, viseme: 'aa' }, { t: 0.5, mouthOpen: 0, viseme: 'sil' }];
+    const fwd = shiftVisemeTrack(fr, 0.1);
+    expect(fwd.map((f) => f.t)).toEqual([0.1, 0.6]);
+    expect(fwd[0].viseme).toBe('aa'); // 字段保留
+    const back = shiftVisemeTrack(fr, -0.2);
+    expect(back).toEqual([{ t: 0.3, mouthOpen: 0, viseme: 'sil' }]); // 负时刻帧被丢
+  });
+
+  it('autoAlignVisemes:检出漂移 + 校正后裸对齐分不降', () => {
+    const fr: VisemeFrameLike[] = [
+      { t: 0, mouthOpen: 0 }, { t: 0.25, mouthOpen: 1 }, { t: 0.5, mouthOpen: 0 }, { t: 0.75, mouthOpen: 1 },
+    ];
+    const r = autoAlignVisemes({ visemes: fr, audioEnergy: [0, 0, 0, 1, 1, 0, 0, 1], durationSec: 1, n: 8 });
+    expect(r.offsetSec).toBeGreaterThan(0);          // 音频滞后 → 正补偿
+    expect(r.after).toBeGreaterThanOrEqual(r.before); // 校正后裸对齐不更差
+    expect(r.visemes[1].t).toBeGreaterThan(fr[1].t);  // 轨整体后移
+  });
+
+  it('无漂移 → offset≈0,轨不变', () => {
+    const fr: VisemeFrameLike[] = [{ t: 0, mouthOpen: 0 }, { t: 0.25, mouthOpen: 1 }, { t: 0.5, mouthOpen: 0 }, { t: 0.75, mouthOpen: 1 }];
+    const r = autoAlignVisemes({ visemes: fr, audioEnergy: [0, 0, 1, 1, 0, 0, 1, 1], durationSec: 1, n: 8 });
+    expect(Math.abs(r.offsetSec)).toBeLessThanOrEqual(0.13); // ≤1 帧
   });
 });
