@@ -3,6 +3,7 @@
  * 调用方:`import { dispatchLipSyncGenerate, lipSyncEngineConfigured } from '@/lib/lipsync-providers'`。
  */
 import './builtins'; // 副作用:注册 wav2lip-http
+import './local-2d'; // 副作用:注册 local-2d(零配置兜底,ffmpeg)
 
 export * from './types';
 export * from './registry';
