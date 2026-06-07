@@ -53,6 +53,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     lipSync: { lines: lsPlan.lines, readiness: lsPlan.readiness, level: lsPlan.level },
   });
 
+  // 角色音色覆盖(v9.7.9:带进模板,一键起片复用)
+  let voiceOverrides: Record<string, string> = {};
+  try {
+    const ovRows = await listAssetsByType(id, 'voice-overrides');
+    voiceOverrides = JSON.parse(ovRows[0]?.data || '{}')?.overrides || {};
+  } catch { voiceOverrides = {}; }
+
   // 元素概览(锁定角色 + 画风)
   const locked = safeJson<unknown[]>(proj.locked_characters, []);
   const elements: TemplateElementSummary[] = [];
@@ -76,7 +83,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const saved = await saveTemplate({
     template,
     ownerId: userId,
-    payload: { style: proj.style_id || undefined, lockedCharacters: locked },
+    payload: {
+      style: proj.style_id || undefined,
+      lockedCharacters: locked,
+      ...(Object.keys(voiceOverrides).length ? { voiceOverrides } : {}),
+    },
     visibility: 'public',
   });
 

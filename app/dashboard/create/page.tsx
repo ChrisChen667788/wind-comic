@@ -106,10 +106,12 @@ export default function DashboardCreatePage() {
     try {
       const tplRaw = sessionStorage.getItem('qfmj-create-template');
       if (tplRaw) {
-        const tpl = JSON.parse(tplRaw) as { style?: string; styleEn?: string; references?: ReferenceAsset[]; lockedCharacters?: LockedCharacter[] };
+        const tpl = JSON.parse(tplRaw) as { style?: string; styleEn?: string; references?: ReferenceAsset[]; lockedCharacters?: LockedCharacter[]; voiceOverrides?: Record<string, string> };
         if (tpl.styleEn || tpl.style) setStyle(tpl.styleEn || tpl.style!);
         if (Array.isArray(tpl.references) && tpl.references.length) setReferences(tpl.references);
         if (Array.isArray(tpl.lockedCharacters) && tpl.lockedCharacters.length) setLockedCharacters(tpl.lockedCharacters);
+        // v9.7.9:音色覆盖暂存,待新项目生成后应用(项目此刻尚未创建)
+        if (tpl.voiceOverrides && Object.keys(tpl.voiceOverrides).length) sessionStorage.setItem('qfmj-pending-voice-overrides', JSON.stringify(tpl.voiceOverrides));
         sessionStorage.removeItem('qfmj-create-template');
       }
     } catch { /* ignore */ }
@@ -263,6 +265,20 @@ export default function DashboardCreatePage() {
           } catch { /* skip malformed */ }
         }
       }
+
+      // v9.7.9:一键起片携带的音色覆盖 → 新项目已建好,落到该项目(下次合成配音按此音色)
+      try {
+        const pendingVO = sessionStorage.getItem('qfmj-pending-voice-overrides');
+        if (pendingVO) {
+          sessionStorage.removeItem('qfmj-pending-voice-overrides');
+          const overrides = JSON.parse(pendingVO);
+          if (overrides && Object.keys(overrides).length) {
+            await fetch(`/api/projects/${encodeURIComponent(projectId)}/voice-overrides`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ overrides }),
+            }).catch(() => {});
+          }
+        }
+      } catch { /* 音色覆盖应用失败不影响成片 */ }
     } catch (error) {
       showToast({ title: error instanceof Error ? error.message : '创作失败', type: 'error' });
     } finally {

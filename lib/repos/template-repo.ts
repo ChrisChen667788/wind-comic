@@ -19,6 +19,8 @@ export interface TemplatePayload {
   /** 多参元素(ReferenceElement[],透传给货架 / create-stream) */
   references?: unknown[];
   lockedCharacters?: unknown[];
+  /** v9.7.9:角色→音色覆盖(一键起片后应用到新项目) */
+  voiceOverrides?: Record<string, string>;
 }
 
 export interface StoredTemplate extends FilmTemplate {

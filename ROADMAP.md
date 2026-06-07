@@ -2038,6 +2038,9 @@ npm test
 ### 5.19 阶段十六精修 III · 对齐分入质检 + 音色入模板
 
 - **v9.7.8 · 对齐分并入质检回环(口型对不上也触发重渲)** ✅ 2026-06-04:让 v9.7.6 的音画对齐分像 Vision 画面分一样参与弱镜判定。`planLipSyncQc` 加可选 `alignScores`(shotNumber→0-100)+ `alignThreshold`(默认 60):弱镜 = **Vision 弱 ∪ 对齐弱**(去重,Vision 在前、对齐弱按分升序在后)。`lipsync-batch-panel` QC 阶段先客户端 Web Audio 算各镜对齐分(`/lipsync` viseme + `/shot-audio` 配音 → `rmsEnvelope`+`scoreLipAudioAlignment`,封顶 40 镜、稳定不随重渲变),并入 `planLipSyncQc` → 画面 OK 但音画对不上的镜也会自动重渲。验证:**tsc 0 + 8 单测**(原 5 + 对齐并入 3:画面达标但对齐低判弱 / Vision∪对齐去重升序 / 阈值+onlyShots)。
+- **v9.7.9 · 音色覆盖带进模板(一键起片复用音色)** ✅ 2026-06-04:T2 模板把 v9.7.7 的角色音色覆盖一起沉淀,一键起片连音色配置一起复用。`TemplatePayload` 加 `voiceOverrides`;`save-template` 读项目 `voice-overrides` 资产 → 写进模板 payload;市场「用此模板起片」原样经 sessionStorage 透传 payload(含 voiceOverrides);create 页**暂存** `qfmj-pending-voice-overrides`(项目此刻未建)→ 生成流跑完(项目已建,server 用 client `projectId`)后 `POST /voice-overrides` 落到新项目 → 下次「合成配音」按此音色。验证:**tsc 0 + template-repo 单测加 voiceOverrides 往返断言**。
+
+> **里程碑(达成)**:阶段十六精修 III 收口 —— 口型质检 **画面 + 音画双维度自愈**(v9.7.8)+ 模板复用 **连音色配置一起带走**(v9.7.9)。T1 配音口型 与 T2 模板市场 打通:出片好的项目(含逐角色音色)→ 存模板 → 一键起片连音色复用。
 
 ## 6. 技术债清单(待清理)
 
