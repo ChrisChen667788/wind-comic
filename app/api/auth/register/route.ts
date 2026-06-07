@@ -10,6 +10,7 @@ import {
   type InviteCodeError,
 } from '@/lib/repos/invite-repo'; // v9.0.3: invite-repo (async, 双驱动)
 import { findUserByEmail } from '@/lib/repos/user-repo';
+import { rateLimit, clientIp, isRateLimitActive } from '@/lib/rate-limit';
 
 const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" rx="40" fill="#2d1b69"/><circle cx="40" cy="30" r="14" fill="rgba(255,255,255,0.3)"/><ellipse cx="40" cy="68" rx="22" ry="18" fill="rgba(255,255,255,0.2)"/></svg>`)}`;
 
@@ -32,6 +33,17 @@ export async function POST(request: Request) {
 
   if (!email || !password || !name) {
     return NextResponse.json({ message: '缺少必填字段' }, { status: 400 });
+  }
+
+  // 限流:防注册刷量 —— per IP 10 次/小时。
+  if (isRateLimitActive()) {
+    const rl = rateLimit(`register-ip:${clientIp(request)}`, { limit: 10, windowMs: 60 * 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { message: '注册过于频繁,请稍后再试' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } },
+      );
+    }
   }
 
   // Beta 门禁：开启时必须提供有效邀请码

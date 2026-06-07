@@ -729,9 +729,13 @@ export function seed() {
 
       const passwordHash = bcrypt.hashSync('Qfmanju123', 10);
       const demoUserId = nanoid();
+      // demo 账号凭据是公开演示用的(登录页明示)。默认给普通 member 角色,避免公网部署时
+      // 把 admin 接口(/api/admin/*、waitlist 管理、完整用量统计)暴露给任何人。
+      // 本地若需 admin 调试:启动时设 DEMO_ADMIN=1。
+      const demoRole = process.env.DEMO_ADMIN === '1' ? 'admin' : 'member';
 
       db.prepare(`INSERT INTO users (id, email, password_hash, name, role, avatar_url, locale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-        demoUserId, 'demo@qfmanju.ai', passwordHash, '青枫漫剧 Demo', 'admin', AVATAR, 'zh', now()
+        demoUserId, 'demo@qfmanju.ai', passwordHash, '青枫漫剧 Demo', demoRole, AVATAR, 'zh', now()
       );
 
       const projectStmt = db.prepare(`INSERT INTO projects (id, user_id, title, description, cover_urls, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
