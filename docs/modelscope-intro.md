@@ -19,7 +19,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-2103%2F2103-2ea44f" alt="2103 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-2119%2F2119-2ea44f" alt="2119 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -111,19 +111,19 @@ Three views of the same engine. **Open on GitHub to watch them animate** — flo
 | **v7 · Platform hardening** | Writer/Director on DeepSeek **`deepseek-v4-pro`** with a **universal MiniMax fallback** on any error / out-of-credits / timeout (3-tier LLM health board) · tiered models (**`deepseek-v4-flash`** for speed) that cured the reasoning-token instability · **Polish Studio Pro** — industry script audit: AIGC-readiness score, Save-the-Cat 3-act beat-gap detection, on-the-nose dialogue flags, per-character identity anchors. |
 | **v8 · AI director station + premium design** | Per-shot **cinematography console** (景别/机位/镜头/运镜/焦点) + **continuity & seed lock** + emotion/rhythm curves + JSON↔visual **parameter linkage**, all converging into an **11-tab director station** · **Taste design pass**: Plus Jakarta Sans + Phosphor icons, gold machined-bezel cards, spring motion, an asymmetric **bento dashboard**, 60 AI-rendered **style thumbnails**, and AI **gold-neon genre icons** (18 templates + 5 modes + 8 looks). |
 | **v9 · Postgres platform + monetization** | Full SQLite↔Postgres **dual-driver** cutover — **17 core tables/clusters** migrated to async repos, verified end-to-end on Postgres with **transaction commit + rollback** atomicity (default stays SQLite, same file, **zero split-brain**; `DB_DRIVER=pg` is opt-in) · multi-platform **distribution-pack** generator (抖音 / 快手 / 视频号 / 小红书 / YouTube Shorts / B站) · **real binary AAF export** (MS-CFB container, for Avid) alongside EDL / FCPXML · plus **quality & consistency depth** (publish-readiness gate, rebirth loop, consistency report) and the **Kling-style multi-reference + one-click film** fusion. |
-| **v10 · Lip-sync delivery · template market · cost** *(Stage 16)* | **Voice & lip-sync end-to-end** — per-character voice routing (auto + manual audition), viseme keyframe track, measured **mouth-vs-audio alignment** + **drift auto-correct**, pluggable engine render (wav2lip/SadTalker/MuseTalk) written **back into the timeline**, one-click whole-film with a Vision **QC self-heal** loop · **Template market** — save→rate/favorite→one-click remix (carries voices), preview clips, quality score · **Cost observability** — per-project stage attribution + **budget guard**, and a **four-dimension publish gate** (picture · consistency · lip-sync · measured alignment). **2103 tests** green on both drivers. |
+| **v10 · Lip-sync delivery · template market · cost** *(Stage 16)* | **Voice & lip-sync end-to-end** — per-character voice routing (auto + manual audition), viseme keyframe track, measured **mouth-vs-audio alignment** + **drift auto-correct**, pluggable engine render (wav2lip/SadTalker/MuseTalk) **plus a zero-config built-in 2D engine that works out of the box (no BYO key)**, written **back into the timeline**, one-click whole-film with a Vision **QC self-heal** loop · **Template market** — save→rate/favorite→one-click remix (carries voices), preview clips, quality score · **Cost observability** — per-project stage attribution + **budget guard**, and a **four-dimension publish gate** (picture · consistency · lip-sync · measured alignment). **2119 tests** green on both drivers. |
 
 ### 📂 More modules — earlier (v6–v8) captures
 
-> The shots below document features that still ship (director console, novel→season, style gallery, API health, Polish Pro, character studio, final-film station, team, timeline). They are **earlier-version captures**; the v10 visuals above are current.
+> Features that still ship. **Director console · novel→season · finished-film station · team workspace · Cinema timeline are refreshed to v10** (live demo data). The **style gallery, API health board, Polish Pro audit, and character turnaround** are kept as earlier (v6–v8) captures because they show fuller sample output (the full style grid / live balances / a complete Pro audit / a 3-view turnaround sheet).
 
 ### 🎬 Director Console — the whole film as one control room *(v6.4)*
 Every stage at a glance — what's ready, what's gone stale because you changed something upstream, and a one-click rerun that knows exactly which downstream stages it invalidates.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/director-console.png" width="100%" /></p>
+<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/director-console.png" width="100%" /></p>
 
 ### 📖 Novel → season, with real voiceover *(v6.2)*
 Paste a full novel; Wind Comic splits it into episodes by chapter markers (or by target length), picks a narration mode, and can render a real narration track + burnable subtitles for the whole season in parallel.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/story-intake.png" width="100%" /></p>
+<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/story-intake.png" width="100%" /></p>
 
 ### 🎨 Style Gallery — 60 cinematic looks, one click *(v6.3)*
 Lock a consistent visual identity before you generate. Search, filter by category, and apply any preset straight into the creation workshop.
@@ -143,13 +143,13 @@ Every character gets a real 3-view turnaround sheet (front / three-quarter / bac
 
 ### 🎬 Finished film + 11-tab director station *(v8.0)*
 One project, eleven tabs of cockpit-grade control: 导演台 · 剧本 · 角色 · 场景 · 分镜 · 连贯性 · 视频 · 镜头工坊 · Cinema 时间线 · 节奏分析 · 成片质检 · 技术监看 · 参数联动 · 评论协作 · 完整播放. The finished film plays right in the workspace with a 90/100 audit badge and one-click `mp4` / platform export.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/final-film-control.png" width="100%" /></p>
+<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/final-film.png" width="100%" /></p>
 
 ### 👥 Team Workspace *(v6.5)*  ·  🎞️ Cinema Timeline + narration track *(v6.2.4)*
 <table>
 <tr>
-<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/team.png" /><br/><sub>Credit pool + per-member allocations, RBAC, real invite links.</sub></td>
-<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/cinema-timeline.png" /><br/><sub>Multi-track timeline; narration audio + subtitles burned in.</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/team.png" /><br/><sub>Credit pool + per-member allocations, RBAC, real invite links.</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/cinema-timeline.png" /><br/><sub>Multi-track timeline; narration audio + subtitles burned in.</sub></td>
 </tr>
 </table>
 
