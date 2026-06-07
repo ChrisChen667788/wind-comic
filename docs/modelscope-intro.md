@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v9.2.0</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v10.0</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -19,7 +19,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-1894%2F1894-2ea44f" alt="1894 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-2103%2F2103-2ea44f" alt="2103 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -48,6 +48,9 @@ It works because it doesn't try to be one giant model. It's an **honest multi-ag
    + Real-time collab timeline (Yjs CRDT)
    + Bring-your-own LLM (3 env vars, 0 code change)
    + Plug-in image/video providers (12+ supported)
+   + Lip-sync pipeline: viseme track → align score → drift auto-correct → engine render → back into timeline   (v10)
+   + Template market: save a hit project → rate / favorite / one-click remix (with its voices)               (v10)
+   + Per-project cost attribution + budget guard, four-dimension publish gate                                 (v10)
 ```
 
 ---
@@ -72,9 +75,22 @@ Three views of the same engine. **Open on GitHub to watch them animate** — flo
 
 ---
 
-## 🆕 New in v6 → v9 — from *demo* to *production platform*
+## 🆕 New in v6 → v10 — from *demo* to *production platform*
 
-> v3 shipped the pipeline. **v6 turned it into a production studio; v7–v9 hardened it into a platform.** Reusable characters, a prompt IDE, novel→season auto-splitting with real voiceover, a 60-style gallery, a director's control room, team credit budgets, an industry-grade script audit (**Polish Pro**, v7.1), a **premium design pass** (v8.3), a **fully-migrated Postgres backend** (v9), and a live API health board — every screen below is a **real capture of the running app**.
+> v3 shipped the pipeline. **v6 turned it into a production studio; v7–v9 hardened it into a platform; v10 closed the lip-sync, template-market, and cost loops.** Reusable characters, a prompt IDE, novel→season auto-splitting with real voiceover, a 60-style gallery, a director's control room, team credit budgets, an industry-grade script audit (**Polish Pro**, v7.1), a **premium design pass** (v8.3), a **fully-migrated Postgres backend** (v9), a **lip-sync delivery pipeline + template market + cost observability** (v10), and a live API health board — every screen below is a **real capture of the running app**.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/landing.png" alt="Wind Comic landing — 青枫漫剧 AI Animation Agent Studio, 8 agents · 7 engines · 3 consistency guards, looping cinematic hero" width="100%" />
+  <br/><sub>v10 landing — looping cinematic hero, 8 collaborating agents · 7 media engines · 3 consistency guards.</sub>
+</p>
+
+### 🎙️ v10 — Lip-sync delivery · Template market · Cost guard *(Stage 16)*
+
+- **🎙️ Voice & lip-sync, end-to-end** — per-character voice routing (auto by name + manual pick/audition) → TTS → **viseme keyframe track** → measured **mouth-vs-audio alignment score** (Web-Audio) → **drift auto-correct** → pluggable engine render (wav2lip / SadTalker / MuseTalk, BYO `LIPSYNC_API_URL`) → written back into the timeline. One-click **whole-film lip-sync** with a Vision **QC self-heal loop** (weak shots auto re-render).
+- **🧩 Template market** — turn a hit project into a reusable template (style + multi-ref elements + pacing + **voices**), with a **preview clip**, **★ ratings & ♥ favorites**, quality score, and **one-click remix** that prefills a new project.
+- **💴 Cost observability + budget guard** — per-project cost attribution by stage (LLM / image / video / TTS / lip-sync), saving hints, and an **ok/warn/over budget guard**. The **publish-readiness gate** is now four-dimensional: picture-vs-script · consistency · lip-sync alignability · **measured mouth-vs-audio**.
+
+> 📸 *v10 module captures (创作工坊 / 模板市场 / 配音口型 / 成本) are being refreshed against the running app.*
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 tour — API health · director console · novel splitting · style gallery · cinema timeline" width="100%" />
@@ -99,7 +115,8 @@ Plus Jakarta Sans + Phosphor icons, gold-tinted machined-bezel cards, spring mot
 | **v6 · Production studio** | **Character Studio** (reusable cast, multi-view turnaround + 8-field **DNA identity lock**, cross-project **Cameo IP**) · **Prompt Workbench** (`@`-mention assets + compile-preview + readiness score) · **Long-form Intake** (novel → chapter-aware episodes, **real TTS narration** + burned SRT, N-episode parallel) · 60-look **Style Gallery** · **Director Console** (4-stage pipeline, stale-detection, single-stage rerun) · **Team Workspace** (credit pool + RBAC + real invite links) · **API Health Board** (live gateway status + balance) · top-tier model repointing (`veo3.1-pro`) + supplement gateway backfilling TTS / Midjourney / Kling. |
 | **v7 · Platform hardening** | Writer/Director on DeepSeek **`deepseek-v4-pro`** with a **universal MiniMax fallback** on any error / out-of-credits / timeout (3-tier LLM health board) · tiered models (**`deepseek-v4-flash`** for speed) that cured the reasoning-token instability · **Polish Studio Pro** — industry script audit: AIGC-readiness score, Save-the-Cat 3-act beat-gap detection, on-the-nose dialogue flags, per-character identity anchors. |
 | **v8 · AI director station + premium design** | Per-shot **cinematography console** (景别/机位/镜头/运镜/焦点) + **continuity & seed lock** + emotion/rhythm curves + JSON↔visual **parameter linkage**, all converging into an **11-tab director station** · **Taste design pass**: Plus Jakarta Sans + Phosphor icons, gold machined-bezel cards, spring motion, an asymmetric **bento dashboard**, 60 AI-rendered **style thumbnails**, and AI **gold-neon genre icons** (18 templates + 5 modes + 8 looks). |
-| **v9 · Postgres platform + monetization** | Full SQLite↔Postgres **dual-driver** cutover — **17 core tables/clusters** migrated to async repos, verified end-to-end on Postgres with **transaction commit + rollback** atomicity (default stays SQLite, same file, **zero split-brain**; `DB_DRIVER=pg` is opt-in) · multi-platform **distribution-pack** generator (抖音 / 快手 / 视频号 / 小红书 / YouTube Shorts / B站) · **real binary AAF export** (MS-CFB container, for Avid) alongside EDL / FCPXML. **1894 tests** green on both drivers. |
+| **v9 · Postgres platform + monetization** | Full SQLite↔Postgres **dual-driver** cutover — **17 core tables/clusters** migrated to async repos, verified end-to-end on Postgres with **transaction commit + rollback** atomicity (default stays SQLite, same file, **zero split-brain**; `DB_DRIVER=pg` is opt-in) · multi-platform **distribution-pack** generator (抖音 / 快手 / 视频号 / 小红书 / YouTube Shorts / B站) · **real binary AAF export** (MS-CFB container, for Avid) alongside EDL / FCPXML · plus **quality & consistency depth** (publish-readiness gate, rebirth loop, consistency report) and the **Kling-style multi-reference + one-click film** fusion. |
+| **v10 · Lip-sync delivery · template market · cost** *(Stage 16)* | **Voice & lip-sync end-to-end** — per-character voice routing (auto + manual audition), viseme keyframe track, measured **mouth-vs-audio alignment** + **drift auto-correct**, pluggable engine render (wav2lip/SadTalker/MuseTalk) written **back into the timeline**, one-click whole-film with a Vision **QC self-heal** loop · **Template market** — save→rate/favorite→one-click remix (carries voices), preview clips, quality score · **Cost observability** — per-project stage attribution + **budget guard**, and a **four-dimension publish gate** (picture · consistency · lip-sync · measured alignment). **2103 tests** green on both drivers. |
 
 ### 🎬 Director Console — the whole film as one control room *(v6.4)*
 Every stage at a glance — what's ready, what's gone stale because you changed something upstream, and a one-click rerun that knows exactly which downstream stages it invalidates.
