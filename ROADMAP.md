@@ -2035,6 +2035,10 @@ npm test
 
 > **里程碑(达成)**:阶段十六 T1 精修 II 收口 —— 口型质检加「**嘴-声对齐**」专项维度(v9.7.6)+ 配音音色「自动路由 + **手动挑/试听覆盖**」(v9.7.7)。配音口型既能自动多嗓,也能逐角色人工调校。
 
+### 5.19 阶段十六精修 III · 对齐分入质检 + 音色入模板
+
+- **v9.7.8 · 对齐分并入质检回环(口型对不上也触发重渲)** ✅ 2026-06-04:让 v9.7.6 的音画对齐分像 Vision 画面分一样参与弱镜判定。`planLipSyncQc` 加可选 `alignScores`(shotNumber→0-100)+ `alignThreshold`(默认 60):弱镜 = **Vision 弱 ∪ 对齐弱**(去重,Vision 在前、对齐弱按分升序在后)。`lipsync-batch-panel` QC 阶段先客户端 Web Audio 算各镜对齐分(`/lipsync` viseme + `/shot-audio` 配音 → `rmsEnvelope`+`scoreLipAudioAlignment`,封顶 40 镜、稳定不随重渲变),并入 `planLipSyncQc` → 画面 OK 但音画对不上的镜也会自动重渲。验证:**tsc 0 + 8 单测**(原 5 + 对齐并入 3:画面达标但对齐低判弱 / Vision∪对齐去重升序 / 阈值+onlyShots)。
+
 ## 6. 技术债清单(待清理)
 
 | 隐患 | 位置 | 优先级 | Sprint |

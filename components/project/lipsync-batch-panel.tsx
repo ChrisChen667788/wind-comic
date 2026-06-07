@@ -9,6 +9,9 @@
 import { useRef, useState } from 'react';
 import { Lightning, CircleNotch as Loader2, X } from '@phosphor-icons/react';
 import { planLipSyncQc } from '@/lib/lipsync-qc';
+import { rmsEnvelope, scoreLipAudioAlignment } from '@/lib/lipsync-align';
+
+const QC_ALIGN_MAX_SHOTS = 40; // 客户端逐镜解码音频较重,封顶
 
 const QC_MAX_ROUNDS = 2;
 
@@ -34,15 +37,56 @@ export function LipSyncBatchPanel({ projectId, shotNumbers }: { projectId: strin
     return false;
   }
 
-  /** 口型质检回环:Vision 质检口型视频 → planLipSyncQc 裁决 → 弱镜自动重渲(≤ QC_MAX_ROUNDS 轮)。 */
+  /** 客户端 Web Audio 算各镜「口型-音频对齐分」(viseme 轨 vs 配音能量包络),稳定不随重渲变。 */
+  async function computeAlignScores(): Promise<Record<number, number>> {
+    const out: Record<number, number> = {};
+    try {
+      const [pr, sr] = await Promise.all([
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/lipsync`).then((r) => r.json()),
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/shot-audio`).then((r) => r.json()),
+      ]);
+      const lines = (pr?.plan?.perLine || []) as Array<{ shotNumber: number; visemes: { t: number; mouthOpen: number }[]; windowSec: { start: number; end: number } }>;
+      const urls = new Map<number, string>();
+      for (const s of (sr?.shots || [])) if (s.audioUrl) urls.set(s.shotNumber, s.audioUrl);
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return out;
+      const ac = new AC();
+      const batch = new Set(shotNumbers);
+      let processed = 0;
+      for (const line of lines) {
+        if (!batch.has(line.shotNumber) || processed >= QC_ALIGN_MAX_SHOTS) continue;
+        const url = urls.get(line.shotNumber);
+        if (!url) continue;
+        try {
+          const arr = await fetch(url).then((r) => r.arrayBuffer());
+          const audio = await ac.decodeAudioData(arr);
+          const energy = rmsEnvelope(audio.getChannelData(0), 64);
+          const res = scoreLipAudioAlignment({
+            visemes: line.visemes.map((f) => ({ t: f.t, mouthOpen: f.mouthOpen })),
+            audioEnergy: energy, durationSec: audio.duration || (line.windowSec.end - line.windowSec.start),
+          });
+          out[line.shotNumber] = res.score;
+          processed++;
+        } catch { /* 单镜解码失败则跳过(不参与对齐判定) */ }
+      }
+      ac.close();
+    } catch { /* 对齐分不可得则只用 Vision 分 */ }
+    return out;
+  }
+
+  /** 口型质检回环:Vision 质检 + 音画对齐分 → planLipSyncQc 裁决 → 弱镜自动重渲(≤ QC_MAX_ROUNDS 轮)。 */
   async function qcLoop() {
+    addLog('info', '计算口型-音频对齐分…');
+    const alignScores = await computeAlignScores();
+    const alignWeak = Object.values(alignScores).filter((s) => s < 60).length;
+    if (Object.keys(alignScores).length) addLog('info', `音画对齐:${alignWeak} 镜偏低(已并入弱镜判定)`);
     for (let round = 1; round <= QC_MAX_ROUNDS; round++) {
       if (stopRef.current) { addLog('warn', '已手动停止'); return; }
       addLog('info', `口型质检 第 ${round}/${QC_MAX_ROUNDS} 轮:Vision 复评…`);
       const ar = await fetch(`/api/projects/${encodeURIComponent(projectId)}/vision-audit/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       const ab = await ar.json().catch(() => ({}));
       const audits = (ab.audits || []) as Array<{ shotNumber: number; score: number }>;
-      const verdict = planLipSyncQc({ audits, round, maxRounds: QC_MAX_ROUNDS, onlyShots: shotNumbers });
+      const verdict = planLipSyncQc({ audits, round, maxRounds: QC_MAX_ROUNDS, onlyShots: shotNumbers, alignScores });
       if (verdict.decision === 'done') { addLog('ok', verdict.message); return; }
       if (verdict.decision === 'stop') { addLog('warn', verdict.message); return; }
       addLog('warn', verdict.message);

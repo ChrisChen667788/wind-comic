@@ -42,3 +42,32 @@ describe('v9.7.5 · planLipSyncQc', () => {
     expect(v.weakShots).toEqual([1]);
   });
 });
+
+describe('v9.7.8 · 对齐分并入弱镜判定', () => {
+  it('画面达标但音画对齐低 → 仍判弱镜(触发重渲)', () => {
+    const v = planLipSyncQc({
+      audits: [{ shotNumber: 1, score: 90 }, { shotNumber: 2, score: 88 }],
+      alignScores: { 2: 40 }, round: 1,
+    });
+    expect(v.decision).toBe('rerender');
+    expect(v.weakShots).toEqual([2]);
+    expect(v.message).toMatch(/音画对不上/);
+  });
+
+  it('Vision 弱 + 对齐弱 → 并集去重(Vision 在前,对齐分升序在后)', () => {
+    const v = planLipSyncQc({
+      audits: [{ shotNumber: 1, score: 50 }, { shotNumber: 2, score: 95 }, { shotNumber: 3, score: 92 }],
+      alignScores: { 1: 30, 2: 55, 3: 40 }, round: 1,
+    });
+    // 镜1 已是 Vision 弱(不因 align 重复);镜3(40)< 镜2(55)→ 对齐弱升序 [3,2]
+    expect(v.weakShots).toEqual([1, 3, 2]);
+  });
+
+  it('对齐分 ≥ 阈值 → 不计;onlyShots 限定', () => {
+    const v = planLipSyncQc({
+      audits: [{ shotNumber: 1, score: 90 }],
+      alignScores: { 1: 70, 9: 10 }, alignThreshold: 60, onlyShots: [1], round: 1,
+    });
+    expect(v.decision).toBe('done'); // 镜1 对齐 70≥60 不弱;镜9 不在 onlyShots
+  });
+});
