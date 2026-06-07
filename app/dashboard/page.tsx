@@ -114,7 +114,7 @@ export default function DashboardPage() {
                 <div key={item.id} className="flex gap-3 items-center bg-[var(--surface)] hover:bg-[var(--surface-strong)] rounded-xl p-3 transition-all group cursor-pointer">
                   <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-black/20">
                     {item.resultUrls?.[0] ? (
-                      <img src={item.resultUrls[0]} alt={item.prompt} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      <img loading="lazy" decoding="async" src={item.resultUrls[0]} alt={item.prompt} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                     ) : (
                       <div className="w-full h-full grid place-items-center text-[var(--soft)]"><FilmReel size={20} weight="light" /></div>
                     )}

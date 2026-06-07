@@ -250,7 +250,7 @@ export default function U2VPage() {
               }`}
             >
               {imagePreview ? (
-                <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                <img loading="lazy" decoding="async" src={imagePreview} alt="preview" className="w-full h-full object-cover" />
               ) : (
                 <div className="text-center text-[var(--soft)]">
                   <Upload className="w-7 h-7 mx-auto mb-1 opacity-50" />
@@ -327,7 +327,7 @@ export default function U2VPage() {
                 }`}
               >
                 {tailImagePreview ? (
-                  <img src={tailImagePreview} alt="tail preview" className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={tailImagePreview} alt="tail preview" className="w-full h-full object-cover" />
                 ) : (
                   <div className="text-center text-[var(--soft)]">
                     <Upload className="w-5 h-5 mx-auto mb-1 opacity-40" />

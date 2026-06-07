@@ -503,12 +503,11 @@ function CharacterDetailModal({
           {character.imageUrls.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {character.imageUrls.map((url, i) => (
-                <img
+                <img loading="lazy" decoding="async" 
                   key={i}
                   src={url}
                   alt={character.name}
-                  className="w-20 h-20 object-cover rounded-xl border border-[var(--border)]"
-                />
+                  className="w-20 h-20 object-cover rounded-xl border border-[var(--border)]" />
               ))}
             </div>
           )}
@@ -585,7 +584,7 @@ function CharacterDetailModal({
                       <div key={v.id} className="flex flex-col items-center gap-1">
                         <div className="aspect-square w-full rounded-lg border border-[var(--border)] bg-black/30 overflow-hidden flex items-center justify-center" title={v.prompt}>
                           {v.imageUrl ? (
-                            <img src={v.imageUrl} alt={v.label} className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={v.imageUrl} alt={v.label} className="w-full h-full object-cover" />
                           ) : (
                             <span className="text-[8.5px] text-[var(--muted)] text-center px-1 leading-tight">prompt 就绪<br />未出图</span>
                           )}

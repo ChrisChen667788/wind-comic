@@ -63,7 +63,7 @@ export default function CasesPage() {
                       autoPlay muted loop playsInline preload="metadata"
                     />
                   ) : (
-                    <img src={c.coverUrl} alt={c.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <img loading="lazy" decoding="async" src={c.coverUrl} alt={c.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   )}
                   {c.videoUrl && (
                     <>
@@ -111,7 +111,7 @@ export default function CasesPage() {
               )}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5 text-[var(--soft)]">
-                  <img src={c.authorAvatar} alt={c.authorName} className="w-7 h-7 rounded-full" />
+                  <img loading="lazy" decoding="async" src={c.authorAvatar} alt={c.authorName} className="w-7 h-7 rounded-full" />
                   <span className="text-xs">{c.authorName}</span>
                 </div>
                 <div className="flex gap-2.5 text-[10px] text-[var(--soft)]">

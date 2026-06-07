@@ -145,7 +145,7 @@ export function StoryboardEditor({ shots, onChange }: Props) {
                       <button onClick={() => setEditingId(null)} className="btn-primary px-3 py-1 rounded-lg text-xs w-fit">完成</button>
                     </div>
                   ) : (
-                    <div onClick={() => setEditingId(shot.id)} className="cursor-pointer">
+                    <div role="button" tabIndex={0} onClick={() => setEditingId(shot.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditingId(shot.id); } }} className="cursor-pointer">
                       <div className="text-sm line-clamp-2">{shot.description || <span className="text-[var(--soft)]">点击编辑镜头描述...</span>}</div>
                       {shot.dialogue && <div className="text-xs text-[var(--accent)] mt-1 italic">「{shot.dialogue}」</div>}
                       <div className="flex gap-2 mt-1.5">

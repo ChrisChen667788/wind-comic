@@ -195,7 +195,7 @@ export function VideoModal({ open, onOpenChange, src, title }: Props) {
             )}
           </div>
         ) : (
-          <img src={src} alt={title || ''} className="w-full aspect-video object-contain bg-black" />
+          <img loading="lazy" decoding="async" src={src} alt={title || ''} className="w-full aspect-video object-contain bg-black" />
         )}
       </div>
     </div>,

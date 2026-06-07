@@ -183,11 +183,10 @@ export function StoryboardRegenModal({
             <div className="cinema-eyebrow mb-2">CURRENT IMAGE</div>
             {currentImageUrl && /^https?:|^\/api\//i.test(currentImageUrl) ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <img loading="lazy" decoding="async" 
                 src={currentImageUrl}
                 alt={`Shot ${shotNumber} current`}
-                className="w-full max-h-64 object-contain rounded border border-[var(--cinema-border)] bg-black/40"
-              />
+                className="w-full max-h-64 object-contain rounded border border-[var(--cinema-border)] bg-black/40" />
             ) : (
               <div className="w-full h-32 rounded border border-[var(--cinema-border)] bg-black/40 grid place-items-center">
                 <ImageOff className="w-6 h-6 opacity-40" />
@@ -236,11 +235,10 @@ export function StoryboardRegenModal({
             {refImageUrl ? (
               <div className="flex gap-2 items-start">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <img loading="lazy" decoding="async" 
                   src={refImageUrl}
                   alt="reference"
-                  className="w-24 h-16 object-cover rounded border border-[var(--cinema-amber)]/40"
-                />
+                  className="w-24 h-16 object-cover rounded border border-[var(--cinema-amber)]/40" />
                 <div className="flex-1 min-w-0">
                   <div className="cinema-mono text-[10px] opacity-80">✓ 已上传参考图</div>
                   <div className="cinema-mono text-[9px] opacity-50 break-all line-clamp-2 mt-0.5">

@@ -177,7 +177,7 @@ function VideoNodeComponent({ data }: NodeProps) {
                           }}
                         />
                       ) : (
-                        <img src={mediaUrl} alt={`视频${sn}`} className="w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={mediaUrl} alt={`视频${sn}`} className="w-full h-full object-cover" />
                       )}
                       <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
                         <Play className="w-6 h-6 text-white" />
@@ -188,7 +188,7 @@ function VideoNodeComponent({ data }: NodeProps) {
                       {isGeneratingStatus ? (
                         <Loader2 className="w-4 h-4 animate-spin text-pink-400" />
                       ) : isFailed ? (
-                        <div className="flex flex-col items-center gap-1.5 cursor-pointer" onClick={() => handleRegenerateShot(sn, { stopPropagation: () => {} } as any)}>
+                        <div role="button" tabIndex={0} className="flex flex-col items-center gap-1.5 cursor-pointer" onClick={() => handleRegenerateShot(sn, { stopPropagation: () => {} } as any)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRegenerateShot(sn, { stopPropagation: () => {} } as any); } }}>
                           <AlertCircle className="w-4 h-4 text-red-400" />
                           <span className="text-[9px] text-red-400">生成失败</span>
                           <span className="text-[8px] text-gray-500 hover:text-pink-400 transition-colors">点击重试</span>

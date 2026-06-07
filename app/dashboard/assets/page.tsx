@@ -180,7 +180,7 @@ export default function AssetsPage() {
                 {/* 媒体预览 — v8.3 P5: object-contain 完整显示 (不再裁切, 免点开才能看全) */}
                 <div className="h-[180px] bg-black/40 relative overflow-hidden grid place-items-center">
                   {isImg && asset.mediaUrls[0] ? (
-                    <img src={asset.mediaUrls[0]} alt={asset.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300" />
+                    <img loading="lazy" decoding="async" src={asset.mediaUrls[0]} alt={asset.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300" />
                   ) : isVid && asset.mediaUrls[0] ? (
                     <>
                       <video src={asset.mediaUrls[0]} muted preload="metadata" className="w-full h-full object-contain" />

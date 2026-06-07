@@ -107,7 +107,7 @@ export function MonitorTab({ projectId, storyboards = [] }: { projectId: string;
                 return (
                   <button key={sb.id || i} onClick={() => setSel(u)}
                     className={`shrink-0 rounded-md overflow-hidden border-2 transition ${active ? 'border-[var(--scope-green)]' : 'border-transparent opacity-70 hover:opacity-100'}`}>
-                    <img src={u} alt="" className="w-16 h-10 object-cover" />
+                    <img loading="lazy" decoding="async" src={u} alt="" className="w-16 h-10 object-cover" />
                   </button>
                 );
               })}

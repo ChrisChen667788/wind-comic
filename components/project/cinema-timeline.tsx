@@ -731,7 +731,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
                   <div className="aspect-video bg-black/60 rounded-t-md overflow-hidden grid place-items-center">
                     {shot.thumbnailUrl && /^https?:|^\/api\//i.test(shot.thumbnailUrl) ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={shot.thumbnailUrl} alt={`shot ${shot.shotNumber}`} className="w-full h-full object-cover" draggable={false} />
+                      <img loading="lazy" decoding="async" src={shot.thumbnailUrl} alt={`shot ${shot.shotNumber}`} className="w-full h-full object-cover" draggable={false} />
                     ) : (
                       <Film className="w-6 h-6 opacity-30" />
                     )}

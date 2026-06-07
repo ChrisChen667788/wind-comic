@@ -113,7 +113,7 @@ export function Mascot({ mood = 'idle', className = '' }: Props) {
           setTimeout(() => setShowQuip(false), 3000);
         }}
       >
-        <img src="/mascot-bear.svg" alt="mascot" width={44} height={44} className="rounded-xl" />
+        <img loading="lazy" decoding="async" src="/mascot-bear.svg" alt="mascot" width={44} height={44} className="rounded-xl" />
         {/* 心情指示环 */}
         <div
           className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0d0e14]"
@@ -143,7 +143,7 @@ export function AgentAvatar({ role, size = 32 }: { role: string; size?: number }
       className="rounded-full overflow-hidden shrink-0 border-2 border-white/10"
       style={{ width: size, height: size }}
     >
-      <img src={src} alt={role} className="w-full h-full object-cover" />
+      <img loading="lazy" decoding="async" src={src} alt={role} className="w-full h-full object-cover" />
     </div>
   );
 }

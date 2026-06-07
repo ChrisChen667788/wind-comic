@@ -100,7 +100,7 @@ export default function CameoMarketPage() {
               <div key={t.id} className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
                 <div className="aspect-[3/4] bg-gradient-to-br from-fuchsia-900/40 to-indigo-900/40 flex items-center justify-center">
                   {t.coverUrl
-                    ? <img src={t.coverUrl} alt={t.name} className="w-full h-full object-cover" />
+                    ? <img loading="lazy" decoding="async" src={t.coverUrl} alt={t.name} className="w-full h-full object-cover" />
                     : <Crown className="w-10 h-10 text-white/20" />}
                 </div>
                 <div className="p-3">

@@ -172,7 +172,7 @@ export function InviteProjectButton({ projectId, isOwner }: InviteProjectButtonP
               <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded bg-white/5">
                 {c.userAvatarUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={c.userAvatarUrl} alt={c.userName} className="w-6 h-6 rounded-full" />
+                  <img loading="lazy" decoding="async" src={c.userAvatarUrl} alt={c.userName} className="w-6 h-6 rounded-full" />
                 ) : (
                   <div className="w-6 h-6 rounded-full bg-[var(--cinema-amber)]/30 grid place-items-center cinema-mono text-[10px]">
                     {c.userName.slice(0, 1)}

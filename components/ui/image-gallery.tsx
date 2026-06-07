@@ -54,11 +54,10 @@ export function ImageGallery({ images, className }: ImageGalleryProps) {
             className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group"
             onClick={() => openImage(index)}
           >
-            <img
+            <img loading="lazy" decoding="async" 
               src={image.url}
               alt={image.title || `Image ${index + 1}`}
-              className="w-full h-full object-cover transition-transform group-hover:scale-110"
-            />
+              className="w-full h-full object-cover transition-transform group-hover:scale-110" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
               <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
@@ -111,12 +110,11 @@ export function ImageGallery({ images, className }: ImageGalleryProps) {
 
           {/* Image */}
           <div className="max-w-7xl max-h-[90vh] overflow-auto">
-            <img
+            <img loading="lazy" decoding="async" 
               src={images[selectedIndex].url}
               alt={images[selectedIndex].title || `Image ${selectedIndex + 1}`}
               className="transition-transform"
-              style={{ transform: `scale(${zoom})` }}
-            />
+              style={{ transform: `scale(${zoom})` }} />
           </div>
 
           {/* Info */}

@@ -73,12 +73,11 @@ export function ImageLightboxModal({
             <X className="w-5 h-5" />
           </button>
         </div>
-        <img
+        <img loading="lazy" decoding="async" 
           src={src}
           alt={title || ''}
           className="max-w-full max-h-[80vh] object-contain rounded-lg select-none"
-          draggable={false}
-        />
+          draggable={false} />
         {title ? <div className="text-white/70 text-sm mt-3">{title}</div> : null}
         {hasPrev && onPrev && (
           <button

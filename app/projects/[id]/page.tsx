@@ -488,7 +488,7 @@ export default function ProjectDetailPage() {
               {characters.map((c: any) => (
                 <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                   {c.mediaUrls?.[0] && (
-                    <img src={c.mediaUrls[0]} alt={c.name} className="w-full h-[200px] object-cover" />
+                    <img loading="lazy" decoding="async" src={c.mediaUrls[0]} alt={c.name} className="w-full h-[200px] object-cover" />
                   )}
                   <div className="p-4">
                     <h3 className="font-semibold text-white mb-1">{c.name}</h3>
@@ -542,7 +542,7 @@ export default function ProjectDetailPage() {
               {scenes.map((s: any) => (
                 <div key={s.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                   {s.mediaUrls?.[0] && (
-                    <img src={s.mediaUrls[0]} alt={s.name} className="w-full h-[180px] object-cover" />
+                    <img loading="lazy" decoding="async" src={s.mediaUrls[0]} alt={s.name} className="w-full h-[180px] object-cover" />
                   )}
                   <div className="p-4">
                     <h3 className="font-semibold text-white mb-1">{s.name}</h3>
@@ -609,7 +609,7 @@ export default function ProjectDetailPage() {
                       {/* Sprint A.4 · 右上角 Cameo 徽章 (没分数时不渲染) */}
                       <CameoBadge data={sb.data || {}} />
                       {sb.mediaUrls?.[0] ? (
-                        <img src={sb.mediaUrls[0]} alt={sb.name} className="w-full aspect-video object-cover" />
+                        <img loading="lazy" decoding="async" src={sb.mediaUrls[0]} alt={sb.name} className="w-full aspect-video object-cover" />
                       ) : (
                         <div className="w-full aspect-video flex items-center justify-center bg-[var(--cinema-surface-2)] cinema-mono text-[10px] opacity-40">
                           NO RENDER
@@ -674,7 +674,7 @@ export default function ProjectDetailPage() {
                         <video src={url} controls playsInline crossOrigin="anonymous" className="w-full aspect-video" />
                       ) : (
                         <div className="relative">
-                          <img src={url} alt={v.name} className="w-full aspect-video object-cover" />
+                          <img loading="lazy" decoding="async" src={url} alt={v.name} className="w-full aspect-video object-cover" />
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                             <div className="text-center">
                               <AlertTriangle className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
@@ -863,7 +863,7 @@ export default function ProjectDetailPage() {
                           />
                         ) : (
                           <div className="relative">
-                            <img src={url} alt="playing" className="w-full aspect-video object-cover" />
+                            <img loading="lazy" decoding="async" src={url} alt="playing" className="w-full aspect-video object-cover" />
                             <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px]">
                               分镜图（视频生成失败）
                             </div>

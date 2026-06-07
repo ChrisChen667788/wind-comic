@@ -296,11 +296,10 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
       {/* v2.12 Sprint A.3: 历史 Bible 命中提示 */}
       {bibleHit && !hasImage && (
         <div className="mb-2 px-2 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-[10.5px]">
-          <img
+          <img loading="lazy" decoding="async" 
             src={bibleHit.bible.imageUrl}
             alt=""
-            className="w-7 h-7 rounded-md object-cover flex-shrink-0"
-          />
+            className="w-7 h-7 rounded-md object-cover flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="text-emerald-200 font-semibold truncate">
               📚 已找到「{slot.name.trim()}」
@@ -338,7 +337,7 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
           {busy ? (
             <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
           ) : hasImage ? (
-            <img src={slot.imageUrl} alt={slot.name || `角色 ${slotLabel}`} className="w-full h-full object-cover" />
+            <img loading="lazy" decoding="async" src={slot.imageUrl} alt={slot.name || `角色 ${slotLabel}`} className="w-full h-full object-cover" />
           ) : (
             <Upload className="w-5 h-5 text-gray-500" />
           )}

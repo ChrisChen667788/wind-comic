@@ -307,7 +307,7 @@ export default function ShortVideoStudioPage() {
                           {/* 行 3:AI prompt + 操作 */}
                           <div className="flex gap-2">
                             <code className="flex-1 block cinema-mono text-[10px] leading-relaxed text-[var(--accent-green)] bg-[var(--surface)] rounded-md p-2 max-h-20 overflow-auto custom-scrollbar">{s.aiPrompt}</code>
-                            {pv?.url && <img src={pv.url} alt="" className="w-16 h-28 object-cover rounded-md border border-[var(--border)]" />}
+                            {pv?.url && <img loading="lazy" decoding="async" src={pv.url} alt="" className="w-16 h-28 object-cover rounded-md border border-[var(--border)]" />}
                           </div>
                           <div className="flex items-center gap-2 mt-2">
                             <button onClick={() => previewShot(s)} disabled={pv?.loading} className="cinema-btn-ghost !text-[11px] !py-1">

@@ -56,7 +56,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         )}
 
         {!finalUrl && covers[0] && (
-          <img src={covers[0]} alt={project.title} className="w-full rounded-xl mb-8" />
+          <img loading="lazy" decoding="async" src={covers[0]} alt={project.title} className="w-full rounded-xl mb-8" />
         )}
 
         {script?.synopsis && (

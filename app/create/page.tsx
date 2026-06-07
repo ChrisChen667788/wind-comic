@@ -318,11 +318,10 @@ export default function CreatePage() {
                     ) : (
                       <div>
                         <div className="relative inline-flex items-center gap-4 bg-white/5 border border-[#E8C547]/30 rounded-xl p-4 w-full">
-                          <img
+                          <img loading="lazy" decoding="async" 
                             src={cameoPreview}
                             alt="主角脸预览"
-                            className="w-20 h-20 rounded-lg object-cover border border-white/10"
-                          />
+                            className="w-20 h-20 rounded-lg object-cover border border-white/10" />
                           <div className="flex-1">
                             <div className="text-sm font-medium text-[#E8C547]">✓ 已锁定主角脸</div>
                             <div className="text-xs text-gray-400 mt-1">

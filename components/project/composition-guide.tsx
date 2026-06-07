@@ -26,7 +26,7 @@ export function CompositionGuide({ shotSize, angle, movement, imageUrl }: {
         <div className="cinema-eyebrow mb-1">构图取景 · 三分法</div>
         <div className="relative w-full rounded-md overflow-hidden border border-[var(--border)]" style={{ aspectRatio: '16 / 9' }}>
           {imageUrl
-            ? <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            ? <img loading="lazy" decoding="async" src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
             : <div className="absolute inset-0 bg-[var(--surface)]" />}
           <svg viewBox="0 0 100 56" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
             {/* 三分线 */}

@@ -59,7 +59,7 @@ export default function Home() {
               <source src="/hero-loop.mp4" type="video/mp4" />
             </video>
           ) : heroAssets.cover ? (
-            <img src="/hero-cover.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <img loading="lazy" decoding="async" src="/hero-cover.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
           ) : (
             // 品牌渐变兜底: 金雾 + 深蓝 + 墨绿,模拟山雾骑士氛围
             <div
@@ -160,14 +160,14 @@ export default function Home() {
           <div className="flex justify-center">
             <div className="grid grid-cols-1 md:grid-cols-[minmax(280px,700px)_280px] gap-8 items-center">
               <div className="relative rounded-[30px] overflow-hidden bg-[var(--foreground)] border border-[var(--border)] group">
-                <img src={IMG_FEATURE_MAIN} alt="Feature" className="w-full h-[380px] object-cover transition-transform duration-400 group-hover:scale-[1.03]" />
+                <img loading="lazy" decoding="async" src={IMG_FEATURE_MAIN} alt="Feature" className="w-full h-[380px] object-cover transition-transform duration-400 group-hover:scale-[1.03]" />
                 <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(232,197,71,0.08),transparent_50%)] pointer-events-none" />
                 <button aria-label="播放" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[rgba(255,255,255,0.16)] border border-[var(--border)] w-20 h-20 rounded-full grid place-items-center cursor-pointer hover:bg-[rgba(255,255,255,0.24)] transition-colors"><Play size={28} weight="fill" className="ml-1" /></button>
               </div>
               <div className="flex flex-col gap-4">
                 {featureHighlights.map((item) => (
                   <div key={item.title} className="flex gap-3 p-3 rounded-[18px] bg-[var(--surface)] border border-[var(--border)]">
-                    <img src={item.image} alt={item.title} className="w-[72px] h-[72px] rounded-[14px] object-cover" />
+                    <img loading="lazy" decoding="async" src={item.image} alt={item.title} className="w-[72px] h-[72px] rounded-[14px] object-cover" />
                     <div>
                       <h4 className="text-sm font-semibold mb-1">{item.title}</h4>
                       <p className="text-xs text-[var(--soft)]">{item.desc}</p>
@@ -190,7 +190,7 @@ export default function Home() {
                   <span className="w-2 h-2 bg-[#E8C547] rounded-full shadow-[0_0_8px_rgba(232,197,71,0.5)]" />
                 </div>
                 <p className="text-sm text-[var(--muted)] mb-3">{agent.desc}</p>
-                <img src={agent.image} alt={agent.title} className="rounded-[18px] h-[140px] w-full object-cover mt-auto" />
+                <img loading="lazy" decoding="async" src={agent.image} alt={agent.title} className="rounded-[18px] h-[140px] w-full object-cover mt-auto" />
               </GlassCard>
             ))}
           </div>
@@ -201,7 +201,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
             <div>
               <div className="border-[3px] border-[var(--primary)] rounded-[40px] p-[18px] bg-[var(--foreground)]">
-                <img src={IMG_LENS_MAIN} alt="Lens" className="rounded-[30px] h-[320px] w-full object-cover" />
+                <img loading="lazy" decoding="async" src={IMG_LENS_MAIN} alt="Lens" className="rounded-[30px] h-[320px] w-full object-cover" />
               </div>
               <p className="mt-4 text-[var(--soft)] text-sm">{t.home.lensCaption}</p>
             </div>
@@ -242,7 +242,7 @@ export default function Home() {
             <div className="grid gap-3.5">
               {vibeShots.map((shot) => (
                 <div key={shot.title} className="relative rounded-[26px] overflow-hidden border border-[var(--border)]">
-                  <img src={shot.image} alt={shot.title} className="h-[200px] w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={shot.image} alt={shot.title} className="h-[200px] w-full object-cover" />
                   <span className="absolute bottom-3 left-3 px-2.5 py-1.5 bg-[rgba(0,0,0,0.5)] rounded-xl text-xs">{shot.title}</span>
                 </div>
               ))}
@@ -279,7 +279,7 @@ export default function Home() {
                       {item.videoUrl ? (
                         <video src={item.videoUrl} className="w-full h-full object-cover bg-black transition-transform duration-300 group-hover:scale-105" autoPlay muted loop playsInline preload="metadata" />
                       ) : (
-                        <img src={item.coverUrl || item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        <img loading="lazy" decoding="async" src={item.coverUrl || item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                       )}
                       {item.videoUrl && (
                         <>

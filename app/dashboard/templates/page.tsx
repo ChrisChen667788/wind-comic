@@ -112,7 +112,7 @@ export default function TemplatesMarketPage() {
                   {t.payload?.previewVideoUrl ? (
                     <video src={t.payload.previewVideoUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline preload="metadata" />
                   ) : (
-                    <img src={t.payload!.previewUrl} alt={t.title} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={t.payload!.previewUrl} alt={t.title} className="w-full h-full object-cover" />
                   )}
                 </div>
               )}

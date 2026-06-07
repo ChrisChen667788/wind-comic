@@ -114,8 +114,8 @@ export default function AuthPage() {
         {/* Visual */}
         <div className="relative min-h-[400px] hidden md:block">
           <div className="absolute w-[200px] h-[200px] rounded-full bg-[radial-gradient(circle,rgba(232,197,71,0.4),transparent_70%)] top-[20%] left-[10%] blur-[10px]" />
-          <img src={IMG_AUTH_BG1} alt="" className="absolute w-[260px] rounded-[20px] shadow-[var(--shadow)] top-0 right-10" />
-          <img src={IMG_AUTH_BG2} alt="" className="absolute w-[260px] rounded-[20px] shadow-[var(--shadow)] bottom-0 left-5" />
+          <img loading="lazy" decoding="async" src={IMG_AUTH_BG1} alt="" className="absolute w-[260px] rounded-[20px] shadow-[var(--shadow)] top-0 right-10" />
+          <img loading="lazy" decoding="async" src={IMG_AUTH_BG2} alt="" className="absolute w-[260px] rounded-[20px] shadow-[var(--shadow)] bottom-0 left-5" />
         </div>
       </main>
     </div>

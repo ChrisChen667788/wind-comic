@@ -17,7 +17,7 @@ export default function ProfilePage() {
 
       <div className="flex items-center justify-between gap-4 bg-[rgba(255,255,255,0.06)] rounded-[18px] p-5 border border-[var(--border)] mb-6">
         <div className="flex items-center gap-4">
-          <img src={user?.avatarUrl} alt={user?.name} className="w-16 h-16 rounded-full object-cover" />
+          <img loading="lazy" decoding="async" src={user?.avatarUrl} alt={user?.name} className="w-16 h-16 rounded-full object-cover" />
           <div>
             <h3 className="font-semibold text-lg">{user?.name}</h3>
             <p className="text-sm text-[var(--muted)]">{user?.email}</p>

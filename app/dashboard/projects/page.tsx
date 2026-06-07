@@ -124,7 +124,7 @@ export default function ProjectsPage() {
               >
                 {/* Cover */}
                 <div className="cover h-[160px]">
-                  <img src={cover} alt={p.title} className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={cover} alt={p.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                   <div className={`absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-sm ${sc.bgColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />

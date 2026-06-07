@@ -178,7 +178,7 @@ export function MentionTextarea({
             >
               {h.avatarUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={h.avatarUrl} alt={h.name} className="w-5 h-5 rounded-full" />
+                <img loading="lazy" decoding="async" src={h.avatarUrl} alt={h.name} className="w-5 h-5 rounded-full" />
               ) : (
                 <div className="w-5 h-5 rounded-full bg-[var(--cinema-amber)]/30 grid place-items-center cinema-mono text-[9px]">
                   {h.name.slice(0, 1)}

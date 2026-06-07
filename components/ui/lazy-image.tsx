@@ -21,7 +21,7 @@ export function LazyImage({
 
   return (
     <div className="relative overflow-hidden">
-      <img
+      <img loading="lazy" decoding="async" 
         ref={imgRef}
         src={imageSrc || fallback}
         alt={alt}
@@ -31,8 +31,7 @@ export function LazyImage({
           className
         )}
         onLoad={handleLoad}
-        {...props}
-      />
+        {...props} />
       {!isLoaded && (
         <div className="absolute inset-0 bg-neutral-800 animate-pulse" />
       )}

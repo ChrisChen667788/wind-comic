@@ -73,7 +73,7 @@ export function CharacterManager({ characters, onChange }: Props) {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <img src={c.avatarUrl} alt={c.name} className="w-12 h-12 rounded-full shrink-0" />
+                <img loading="lazy" decoding="async" src={c.avatarUrl} alt={c.name} className="w-12 h-12 rounded-full shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-sm">{c.name}</div>
                   <div className="text-xs text-[var(--muted)] line-clamp-1">{c.description || '未设置描述'}</div>

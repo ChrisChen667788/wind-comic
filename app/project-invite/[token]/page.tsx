@@ -134,11 +134,10 @@ export default function ProjectInvitePage({ params }: { params: Promise<{ token:
         <div className="cinema-card-hi p-5 space-y-4">
           {data.project.coverUrl && /^https?:|^\/api\//i.test(data.project.coverUrl) ? (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img
+            <img loading="lazy" decoding="async" 
               src={data.project.coverUrl}
               alt={data.project.title}
-              className="w-full aspect-video object-cover rounded border border-[var(--cinema-border)]"
-            />
+              className="w-full aspect-video object-cover rounded border border-[var(--cinema-border)]" />
           ) : (
             <div className="w-full aspect-video bg-black/40 rounded border border-[var(--cinema-border)] grid place-items-center">
               <Users className="w-12 h-12 opacity-30" />
@@ -158,7 +157,7 @@ export default function ProjectInvitePage({ params }: { params: Promise<{ token:
               <Crown className="w-3.5 h-3.5 text-[var(--cinema-amber)]" />
               {data.owner.avatarUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={data.owner.avatarUrl} alt={data.owner.name} className="w-6 h-6 rounded-full" />
+                <img loading="lazy" decoding="async" src={data.owner.avatarUrl} alt={data.owner.name} className="w-6 h-6 rounded-full" />
               ) : (
                 <div className="w-6 h-6 rounded-full bg-[var(--cinema-amber)]/30 grid place-items-center cinema-mono text-[10px]">
                   {data.owner.name.slice(0, 1)}

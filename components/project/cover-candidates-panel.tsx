@@ -86,7 +86,7 @@ export function CoverCandidatesPanel({ projectId, title: titleProp }: { projectI
           <div key={c.key} className="flex flex-col gap-1.5">
             <div className="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-black" style={{ aspectRatio: '9 / 16' }}>
               {c.imageUrl ? (
-                <img src={c.imageUrl} alt={c.label} className="w-full h-full object-cover" />
+                <img loading="lazy" decoding="async" src={c.imageUrl} alt={c.label} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center p-3 text-center">
                   <span className="cinema-mono text-[10px] text-[var(--secondary)]">{c.error || '出图失败'}</span>

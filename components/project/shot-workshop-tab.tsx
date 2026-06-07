@@ -181,7 +181,7 @@ export function ShotWorkshopTab({
                 <div className="w-20 h-12 bg-black/40 rounded overflow-hidden flex-shrink-0">
                   {sbImg && /^https?:|^\/api\//i.test(sbImg) ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={sbImg} alt={`shot ${v.shotNumber}`} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={sbImg} alt={`shot ${v.shotNumber}`} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full grid place-items-center cinema-mono text-[10px] opacity-40">—</div>
                   )}

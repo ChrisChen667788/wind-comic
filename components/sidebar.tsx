@@ -110,7 +110,7 @@ export function Sidebar() {
       <div className={`px-2.5 pb-3 ${collapsed ? 'flex flex-col items-center gap-2' : 'flex flex-col gap-2'}`}>
         {user && !collapsed && (
           <div className="flex gap-2.5 items-center p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)]">
-            <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full object-cover ring-1 ring-[var(--border)]" />
+            <img loading="lazy" decoding="async" src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full object-cover ring-1 ring-[var(--border)]" />
             <div className="min-w-0 flex-1">
               <div className="font-medium text-[12px] truncate text-[var(--text)]">{user.name}</div>
               <div className="text-[10px] text-[var(--soft)] truncate">{user.email}</div>
@@ -119,7 +119,7 @@ export function Sidebar() {
         )}
         {user && collapsed && (
           <div className="p-1" title={user.name}>
-            <img src={user.avatarUrl} alt={user.name} className="w-7 h-7 rounded-full object-cover ring-1 ring-[var(--border)]" />
+            <img loading="lazy" decoding="async" src={user.avatarUrl} alt={user.name} className="w-7 h-7 rounded-full object-cover ring-1 ring-[var(--border)]" />
           </div>
         )}
         <button

@@ -144,7 +144,7 @@ export function PresenceAvatars({ projectId, currentUser, activeTab, maxVisible 
             >
               {u.avatarUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
+                <img loading="lazy" decoding="async" src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
               ) : (
                 <span className="cinema-mono text-[10px] font-bold text-black">
                   {u.name.slice(0, 1)}

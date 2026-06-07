@@ -775,7 +775,7 @@ export default function DashboardCreatePage() {
                   >
                     <div className="h-[96px] relative overflow-hidden">
                       {stylePreviews[preset.id] ? (
-                        <img src={stylePreviews[preset.id]} alt={preset.label} className="absolute inset-0 w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={stylePreviews[preset.id]} alt={preset.label} className="absolute inset-0 w-full h-full object-cover" />
                       ) : (
                         // v8.3 P6.3: AI 金色 emblem 兜底 (无动态预览图时), 再无图则露出 emoji
                         <div className="absolute inset-0 grid place-items-center text-3xl bg-[var(--cinema-surface-2)]">
@@ -947,7 +947,7 @@ export default function DashboardCreatePage() {
               </div>
             </div>
             <div className="relative rounded-[2px] overflow-hidden border border-[var(--cinema-border)] bg-black">
-              <img src={IMG_PREVIEW_DEFAULT} alt="preview" className="w-full h-[260px] object-cover opacity-90" />
+              <img loading="lazy" decoding="async" src={IMG_PREVIEW_DEFAULT} alt="preview" className="w-full h-[260px] object-cover opacity-90" />
               {/* 安全区裁切线 — 影院软件常见 */}
               <div className="absolute inset-[10%] border border-dashed border-[rgba(245,241,234,0.18)] pointer-events-none" />
             </div>
