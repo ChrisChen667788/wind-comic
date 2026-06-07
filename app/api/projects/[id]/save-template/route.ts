@@ -53,6 +53,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     lipSync: { lines: lsPlan.lines, readiness: lsPlan.readiness, level: lsPlan.level },
   });
 
+  // 市场卡片预览(v9.7.12:首镜分镜图 + 首镜成片视频)
+  const firstMedia = async (type: string): Promise<string | undefined> => {
+    const row = await d.get<any>(
+      `SELECT media_urls FROM project_assets WHERE project_id = ? AND type = ? AND shot_number IS NOT NULL ORDER BY shot_number ASC LIMIT 1`,
+      [id, type],
+    );
+    try { const u = JSON.parse(row?.media_urls || '[]'); return Array.isArray(u) && u[0] ? u[0] : undefined; } catch { return undefined; }
+  };
+  const previewUrl = await firstMedia('storyboard');
+  const previewVideoUrl = await firstMedia('video');
+
   // 角色音色覆盖(v9.7.9:带进模板,一键起片复用)
   let voiceOverrides: Record<string, string> = {};
   try {
@@ -87,6 +98,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       style: proj.style_id || undefined,
       lockedCharacters: locked,
       ...(Object.keys(voiceOverrides).length ? { voiceOverrides } : {}),
+      ...(previewUrl ? { previewUrl } : {}),
+      ...(previewVideoUrl ? { previewVideoUrl } : {}),
     },
     visibility: 'public',
   });

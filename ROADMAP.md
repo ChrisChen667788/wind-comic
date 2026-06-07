@@ -2046,6 +2046,9 @@ npm test
 
 - **运维补丁(2026-06-04)**:windcomic-pg 的 `cases` 表 `ALTER ADD video_url` + 从 SQLite 同步 4 条案例(3 条带 clip URL),防将来切 `DB_DRIVER=pg` 时灵感库空/无视频(临时脚本跑完即删,密钥只走 env 不打印)。
 - **v9.7.11 · 口型漂移自动校正** ✅ 2026-06-04:`bestLag` 已能测音画时延 → 现把时延平移回 viseme 轨补偿。`lipsync-align` 加 `shiftVisemeTrack(frames, offsetSec)`(整体平移、保留 viseme 字段、丢负时刻)+ `autoAlignVisemes({visemes,audioEnergy,durationSec})`(测时延 → 平移补偿 → 给校正前后**零时延裸对齐分** + 校正轨)。`lipsync-panel`「测音画对齐」顺带算补偿轨,漂移 ≥0.05s 时显「**校正漂移重渲**」按钮 → 把平移后的 viseme 轨传 `/lipsync/render`(已支持 body.visemes)→ 下次渲染嘴对齐声音。验证:**tsc 0 + 11 单测**(原 8 + shift 保留字段/丢负 + autoAlign 检漂移/不降 + 无漂移≈0)。
+- **v9.7.12 · 模板预览片(市场卡片可视化)** ✅ 2026-06-04:模板卡此前纯文字(标题/画风/质量)→ 现带预览。`save-template` 抓源项目**首镜成片视频**(`type=video` shot 最小)+ **首镜分镜图**(`type=storyboard`)→ 写进 payload `previewVideoUrl`/`previewUrl`;`TemplatePayload` 加该两字段;市场卡顶部加预览区:有视频 → `<video autoPlay muted loop>` 静音循环播首镜(同灵感库 v9.5.5 那套),否则首镜图,都无则纯文字。验证:**tsc 0 + template-repo 单测加 previewVideoUrl 往返断言**(4 测绿)。
+
+> **里程碑(达成)**:阶段十六精修 IV 收口 —— 口型**漂移自动校正**(v9.7.11:测时延→平移补偿→重渲)+ 模板市场**可视化预览片**(v9.7.12)。T1 口型自愈再进一步(不止重渲,还校时延),T2 市场从文字卡升级到可视化片头。
 
 ## 6. 技术债清单(待清理)
 

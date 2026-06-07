@@ -21,6 +21,10 @@ export interface TemplatePayload {
   lockedCharacters?: unknown[];
   /** v9.7.9:角色→音色覆盖(一键起片后应用到新项目) */
   voiceOverrides?: Record<string, string>;
+  /** v9.7.12:市场卡片预览 —— 首镜分镜图 */
+  previewUrl?: string;
+  /** v9.7.12:市场卡片预览 —— 首镜成片视频(优先于图,静音循环播) */
+  previewVideoUrl?: string;
 }
 
 export interface StoredTemplate extends FilmTemplate {

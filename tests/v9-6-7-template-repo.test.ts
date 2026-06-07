@@ -13,7 +13,7 @@ describe('v9.6.7 · template-repo', () => {
       elements: [{ role: 'character', count: 2 }], pacingTone: '快节奏', shotCount: 24,
       signals: { publishLevel: 'pass' }, sourceProjectId: 'p1',
     });
-    const saved = await saveTemplate({ template: tpl, ownerId: 'owner-A', payload: { style: 'american-comic', references: [{ id: 'r1' }], voiceOverrides: { 女主: 'young_female_cn' } }, visibility: 'public' });
+    const saved = await saveTemplate({ template: tpl, ownerId: 'owner-A', payload: { style: 'american-comic', references: [{ id: 'r1' }], voiceOverrides: { 女主: 'young_female_cn' }, previewVideoUrl: '/x/shot1.mp4' }, visibility: 'public' });
     expect(saved.id).toMatch(/^tpl_/);
     expect(saved.quality).toBe(90);
     const got = await getTemplate(saved.id);
@@ -21,6 +21,7 @@ describe('v9.6.7 · template-repo', () => {
     expect(got?.payload?.style).toBe('american-comic');
     expect(got?.payload?.references).toEqual([{ id: 'r1' }]);
     expect(got?.payload?.voiceOverrides).toEqual({ 女主: 'young_female_cn' }); // v9.7.9 音色入模板
+    expect(got?.payload?.previewVideoUrl).toBe('/x/shot1.mp4'); // v9.7.12 预览片入模板
     expect(got?.elements).toEqual([{ role: 'character', count: 2 }]);
     expect(got?.tags).toEqual(expect.arrayContaining(['American Comic', '热血', '快节奏', '角色']));
     expect(got?.visibility).toBe('public');

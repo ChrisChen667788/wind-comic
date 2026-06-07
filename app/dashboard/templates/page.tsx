@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Stack, MagicWand, MagnifyingGlass, Acorn } from '@phosphor-icons/react';
 
 interface ElementSummary { role: string; count: number; }
-interface TemplatePayload { style?: string; styleEn?: string; genre?: string; pacingTone?: string; references?: unknown[]; lockedCharacters?: unknown[]; }
+interface TemplatePayload { style?: string; styleEn?: string; genre?: string; pacingTone?: string; references?: unknown[]; lockedCharacters?: unknown[]; voiceOverrides?: Record<string, string>; previewUrl?: string; previewVideoUrl?: string; }
 interface Template {
   id: string; title: string; style: string; genre?: string; pacingTone?: string;
   shotCount: number; quality: number; elements: ElementSummary[]; tags: string[];
@@ -79,6 +79,16 @@ export default function TemplatesMarketPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((t) => (
             <div key={t.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3 hover:border-white/20 transition-colors">
+              {/* v9.7.12 模板预览片:首镜成片(静音循环)或分镜图 */}
+              {(t.payload?.previewVideoUrl || t.payload?.previewUrl) && (
+                <div className="rounded-lg overflow-hidden bg-black/30 h-28 -mt-1">
+                  {t.payload?.previewVideoUrl ? (
+                    <video src={t.payload.previewVideoUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline preload="metadata" />
+                  ) : (
+                    <img src={t.payload!.previewUrl} alt={t.title} className="w-full h-full object-cover" />
+                  )}
+                </div>
+              )}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-white/90 truncate">{t.title}</div>
