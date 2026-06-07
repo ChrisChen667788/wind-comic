@@ -10,9 +10,8 @@
 - [x] 重跑 `node scripts/gen-modelscope-intro.mjs` → `docs/modelscope-intro.md` 已同步(0 残留相对图)
 - [x] 保留 README 结尾「致谢 + Star History」(未动)
 - [x] **首页(landing)新截图** —— `assets/v10/landing.png`(headless Chrome 真实捕获,公开页无需登录)
-- [ ] **其余模块界面截图**(创作工坊 / 模板市场 / 配音口型 / 成本-技术监看 / 成片质检 等)—— **仍待补**
-      - 阻塞:① dashboard/项目页需**登录**(我不代填密码,需用户在已连接浏览器点「登录」,演示号 `demo@qfmanju.ai` 已预填);
-        ② 新模块需**演示数据**才好看(模板市场空、配音口型/成本需带分镜+成本+对齐分的项目)。
-      - 路径:用户登录后 → 我种子化演示数据(几个模板 + 一个带 script/shot-audio/cost_log/lipsync-align 的 demo 项目)→ 逐页截图 → 替换 `assets/v6`·`assets/v8` 旧图。
+- [x] **其余模块界面截图**(v10.0.2,2026-06-07)—— 用户登录后:种子化演示数据(demo 项目 + 4 模板 + 质检/成本/对齐)→ 复用会话 token 用 puppeteer 无头截 `assets/v10/{create,templates,qc,cost}.png` → README(中英)New in 区换成 v10 模块 2×2 实拍,深层 v6–v8 图加「早期截图」横幅。
+      - 注:demo 数据(项目「霓虹追缉」+ tpl_demo* 模板)留在 dev 库作演示内容,如需清理可删 `proj-demo-v10` 相关行 + `tpl_demo%`。
+      - 未重拍的深层模块(导演台/长篇/角色工坊/Polish/团队/时间线 等)仍是 v6–v8 图、已如实标注「早期截图」,后续如需可同法补。
 
-(首页 + 文案 + 版本 + ModelScope 已随 v10.0 完成;仅「其余模块截图」待用户登录后补。)
+(✅ v10.0 大版本同步全部完成:文案 + 版本 + ModelScope + 首页 + 模块截图。)

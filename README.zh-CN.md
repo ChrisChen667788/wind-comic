@@ -76,23 +76,18 @@
 - **🧩 模板市场** —— 把出片好的项目沉淀成可复用模板(画风 + 多参元素 + 节奏 + **音色**),带**预览片**、**★ 评分 & ♥ 收藏**、质量分、**一键起片**(连音色复用)。
 - **💴 成本可观测 + 预算护栏** —— 项目级逐阶段成本归因(LLM / 图像 / 视频 / TTS / 口型)+ 省钱提示 + **ok/warn/over 预算护栏**;发布门禁升级为**四维**:画面对剧本 · 一致性 · 口型可对齐 · **实测嘴-声对齐**。
 
-> 📸 *v10 各模块实机截图(创作工坊 / 模板市场 / 配音口型 / 成本)正按运行中 app 刷新中。*
-
-<p align="center">
-  <img src="assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 巡览 —— API 健康 · 导演台 · 长篇拆解 · 风格画廊 · 时间线" width="100%" />
-</p>
-
-### 🎨 v8.3 —— 精品化设计大改造 *(Taste Skill)*
-
-Plus Jakarta Sans + Phosphor 细线图标、金色染色机加工 bezel 卡片、spring 动效、非对称 **bento 创作总览**、60 张 **风格画廊**缩略图,以及把每个默认 emoji 都换掉的 AI 金色霓虹**题材图标**。
-
 <table>
 <tr>
-<td width="50%"><img src="assets/v8/dashboard-bento.png" /><br/><sub>非对称 bento 创作总览 —— 主导 create-hero + 机加工 bezel 卡片</sub></td>
-<td width="50%"><img src="assets/v8/style-gallery.png" /><br/><sub>60 风格画廊,每张缩略图 AI 生成(统一主体 × 各画风)</sub></td>
+<td width="50%"><img src="assets/v10/create.png" /><br/><sub><b>创作工坊</b> —— 一句话起片:画风预设 · 多参元素货架 · 锁角色 · 实时预览 · 金色霓虹题材库</sub></td>
+<td width="50%"><img src="assets/v10/templates.png" /><br/><sub><b>模板市场</b> —— 预览片 · ★评分 / ♥收藏 · 质量分 · 一键起片(连音色复用)</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="assets/v10/qc.png" /><br/><sub><b>成片质检 + 配音口型</b> —— 四维发布门禁 · 一致性趋势 · viseme 轨(动画嘴 + 实测对齐)· 每镜 Vision 评分</sub></td>
+<td width="50%"><img src="assets/v10/cost.png" /><br/><sub><b>技术监看 · 成本归因</b> —— 逐阶段花销占比(视频 / 图像 / LLM / TTS / 口型)+ 省钱提示</sub></td>
 </tr>
 </table>
-<p align="center"><img src="assets/v8/template-icons.png" width="100%" /><br/><sub>故事模板库 —— 18 枚统一风格的 AI 金色霓虹题材图标(告别默认 emoji)</sub></p>
+
+> 以上每张都是**运行中 v10 产品的真实截图**。设计语言(v8.3 *Taste* 精品化 —— Plus Jakarta Sans + Phosphor、金色机加工卡、spring 动效、AI 金色霓虹题材图标)贯穿每一屏。
 
 | 版本 | 新增能力 |
 |---|---|
@@ -111,6 +106,10 @@ Plus Jakarta Sans + Phosphor 细线图标、金色染色机加工 bezel 卡片�
 | **v9 · Postgres 平台 + 变现** | SQLite↔Postgres **双驱动**全量切换(17 核心表/簇迁 async repo,PG 端到端验证 + 事务提交/回滚原子性;默认仍 SQLite,`DB_DRIVER=pg` 可选)· 多平台**分发包**生成 · **真二进制 AAF 导出**(MS-CFB)+ EDL/FCPXML · 质量与一致性深化(发布门禁 / 重生回环 / 一致性报告)+ 可灵式**多参 + 一键成片**融合。 |
 | **v10 · 配音口型 · 模板市场 · 成本** *(阶段十六)* | **配音口型全链**(角色多音色 + viseme 轨 + 实测嘴-声对齐 + 漂移自校 + 可插拔引擎渲染写回时间线 + 一键全片 + Vision 质检自愈)· **模板市场**(存→评分/收藏→一键起片连音色,预览片 + 质量分)· **成本可观测 + 预算护栏**,四维发布门禁(画面 · 一致性 · 口型 · 实测对齐)。**2103 单测**双驱动全绿。 |
 | **v7.0 · DeepSeek + 全局兜底** | 编剧/导演跑 DeepSeek 最强 **`deepseek-v4-pro`**;每次 LLM 调用在异常/欠费/超时自动**兜底到 MiniMax**;健康看板拆 3 条 LLM 线。 |
+
+### 📂 更多模块 —— v6–v8 早期截图
+
+> 下方截图记录的功能现在仍在(导演台 / 长篇分集 / 风格画廊 / API 健康 / Polish Pro / 角色工坊 / 控片台 / 团队 / 时间线),但属**早期版本截图**;上方 v10 截图为当前界面。
 
 ### 🎬 导演级控片台 —— 整部片就是一个控制室 *(v6.4)*
 一眼看清每个环节:哪些就绪、哪些因上游改动变「待更新」,以及一键重跑(自动算出会让哪些下游失效)。
