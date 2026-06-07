@@ -2061,6 +2061,9 @@ npm test
 - **v9.7.14 · 发布徽章四维明细** ✅ 2026-06-04:`publish-readiness-badge` 此前只显 level+原因 → 现加**四维质量明细网格**:画面对剧本 / 一致性 / 口型可对齐 / 实测口型对齐,每行 状态点(达标绿/偏弱黄/未测灰)+ 明细(就绪分 / 均分)。数据全来自 `publish-readiness` 已返的 gate+lipSync+lipAudioAlign(badge 改存整个 body,显示条件加 hasLipSync/hasLipAudioAlign)。验证:**tsc 0**(纯展示)。
 - **v9.7.15 · 对齐分进模板质量分** ✅ 2026-06-04:`scoreTemplate` 加 `lipAudioAlign`(实测口型-音频对齐均分,权重 0.15;缺则不计、权重归一);`save-template` 读项目 `lipsync-align` 资产算均分 → 喂 `extractTemplate` signals → 测过对齐的项目存模板时质量分更准(实测对齐差则模板分降)。验证:**tsc 0 + template-market +2 断言**(单信号归一 / 对齐拉低总分 78)。
 - **v9.7.16 · T2 模板评分 / 收藏** ✅ 2026-06-04:模板市场加用户互动。**Schema**(双驱动 + live PG):`film_templates` +`rating_sum/rating_count`;新 `template_ratings`(每用户每模板一评分,去重 PK)+ `template_favorites`(每用户收藏,PK)。**repo**:`rateTemplate`(1-5 夹紧 + upsert + 重算聚合)/ `getUserRating` / `toggleFavorite` / `listFavoriteIds` / `listFavoriteTemplates`,`StoredTemplate` 加 `ratingAvg/ratingCount`。**API**:`POST /templates/[id]/rate`、`POST /templates/[id]/favorite`、`GET /templates?fav=1` + 返 `favoriteIds`。**UI**:市场卡 ⭐ 点星打分(显均分+评分数)+ ♥ 收藏 + 顶部「只看收藏」筛选。验证:**tsc 0 + 8 repo 单测(真 SQLite:多用户聚合/去重 re-rate/夹紧/收藏 toggle/幂等)+ PG 往返**(ALTER+建表+评分 smoke)。
+- **v9.7.17 · T3 成本预算护栏** ✅ 2026-06-04:`cost-attribution` 加纯函数 `evaluateCostGuard({totalCny,capCny,warnThreshold=0.8})` → `none`(无上限)/`ok`/`warn`(≥阈值)/`over`(≥上限)+ 占比/剩余/提示。与 `cost-rollup.computeBudget`(周期+线性预测)正交:这是单项目累计花费的硬上限护栏。`GET /api/projects/[id]/cost` 加 `?cap=` 返 guard;`cost-attribution-panel` 加预算上限输入(localStorage 按项目存)+ 进度条(ok 绿/warn 黄/over 红)+ 文案。验证:**tsc 0 + cost-attribution +4 单测**(无上限/预算内+占比/达阈值 warn/超上限 over)。
+
+> **里程碑(达成)**:阶段十六精修 VI 收口 —— 发布徽章四维(v9.7.14)+ 对齐进模板分(v9.7.15)+ 模板评分收藏(v9.7.16)+ 成本预算护栏(v9.7.17)。T2 市场从「能存能起」到「**评分/收藏/可视化**」社区化,T3 成本从「可见」到「**有护栏**」。
 
 ## 6. 技术债清单(待清理)
 

@@ -7,12 +7,12 @@
  */
 import { NextResponse } from 'next/server';
 import { getDbDriver } from '@/lib/db-driver';
-import { costEventsFromCostLog, attributeCost } from '@/lib/cost-attribution';
+import { costEventsFromCostLog, attributeCost, evaluateCostGuard } from '@/lib/cost-attribution';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const driver = getDbDriver();
 
@@ -26,5 +26,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   );
   const attribution = attributeCost(events);
 
-  return NextResponse.json({ projectId: id, attribution, events: events.length });
+  // v9.7.17 预算护栏:?cap= 设上限 → ok/warn/over
+  const capRaw = new URL(request.url).searchParams.get('cap');
+  const capCny = capRaw != null && capRaw !== '' ? Number(capRaw) : null;
+  const guard = evaluateCostGuard({ totalCny: attribution.totalCny, capCny });
+
+  return NextResponse.json({ projectId: id, attribution, events: events.length, guard });
 }

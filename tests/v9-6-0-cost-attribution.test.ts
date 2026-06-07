@@ -2,7 +2,7 @@
  * v9.6.0 — lib/cost-attribution 单测(阶段十六开篇:项目级成本归因 + 省钱提示)。
  */
 import { describe, it, expect } from 'vitest';
-import { attributeCost, COST_CATEGORY_LABEL, type CostEvent } from '@/lib/cost-attribution';
+import { attributeCost, evaluateCostGuard, COST_CATEGORY_LABEL, type CostEvent } from '@/lib/cost-attribution';
 
 describe('v9.6.0 · attributeCost', () => {
   it('空 → total 0 / 无类目 / topCategory null / 提示先跑一单', () => {
@@ -58,5 +58,27 @@ describe('v9.6.0 · attributeCost', () => {
     expect(r.topCategory?.category).toBe('image');
     expect(r.hints.join()).toMatch(/图像分镜占 50%/);
     expect(r.hints.join()).toMatch(/视频也占 40%/);
+  });
+});
+
+describe('v9.7.17 · evaluateCostGuard', () => {
+  it('无上限 → none', () => {
+    expect(evaluateCostGuard({ totalCny: 50 }).level).toBe('none');
+    expect(evaluateCostGuard({ totalCny: 50, capCny: 0 }).level).toBe('none');
+  });
+  it('预算内 → ok + 占比/剩余', () => {
+    const g = evaluateCostGuard({ totalCny: 50, capCny: 100 });
+    expect(g.level).toBe('ok');
+    expect(g.pctUsed).toBe(50);
+    expect(g.remainingCny).toBe(50);
+  });
+  it('达告警阈值(默认 0.8)→ warn', () => {
+    expect(evaluateCostGuard({ totalCny: 80, capCny: 100 }).level).toBe('warn');
+    expect(evaluateCostGuard({ totalCny: 65, capCny: 100, warnThreshold: 0.6 }).level).toBe('warn');
+  });
+  it('超上限 → over', () => {
+    const g = evaluateCostGuard({ totalCny: 120, capCny: 100 });
+    expect(g.level).toBe('over');
+    expect(g.message).toMatch(/已超预算/);
   });
 });

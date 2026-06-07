@@ -132,3 +132,40 @@ export function attributeCost(events: CostEvent[]): CostAttribution {
     hints: buildHints(byCategory, total),
   };
 }
+
+// ─── v9.7.17 成本预算护栏 ───────────────────────────────────────────────────
+
+export type CostGuardLevel = 'none' | 'ok' | 'warn' | 'over';
+
+export interface CostGuard {
+  level: CostGuardLevel;
+  capCny: number | null;
+  totalCny: number;
+  /** 已用占比 0-100+(无上限 → null) */
+  pctUsed: number | null;
+  remainingCny: number | null;
+  /** 告警阈值 0..1(默认 0.8) */
+  warnThreshold: number;
+  message: string;
+}
+
+/**
+ * 项目级成本预算护栏:已花 vs 上限 → ok / warn(≥阈值)/ over(≥上限);无上限 → none。
+ * 与 cost-rollup.computeBudget(周期+线性预测)正交:这是单项目累计花费的硬上限护栏。
+ */
+export function evaluateCostGuard(input: { totalCny: number; capCny?: number | null; warnThreshold?: number }): CostGuard {
+  const total = round2(num(input.totalCny));
+  const cap = input.capCny == null ? null : num(input.capCny);
+  const warn = typeof input.warnThreshold === 'number' && input.warnThreshold > 0 && input.warnThreshold <= 1 ? input.warnThreshold : 0.8;
+  if (cap == null || cap <= 0) {
+    return { level: 'none', capCny: cap, totalCny: total, pctUsed: null, remainingCny: null, warnThreshold: warn, message: '未设预算上限' };
+  }
+  const pctUsed = round1((total / cap) * 100);
+  const remainingCny = round2(cap - total);
+  const level: CostGuardLevel = total >= cap ? 'over' : total >= cap * warn ? 'warn' : 'ok';
+  const message =
+    level === 'over' ? `已超预算 ¥${total} / ¥${cap}(${pctUsed}%)`
+      : level === 'warn' ? `接近预算 ${pctUsed}%(剩 ¥${remainingCny})`
+        : `预算内 ${pctUsed}%(剩 ¥${remainingCny})`;
+  return { level, capCny: cap, totalCny: total, pctUsed, remainingCny, warnThreshold: warn, message };
+}
