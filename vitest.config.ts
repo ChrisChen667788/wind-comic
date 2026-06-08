@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
@@ -7,6 +7,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // e2e/ 是 Playwright 规约(.spec.ts),用 playwright test 跑,排除出 vitest。
+    exclude: [...configDefaults.exclude, 'e2e/**'],
     setupFiles: ['./tests/setup.ts'],
     // 整批测试前在主进程一次性清掉上一次 run 残留的测试库文件 (见 tests/global-setup.ts).
     // lib/db.ts 测试时每个文件用一个独占随机库文件, 不自我清理, 残留集中在此一次性清.

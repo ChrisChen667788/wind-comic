@@ -5,6 +5,10 @@
 
 # testing
 /coverage
+# playwright e2e artifacts (v10.3.0)
+/test-results/
+/playwright-report/
+/playwright/.cache/
 
 # next.js
 /.next/
