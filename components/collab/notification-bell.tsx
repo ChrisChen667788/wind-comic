@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/popover';
 import { subscribeSSE } from '@/lib/sse-client';
 import { useLocale } from '@/hooks/use-locale';
+import { getToken } from '@/lib/auth';
 
 interface NotificationItem {
   id: string;
@@ -54,11 +55,16 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { t } = useLocale();
+  // v10.2.4: 带登录 token → 通知按当前登录用户取(不再走服务端 demo 兜底取最早用户)。
+  const authHeaders = (): Record<string, string> => {
+    const tok = getToken();
+    return tok ? { Authorization: `Bearer ${tok}` } : {};
+  };
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/notifications?limit=30');
+      const res = await fetch('/api/notifications?limit=30', { headers: authHeaders() });
       if (res.status === 401) {
         // 未登录 — 静默关闭轮询, bell 不显示 badge
         setItems([]);
@@ -81,20 +87,21 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
   useEffect(() => {
     refresh();
     // v10.2.0: 实时改 SSE —— 有新通知即推 → 立即 refresh;轮询降级为慢速兜底(SSE 断线时保活)。
-    // 不带 token,与 refresh 的 fetch 鉴权一致(同一用户解析),行为零变化、仅多了推送。
+    // v10.2.4: 带登录 token,SSE 与 refresh 同解析为当前登录用户。
     const sub = subscribeSSE('/api/notifications/stream', {
+      token: getToken(),
       onEvent: (ev) => { if (ev.event === 'notification') refresh(); },
     });
     const fallbackMs = pollIntervalMs > 0 ? Math.max(pollIntervalMs, 90_000) : 0;
-    const t = fallbackMs > 0 ? setInterval(refresh, fallbackMs) : null;
-    return () => { sub.close(); if (t) clearInterval(t); };
+    const timer = fallbackMs > 0 ? setInterval(refresh, fallbackMs) : null;
+    return () => { sub.close(); if (timer) clearInterval(timer); };
   }, [refresh, pollIntervalMs]);
 
   const markRead = async (id: string) => {
     try {
       await fetch('/api/notifications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ action: 'markRead', id }),
       });
       setItems((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
@@ -106,7 +113,7 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
     try {
       await fetch('/api/notifications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ action: 'markAllRead' }),
       });
       setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));

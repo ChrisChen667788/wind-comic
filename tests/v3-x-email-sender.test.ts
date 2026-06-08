@@ -14,12 +14,14 @@ beforeEach(() => {
   fetchSpy.mockReset();
   globalThis.fetch = fetchSpy as unknown as typeof fetch;
   delete process.env.RESEND_API_KEY;
+  delete process.env.SENDGRID_API_KEY;
   delete process.env.EMAIL_DISABLED;
   delete process.env.EMAIL_PROVIDER;
 });
 
 afterEach(() => {
   delete process.env.RESEND_API_KEY;
+  delete process.env.SENDGRID_API_KEY;
   delete process.env.EMAIL_DISABLED;
   delete process.env.EMAIL_PROVIDER;
 });
@@ -45,6 +47,30 @@ describe('v3.x E.2 · isEmailEnabled', () => {
     process.env.RESEND_API_KEY = 're_real_abc123';
     const { isEmailEnabled } = await freshLib();
     expect(isEmailEnabled()).toBe(true);
+  });
+
+  it('sendgrid: enabled when EMAIL_PROVIDER=sendgrid + SENDGRID_API_KEY', async () => {
+    process.env.EMAIL_PROVIDER = 'sendgrid';
+    process.env.SENDGRID_API_KEY = 'SG.real_abc';
+    const { isEmailEnabled } = await freshLib();
+    expect(isEmailEnabled()).toBe(true);
+  });
+
+  it('sendgrid: disabled without its own key (a resend key must not count)', async () => {
+    process.env.EMAIL_PROVIDER = 'sendgrid';
+    process.env.RESEND_API_KEY = 're_real_abc';
+    const { isEmailEnabled } = await freshLib();
+    expect(isEmailEnabled()).toBe(false);
+  });
+
+  it('sendgrid: 202 → sent, posts to sendgrid endpoint', async () => {
+    process.env.EMAIL_PROVIDER = 'sendgrid';
+    process.env.SENDGRID_API_KEY = 'SG.real_abc';
+    fetchSpy.mockResolvedValue({ status: 202, ok: true, text: async () => '' });
+    const { sendEmail } = await freshLib();
+    const r = await sendEmail({ to: 'a@b.com', subject: 's', html: '<p>h</p>' });
+    expect(r.sent).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledWith('https://api.sendgrid.com/v3/mail/send', expect.objectContaining({ method: 'POST' }));
   });
 
   it('returns false when EMAIL_DISABLED=1', async () => {

@@ -31,13 +31,12 @@ const BLOCKED_EMAIL_PATTERNS = [
 ];
 
 export function isEmailEnabled(): boolean {
-  const provider = (process.env.EMAIL_PROVIDER || 'resend').toLowerCase();
   if (process.env.EMAIL_DISABLED === '1') return false;
-  if (provider === 'resend') {
-    return !!process.env.RESEND_API_KEY && !process.env.RESEND_API_KEY.startsWith('your_');
-  }
-  // 其他 provider 暂未实现
-  return false;
+  const provider = (process.env.EMAIL_PROVIDER || 'resend').toLowerCase();
+  const hasKey = (k?: string) => !!k && !k.startsWith('your_');
+  if (provider === 'resend') return hasKey(process.env.RESEND_API_KEY);
+  if (provider === 'sendgrid') return hasKey(process.env.SENDGRID_API_KEY);
+  return false; // ses 等需额外依赖,见 sendEmail 分发
 }
 
 function isBlockedEmail(email: string): boolean {
@@ -76,37 +75,61 @@ export async function sendEmail(input: EmailSendInput): Promise<EmailSendResult>
   }
 
   const provider = (process.env.EMAIL_PROVIDER || 'resend').toLowerCase();
-  if (provider !== 'resend') {
-    return { sent: false, warning: `provider ${provider} not implemented yet` };
+  switch (provider) {
+    case 'resend': return sendViaResend(input);
+    case 'sendgrid': return sendViaSendGrid(input);
+    case 'ses': return { sent: false, warning: 'EMAIL_PROVIDER=ses 需 AWS SigV4 依赖(未随包,与 Resend/SendGrid 重复故未内置);请用 resend / sendgrid,或自行接 @aws-sdk/client-sesv2' };
+    default: return { sent: false, warning: `provider ${provider} not implemented` };
   }
+}
 
+async function sendViaResend(input: EmailSendInput): Promise<EmailSendResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
     const resp = await fetch(RESEND_API, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: DEFAULT_FROM,
-        to: input.to,
-        subject: input.subject,
-        html: input.html,
-        text: input.text,
-        reply_to: input.replyTo,
-      }),
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: DEFAULT_FROM, to: input.to, subject: input.subject, html: input.html, text: input.text, reply_to: input.replyTo }),
       signal: controller.signal,
     });
-    clearTimeout(timer);
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => '');
-      return { sent: false, warning: `Resend ${resp.status}: ${txt.slice(0, 120)}` };
-    }
+    if (!resp.ok) return { sent: false, warning: `Resend ${resp.status}: ${(await resp.text().catch(() => '')).slice(0, 120)}` };
     return { sent: true };
   } catch (e) {
     return { sent: false, warning: e instanceof Error ? e.message : 'unknown' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// SendGrid v3 mail/send —— 成功返 202(空体)。EMAIL_FROM 支持 "Name <addr>" 解析。
+async function sendViaSendGrid(input: EmailSendInput): Promise<EmailSendResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const m = DEFAULT_FROM.match(/^\s*(.*?)\s*<(.+)>\s*$/);
+    const from = m ? { name: m[1], email: m[2] } : { email: DEFAULT_FROM };
+    const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: input.to }] }],
+        from,
+        ...(input.replyTo ? { reply_to: { email: input.replyTo } } : {}),
+        subject: input.subject,
+        content: [
+          ...(input.text ? [{ type: 'text/plain', value: input.text }] : []),
+          { type: 'text/html', value: input.html },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    if (resp.status !== 202 && !resp.ok) return { sent: false, warning: `SendGrid ${resp.status}: ${(await resp.text().catch(() => '')).slice(0, 120)}` };
+    return { sent: true };
+  } catch (e) {
+    return { sent: false, warning: e instanceof Error ? e.message : 'unknown' };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
