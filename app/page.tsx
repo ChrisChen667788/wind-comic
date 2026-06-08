@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { SectionTitle } from '@/components/ui/section-title';
@@ -59,7 +60,9 @@ export default function Home() {
               <source src="/hero-loop.mp4" type="video/mp4" />
             </video>
           ) : heroAssets.cover ? (
-            <img loading="lazy" decoding="async" src="/hero-cover.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
+            // v10.2.6: 首屏 hero 兜底图用 next/image(fill + priority)= 真正的 LCP 优化(srcset/尺寸/优先加载);
+            // 其余 56 处动态生成 URL + 5 处 data: URI 不适用 next/image(data: 会报错、内容寻址 URL 多一跳),保留 lazy <img>。
+            <Image src="/hero-cover.jpg" alt="" fill priority sizes="100vw" className="object-cover" />
           ) : (
             // 品牌渐变兜底: 金雾 + 深蓝 + 墨绿,模拟山雾骑士氛围
             <div
