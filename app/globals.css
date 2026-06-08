@@ -105,8 +105,12 @@ body {
   .film-grain { opacity: 0.02; }
 }
 
-a { color: inherit; text-decoration: none; }
-img { max-width: 100%; display: block; }
+/* v10.3.3 a11y: 放进 @layer base —— 否则未分层的 a{color:inherit} 会盖过 Tailwind 文本色工具类
+   (v4 里未分层规则优先于 @layer utilities),导致金底按钮 text-[#0C0C0C] 失效继承成浅色、对比度不达标 */
+@layer base {
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; display: block; }
+}
 
 /* v8.3 P5: 全局键盘可达 focus ring — :where() 0 特异性, 组件自定义 focus 仍可覆盖.
    只在键盘 (focus-visible) 显示, 鼠标点击不出现. 金色描边 + 2px offset. */

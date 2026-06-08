@@ -63,7 +63,7 @@ export function AspectChip({ ratio }: { ratio: string }) {
   return (
     <span className="cinema-chip">
       <span className="cinema-mono">{ratio}</span>
-      {label && <span className="text-[8px] opacity-50 tracking-widest">· {label}</span>}
+      {label && <span className="text-[8px] opacity-80 tracking-widest">· {label}</span>}
     </span>
   );
 }

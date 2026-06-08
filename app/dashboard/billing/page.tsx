@@ -116,7 +116,7 @@ export default function BillingPage() {
                 </div>
               )}
               {isCurrent && (
-                <div className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold">
+                <div className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-emerald-500 text-emerald-950 text-[10px] font-bold">
                   {t.billing.currentBadge}
                 </div>
               )}

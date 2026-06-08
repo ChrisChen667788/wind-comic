@@ -54,29 +54,35 @@ describe('MovingBorderButton', () => {
 });
 
 describe('TextGenerateEffect', () => {
-  it('exposes the full text via aria-label for screen readers', () => {
+  // v10.3.3 a11y: 完整原文改走 sr-only 真文本(aria-label 在无 role 的 span 上被 axe 禁止);
+  // 可见的逐词/逐字动画 span 都 aria-hidden,故行为断言只看这些 aria-hidden 节点。
+  const animatedText = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('[aria-hidden="true"]'))
+      .map((s) => s.textContent)
+      .join('');
+
+  it('exposes the full text via an sr-only node for screen readers', () => {
     render(<TextGenerateEffect text="从一句创意到完整短剧" />);
-    expect(screen.getByLabelText('从一句创意到完整短剧')).toBeInTheDocument();
+    expect(screen.getByText('从一句创意到完整短剧')).toBeInTheDocument();
   });
 
   it('splits Chinese characters one-by-one (each char becomes its own animated span)', () => {
     const { container } = render(<TextGenerateEffect text="影片" />);
-    // 父 span 自己 + 2 个字符子 span = 3
-    const spans = container.querySelectorAll('span');
-    expect(spans.length).toBeGreaterThanOrEqual(3);
-    const text = container.textContent;
-    expect(text).toContain('影');
-    expect(text).toContain('片');
+    const animated = container.querySelectorAll('[aria-hidden="true"]');
+    expect(animated.length).toBe(2); // 影 / 片 各一个动画 span
+    expect(animatedText(container)).toBe('影片');
   });
 
   it('keeps English words as single chunks (not per-letter)', () => {
     const { container } = render(<TextGenerateEffect text="ROLL CAMERA" />);
-    expect(container.textContent).toBe('ROLL CAMERA');
+    const animated = container.querySelectorAll('[aria-hidden="true"]');
+    expect(animated.length).toBeLessThan(5); // 词块, 不是 11 个字母
+    expect(animatedText(container)).toBe('ROLL CAMERA');
   });
 
   it('handles mixed CN+EN+space without losing characters', () => {
     const { container } = render(<TextGenerateEffect text="DIR · 老陈" />);
-    expect(container.textContent).toBe('DIR · 老陈');
+    expect(animatedText(container)).toBe('DIR · 老陈');
   });
 });
 

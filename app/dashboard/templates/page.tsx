@@ -96,9 +96,9 @@ export default function TemplatesMarketPage() {
       </div>
 
       {loading ? (
-        <div className="text-white/40 text-sm py-12 text-center">加载中…</div>
+        <div className="text-white/60 text-sm py-12 text-center">加载中…</div>
       ) : templates.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 text-white/40 text-sm py-16">
+        <div className="flex flex-col items-center gap-2 text-white/60 text-sm py-16">
           <Acorn className="w-8 h-8 text-white/20" />
           还没有模板 —— 在项目「技术监看」里把出片好的项目「存为模板」即可上架。
         </div>
@@ -141,7 +141,7 @@ export default function TemplatesMarketPage() {
 
               <div className="flex flex-wrap gap-1">
                 {t.tags.slice(0, 4).map((tag) => (
-                  <span key={tag} className="text-[10px] text-white/35">#{tag}</span>
+                  <span key={tag} className="text-[10px] text-white/60">#{tag}</span>
                 ))}
               </div>
 
@@ -152,11 +152,11 @@ export default function TemplatesMarketPage() {
                     <Star weight={s <= Math.round(t.ratingAvg) ? 'fill' : 'regular'} className="w-3.5 h-3.5" />
                   </button>
                 ))}
-                <span className="text-[10px] text-white/40 ml-1">{t.ratingCount > 0 ? `${t.ratingAvg} (${t.ratingCount})` : '暂无评分'}</span>
+                <span className="text-[10px] text-white/60 ml-1">{t.ratingCount > 0 ? `${t.ratingAvg} (${t.ratingCount})` : '暂无评分'}</span>
               </div>
 
               <div className="flex items-center justify-between mt-auto pt-1">
-                <span className="text-[11px] text-white/35">已被起片 {t.useCount} 次</span>
+                <span className="text-[11px] text-white/60">已被起片 {t.useCount} 次</span>
                 <button onClick={() => startFromTemplate(t)} className="cinema-btn cinema-btn-primary !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1">
                   <MagicWand className="w-3.5 h-3.5" /> 用此模板起片
                 </button>

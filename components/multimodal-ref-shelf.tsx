@@ -95,7 +95,7 @@ export function MultimodalRefShelf({
           多参元素(可选)
           <span className="px-2 py-0.5 bg-[#E8C547]/10 text-[#E8C547] text-xs rounded-full">按角色锁一致性</span>
         </label>
-        <span className="text-xs text-gray-500">图 {MAX_PER_KIND.image} · 音 {MAX_PER_KIND.audio} · 视频 {MAX_PER_KIND.video}</span>
+        <span className="text-xs text-gray-400">图 {MAX_PER_KIND.image} · 音 {MAX_PER_KIND.audio} · 视频 {MAX_PER_KIND.video}</span>
       </div>
 
       <div className="flex gap-2">

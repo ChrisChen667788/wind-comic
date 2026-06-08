@@ -194,9 +194,9 @@ export function StyleLoraLibrary({
       </div>
 
       {loading ? (
-        <div className="cinema-mono text-[10px] opacity-50">加载中…</div>
+        <div className="cinema-mono text-[10px] opacity-75">加载中…</div>
       ) : items.length === 0 ? (
-        <div className="cinema-mono text-[10px] opacity-40">
+        <div className="cinema-mono text-[10px] opacity-70">
           暂无收藏。挑个画风 + 镜头, 点 "保存当前" 入库, 下次一键复用。
         </div>
       ) : (

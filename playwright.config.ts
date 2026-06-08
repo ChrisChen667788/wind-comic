@@ -1,10 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * E2E (v10.3.0) —— 用系统 Chrome(channel: 'chrome',免下载 chromium 二进制)对公开页跑:
- *   - 渲染冒烟(页面 200 + 关键文案在)
- *   - axe a11y 审计(无 critical/serious 违规)
- *   - 响应式(同一批冒烟在 mobile 视口再跑一遍,验窄屏不崩)
+ * E2E (v10.3.x) —— 用系统 Chrome(channel: 'chrome',免下载 chromium 二进制):
+ *   - smoke.spec:公开页渲染冒烟(desktop + mobile = 响应式)
+ *   - a11y.spec:全站 axe a11y 审计(公开页 + 登录态 dashboard 页),无 critical/serious
  * 复用已在 :3000 跑的 dev server(reuseExistingServer)。跑法:`npm run test:e2e`。
  */
 export default defineConfig({
@@ -12,6 +11,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  timeout: 90_000, // dashboard 页首次编译 + axe 偏慢,给足
   reporter: [['line']],
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',

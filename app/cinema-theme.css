@@ -21,7 +21,7 @@
   --cinema-surface-hi:   #221E1B;
   --cinema-text:         #F5F1EA;
   --cinema-text-2:       #B8AC9E;
-  --cinema-text-3:       #7A6F62;
+  --cinema-text-3:       #968D7D; /* v10.3.3 a11y: 7A6F62→968D7D, 提亮一档达 WCAG AA(≥4.5:1 于 surface/surface-2/surface-hi) */
   --cinema-amber:        #C9A35E;
   --cinema-amber-deep:   #8A6E3F;
   --cinema-amber-glow:   rgba(201, 163, 94, 0.18);
@@ -145,14 +145,18 @@ button.cinema-card:hover {
 /* 按钮                                    */
 /* ──────────────────────────────────────── */
 
+/* v10.3.3 a11y: .cinema-btn* 全部给 var() 加字面兜底值 —— 这些按钮类常被用在非 .cinema-page
+   的 dashboard 页(如 /dashboard/templates),那里 --cinema-* 未定义,会让 background/color
+   变成 "invalid at computed-value time" → 回退到 transparent/初始值,导致金色 CTA 没底色、
+   深色文字浮在暗卡片上(真实对比度 1.05,不是误报)。加兜底后按钮在任何暗底页都自洽达标。 */
 .cinema-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  border: 1px solid var(--cinema-border-hi);
-  background: var(--cinema-surface-2);
-  color: var(--cinema-text);
+  border: 1px solid var(--cinema-border-hi, rgba(245, 241, 234, 0.16));
+  background: var(--cinema-surface-2, #1A1715);
+  color: var(--cinema-text, #F5F1EA);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -163,15 +167,15 @@ button.cinema-card:hover {
   overflow: hidden;
 }
 .cinema-btn:hover {
-  background: var(--cinema-surface-hi);
-  border-color: var(--cinema-amber-deep);
+  background: var(--cinema-surface-hi, #221E1B);
+  border-color: var(--cinema-amber-deep, #8A6E3F);
 }
 .cinema-btn:active {
   transform: translateY(1px);
 }
 .cinema-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--cinema-bg), 0 0 0 4px var(--cinema-amber-deep);
+  box-shadow: 0 0 0 2px var(--cinema-bg, #0A0908), 0 0 0 4px var(--cinema-amber-deep, #8A6E3F);
 }
 .cinema-btn:disabled {
   opacity: 0.4;
@@ -179,9 +183,11 @@ button.cinema-card:hover {
 }
 
 .cinema-btn-primary {
-  background: linear-gradient(180deg, #D6B270 0%, var(--cinema-amber) 100%);
+  background: linear-gradient(180deg, #D6B270 0%, var(--cinema-amber, #C9A35E) 100%);
+  /* 实色兜底:axe 读不出 gradient 会误判,实色层供 axe 算出 #0A0908/琥珀 ≈ 8:1 达标 */
+  background-color: var(--cinema-amber, #C9A35E);
   color: #0A0908;
-  border-color: var(--cinema-amber);
+  border-color: var(--cinema-amber, #C9A35E);
   font-weight: 600;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset, 0 6px 18px -8px rgba(201, 163, 94, 0.55);
 }

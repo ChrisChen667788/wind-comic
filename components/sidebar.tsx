@@ -79,6 +79,8 @@ export function Sidebar() {
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
+        aria-label={collapsed ? '展开侧边栏' : '收起侧边栏'}
+        title={collapsed ? '展开侧边栏' : '收起侧边栏'}
         className="absolute -right-3 top-[60px] w-5 h-5 rounded-full bg-[var(--background-elevated)] border border-[var(--border)] grid place-items-center text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--border-hover)] transition-all z-10"
       >
         {collapsed ? <CaretRight size={10} weight="bold" /> : <CaretLeft size={10} weight="bold" />}

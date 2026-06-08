@@ -304,7 +304,9 @@ export function TextGenerateEffect({
   const words = useMemo(() => splitForReveal(text), [text]);
 
   return (
-    <span ref={ref} className={className} aria-label={text}>
+    <span ref={ref} className={className}>
+      {/* v10.3.3 a11y: aria-label 不能用在无 role 的 span 上;改用 sr-only 真文本供读屏,动画词逐个 aria-hidden */}
+      <span className="sr-only">{text}</span>
       {words.map((w, i) => (
         <motion.span
           key={`${i}-${w}`}

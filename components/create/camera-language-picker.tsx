@@ -40,11 +40,11 @@ export function CameraLanguagePicker({
         <div className="flex items-center justify-between mb-2">
           <span className="cinema-eyebrow">CAMERA · 镜头语言</span>
           {active ? (
-            <span className="cinema-mono text-[10px] opacity-60 truncate max-w-[60%]" title={active.desc}>
+            <span className="cinema-mono text-[10px] opacity-80 truncate max-w-[60%]" title={active.desc}>
               {active.label} · {active.desc}
             </span>
           ) : (
-            <span className="cinema-mono text-[10px] opacity-40">默认 · 轻微推近</span>
+            <span className="cinema-mono text-[10px] opacity-70">默认 · 轻微推近</span>
           )}
         </div>
       )}

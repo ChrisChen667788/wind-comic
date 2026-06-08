@@ -86,13 +86,13 @@ function TierCard({ tier }: { tier: PricingTier }) {
         ))}
         {tier.id === 'free' && (
           <>
-            <li className="flex items-start gap-2.5 opacity-50">
+            <li className="flex items-start gap-2.5">
               <X className="w-4 h-4 mt-0.5 shrink-0 text-[var(--muted)]" />
-              <span className="text-sm text-[var(--muted)]">{t.pricing.apiAccess}</span>
+              <span className="text-sm text-[var(--muted)] line-through decoration-[var(--muted)]/40">{t.pricing.apiAccess}</span>
             </li>
-            <li className="flex items-start gap-2.5 opacity-50">
+            <li className="flex items-start gap-2.5">
               <X className="w-4 h-4 mt-0.5 shrink-0 text-[var(--muted)]" />
-              <span className="text-sm text-[var(--muted)]">{t.pricing.commercialLicense}</span>
+              <span className="text-sm text-[var(--muted)] line-through decoration-[var(--muted)]/40">{t.pricing.commercialLicense}</span>
             </li>
           </>
         )}

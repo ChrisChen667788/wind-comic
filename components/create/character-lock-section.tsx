@@ -102,12 +102,12 @@ export function CharacterLockSection({ value, onChange }: Props) {
           {/* 同时兼容旧/新主题: cinema-page 内显示 mono eyebrow, 否则显示原 h3 */}
           <span className="cinema-eyebrow tracking-widest hidden [.cinema-page_&]:inline">CAMEO LOCK · 角色锁脸</span>
           <h3 className="text-sm font-semibold [.cinema-page_&]:hidden">
-            角色锁脸 <span className="text-xs text-gray-500">(可选 · 最多 3 人)</span>
+            角色锁脸 <span className="text-xs text-gray-400">(可选 · 最多 3 人)</span>
           </h3>
         </div>
-        <span className="text-[11px] text-gray-500 [.cinema-page_&]:cinema-mono [.cinema-page_&]:tracking-wider">
+        <span className="text-[11px] text-gray-400 [.cinema-page_&]:cinema-mono [.cinema-page_&]:tracking-wider">
           <span className="[.cinema-page_&]:hidden">🔒 上传后,该角色在全片所有镜头里脸都会锁定</span>
-          <span className="hidden [.cinema-page_&]:inline opacity-60">UP TO 3 · 全片锁脸</span>
+          <span className="hidden [.cinema-page_&]:inline">UP TO 3 · 全片锁脸</span>
         </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -339,7 +339,7 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
           ) : hasImage ? (
             <img loading="lazy" decoding="async" src={slot.imageUrl} alt={slot.name || `角色 ${slotLabel}`} className="w-full h-full object-cover" />
           ) : (
-            <Upload className="w-5 h-5 text-gray-500" />
+            <Upload className="w-5 h-5 text-gray-400" />
           )}
         </div>
         <div className="flex-1 min-w-0 space-y-2">
@@ -348,11 +348,13 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
             value={slot.name}
             onChange={e => onUpdate({ name: e.target.value })}
             placeholder="角色名(例如 李长安)"
+            aria-label="角色名"
             className="w-full px-2 py-1.5 text-xs bg-black/30 border border-white/10 rounded-md focus:outline-none focus:border-[#E8C547]/50"
           />
           <select
             value={slot.role}
             onChange={e => onUpdate({ role: e.target.value as LockedCharacter['role'] })}
+            aria-label="角色定位"
             className="w-full px-2 py-1.5 text-xs bg-black/30 border border-white/10 rounded-md focus:outline-none focus:border-[#E8C547]/50"
           >
             {ROLE_PRESETS.map(p => (
