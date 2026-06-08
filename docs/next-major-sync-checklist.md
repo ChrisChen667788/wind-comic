@@ -20,9 +20,13 @@
 
 ## ⭐ 常驻规则:每次 GitHub 同步必做(用户指示 2026-06-08)
 
-- [ ] **竞品对比表(README「vs. competitors / 跟竞品比」)必须刷新为「当下最强」的 AIGC 产品**。
+- [ ] **所有竞品提及(对比表 + 文案)必须刷新为「当下最强」的 AIGC 产品**。
       模型迭代极快——即便同品牌也常已迭代数代,旧版本号会显得过时。每次同步前**联网核实当前 SOTA**
       (`WebSearch` 当年最新榜单)再更新:**列名(产品+版本号)+ 每格能力评估都要按新产品重评**,不能只换名字。
+      **覆盖范围**(别只改 README 表!):`README.md` / `README.zh-CN.md` 的「vs. competitors」表 +
+      `docs/MARKETING-en.md` / `docs/MARKETING-zh.md` / `docs/modelscope-profile.md` 里的竞品文案 +
+      重跑 `gen-modelscope-intro`(它从 README 生成)。`docs/COMPETITIVE-GAP-*.md` / `competitive-analysis-*.md`
+      是**带日期的历史分析**,保持不动(代码里 Vidu/Kling 等是自家引擎集成,也不动)。
       > v10.2.3(2026-06-08)执行:`Sora 2 / Kling 2.0 / Vidu Q3 / Runway Gen-4 / Higgsfield`
       > → `Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5 / Sora 2`(Sora 2 已宣布 2026 内停服;
       > 新一代已普遍具备多镜 + 一致性 + 原生音频,故重评了多镜/一致/画风/音频各格,并新增「原生对白+音效」行)。

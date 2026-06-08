@@ -164,11 +164,10 @@
 - 探索"多 Agent 协同"如何打败"超大模型"的研究者
 
 **vs 主流闭源工具**:
-- Sora 2 比我们一段镜头长, 但我们多 6 个 agent
-- Kling 2.0 画质好, 但 6 镜跑下来变脸 + 没字幕烧入
-- Vidu Q3 长镜头强, 但中文乱码
-- Higgsfield Cinema Studio 全套但闭源 + 月费
-- Runway Gen-4 工业级, 中文场景适配差
+- Veo 3.1 / Kling 3.0 / Seedance 2.0 画质 + 一致性 + 原生多镜/音频已第一梯队, 但都不烧中文字幕、不开源、不能自托管、无协作时间线
+- Sora 2 单段镜头强 (已宣布 2026 年内停服); 多镜可控管线仍要自己接
+- Runway Gen-4.5 工业级控制, 但中文适配弱 + 闭源
+- 我们的差异: 多 agent 管线 + 中文字幕烧入 + 开源 + 自托管 + 自带 LLM + 实时协作
 - **我们是: 多 Agent + 开源 + 中文优先 + 自部署 + 你自己的 LLM + 实时协作**
 
 **为什么相信我们**:
@@ -207,7 +206,7 @@ Repo: github.com/ChrisChen667788/wind-comic
 
 **Target users**: Creators · marketing teams · AI builders · privacy-conscious deployments wanting local LLM · researchers studying multi-agent vs monolithic models
 
-**vs Competitors**: Sora 2 (one model) · Kling (no subtitle burn) · Vidu (CJK garbled) · Higgsfield (closed + $30/mo) · Runway Gen-4 (weak Chinese) → **We are multi-agent + open + Chinese-first + self-host + your LLM + real-time collab**.
+**vs Competitors**: Veo 3.1 / Kling 3.0 / Seedance 2.0 (top-tier generation + native multi-shot/audio, but no CJK subtitle burn · closed · no self-host) · Sora 2 (sunsetting 2026) · Runway Gen-4.5 (pro control, weak Chinese) → **We are multi-agent + open + Chinese-first + self-host + your LLM + real-time collab**.
 
 **Trust signals**: 1711 vitest tests · TypeScript strict · 21 sprints (v2.0 → v3.1.3) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
 

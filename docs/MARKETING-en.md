@@ -99,7 +99,7 @@ The LLM is provider-agnostic — `docs/llm-providers.md` documents how to swap t
 
 Tech: Next.js 16 + TypeScript strict + SQLite + Web Audio API + Yjs. 1150 vitest tests passing. MIT.
 
-Honest competitor comparison: `docs/COMPETITIVE-GAP-2026-05.md` (we self-audit gaps vs Sora 2 / Kling 2.0 / Vidu Q3 / Higgsfield).
+Honest competitor comparison: README's vs-competitors table is kept current (Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5 / Sora 2). `docs/COMPETITIVE-GAP-2026-05.md` is a dated self-audit.
 
 GitHub: https://github.com/ChrisChen667788/wind-comic
 
