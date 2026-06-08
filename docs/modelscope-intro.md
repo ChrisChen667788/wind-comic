@@ -209,18 +209,19 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🥊 vs. competitors
 
-| Capability | Sora 2 | Kling 2.0 | Vidu Q3 | Runway Gen-4 | Higgsfield | **Wind Comic** |
+| Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | Sora 2 | **Wind Comic** |
 |---|---|---|---|---|---|---|
-| Multi-shot story from one prompt | ⚠️ (one continuous clip) | ❌ | ❌ | ⚠️ | ⚠️ | ✅ multi-agent |
-| Character consistency across shots | ✅ | cref/sref hack | subject-ref | scene memory | ✅ | **✅ cref + sref + 8-dim DNA + vision retry** |
-| Style coherence locked | ⚠️ | ❌ | ⚠️ | ✅ | ✅ | **✅ Style Bible Frame** |
-| Real CJK subtitles | ❌ | ⚠️ | ⚠️ | ❌ | ❌ | **✅ libass + PingFang burn** |
+| Multi-shot story from one prompt | ⚠️ | ✅ storyboard mode | ✅ multi-shot native | ⚠️ | ⚠️ (one clip) | **✅ 8-agent script→edit pipeline** |
+| Character consistency across shots | ✅ | ✅ | ✅ | ✅ reference | ✅ | **✅ cref + sref + 8-dim DNA + vision retry** |
+| Style coherence locked | ✅ | ✅ | ✅ | ✅ | ⚠️ | **✅ Style Bible Frame** |
+| Native dialogue + SFX audio | ✅ | ✅ | ✅ | ⚠️ | ✅ | **✅ per-character TTS + lip-sync** |
+| Real CJK subtitles (burned-in) | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ libass + PingFang burn** |
 | Vertical drama tropes | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12 templates + 9:16 default** |
-| Real-time multiplayer timeline | ❌ | ❌ | ❌ | ❌ | ⚠️ (proprietary) | **✅ Yjs CRDT + Y.Map locks + cursors** |
+| Real-time multiplayer timeline | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Yjs CRDT + Y.Map locks + cursors** |
 | Self-hostable | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Next.js + SQLite + Web Audio** |
 | BYO LLM (OpenAI / Claude / DeepSeek / local) | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12+ providers via .env** |
 | Open source | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ MIT** |
-| Per-shot regenerate with custom prompt | ⚠️ | ⚠️ | ⚠️ | ✅ | ✅ | **✅ + reference image upload** |
+| Per-shot regenerate with custom prompt | ⚠️ | ✅ | ⚠️ | ✅ motion brush | ⚠️ | **✅ + reference image upload** |
 | Pacing / conflict audit | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ shot-level score + reversal detection** |
 
 > Cells marked ⚠️ = the feature exists but in a limited / locked-down form (e.g. "you can only do this on a paid Pro tier through a UI panel").

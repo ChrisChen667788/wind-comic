@@ -203,18 +203,19 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 
 ## 🥊 跟竞品比
 
-| 能力 | Sora 2 | Kling 2.0 | Vidu Q3 | Runway Gen-4 | Higgsfield | **Wind Comic** |
+| 能力 | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | Sora 2 | **Wind Comic** |
 |---|---|---|---|---|---|---|
-| 一句 prompt 多镜叙事 | ⚠️ (一段连续) | ❌ | ❌ | ⚠️ | ⚠️ | ✅ 多 Agent |
-| 跨镜角色一致性 | ✅ | cref/sref | subject-ref | scene 记忆 | ✅ | **✅ cref+sref+8 维 DNA+vision 重生** |
-| 全片画风锁定 | ⚠️ | ❌ | ⚠️ | ✅ | ✅ | **✅ Style Bible 帧** |
-| 中文字幕真渲染 | ❌ | ⚠️ | ⚠️ | ❌ | ❌ | **✅ libass + PingFang 烧入** |
+| 一句 prompt 多镜叙事 | ⚠️ | ✅ 故事板模式 | ✅ 原生多镜 | ⚠️ | ⚠️ (单条片) | **✅ 8 智能体 编剧→剪辑 流水线** |
+| 跨镜角色一致性 | ✅ | ✅ | ✅ | ✅ 参考图 | ✅ | **✅ cref+sref+8 维 DNA+vision 重生** |
+| 全片画风锁定 | ✅ | ✅ | ✅ | ✅ | ⚠️ | **✅ Style Bible 帧** |
+| 原生对白 + 音效 | ✅ | ✅ | ✅ | ⚠️ | ✅ | **✅ 逐角色 TTS + 口型** |
+| 中文字幕真渲染(烧入)| ❌ | ❌ | ❌ | ❌ | ❌ | **✅ libass + PingFang 烧入** |
 | 竖屏短剧 trope | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12 模板 + 9:16 默认** |
-| 实时协作时间线 | ❌ | ❌ | ❌ | ❌ | ⚠️ (闭源) | **✅ Yjs CRDT + Y.Map 锁 + 光标** |
+| 实时协作时间线 | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Yjs CRDT + Y.Map 锁 + 光标** |
 | 可自部署 | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Next.js + SQLite + Web Audio** |
 | 接你自己 LLM | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12+ provider 走 .env** |
 | 开源 | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ MIT** |
-| 单镜改 prompt 重生 | ⚠️ | ⚠️ | ⚠️ | ✅ | ✅ | **✅ + 用户上传参考图** |
+| 单镜改 prompt 重生 | ⚠️ | ✅ | ⚠️ | ✅ 运动笔刷 | ⚠️ | **✅ + 用户上传参考图** |
 | 节奏 / 冲突审计 | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 每镜评分 + 反转检测** |
 
 > ⚠️ 表示该 provider 有这能力但形态受限 (例如"只能在付费 Pro 档通过 UI 面板用").
