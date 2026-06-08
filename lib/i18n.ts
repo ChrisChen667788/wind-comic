@@ -3,6 +3,11 @@
 export type Locale = 'zh-CN' | 'zh-TW' | 'en' | 'ja';
 
 export interface Translations {
+  collab: {
+    notifTitle: string; markAllRead: string; justNow: string; mentioned: string; replied: string; notifEmpty: string; loginPrompt: string;
+    reply: string; deleted: string; commentPlaceholder: string; commentEmpty: string; send: string; confirmDelete: string;
+    demoMode: string; demoEnginesOff: string; demoPlaceholder: string; demoLipsyncReady: string; demoHowToEnable: string; demoImage: string; demoVideo: string;
+  };
   common: {
     create: string;
     save: string;
@@ -235,6 +240,7 @@ export interface Translations {
 }
 
 const zhCN: Translations = {
+  collab: { notifTitle: '通知', markAllRead: '全部标已读', justNow: '刚刚', mentioned: '提到了你', replied: '回复了你', notifEmpty: '暂无通知', loginPrompt: '登录后查看通知', reply: '回复', deleted: '[已删除]', commentPlaceholder: '写评论… @ 提及他人', commentEmpty: '还没有评论,来抢沙发', send: '发送', confirmDelete: '确认删除这条评论?', demoMode: '演示模式', demoEnginesOff: '引擎未配置', demoPlaceholder: '生成将使用占位 / 示意资产', demoLipsyncReady: '口型渲染已零配置可用', demoHowToEnable: '如何启用', demoImage: '图像生成', demoVideo: '视频生成' },
   common: {
     create: '创建',
     save: '保存',
@@ -488,6 +494,7 @@ const zhCN: Translations = {
 };
 
 const en: Translations = {
+  collab: { notifTitle: 'Notifications', markAllRead: 'Mark all read', justNow: 'just now', mentioned: 'mentioned you', replied: 'replied to you', notifEmpty: 'No notifications', loginPrompt: 'Sign in to see notifications', reply: 'Reply', deleted: '[deleted]', commentPlaceholder: 'Write a comment… @ to mention', commentEmpty: 'No comments yet — be the first', send: 'Send', confirmDelete: 'Delete this comment?', demoMode: 'Demo mode', demoEnginesOff: 'engine(s) not configured', demoPlaceholder: 'generations will use placeholder assets', demoLipsyncReady: 'lip-sync render works out of the box', demoHowToEnable: 'How to enable', demoImage: 'image', demoVideo: 'video' },
   common: {
     create: 'Create',
     save: 'Save',
@@ -742,6 +749,7 @@ const en: Translations = {
 
 // v5.0: 繁体中文 (之前是 zhCN 占位)
 const zhTW: Translations = {
+  collab: { notifTitle: '通知', markAllRead: '全部標已讀', justNow: '剛剛', mentioned: '提到了你', replied: '回覆了你', notifEmpty: '暫無通知', loginPrompt: '登入後查看通知', reply: '回覆', deleted: '[已刪除]', commentPlaceholder: '寫評論… @ 提及他人', commentEmpty: '還沒有評論,來搶沙發', send: '發送', confirmDelete: '確認刪除這條評論?', demoMode: '示範模式', demoEnginesOff: '引擎未設定', demoPlaceholder: '生成將使用佔位 / 示意素材', demoLipsyncReady: '口型算繪已零設定可用', demoHowToEnable: '如何啟用', demoImage: '圖像生成', demoVideo: '影片生成' },
   common: {
     create: '建立', save: '儲存', cancel: '取消', delete: '刪除', edit: '編輯',
     share: '分享', download: '下載', loading: '載入中...', error: '錯誤', success: '成功',
@@ -969,6 +977,7 @@ const zhTW: Translations = {
 
 // v5.0: 日本語 (之前是 zhCN 占位)
 const ja: Translations = {
+  collab: { notifTitle: '通知', markAllRead: 'すべて既読', justNow: 'たった今', mentioned: 'メンションされました', replied: '返信されました', notifEmpty: '通知はありません', loginPrompt: 'ログインして通知を表示', reply: '返信', deleted: '[削除済み]', commentPlaceholder: 'コメントを入力… @ でメンション', commentEmpty: 'まだコメントはありません', send: '送信', confirmDelete: 'このコメントを削除しますか?', demoMode: 'デモモード', demoEnginesOff: 'エンジン未設定', demoPlaceholder: '生成にはプレースホルダー素材を使用します', demoLipsyncReady: 'リップシンクはゼロ設定で利用可能', demoHowToEnable: '有効化の方法', demoImage: '画像生成', demoVideo: '動画生成' },
   common: {
     create: '作成', save: '保存', cancel: 'キャンセル', delete: '削除', edit: '編集',
     share: '共有', download: 'ダウンロード', loading: '読み込み中...', error: 'エラー', success: '成功',

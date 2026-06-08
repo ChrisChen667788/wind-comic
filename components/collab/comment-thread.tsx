@@ -21,6 +21,7 @@ import { MentionTextarea } from './mention-textarea';
 import type { CommentRowShape as CommentRow, CommentTargetType, CommentAttachmentShape } from '@/lib/comments-shared';
 import { useYjs } from '@/hooks/use-yjs';
 import { subscribeSSE } from '@/lib/sse-client';
+import { useLocale } from '@/hooks/use-locale';
 
 interface FetchedComment extends CommentRow {}
 interface Thread { root: FetchedComment; replies: FetchedComment[] }
@@ -64,9 +65,9 @@ function groupByThread(comments: FetchedComment[]): Thread[] {
   return roots.map((r) => ({ root: r, replies: repliesOf.get(r.id) || [] }));
 }
 
-function renderContent(content: string, deleted: boolean): React.ReactNode {
+function renderContent(content: string, deleted: boolean, deletedLabel = '[已删除]'): React.ReactNode {
   if (deleted) {
-    return <span className="opacity-40 italic">[已删除]</span>;
+    return <span className="opacity-40 italic">{deletedLabel}</span>;
   }
   // 把 @name 高亮成 cinema-amber chip
   const parts: React.ReactNode[] = [];
@@ -87,15 +88,15 @@ function renderContent(content: string, deleted: boolean): React.ReactNode {
   return parts;
 }
 
-function formatTime(iso: string): string {
+function formatTime(iso: string, locale: string = 'zh-CN'): string {
   const d = new Date(iso);
-  const now = Date.now();
-  const diff = (now - d.getTime()) / 1000;
-  if (diff < 60) return '刚刚';
-  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)} 天前`;
-  return d.toLocaleDateString();
+  const diff = (Date.now() - d.getTime()) / 1000;
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  if (diff < 60) return rtf.format(-Math.floor(diff), 'second');
+  if (diff < 3600) return rtf.format(-Math.floor(diff / 60), 'minute');
+  if (diff < 86400) return rtf.format(-Math.floor(diff / 3600), 'hour');
+  if (diff < 604800) return rtf.format(-Math.floor(diff / 86400), 'day');
+  return d.toLocaleDateString(locale);
 }
 
 interface ItemProps {
@@ -107,6 +108,7 @@ interface ItemProps {
 }
 
 function CommentItem({ comment, currentUserId, onReplyClick, onDeleteClick, indent }: ItemProps) {
+  const { t, locale } = useLocale();
   const deleted = !!comment.deletedAt;
   const canDelete = !deleted && currentUserId && comment.authorUserId === currentUserId;
   return (
@@ -122,11 +124,11 @@ function CommentItem({ comment, currentUserId, onReplyClick, onDeleteClick, inde
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
           <span className="cinema-mono text-[11px] font-medium">{comment.authorName}</span>
-          <span className="cinema-mono text-[10px] opacity-50">{formatTime(comment.createdAt)}</span>
-          {deleted && <span className="cinema-mono text-[9px] opacity-40">已删除</span>}
+          <span className="cinema-mono text-[10px] opacity-50">{formatTime(comment.createdAt, locale)}</span>
+          {deleted && <span className="cinema-mono text-[9px] opacity-40">{t.collab.deleted}</span>}
         </div>
         <div className="cinema-mono text-[12px] leading-relaxed break-words whitespace-pre-wrap">
-          {renderContent(comment.content, deleted)}
+          {renderContent(comment.content, deleted, t.collab.deleted)}
         </div>
         {/* v3.x E.1: 附件渲染 — 图片缩略图 / 视频 controls / 文件链接 */}
         {!deleted && Array.isArray((comment as any).attachments) && (comment as any).attachments.length > 0 && (
@@ -162,7 +164,7 @@ function CommentItem({ comment, currentUserId, onReplyClick, onDeleteClick, inde
                 className="cinema-mono text-[10px] opacity-50 hover:opacity-100 hover:text-[var(--cinema-amber)] inline-flex items-center gap-1"
               >
                 <MessageCircle className="w-2.5 h-2.5" />
-                回复
+                {t.collab.reply}
               </button>
             )}
             {canDelete && (
@@ -171,7 +173,7 @@ function CommentItem({ comment, currentUserId, onReplyClick, onDeleteClick, inde
                 className="cinema-mono text-[10px] opacity-50 hover:opacity-100 hover:text-[var(--cinema-red)] inline-flex items-center gap-1"
               >
                 <Trash2 className="w-2.5 h-2.5" />
-                删除
+                {t.common.delete}
               </button>
             )}
           </div>
@@ -185,6 +187,7 @@ export function CommentThread({
   projectId, targetType, targetId, contextLabel, currentUserId,
   pollIntervalMs = 30_000, enableRealtime = true,
 }: CommentThreadProps) {
+  const { t } = useLocale();
   const [comments, setComments] = useState<FetchedComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -328,7 +331,7 @@ export function CommentThread({
   };
 
   const handleDelete = async (commentId: string) => {
-    if (!confirm('删除这条评论? 回复链不受影响.')) return;
+    if (!confirm(t.collab.confirmDelete)) return;
     const qs = new URLSearchParams({ commentId });
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/comments?${qs}`, {
       method: 'DELETE',
@@ -460,7 +463,7 @@ export function CommentThread({
           value={draft}
           onChange={setDraft}
           rows={3}
-          placeholder="评论这条... 输入 @ 提及成员. ⌘+Enter 发送. 拖图片/视频可附件."
+          placeholder={t.collab.commentPlaceholder}
           onSubmit={() => post(draft, null)}
         />
         {/* v3.x E.1: 附件预览 */}

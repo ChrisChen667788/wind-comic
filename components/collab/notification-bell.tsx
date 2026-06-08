@@ -20,6 +20,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { subscribeSSE } from '@/lib/sse-client';
+import { useLocale } from '@/hooks/use-locale';
 
 interface NotificationItem {
   id: string;
@@ -33,10 +34,10 @@ interface NotificationItem {
   createdAt: string;
 }
 
-function formatTime(iso: string): string {
+function formatTime(iso: string, justNow = '刚刚'): string {
   const d = new Date(iso);
   const diff = (Date.now() - d.getTime()) / 1000;
-  if (diff < 60) return '刚刚';
+  if (diff < 60) return justNow;
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
   return `${Math.floor(diff / 86400)}d`;
@@ -52,6 +53,7 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useLocale();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -118,8 +120,8 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
     <Popover>
       <PopoverTrigger
         className="relative cinema-btn-ghost cinema-btn !p-2"
-        title="通知"
-        aria-label={`通知 ${unreadCount > 0 ? `(${unreadCount} 未读)` : ''}`}
+        title={t.collab.notifTitle}
+        aria-label={`${t.collab.notifTitle}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
       >
         <Bell className="w-4 h-4" />
         {badgeText && (
@@ -137,20 +139,20 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
               className="cinema-mono text-[10px] opacity-60 hover:text-[var(--cinema-amber)] inline-flex items-center gap-1"
             >
               <Check className="w-2.5 h-2.5" />
-              全部已读
+              {t.collab.markAllRead}
             </button>
           )}
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {loading && items.length === 0 ? (
             <div className="px-3 py-6 cinema-mono text-[11px] opacity-50 text-center inline-flex items-center justify-center gap-2 w-full">
-              <Loader2 className="w-3 h-3 animate-spin" /> 加载中
+              <Loader2 className="w-3 h-3 animate-spin" /> {t.common.loading}
             </div>
           ) : error ? (
             <div className="px-3 py-4 cinema-mono text-[10px] text-[var(--cinema-red)] opacity-80">✗ {error}</div>
           ) : items.length === 0 ? (
             <div className="px-3 py-6 cinema-mono text-[11px] opacity-50 text-center">
-              暂无通知
+              {t.collab.notifEmpty}
             </div>
           ) : (
             <div>
@@ -173,7 +175,7 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
                         <div className="cinema-mono text-[11px]">
                           <span className="font-medium">{n.sourceUserName}</span>
                           <span className="opacity-70">
-                            {n.type === 'mention' ? ' 提到了你' : ' 回复了你'}
+                            {n.type === 'mention' ? ` ${t.collab.mentioned}` : ` ${t.collab.replied}`}
                           </span>
                         </div>
                         {n.preview && (
@@ -182,7 +184,7 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
                           </div>
                         )}
                         <div className="cinema-mono text-[9px] opacity-40 mt-0.5">
-                          {formatTime(n.createdAt)}
+                          {formatTime(n.createdAt, t.collab.justNow)}
                         </div>
                       </div>
                       {isUnread && <span className="w-1.5 h-1.5 rounded-full bg-[var(--cinema-amber)] mt-1.5 flex-shrink-0" />}
