@@ -8,6 +8,7 @@ import { ToastProvider } from "@/components/ui/toast-provider";
 import { IconProvider } from "@/components/icon-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AuthProvider } from "@/components/auth-provider";
+import { MotionProvider } from "@/components/motion-provider";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -42,7 +43,9 @@ export default function RootLayout({
           <IconProvider>
             <AuthProvider>
               <ToastProvider>
-                {children}
+                <MotionProvider>
+                  {children}
+                </MotionProvider>
               </ToastProvider>
             </AuthProvider>
           </IconProvider>

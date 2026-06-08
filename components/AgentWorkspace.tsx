@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Agent, AgentRole } from '@/types/agents';
@@ -11,6 +11,7 @@ interface AgentWorkspaceProps {
 }
 
 export function AgentWorkspace({ agents }: AgentWorkspaceProps) {
+  const reduce = useReducedMotion();
   return (
     <div className="space-y-4">
       <AnimatePresence>
@@ -51,7 +52,7 @@ export function AgentWorkspace({ agents }: AgentWorkspaceProps) {
                       agent.status === 'error' ? 'bg-red-500' :
                       'bg-gray-500'
                     }`}
-                    animate={agent.status === 'working' || agent.status === 'thinking' ? {
+                    animate={!reduce && (agent.status === 'working' || agent.status === 'thinking') ? {
                       scale: [1, 1.2, 1],
                       boxShadow: [
                         '0 0 0 0 rgba(34, 197, 94, 0.7)',
@@ -59,7 +60,7 @@ export function AgentWorkspace({ agents }: AgentWorkspaceProps) {
                         '0 0 0 0 rgba(34, 197, 94, 0)'
                       ]
                     } : {}}
-                    transition={{ repeat: Infinity, duration: 2 }}
+                    transition={reduce ? { duration: 0 } : { repeat: Infinity, duration: 2 }}
                   >
                     {agent.status === 'working' && <Loader2 className="w-4 h-4 text-white animate-spin" />}
                     {agent.status === 'thinking' && <Sparkles className="w-4 h-4 text-white" />}

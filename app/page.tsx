@@ -8,12 +8,16 @@ import { SectionTitle } from '@/components/ui/section-title';
 import { GlassCard } from '@/components/ui/glass-card';
 import { heroStats, featureHighlights, agentCards, vibeShots } from '@/lib/home-data';
 import { IMG_FEATURE_MAIN, IMG_LENS_MAIN, IMG_BG_TEXTURE } from '@/lib/placeholder-images';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { Play } from '@phosphor-icons/react';
 import { useLocale } from '@/hooks/use-locale';
 
 export default function Home() {
   const { t } = useLocale();
+  // v10.3.4 a11y: 系统「减少动态效果」时,英雄循环视频不自动播放(露静态封面),装饰预览同理
+  const reduce = useReducedMotion();
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
   const [cases, setCases] = useState<any[]>([]);
   const [playingCase, setPlayingCase] = useState<string | null>(null); // v9.5.4: 案例卡点击播放示意片段
   // 英雄封面资产探测:
@@ -38,6 +42,11 @@ export default function Home() {
     })();
   }, []);
 
+  // 减少动效:视频可能在偏好确定前已开始播放(SSR/水合),主动暂停露静态封面
+  useEffect(() => {
+    if (reduce) heroVideoRef.current?.pause();
+  }, [reduce, heroAssets.video]);
+
   return (
     <div className="min-h-screen">
       {/* ═══════════════════════════════════════════════════════
@@ -53,7 +62,8 @@ export default function Home() {
         <div className="absolute inset-0 z-0">
           {heroAssets.video ? (
             <video
-              autoPlay muted loop playsInline
+              ref={heroVideoRef}
+              autoPlay={!reduce} muted loop playsInline
               className="absolute inset-0 w-full h-full object-cover"
               poster={heroAssets.cover ? '/hero-cover.jpg' : undefined}
             >
@@ -280,7 +290,7 @@ export default function Home() {
                     <>
                       {/* v9.5.5 修复:有视频的卡片静音循环自动播放真片段,而非 gradient 占位 */}
                       {item.videoUrl ? (
-                        <video src={item.videoUrl} className="w-full h-full object-cover bg-black transition-transform duration-300 group-hover:scale-105" autoPlay muted loop playsInline preload="metadata" />
+                        <video src={item.videoUrl} className="w-full h-full object-cover bg-black transition-transform duration-300 group-hover:scale-105" autoPlay={!reduce} muted loop playsInline preload="metadata" />
                       ) : (
                         <img loading="lazy" decoding="async" src={item.coverUrl || item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                       )}

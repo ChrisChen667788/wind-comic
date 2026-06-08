@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState, useMemo, type ReactNode, type ButtonHTMLAttributes } from 'react';
-import { motion, useMotionValue, useSpring, useInView, useMotionTemplate, useAnimationFrame } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useInView, useMotionTemplate, useAnimationFrame, useReducedMotion } from 'framer-motion';
 
 // ────────────────────────────────────────────────
 // NumberTicker — 滚到目标值
@@ -38,6 +38,7 @@ export function NumberTicker({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-30% 0px' });
+  const reduce = useReducedMotion();
   const motionVal = useMotionValue(0);
   const spring = useSpring(motionVal, {
     damping: 28,
@@ -47,8 +48,11 @@ export function NumberTicker({
   const [display, setDisplay] = useState('0');
 
   useEffect(() => {
-    if (inView) motionVal.set(value);
-  }, [inView, value, motionVal]);
+    if (!inView) return;
+    // v10.3.4 a11y: 数字弹簧非 transform/layout,MotionConfig 不会关 → 减少动效时直接落终值(不滚动)
+    if (reduce) { setDisplay(value.toFixed(decimals)); return; }
+    motionVal.set(value);
+  }, [inView, value, motionVal, reduce, decimals]);
 
   useEffect(() => {
     const unsub = spring.on('change', (latest) => {
@@ -157,6 +161,7 @@ export function Marquee({
   pauseOnHover?: boolean;
   className?: string;
 }) {
+  const reduce = useReducedMotion();
   return (
     <div
       className={`relative flex overflow-hidden ${className}`}
@@ -164,13 +169,10 @@ export function Marquee({
     >
       <motion.div
         className="flex shrink-0 gap-3"
-        animate={{ x: ['0%', '-100%'] }}
-        transition={{
-          duration: speed,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
-        whileHover={pauseOnHover ? { x: '0%' } : undefined}
+        // v10.3.4 a11y: 减少动效时不滚动 —— 静止呈现首屏内容
+        animate={reduce ? { x: '0%' } : { x: ['0%', '-100%'] }}
+        transition={reduce ? { duration: 0 } : { duration: speed, repeat: Infinity, ease: 'linear' }}
+        whileHover={!reduce && pauseOnHover ? { x: '0%' } : undefined}
       >
         {children}
         {children}
@@ -206,9 +208,11 @@ export function MovingBorderButton({
   // 高光的位置, framer 动画驱动
   const pathRef = useRef<SVGRectElement | null>(null);
   const progress = useMotionValue(0);
+  const reduce = useReducedMotion();
 
   useAnimationFrame((time) => {
-    if (disabled) return;
+    // v10.3.4 a11y: 手动 rAF 不受 MotionConfig 管 → 减少动效时停跑边框高光
+    if (disabled || reduce) return;
     const length = pathRef.current?.getTotalLength?.() ?? 0;
     if (length === 0) return;
     const pxPerMs = length / duration;
@@ -256,7 +260,7 @@ export function MovingBorderButton({
             ry={borderRadius}
           />
         </svg>
-        {!disabled && (
+        {!disabled && !reduce && (
           <motion.div
             className={`absolute top-0 left-0 h-12 w-12 ${borderClassName}`}
             style={{
@@ -300,6 +304,7 @@ export function TextGenerateEffect({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-10% 0px' });
+  const reduce = useReducedMotion();
   // 中文按字符切, 英文按空格切
   const words = useMemo(() => splitForReveal(text), [text]);
 
@@ -310,17 +315,20 @@ export function TextGenerateEffect({
       {words.map((w, i) => (
         <motion.span
           key={`${i}-${w}`}
-          initial={{ opacity: 0, filter: 'blur(6px)', y: 4 }}
+          // v10.3.4 a11y: 减少动效时一次性呈现(无 stagger / 位移 / 模糊)
+          initial={reduce ? false : { opacity: 0, filter: 'blur(6px)', y: 4 }}
           animate={
-            inView
-              ? { opacity: 1, filter: 'blur(0px)', y: 0 }
-              : { opacity: 0, filter: 'blur(6px)', y: 4 }
+            reduce
+              ? { opacity: 1 }
+              : inView
+                ? { opacity: 1, filter: 'blur(0px)', y: 0 }
+                : { opacity: 0, filter: 'blur(6px)', y: 4 }
           }
-          transition={{
-            duration: duration / 1000,
-            delay: (i * stagger) / 1000,
-            ease: [0.2, 0.8, 0.2, 1],
-          }}
+          transition={
+            reduce
+              ? { duration: 0 }
+              : { duration: duration / 1000, delay: (i * stagger) / 1000, ease: [0.2, 0.8, 0.2, 1] }
+          }
           aria-hidden="true"
           style={{ display: 'inline-block', whiteSpace: 'pre' }}
         >

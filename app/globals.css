@@ -101,8 +101,24 @@ body {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.92  0 0 0 0 0.85  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
   background-size: 180px 180px;
 }
+/* v10.3.4 a11y: prefers-reduced-motion 全局兜底 —— 关掉装饰性 CSS 动画/循环(float/shimmer/
+   pulse-glow/gradient-shift/ambientDrift/beam/marquee…)+ 把过渡压到近 0(入场即时呈现),
+   并关闭平滑滚动。framer-motion 的 transform/layout 动画另由 <MotionConfig reducedMotion="user">
+   关闭;手动 rAF / 数字弹簧 / 自动播放视频 在各组件内用 useReducedMotion 兜底。 */
 @media (prefers-reduced-motion: reduce) {
-  .film-grain { opacity: 0.02; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* 唯一白名单:加载旋转是必要反馈,冻住会显得"卡死",保留(可稍放慢) */
+  .animate-spin {
+    animation-duration: 0.9s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .film-grain { opacity: 0.02; animation: none !important; }
+  html { scroll-behavior: auto !important; }
 }
 
 /* v10.3.3 a11y: 放进 @layer base —— 否则未分层的 a{color:inherit} 会盖过 Tailwind 文本色工具类
