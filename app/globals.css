@@ -26,8 +26,10 @@
   --accent: #5A8FCC;
   --accent-green: #22D3A5;
   --text: #F5F1EA;
-  --muted: #7A7672;
-  --soft: #4A4744;
+  /* v10.3.2 a11y 对比度走查:--soft #4A4744 在 #0a0a0a 上仅 2.14:1(WCAG AA 需 4.5:1)。
+     提亮两档低调灰字到达标,保持「text > muted > soft」层级(muted 仍比 soft 亮)。 */
+  --muted: #948D85;
+  --soft: #827C76;
   --border: #242220;
   --border-hover: #3A3735;
 

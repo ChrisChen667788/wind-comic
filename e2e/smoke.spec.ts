@@ -18,15 +18,15 @@ for (const p of PUBLIC_PAGES) {
   });
 }
 
-// a11y 审计(axe · WCAG 2 A/AA)。硬门禁:**无 critical**(最严重、必修);
-// serious(本站主要是深色主题的 color-contrast — 与刻意的"低调灰字"美学冲突)
-// 记录追踪、不阻断构建,待专门的设计走查再调对比度。
-test('landing a11y audit (gate: no critical; track serious)', async ({ page }) => {
+// a11y 审计(axe · WCAG 2 A/AA)。门禁:**无 critical 且无 serious**。
+// v10.3.2 对比度走查后,落地页 color-contrast 已清零(--soft/--muted 提亮达标),
+// 故门禁收紧到 serious 也必须为 0 —— 锁死对比度,防回归。
+test('landing a11y audit (no critical/serious WCAG 2A/AA)', async ({ page }) => {
   await page.goto('/', { waitUntil: 'networkidle' });
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
-  const critical = results.violations.filter((v) => v.impact === 'critical');
-  const serious = results.violations.filter((v) => v.impact === 'serious');
-  console.log('a11y critical:', critical.map((v) => `${v.id}×${v.nodes.length}`).join(', ') || 'none');
-  console.log('a11y serious (tracked):', serious.map((v) => `${v.id}×${v.nodes.length}`).join(', ') || 'none');
-  expect(critical.map((v) => v.id), 'critical a11y 违规必须为 0').toEqual([]);
+  const blocking = results.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+  if (blocking.length) {
+    console.log('a11y blocking:', blocking.map((v) => `${v.id}×${v.nodes.length}`).join(', '));
+  }
+  expect(blocking.map((v) => v.id), 'landing 不应有 critical/serious a11y 违规').toEqual([]);
 });
