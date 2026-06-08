@@ -116,17 +116,17 @@ function TierCard({ tier }: { tier: PricingTier }) {
           <ArrowRight className="w-4 h-4" />
         </Link>
       ) : (
-        <button
+        <Link
+          href="/dashboard/billing"
           className={`flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${
             isRecommended
               ? 'bg-[#E8C547] hover:bg-[#D4A830] text-[#0C0C0C] shadow-md shadow-[#E8C547]/20'
               : 'bg-[var(--surface-strong)] hover:bg-white/10 text-white border border-[var(--border)] hover:border-[var(--border-hover)]'
           }`}
-          onClick={() => alert(t.pricing.alertPayment)}
         >
           {t.billing.upgradeTo} {tier.name}
           <ArrowRight className="w-4 h-4" />
-        </button>
+        </Link>
       )}
     </div>
   );

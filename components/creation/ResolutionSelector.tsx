@@ -9,7 +9,8 @@
  *  - 三档可视化卡片（尺寸示意 + 价格预估）
  *  - 可选时长联动计算本次生成的成本
  *  - 显示 aspect ratio 切换（16:9 / 9:16 / 1:1）
- *  - 不含 4K (本期决议)
+ *  - 创建档不含 4K(本期决议:引擎创建最高 720P)。4K 走成片后**单镜「4K 重渲」**
+ *    (`regenerate-shot-4k`,Kling Master 1080p → lanczos 2160p,plan-gated)——已上线、非"敬请期待"。
  *
  * 使用：
  *   <ResolutionSelector
@@ -106,7 +107,7 @@ export function ResolutionSelector({
         <div className="mb-2 flex items-baseline justify-between">
           <h4 className="text-sm font-semibold text-white">分辨率</h4>
           <span className="text-xs text-neutral-400">
-            本期最高 720P · 4K 敬请期待
+            创建最高 720P · 成片后单镜可「4K 重渲」(Kling Master · plan-gated)
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="resolution-grid">
