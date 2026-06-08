@@ -164,7 +164,7 @@ export default function Home() {
       </section>
 
       {/* ═══ 下方保留原有 sections ═══ */}
-      <main className="relative overflow-hidden">
+      <main id="main-content" tabIndex={-1} className="relative overflow-hidden outline-none">
         <div className="absolute inset-0 bg-no-repeat bg-center opacity-[0.15] pointer-events-none z-0" suppressHydrationWarning style={{backgroundImage: `url("${IMG_BG_TEXTURE}")`}} />
 
         {/* Feature */}

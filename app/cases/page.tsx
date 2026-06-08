@@ -20,7 +20,7 @@ export default function CasesPublicPage() {
   return (
     <div className="min-h-screen">
       <SiteHeader />
-      <main className="px-[5vw] py-20">
+      <main id="main-content" tabIndex={-1} className="px-[5vw] py-20 outline-none">
         <SectionTitle title={t.cases.titlePublic} subtitle={t.cases.subtitle} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {cases.map((c) => (

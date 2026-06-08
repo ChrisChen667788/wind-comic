@@ -42,7 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="noise-overlay" />
       </div>
       <Sidebar />
-      <main className="flex-1 overflow-auto relative">
+      <main id="main-content" tabIndex={-1} className="flex-1 overflow-auto relative outline-none">
         {/* 微妙的金色顶部光晕 */}
         <div className="page-glow" />
         {/* v2.17 P0.3: API 配额告警 banner — 任意上游配额耗尽 / 上游饱和时可见 */}

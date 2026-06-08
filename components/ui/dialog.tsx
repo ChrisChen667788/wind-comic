@@ -3,6 +3,7 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import { X } from '@phosphor-icons/react';import { cn } from "@/lib/utils"
+import { useFocusTrap } from "@/hooks/use-focus-trap"
 
 interface DialogProps {
   open: boolean
@@ -53,29 +54,24 @@ export function DialogContent({ className, children }: DialogContentProps) {
     return () => setMounted(false)
   }, [])
 
+  // v10.3.5 a11y: 焦点陷阱 + Escape(document 级)+ 焦点归还 —— hook 必须在任何 early-return 之前调用
+  const dialogRef = useFocusTrap<HTMLDivElement>(!!context?.open && mounted, () => context?.onOpenChange(false))
+
   if (!context) return null
   const { open, onOpenChange } = context
   if (!open || !mounted) return null
-
-  // ESC 键关闭
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      onOpenChange(false)
-    }
-  }
 
   // 使用 Portal 渲染到 body，避免 React Flow 的 CSS transform 破坏 fixed 定位
   const content = (
     <div
       className="fixed inset-0 flex items-center justify-center"
       style={{ zIndex: 99999 }}
-      onKeyDown={handleKeyDown}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* Backdrop */}
+      {/* Backdrop —— 纯视觉 + 点击关闭,读屏忽略 */}
       <div
+        aria-hidden="true"
         className="absolute inset-0 bg-black/85 backdrop-blur-md"
         style={{ animation: 'fadeIn 0.15s ease' }}
         onClick={(e) => {
@@ -87,8 +83,13 @@ export function DialogContent({ className, children }: DialogContentProps) {
 
       {/* Dialog */}
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="对话框"
+        tabIndex={-1}
         className={cn(
-          "relative bg-neutral-900 border border-white/10 rounded-lg shadow-2xl",
+          "relative bg-neutral-900 border border-white/10 rounded-lg shadow-2xl outline-none",
           "w-full max-w-lg mx-4 p-6",
           className
         )}
@@ -101,6 +102,7 @@ export function DialogContent({ className, children }: DialogContentProps) {
             e.stopPropagation()
             onOpenChange(false)
           }}
+          aria-label="关闭"
           className="absolute right-4 top-4 rounded-md p-1.5 hover:bg-white/10 transition-colors z-[10]"
         >
           <X className="w-4 h-4 text-white" />

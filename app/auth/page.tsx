@@ -41,7 +41,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen">
       <SiteHeader variant="compact" />
-      <main className="grid grid-cols-1 md:grid-cols-2 gap-10 px-[5vw] py-20 items-center">
+      <main id="main-content" tabIndex={-1} className="grid grid-cols-1 md:grid-cols-2 gap-10 px-[5vw] py-20 items-center outline-none">
         {/* Login Card */}
         <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-[var(--border)] rounded-[26px] p-9 shadow-[var(--shadow)] backdrop-blur-xl">
           <div className="flex items-center gap-3 mb-5">

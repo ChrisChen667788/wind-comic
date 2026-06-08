@@ -9,6 +9,7 @@ import { IconProvider } from "@/components/icon-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AuthProvider } from "@/components/auth-provider";
 import { MotionProvider } from "@/components/motion-provider";
+import { SkipLink } from "@/components/skip-link";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -37,6 +38,8 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className={`${jakarta.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased">
+        {/* v10.3.5 a11y: 跳到主内容 —— 键盘第一个可聚焦元素,平时 sr-only,聚焦才显形 */}
+        <SkipLink />
         {/* v8.3 P1: 全局 film grain 遮罩 (固定, 不接触指针, 与暖墨黑底叠出印刷质感) */}
         <div aria-hidden className="film-grain" />
         <ErrorBoundary>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, ReactNode } from 'react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { createPortal } from 'react-dom';
 import { X, CaretLeft as ChevronLeft, CaretRight as ChevronRight, MagnifyingGlassPlus as ZoomIn, ImageBroken as ImageOff, ArrowsClockwise as RefreshCw } from '@phosphor-icons/react';
 
@@ -35,9 +36,12 @@ interface LightboxProps {
 export function ImageLightboxModal({
   src, title, onClose, onPrev, onNext, hasPrev, hasNext, extraAction,
 }: LightboxProps) {
+  // v10.3.5 a11y: 焦点陷阱 + Escape(document 级)+ 焦点归还;箭头翻页仍由下方 effect 处理
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      // Escape 由 useFocusTrap 统一处理
       if (e.key === 'ArrowLeft' && hasPrev && onPrev) onPrev();
       if (e.key === 'ArrowRight' && hasNext && onNext) onNext();
     };
@@ -61,8 +65,15 @@ export function ImageLightboxModal({
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={onClose} />
-      <div className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center">
+      <div aria-hidden="true" className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={onClose} />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || '图片预览'}
+        tabIndex={-1}
+        className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center outline-none"
+      >
         <div className="absolute -top-10 right-0 flex items-center gap-2">
           {extraAction}
           <button

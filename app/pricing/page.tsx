@@ -156,7 +156,7 @@ export default function PricingPage() {
       </nav>
 
       {/* Hero */}
-      <div className="max-w-5xl mx-auto px-4 pt-16 pb-10 text-center">
+      <div id="main-content" tabIndex={-1} className="max-w-5xl mx-auto px-4 pt-16 pb-10 text-center outline-none">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E8C547]/10 border border-[#E8C547]/20 mb-6">
           <CreditCard className="w-3.5 h-3.5 text-[#E8C547]" />
           <span className="text-xs font-medium text-[#E8C547]">{t.pricing.badge}</span>
