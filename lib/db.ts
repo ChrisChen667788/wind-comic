@@ -293,6 +293,27 @@ CREATE TABLE IF NOT EXISTS template_favorites (
   PRIMARY KEY (user_id, template_id)
 );
 CREATE INDEX IF NOT EXISTS idx_template_favorites_user ON template_favorites(user_id);
+
+-- v10.4.1: 流水线任务表 — create-stream 改投递后,长任务脱离 HTTP 生命周期。
+-- project_id 故意不设 FK:项目行由任务自己在执行期创建(enqueue 时尚不存在)。
+-- progress_log 存 SSE 事件回放(JSON 数组,worker 截断保最近若干条)。
+CREATE TABLE IF NOT EXISTS pipeline_jobs (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL DEFAULT 'create',
+  project_id TEXT NOT NULL,
+  user_id TEXT,
+  state TEXT NOT NULL DEFAULT 'queued',          -- queued | running | done | failed
+  step TEXT NOT NULL DEFAULT '',                 -- 最近进入的阶段标记(director/writer/video/...)
+  payload TEXT NOT NULL DEFAULT '{}',
+  progress_log TEXT NOT NULL DEFAULT '[]',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT NOT NULL DEFAULT '',
+  heartbeat_at TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_state ON pipeline_jobs(state, created_at);
+CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_project ON pipeline_jobs(project_id);
 `);
 
 // Safe ALTER TABLE — add columns if missing

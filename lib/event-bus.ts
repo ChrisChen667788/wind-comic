@@ -26,6 +26,10 @@ export function notifChannel(userId: string): string {
 export function commentChannel(projectId: string): string {
   return `comment:${projectId}`;
 }
+/** v10.4.1: 流水线任务进度频道(worker emit → create-stream SSE 订阅) */
+export function pipelineChannel(jobId: string): string {
+  return `pipeline:${jobId}`;
+}
 
 export function emitNotification(userId: string, extra: Record<string, unknown> = {}): void {
   if (!userId) return;
@@ -34,6 +38,11 @@ export function emitNotification(userId: string, extra: Record<string, unknown> 
 export function emitComment(projectId: string, extra: Record<string, unknown> = {}): void {
   if (!projectId) return;
   bus.emit(commentChannel(projectId), { type: 'comment', at: Date.now(), ...extra });
+}
+/** v10.4.1: 流水线进度事件 — type 即 SSE 事件名,data 原样透传给客户端 */
+export function emitPipeline(jobId: string, type: string, data: unknown): void {
+  if (!jobId) return;
+  bus.emit(pipelineChannel(jobId), { type, at: Date.now(), data });
 }
 
 /** 订阅频道,返回退订函数。 */
