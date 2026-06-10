@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { nanoid } from 'nanoid';
 import { now } from '@/lib/db';
 import { getDbDriver } from '@/lib/db-driver';
-import { signToken } from '../lib';
+import { signToken, sessionCookieHeader } from '../lib';
 import {
   consumeInviteCodeTx,
   isInviteRequired,
@@ -99,11 +99,14 @@ export async function POST(request: Request) {
   }
 
   const token = signToken({ id: userId, role: 'member' });
-  return NextResponse.json(
+  // v10.4.3: 注册即登录 —— 同步下发 httpOnly 会话 cookie(与 login 一致)
+  const res = NextResponse.json(
     {
       token,
       user: { id: userId, email, name, role: 'member', avatarUrl: DEFAULT_AVATAR, locale: 'zh' },
     },
     { status: 201 },
   );
+  res.headers.set('Set-Cookie', sessionCookieHeader(token));
+  return res;
 }

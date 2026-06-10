@@ -41,15 +41,48 @@ export function verifyToken(token: string): JWTPayload {
   return jwt.verify(token, getJwtSecret()) as JWTPayload;
 }
 
+// ── v10.4.3: httpOnly 会话 cookie ───────────────────────────────────────────
+// 动机:JWT 存 localStorage,任何 XSS 即可窃取令牌;cookie(HttpOnly)对脚本不可见,
+// SameSite=Lax 抵御跨站携带。过渡期双轨:登录/注册继续在 body 返回 token(旧前端
+// Bearer 不破),同时下发 cookie;服务端双读。SSE/EventSource 设不了请求头,
+// cookie 顺带解决其鉴权(lib/sse-client 的 fetch-Bearer 变通将来可退役)。
+
+export const SESSION_COOKIE = 'qfmj-session';
+const SESSION_MAX_AGE = 7 * 24 * 3600; // 与 signToken 的 7d 对齐
+
+export function sessionCookieHeader(token: string): string {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}${secure}`;
+}
+
+export function clearSessionCookieHeader(): string {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+}
+
+function tokenFromCookie(request: Request): string | null {
+  const raw = request.headers.get('cookie') || '';
+  const m = raw.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+/**
+ * v10.4.3 双读:Authorization Bearer 优先,会话 cookie 兜底。
+ * Bearer 在前 —— 显式随请求传的头比环境 cookie 更有「本次请求」的意图性
+ * (换账号调试 / E2E mint 时旧 cookie 残留不会抢权)。
+ */
 export function getUserFromRequest(request: Request): JWTPayload | null {
   const header = request.headers.get('authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (!token) return null;
-  try {
-    return verifyToken(token);
-  } catch {
-    return null;
+  const bearer = header.startsWith('Bearer ') ? header.slice(7) : null;
+  for (const token of [bearer, tokenFromCookie(request)]) {
+    if (!token) continue;
+    try {
+      return verifyToken(token);
+    } catch {
+      /* 该来源无效,试下一个 */
+    }
   }
+  return null;
 }
 
 export function getUserById(id: string) {

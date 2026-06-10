@@ -72,6 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearToken();
     clearUser();
     setUser(null);
+    // v10.4.3: httpOnly cookie 只能由服务端清(脚本不可见)— fire-and-forget,失败不阻断登出
+    void fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
   }, []);
 
   const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout]);

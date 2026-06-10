@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { signToken } from '../lib';
+import { signToken, sessionCookieHeader } from '../lib';
 import { findUserByEmail } from '@/lib/repos/user-repo';
 import { rateLimit, clientIp, isRateLimitActive } from '@/lib/rate-limit';
 
@@ -33,8 +33,11 @@ export async function POST(request: Request) {
   }
 
   const token = signToken(user);
-  return NextResponse.json({
+  // v10.4.3: 双轨 —— body 继续返回 token(旧前端 Bearer 不破),同时下发 httpOnly cookie
+  const res = NextResponse.json({
     token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, avatarUrl: user.avatar_url, locale: user.locale },
   });
+  res.headers.set('Set-Cookie', sessionCookieHeader(token));
+  return res;
 }
