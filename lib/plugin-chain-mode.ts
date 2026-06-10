@@ -22,6 +22,10 @@ export type PluginChainMode = 'off' | 'shadow' | 'primary';
 export function getPluginChainMode(): PluginChainMode {
   const raw = (process.env.PLUGIN_CHAIN_MODE || '').trim().toLowerCase();
   if (raw === 'primary' || raw === 'shadow') return raw;
+  if (raw === 'off') return 'off';
+  // v10.4.0: mock 引擎必须经 plugin chain 才会被走到 —— MOCK_ENGINES=1 且未显式设
+  // mode 时隐含 primary(显式 PLUGIN_CHAIN_MODE=off 仍然最高优先,上一行已短路)。
+  if (process.env.MOCK_ENGINES === '1') return 'primary';
   return 'off';
 }
 

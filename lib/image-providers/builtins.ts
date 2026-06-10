@@ -11,6 +11,7 @@
 
 import { registerImageProvider } from './registry';
 import type { ImageGenerateInput } from './types';
+import '@/lib/mock-providers'; // v10.4.0: mock 三件套常驻注册(MOCK_ENGINES=1 才 available)
 
 // ─── Lazy service factory — 避免 server 启动就加载所有 service ────────────
 // 因为 service class 在 constructor 里读 API_CONFIG (.env), 这里用 lazy + 缓存

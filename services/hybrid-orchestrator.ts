@@ -105,7 +105,9 @@ function mockSvg(w: number, h: number, c1: string, c2: string, label: string): s
   return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g)"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-family="system-ui" font-size="${Math.min(w, h) * 0.07}">${label}</text></svg>`)}`;
 }
 
-const hasLLM = !!API_CONFIG.openai.apiKey && !API_CONFIG.openai.apiKey.startsWith('your_');
+// v10.4.0: MOCK_ENGINES=1 全封闭(hermetic)— 即使配了真 LLM key 也走 fallbackScript 模板路径
+// (零外部调用、确定性,journey e2e 与 CI 无 key 环境行为一致;媒体引擎由 mock provider 接管)
+const hasLLM = !!API_CONFIG.openai.apiKey && !API_CONFIG.openai.apiKey.startsWith('your_') && process.env.MOCK_ENGINES !== '1';
 const hasMinimax = !!API_CONFIG.minimax.apiKey && !API_CONFIG.minimax.apiKey.startsWith('your_');
 
 // 进度回调类型
@@ -722,6 +724,9 @@ export class HybridOrchestrator {
   // ── Claude LLM 调用（带超时和心跳）──
   // 关键修复: 使用子进程运行 LLM 调用，绕过 Next.js Turbopack 运行时的 fetch 阻塞问题
   private async callLLM(systemPrompt: string, userMessage: string, json = true, useCreativeModel = false, opts?: { maxTokens?: number; timeoutMs?: number }): Promise<string> {
+    // v10.4.0: MOCK_ENGINES=1 全封闭 —— 返回空串走「无 key」同款模板兜底路径
+    // (所有调用方都已处理 ''/异常 → fallbackScript/基础模板;这保证 journey 确定性 + 零外部调用)
+    if (process.env.MOCK_ENGINES === '1') return '';
     const cfg = API_CONFIG.openai as any;
     // v7.0: LLM 尝试链 — 主 (创意=DeepSeek / 通用=主网关) → MiniMax 全局兜底.
     // 任何主 LLM 异常/欠费/超时 → 自动路由到 MiniMax 继续.

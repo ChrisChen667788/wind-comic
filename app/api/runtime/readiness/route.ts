@@ -35,5 +35,6 @@ export async function GET() {
     tts: anyAvailable(listTTSProviders()),
     lipsync: lipSyncEngineConfigured(),
   });
-  return NextResponse.json(report);
+  // v10.4.0: mock 引擎开关回显 —— journey e2e 据此判断 dev server 是否以 MOCK_ENGINES=1 启动
+  return NextResponse.json({ ...report, mockEngines: process.env.MOCK_ENGINES === '1' });
 }

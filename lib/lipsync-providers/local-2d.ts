@@ -25,7 +25,8 @@ const execFileP = promisify(execFile);
 const MOUTH_DIR = path.join(process.cwd(), 'public', 'lipsync', 'mouths');
 const RASTER = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 
-function ffmpegBin(): string | null {
+// v10.4.0: 导出给 /api/mock-assets 复用(mock 视频也走同一套 ffmpeg 解析链)
+export function ffmpegBin(): string | null {
   // 顺序:env 显式覆盖 → ffmpeg-static(随包二进制)→ 常见系统路径。
   // (Next 打包有时会让 ffmpeg-static 的 __dirname 失效 → 路径不存在,故补系统兜底。)
   const candidates = [

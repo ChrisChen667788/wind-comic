@@ -31,8 +31,9 @@ export async function POST(request: NextRequest) {
 
   // v2.18: idea 预处理 — 规则清洗 + (信息不足时) LLM 扩写
   // 这一步在安全闸门之前, 让闸门看到的是已清洗 + 已扩写的版本 (规则更准, 扩写不引入有害词)
+  // v10.4.0: MOCK_ENGINES=1 全封闭(hermetic)— 跳过 LLM 扩写,只走规则清洗(零外部调用、确定性)
   const { normalizeIdea } = await import('@/lib/idea-normalizer');
-  const normalized = await normalizeIdea(rawIdea, { ruleOnly: false });
+  const normalized = await normalizeIdea(rawIdea, { ruleOnly: process.env.MOCK_ENGINES === '1' });
   if (normalized.didLlmExpand) {
     console.log(`[create-stream] idea LLM-expanded: "${rawIdea.slice(0, 60)}..." → "${normalized.normalized.slice(0, 60)}..."`);
   }

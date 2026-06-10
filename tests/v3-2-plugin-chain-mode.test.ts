@@ -17,6 +17,7 @@ const savedEnv = { ...process.env };
 beforeEach(() => {
   delete process.env.PLUGIN_CHAIN_MODE;
   delete process.env.PLUGIN_CHAIN_SHADOW_RATE;
+  delete process.env.MOCK_ENGINES; // v10.4.0: mode 解析新增 MOCK_ENGINES 维度
   pluginChainStats.reset();
 });
 
@@ -48,6 +49,22 @@ describe('v3.2 P3.1 · getPluginChainMode', () => {
   it('empty string → off', () => {
     process.env.PLUGIN_CHAIN_MODE = '';
     expect(getPluginChainMode()).toBe('off');
+  });
+
+  // v10.4.0: mock 引擎隐含 primary(mock 必须经 plugin chain 才会被走到)
+  it('MOCK_ENGINES=1 且未显式设 mode → 隐含 primary', () => {
+    process.env.MOCK_ENGINES = '1';
+    expect(getPluginChainMode()).toBe('primary');
+  });
+  it('显式 PLUGIN_CHAIN_MODE=off 优先于 MOCK_ENGINES 隐含', () => {
+    process.env.MOCK_ENGINES = '1';
+    process.env.PLUGIN_CHAIN_MODE = 'off';
+    expect(getPluginChainMode()).toBe('off');
+  });
+  it('显式 shadow 优先于 MOCK_ENGINES 隐含', () => {
+    process.env.MOCK_ENGINES = '1';
+    process.env.PLUGIN_CHAIN_MODE = 'shadow';
+    expect(getPluginChainMode()).toBe('shadow');
   });
 });
 

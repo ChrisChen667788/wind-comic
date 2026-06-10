@@ -10,6 +10,7 @@
 
 import { registerVideoProvider } from './registry';
 import type { VideoGenerateInput } from './types';
+import '@/lib/mock-providers'; // v10.4.0: mock 三件套常驻注册(MOCK_ENGINES=1 才 available)
 
 // ─── Lazy service factories — 启动不预热, 第一次调时实例化 ─────────────────
 let veoSvc: any = null;
