@@ -11,7 +11,7 @@
  */
 import { HybridOrchestrator } from '@/services/hybrid-orchestrator';
 import { db, now } from '@/lib/db';
-import { createAsset, updateAsset, updateAssetBySelector, listAssetsByType } from '@/lib/repos/asset-repo';
+import { updateAssetBySelector, listAssetsByType, upsertAsset } from '@/lib/repos/asset-repo';
 import { getProject, insertProjectFull, updateProjectById } from '@/lib/repos/project-repo';
 import { createUser } from '@/lib/repos/user-repo';
 import { storyTemplates } from '@/lib/story-templates';
@@ -21,6 +21,7 @@ import { scoreFinalVideo } from '@/lib/editor-score';
 import { insertQualityScore } from '@/lib/quality-scores';
 import { enrichScenesFromWriterScript } from '@/lib/scene-enrich';
 import { bindElements } from '@/lib/reference-elements';
+import { loadCheckpoints, emptyCheckpoints, checkpointSummary, type PipelineCheckpoints } from '@/lib/pipeline-checkpoints';
 
 // 活跃编排器注册表 — gate 路由 / rerun / regenerate 据此找到运行中的编排器
 // (原在 route 模块;route 仍 re-export 以保持既有 import 路径不变)
@@ -45,7 +46,7 @@ export interface CreatePipelineInput {
 
 export type PipelineEmit = (type: string, data: unknown) => void;
 
-export async function runCreatePipeline(input: CreatePipelineInput, emit: PipelineEmit): Promise<void> {
+export async function runCreatePipeline(input: CreatePipelineInput, emit: PipelineEmit, opts?: { resume?: boolean }): Promise<void> {
   const { idea, projectId, videoProvider, style, aspect, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references } = input as CreatePipelineInput & Record<string, any>;
   const send = emit; // 原文 send() 调用零改动
 
@@ -296,11 +297,25 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     send('agents', orchestrator.getAllAgents());
     send('projectId', { projectId });
 
+    // ── v10.4.2 幂等续跑:attempt>1 时装载已有产物,后续各阶段「有则跳过」(不重复生成/计费)──
+    const cp: PipelineCheckpoints = opts?.resume ? await loadCheckpoints(projectId) : emptyCheckpoints();
+    if (opts?.resume) {
+      console.log(`[Resume] ${projectId} 断点装载: ${checkpointSummary(cp)}`);
+      send('status', { message: `[续跑] 已装载断点产物:${checkpointSummary(cp)}` });
+    }
+
     // ── 1. Director ──
-    try {
+    if (cp.plan) {
+      plan = cp.plan;
+      send('step', { step: 'director' });
+      send('status', { message: '[续跑] 导演计划已就绪,跳过' });
+      send('plan', plan);
+    } else try {
       send('step', { step: 'director' });
       send('status', { message: 'AI 导演正在分析创意...' });
       plan = await orchestrator.runDirector(idea);
+      // v10.4.2: 计划落库 —— 此前只在内存,续跑会被迫重跑导演(多一次 LLM 计费)
+      await saveAsset(projectId, 'plan', '导演计划', plan);
       send('agents', orchestrator.getAllAgents());
       send('plan', plan);
     } catch (e) {
@@ -311,7 +326,11 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     if (!plan) { send('error', { message: '导演计划生成失败' }); return; }
 
     // ── 1.5 Style Bible ── v2.20 P0.1: 渲染 1 张全片视觉锚点帧
-    try {
+    if (cp.styleBibleUrl) {
+      send('step', { step: 'styleBible' });
+      send('styleBible', { url: cp.styleBibleUrl });
+      send('status', { message: '[续跑] Style Bible 已就绪,跳过' });
+    } else try {
       send('step', { step: 'styleBible' });
       send('status', { message: '渲染 Style Bible 帧 — 锁定全片画风...' });
       const bibleUrl = await orchestrator.runStyleBibleArtist(plan);
@@ -324,7 +343,13 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     }
 
     // ── 2. Writer ──
-    try {
+    if (cp.script) {
+      script = cp.script;
+      send('step', { step: 'writer' });
+      send('status', { message: '[续跑] 剧本已就绪,跳过' });
+      send('script', script);
+      orchestrator.setWriterScript(script);
+    } else try {
       send('step', { step: 'writer' });
       send('status', { message: 'AI 编剧正在运用麦基方法论创作剧本...' });
       script = await orchestrator.runWriter(plan);
@@ -355,6 +380,11 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     // v2.18: 这两步互不依赖, 都只需要 plan + script. 并行可省 30-60s 创作时长。
     // gates 模式下保持串行 (after-characters gate 语义依赖顺序)。
     const runCharacterStep = async () => {
+      if (cp.characters.length > 0) {
+        send('characters', cp.characters);
+        send('status', { message: `[续跑] 角色已就绪(×${cp.characters.length}),跳过重绘` });
+        return cp.characters;
+      }
       try {
         send('status', { message: 'AI 角色设计师正在绘制角色三视图...' });
         const result = await orchestrator.runCharacterDesigner(plan.characters);
@@ -417,6 +447,11 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     };
 
     const runSceneStep = async () => {
+      if (cp.scenes.length > 0) {
+        send('scenes', cp.scenes);
+        send('status', { message: `[续跑] 场景已就绪(×${cp.scenes.length}),跳过重绘` });
+        return cp.scenes;
+      }
       try {
         send('status', { message: 'AI 场景设计师正在设计场景概念图...' });
         // v2.13.5: 用 Writer 的 shots 把 plan.scenes 的 description 加厚
@@ -487,7 +522,12 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
 
     // ── 5a. Storyboard Planning（纯文本分镜规划）──
     let storyboardPlans: any[] = [];
-    try {
+    if (cp.storyboardPlans.length > 0) {
+      storyboardPlans = cp.storyboardPlans;
+      send('step', { step: 'storyboardPlan' });
+      send('status', { message: `[续跑] 分镜规划已就绪(×${storyboardPlans.length}),跳过` });
+      send('storyboardPlans', storyboardPlans);
+    } else try {
       send('step', { step: 'storyboardPlan' });
       send('status', { message: 'AI 分镜师正在规划分镜描述...' });
       storyboardPlans = await orchestrator.runStoryboardArtist(script, characters, scenes);
@@ -512,8 +552,18 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     // 这是"角色+场景+分镜脚本→镜头"一致性管线的关键环节
     try {
       send('step', { step: 'storyboardRender' });
-      send('status', { message: 'AI 分镜师正在渲染分镜图（角色+场景一致性）...' });
-      storyboards = await orchestrator.runStoryboardRenderer(storyboardPlans, script, characters, scenes);
+      // v10.4.2 幂等:只补渲染还没有图的镜头(项目+镜头+阶段粒度)
+      const doneShots = new Set(cp.storyboards.map((s: any) => s.shotNumber));
+      const pendingPlans = (storyboardPlans as any[]).filter((sb: any) => !doneShots.has(sb.shotNumber));
+      if (pendingPlans.length === 0 && cp.storyboards.length > 0) {
+        storyboards = cp.storyboards;
+        send('status', { message: `[续跑] 分镜图已全部渲染(×${storyboards.length}),跳过` });
+      } else {
+        if (doneShots.size > 0) send('status', { message: `[续跑] 已有 ${doneShots.size} 镜分镜图,补渲染 ${pendingPlans.length} 镜` });
+        send('status', { message: 'AI 分镜师正在渲染分镜图（角色+场景一致性）...' });
+        const rendered = await orchestrator.runStoryboardRenderer(pendingPlans, script, characters, scenes);
+        storyboards = [...cp.storyboards, ...rendered].sort((a: any, b: any) => (a.shotNumber ?? 0) - (b.shotNumber ?? 0));
+      }
       send('agents', orchestrator.getAllAgents());
       send('storyboards', storyboards);
       // 更新分镜资产（添加渲染后的图片URL + Sprint A.1 cameo 痕迹, A.4 仪表盘消费）
@@ -548,8 +598,18 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     try {
       const activeProvider = videoProvider || 'veo';
       const providerLabel = activeProvider === 'veo' || activeProvider === 'veo3.1' ? 'Veo 3.1' : 'Minimax';
-      send('status', { message: `AI 视频制作正在逐条生成视频（${providerLabel}，共 ${storyboards.length} 个镜头）...` });
-      videos = await orchestrator.runVideoProducer(storyboards, activeProvider, characters, scenes, script);
+      // v10.4.2 幂等:只补生成还没有视频的镜头
+      const doneVideoShots = new Set(cp.videos.map((v: any) => v.shotNumber));
+      const pendingBoards = (storyboards as any[]).filter((sb: any) => !doneVideoShots.has(sb.shotNumber));
+      if (pendingBoards.length === 0 && cp.videos.length > 0) {
+        videos = cp.videos;
+        send('status', { message: `[续跑] 镜头视频已全部生成(×${videos.length}),跳过` });
+      } else {
+        if (doneVideoShots.size > 0) send('status', { message: `[续跑] 已有 ${doneVideoShots.size} 镜视频,补生成 ${pendingBoards.length} 镜` });
+        send('status', { message: `AI 视频制作正在逐条生成视频（${providerLabel}，共 ${pendingBoards.length} 个镜头）...` });
+        const made = await orchestrator.runVideoProducer(pendingBoards, activeProvider, characters, scenes, script);
+        videos = [...cp.videos, ...made].sort((a: any, b: any) => (a.shotNumber ?? 0) - (b.shotNumber ?? 0));
+      }
       send('agents', orchestrator.getAllAgents());
       send('videos', videos); // 发送完整视频列表（前端可能已通过 videoClip 逐条收到）
       // 保存镜头视频和封面图到资产库
@@ -572,7 +632,12 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     }
 
     // ── 7. Editor（含配乐生成）──
-    try {
+    if (cp.hasFinalVideo) {
+      editResult = cp.editResult;
+      send('step', { step: 'editor' });
+      send('status', { message: '[续跑] 已有成片,跳过剪辑合成' });
+      if (editResult) send('editResult', editResult);
+    } else try {
       send('step', { step: 'editor' });
       send('status', { message: 'AI 剪辑师正在剪辑合成完整视频并生成配乐...' });
       editResult = await orchestrator.runEditor(videos, script);
@@ -632,7 +697,12 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     }
 
     // ── 8. Producer Review（制片人审核，替代原导演审核角色）──
-    try {
+    if (cp.review) {
+      review = cp.review;
+      send('step', { step: 'review' });
+      send('status', { message: '[续跑] 审核结论已就绪,跳过' });
+      send('review', review);
+    } else try {
       send('step', { step: 'review' });
       send('status', { message: 'AI 制片人正在进行100分制全面审核...' });
       review = await orchestrator.runDirectorReview(script, videos, editResult);
@@ -734,19 +804,20 @@ async function saveAsset(projectId: string, type: string, name: string, data: an
       return;
     }
 
-    // 落库, persistent_url 先留空
-    const asset = await createAsset({
+    // v10.4.2: 幂等写 —— 同 (type, shot|name) 不再重复 INSERT(续跑/重跑自然去重)
+    const action = await upsertAsset({
       projectId, type, name, data: data || {},
       mediaUrls: mediaUrls || [], shotNumber: shotNumber ?? null,
     });
-    console.log(`[DB] Asset saved: ${type}/${name}`);
+    console.log(`[DB] Asset ${action === 'created' ? 'saved' : 'upserted'}: ${type}/${name}`);
 
     // 后台持久化第一张有效 URL, 不 await —— 慢 fetch 不能阻塞 SSE 流
     if (mediaUrls && mediaUrls.length > 0) {
+      const sel = shotNumber != null ? { type, shotNumber } : { type, name };
       void persistFirstValid(mediaUrls).then(async (url) => {
         if (!url) return;
         try {
-          await updateAsset(asset.id, { persistentUrl: url });
+          await updateAssetBySelector(projectId, sel, { persistentUrl: url });
           console.log(`[DB] Asset persisted: ${type}/${name} → ${url.slice(0, 60)}`);
         } catch (e) {
           console.warn(`[DB] persistent_url update failed (${type}/${name}):`, e);

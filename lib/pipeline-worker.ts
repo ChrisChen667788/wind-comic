@@ -45,8 +45,14 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
 
   // emit 必须同步快返回(流水线不等待);落库走 promise 链保证事件顺序
   let appendChain: Promise<void> = Promise.resolve();
+  // v10.4.2: 流水线内部致命错误是「发 error 事件后正常返回」(SSE 语义,不抛)——
+  // worker 据此判失败,否则空跑/早退任务会被误标 done,死信重投就形同虚设。
+  let fatalError = '';
   const emit = (type: string, data: unknown) => {
     emitPipeline(job.id, type, data);
+    if (type === 'error') {
+      fatalError = String((data as { message?: unknown })?.message ?? 'pipeline error');
+    }
     if (type === 'step' && data && typeof (data as { step?: unknown }).step === 'string') {
       void setJobStep(job.id, (data as { step: string }).step).catch(() => {});
     }
@@ -57,10 +63,16 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
   };
 
   try {
-    await runCreatePipeline(job.payload as CreatePipelineInput, emit);
+    // v10.4.2: attempt>1 = 续跑 —— 断点装载,已有产物阶段跳过(不重复生成/计费)
+    await runCreatePipeline(job.payload as CreatePipelineInput, emit, { resume: job.attempts > 1 });
     await appendChain; // 进度全部落库后再标完成
-    await completeJob(job.id);
-    console.log(`[PipelineWorker] done ${job.id}`);
+    if (fatalError) {
+      const state = await failJob(job.id, fatalError);
+      console.error(`[PipelineWorker] ${state === 'queued' ? 'retrying' : 'FAILED'} ${job.id} (pipeline error): ${fatalError.slice(0, 120)}`);
+    } else {
+      await completeJob(job.id);
+      console.log(`[PipelineWorker] done ${job.id}`);
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     const state = await failJob(job.id, msg);

@@ -131,6 +131,27 @@ export async function updateAssetBySelector(
   return r.changes;
 }
 
+/**
+ * v10.4.2: 幂等写 —— 按 (project, type, shot|name) 先更新,没命中再插入。
+ * 流水线续跑/重跑时同一产物不再重复 INSERT(v10.4.1 已知限位:重跑资产 ×2)。
+ * mediaUrls 仅在非空时参与更新 —— 渲染失败传 [] 不应抹掉已有的好 URL。
+ * 命中多行(历史重复行)会被一并刷成同值,属自愈。返回 'created' | 'updated'。
+ */
+export async function upsertAsset(input: CreateAssetInput): Promise<'created' | 'updated'> {
+  const sel = input.shotNumber != null
+    ? { type: input.type, shotNumber: input.shotNumber }
+    : { type: input.type, name: input.name };
+  const patch: { data?: unknown; mediaUrls?: string[]; bumpVersion?: boolean } = {
+    data: input.data ?? {},
+    bumpVersion: true,
+  };
+  if (input.mediaUrls && input.mediaUrls.length > 0) patch.mediaUrls = input.mediaUrls;
+  const changes = await updateAssetBySelector(input.projectId, sel, patch);
+  if (changes > 0) return 'updated';
+  await createAsset(input);
+  return 'created';
+}
+
 export async function deleteAsset(id: string): Promise<boolean> {
   const r = await getDbDriver().run(`DELETE FROM project_assets WHERE id = ?`, [id]);
   return r.changes > 0;

@@ -51,7 +51,7 @@ test.describe('a11y dashboard (authed)', () => {
     );
   });
 
-  for (const path of ['/dashboard', '/dashboard/create', '/dashboard/templates', '/dashboard/billing']) {
+  for (const path of ['/dashboard', '/dashboard/create', '/dashboard/templates', '/dashboard/billing', '/dashboard/jobs']) {
     test(`a11y authed ${path}`, async ({ page }) => {
       await audit(page, path);
     });

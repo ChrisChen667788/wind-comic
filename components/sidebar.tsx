@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 // v8.3 P1: lucide → Phosphor (ultra-thin Light weight, Taste Skill 推荐, 摆脱 AI 默认观感)
 import {
   SquaresFour, Kanban, Sparkle, BookOpen, User,
-  SignOut, CaretLeft, CaretRight, Package, PenNib, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning, ChartLineUp, Stack,
+  SignOut, CaretLeft, CaretRight, Package, PenNib, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning, ChartLineUp, Stack, Queue,
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 
@@ -36,6 +36,8 @@ const navItems = [
   { href: '/dashboard/health', label: 'API 健康', icon: Pulse },
   // v9.3.2: 用量与成本可观测 — 引擎花费 / 每日趋势 / 预算环 / 配额告警
   { href: '/dashboard/usage', label: '用量成本', icon: ChartLineUp },
+  // v10.4.2: 流水线任务队列 — 进度/死信可见,失败任务一键重投(续跑不重复计费)
+  { href: '/dashboard/jobs', label: '任务队列', icon: Queue },
   // v2.12 Sprint C.2: Stripe 4 档订阅管理
   { href: '/dashboard/billing', label: '订阅 / 计费', icon: CreditCard },
 ];

@@ -146,6 +146,30 @@ export async function failJob(id: string, error: string): Promise<PipelineJobSta
   return state;
 }
 
+/** v10.4.2: 任务列表(死信 UI 消费;按创建时间倒序)。 */
+export async function listPipelineJobs(opts?: { state?: PipelineJobState; limit?: number }): Promise<PipelineJobRow[]> {
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+  const rows = opts?.state
+    ? await getDbDriver().query<any>(
+        `SELECT * FROM pipeline_jobs WHERE state = ? ORDER BY created_at DESC LIMIT ${limit}`, [opts.state])
+    : await getDbDriver().query<any>(
+        `SELECT * FROM pipeline_jobs ORDER BY created_at DESC LIMIT ${limit}`);
+  return rows.map(rowToJob);
+}
+
+/**
+ * v10.4.2: 死信重投 —— 仅 failed 可重投(防止把 running 投成双跑)。
+ * 保留 attempts(>1 → worker 走续跑断点装载,不重复生成);清 last_error。
+ * 每次手动重投给一次新机会:下次失败 attempts 已超限 → 直接回死信。
+ */
+export async function requeueJob(id: string): Promise<boolean> {
+  const r = await getDbDriver().run(
+    `UPDATE pipeline_jobs SET state = 'queued', last_error = '', updated_at = ? WHERE id = ? AND state = 'failed'`,
+    [nowIso(), id],
+  );
+  return (r.changes ?? 0) > 0;
+}
+
 /**
  * 开机恢复(单进程 worker 假设):
  *   - running → queued(刚启动,任何 running 必是上一进程的孤儿)

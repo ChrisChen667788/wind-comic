@@ -16,6 +16,8 @@ import {
   completeJob,
   failJob,
   recoverJobsAtBoot,
+  listPipelineJobs,
+  requeueJob,
 } from '@/lib/repos/pipeline-job-repo';
 
 beforeEach(() => {
@@ -103,6 +105,36 @@ describe('v10.4.1 · 完成 / 失败重试 / 死信', () => {
     const j = (await getPipelineJob(job.id))!;
     expect(j.state).toBe('failed');
     expect(j.lastError).toBe('boom3');
+  });
+});
+
+describe('v10.4.2 · 死信列表 / 重投', () => {
+  it('listPipelineJobs:倒序 + state 过滤', async () => {
+    const a = await enqueuePipelineJob({ type: 'create', projectId: 'la', payload: {} });
+    db.prepare('UPDATE pipeline_jobs SET created_at = ? WHERE id = ?').run('2026-01-01T00:00:00.000Z', a.id);
+    const b = await enqueuePipelineJob({ type: 'create', projectId: 'lb', payload: {} });
+    await claimNextJob(); // a → running
+    const all = await listPipelineJobs();
+    expect(all.map((j) => j.id)).toEqual([b.id, a.id]); // 倒序
+    const queued = await listPipelineJobs({ state: 'queued' });
+    expect(queued.map((j) => j.id)).toEqual([b.id]);
+  });
+
+  it('requeueJob:仅 failed 可重投;attempts 保留(→续跑)、last_error 清空', async () => {
+    const job = await enqueuePipelineJob({ type: 'create', projectId: 'rq', payload: {} });
+    expect(await requeueJob(job.id)).toBe(false); // queued 不可重投
+    await claimNextJob();
+    expect(await requeueJob(job.id)).toBe(false); // running 不可重投(防双跑)
+    // 烧满 3 次 → failed
+    await failJob(job.id, 'e1'); await claimNextJob();
+    await failJob(job.id, 'e2'); await claimNextJob();
+    await failJob(job.id, 'e3');
+    expect((await getPipelineJob(job.id))!.state).toBe('failed');
+    expect(await requeueJob(job.id)).toBe(true);
+    const j = (await getPipelineJob(job.id))!;
+    expect(j.state).toBe('queued');
+    expect(j.attempts).toBe(3); // 保留 → resume 生效
+    expect(j.lastError).toBe('');
   });
 });
 
