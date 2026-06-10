@@ -4,7 +4,7 @@
  * 目的:让整条配音口型链(规划→预览→评分→门禁→渲染→写回→质检→成本)**开箱即用**,
  * 不必自托管 wav2lip/SadTalker(那需 LIPSYNC_API_URL)。本引擎用 viseme 轨驱动 8 张
  * 口型贴图(public/lipsync/mouths/*.png),在说话人脸(或纯色底)下方的「口型条」里按
- * 时间窗口切换,muxin 配音音频 → 产出对口型的示意成片(data:video/mp4)。
+ * 时间窗口切换,muxin 配音音频 → 产出对口型的示意成片(v10.4.4 起经 storage adapter 落盘返 URL)。
  *
  * 不是照片级对口型(嘴未贴到脸上的真实位置),而是**零配置的 2D 示意口型**;真引擎一旦
  * 配置(wav2lip-http,priority 50)会优先于本引擎(priority 100)。
@@ -151,8 +151,13 @@ async function generate(input: LipSyncGenerateInput): Promise<LipSyncGenerateRes
     const mp4 = fs.readFileSync(outPath);
     if (!mp4.length) throw new Error('ffmpeg 产出空文件');
     input.onProgress?.(100, '完成');
+    // v10.4.4: 改走 storage adapter 落盘返 URL —— 此前直接吐 data:video/mp4
+    // (多 MB base64 走内存/JSON 边界,且 data: 会被多处下游过滤);
+    // 现在 local 返 /api/serve-file?key=,配 S3 时自动上对象存储。
+    const { storagePut } = await import('../storage');
+    const put = await storagePut(mp4, 'video/mp4', '.mp4');
     return {
-      videoUrl: `data:video/mp4;base64,${mp4.toString('base64')}`,
+      videoUrl: put.url,
       provider: 'local-2d',
       durationSec: dur,
       estCostCny: 0, // 本地渲染零外部成本

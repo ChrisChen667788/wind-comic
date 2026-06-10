@@ -16,8 +16,10 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { getStorageDriver, LOCAL_STORAGE_ROOT } from './storage';
 
-const STORAGE_ROOT = path.join(process.cwd(), 'data', 'storage', 'assets');
+// v10.4.4: 目录常量统一收口到 lib/storage(写侧 adapter 与读侧 resolveByKey 同源)
+const STORAGE_ROOT = LOCAL_STORAGE_ROOT;
 
 // 确保目录存在(只在首次调用时创建)
 let storageEnsured = false;
@@ -141,18 +143,15 @@ export async function persistAsset(
     // 计算 key (按内容 hash,相同内容只存一份)
     const key = hashKey(buffer);
     ext = ext || extFromContentType(contentType) || extFromUrl(sourceUrl) || '.bin';
-    const filename = `${key}${ext}`;
-    const absPath = path.join(STORAGE_ROOT, filename);
 
-    // 已存在直接返回(去重)
-    if (!fs.existsSync(absPath)) {
-      fs.writeFileSync(absPath, buffer);
-    }
+    // v10.4.4: 写入走 storage adapter —— local(默认)同目录同布局,行为与历史一致;
+    // s3 时上传对象存储(URL 指向 S3)且同时写本地副本(absPath/serve-file 消费方不变)。
+    const put = await getStorageDriver().put(key, ext, buffer, contentType || 'application/octet-stream');
 
     return {
       key,
-      absPath,
-      url: `/api/serve-file?key=${key}`,
+      absPath: put.absPath,
+      url: put.url,
       contentType: contentType || 'application/octet-stream',
       size: buffer.length,
     };
