@@ -24,6 +24,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AgentRole } from '@/types/agents';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { PaperPlaneTilt as Send, X, CircleNotch as Loader2, FileText, Users, Mountains as Mountain, FilmStrip as Film, Megaphone, Scissors, FilmSlate as Clapperboard, Sparkle as Sparkles, ChatCircle as MessageCircle, Trash as Trash2 } from '@phosphor-icons/react';
 
 interface Msg {
@@ -69,15 +70,8 @@ export default function ProjectChatSidebar({
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages.length, agentRole]);
 
-  // ESC 关闭
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还(替代原 window Escape 监听);只在打开时生效
+  const dialogRef = useFocusTrap<HTMLElement>(open, onClose);
 
   const pushMsg = (role: AgentRole, msg: Msg) => {
     setMessagesMap((prev) => ({
@@ -174,11 +168,16 @@ export default function ProjectChatSidebar({
 
       {/* 抽屉 */}
       <aside
-        className={`fixed top-0 right-0 z-50 h-screen w-[380px] max-w-[100vw] bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl flex flex-col transform transition-transform duration-200 ${
+        ref={dialogRef}
+        className={`fixed top-0 right-0 z-50 h-screen w-[380px] max-w-[100vw] bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl flex flex-col transform transition-transform duration-200 outline-none ${
           open ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
         role="dialog"
+        aria-modal="true"
         aria-label="AI 助手侧栏"
+        tabIndex={-1}
+        // 关着时只是平移出屏,内容仍可被 Tab 到 —— inert 把它整体移出 tab 序和读屏树
+        inert={!open}
       >
         {/* header */}
         <div className="shrink-0 px-4 py-3 border-b border-[var(--border)] bg-black/30 flex items-center gap-3">

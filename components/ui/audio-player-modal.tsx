@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Play, Pause, MusicNotes as Music } from '@phosphor-icons/react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 interface Props {
   open: boolean;
@@ -59,14 +60,10 @@ export function AudioPlayerModal({ open, onOpenChange, src, title, subtitle }: P
     onOpenChange(false);
   }, [onOpenChange]);
 
-  // ESC 关闭 + Space 切播/停
+  // Space 切播/停(Escape 由 useFocusTrap 统一处理)
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        handleClose();
-      }
       if (e.key === ' ' || e.code === 'Space') {
         // 避免滚页
         const tag = (e.target as HTMLElement)?.tagName;
@@ -127,6 +124,9 @@ export function AudioPlayerModal({ open, onOpenChange, src, title, subtitle }: P
     setCurrentTime(t);
   };
 
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还
+  const dialogRef = useFocusTrap<HTMLDivElement>(open && mounted, handleClose);
+
   if (!open || !mounted) return null;
 
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -140,13 +140,19 @@ export function AudioPlayerModal({ open, onOpenChange, src, title, subtitle }: P
       onClick={(e) => e.stopPropagation()}
     >
       <div
+        aria-hidden="true"
         className="absolute inset-0 bg-black/80 backdrop-blur-md"
         style={{ animation: 'fadeIn 0.15s ease' }}
         onClick={handleClose}
       />
 
       <div
-        className="relative w-[92vw] max-w-md rounded-2xl overflow-hidden bg-[var(--surface)] border border-[var(--border)] shadow-2xl"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || '配乐试听'}
+        tabIndex={-1}
+        className="relative w-[92vw] max-w-md rounded-2xl overflow-hidden bg-[var(--surface)] border border-[var(--border)] shadow-2xl outline-none"
         style={{ animation: 'zoomIn 0.2s ease' }}
         onClick={(e) => e.stopPropagation()}
       >

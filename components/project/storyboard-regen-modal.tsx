@@ -16,6 +16,7 @@
 
 import { useState } from 'react';
 import { X, CircleNotch as Loader2, ArrowsClockwise as RefreshCw, Sparkle as Sparkles, ImageBroken as ImageOff, Upload, Image as ImagePlus } from '@phosphor-icons/react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 export interface StoryboardRegenModalProps {
   projectId: string;
@@ -41,6 +42,9 @@ export function StoryboardRegenModal({
   // v2.24 B: 用户上传的参考图 URL (服务端持久化后的 http URL)
   const [refImageUrl, setRefImageUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还(此前无任何键盘关闭路径);重生中不响应 Escape
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, () => { if (!busy) onCancel(); });
 
   const handleUploadFile = async (file: File) => {
     if (uploading || busy) return;
@@ -154,9 +158,12 @@ export function StoryboardRegenModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
+      ref={dialogRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 outline-none"
       role="dialog"
       aria-modal="true"
+      aria-label={`改 prompt 重生 · Shot ${shotNumber}`}
+      tabIndex={-1}
     >
       <div className="w-full max-w-2xl max-h-[90vh] rounded-2xl bg-[var(--cinema-surface)] border border-[var(--cinema-border-hi)] shadow-2xl flex flex-col overflow-hidden">
         {/* header */}

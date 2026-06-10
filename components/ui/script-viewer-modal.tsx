@@ -27,6 +27,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, FileText, Copy, Download, Check, MagicWand as Wand2 } from '@phosphor-icons/react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import Link from 'next/link';
 
 interface ScriptShot {
@@ -114,22 +115,18 @@ export function ScriptViewerModal({ open, onOpenChange, name, data, projectId }:
 
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
 
+  // 滚动锁(Escape 由 useFocusTrap 统一处理)
   useEffect(() => {
     if (!open) return;
-    const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        handleClose();
-      }
-    };
-    document.addEventListener('keydown', h, true);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('keydown', h, true);
       document.body.style.overflow = prev;
     };
-  }, [open, handleClose]);
+  }, [open]);
+
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还
+  const dialogRef = useFocusTrap<HTMLDivElement>(open, handleClose);
 
   const fullText = useMemo(() => scriptToText(name, data), [name, data]);
 
@@ -170,13 +167,19 @@ export function ScriptViewerModal({ open, onOpenChange, name, data, projectId }:
       onClick={(e) => e.stopPropagation()}
     >
       <div
+        aria-hidden="true"
         className="absolute inset-0 bg-black/85 backdrop-blur-md"
         style={{ animation: 'fadeIn 0.15s ease' }}
         onClick={handleClose}
       />
 
       <div
-        className="relative w-[94vw] max-w-4xl h-[86vh] rounded-2xl overflow-hidden bg-[var(--surface)] border border-[var(--border)] shadow-2xl flex flex-col"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={data.title || name || '剧本查看'}
+        tabIndex={-1}
+        className="relative w-[94vw] max-w-4xl h-[86vh] rounded-2xl overflow-hidden bg-[var(--surface)] border border-[var(--border)] shadow-2xl flex flex-col outline-none"
         style={{ animation: 'zoomIn 0.2s ease' }}
         onClick={(e) => e.stopPropagation()}
       >

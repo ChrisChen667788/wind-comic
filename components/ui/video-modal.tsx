@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, WarningCircle as AlertCircle, ArrowsOutSimple as Maximize2, SpeakerHigh as Volume2, SpeakerSlash as VolumeX } from '@phosphor-icons/react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 interface Props {
   open: boolean;
@@ -41,20 +42,6 @@ export function VideoModal({ open, onOpenChange, src, title }: Props) {
     setVideoError(false);
   }, [src]);
 
-  // ESC key handler
-  useEffect(() => {
-    if (!open) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        onOpenChange(false);
-      }
-    };
-    document.addEventListener('keydown', handleEsc, true);
-    return () => document.removeEventListener('keydown', handleEsc, true);
-  }, [open, onOpenChange]);
-
   // Lock body scroll when open
   useEffect(() => {
     if (open) {
@@ -81,6 +68,9 @@ export function VideoModal({ open, onOpenChange, src, title }: Props) {
     setVideoError(true);
   };
 
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还(替代原 document Escape 监听)
+  const dialogRef = useFocusTrap<HTMLDivElement>(open && mounted, handleClose);
+
   if (!open || !mounted) return null;
 
   const isVideo = isVideoUrl(src);
@@ -96,6 +86,7 @@ export function VideoModal({ open, onOpenChange, src, title }: Props) {
     >
       {/* 背景遮罩 — 点击关闭 */}
       <div
+        aria-hidden="true"
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"
         style={{ animation: 'fadeIn 0.15s ease' }}
         onClick={handleClose}
@@ -103,7 +94,12 @@ export function VideoModal({ open, onOpenChange, src, title }: Props) {
 
       {/* 视频容器 */}
       <div
-        className="relative w-[90vw] max-w-5xl rounded-2xl overflow-hidden bg-black border border-white/8 shadow-2xl"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || '视频预览'}
+        tabIndex={-1}
+        className="relative w-[90vw] max-w-5xl rounded-2xl overflow-hidden bg-black border border-white/8 shadow-2xl outline-none"
         style={{ animation: 'zoomIn 0.2s ease' }}
         onClick={(e) => e.stopPropagation()}
       >

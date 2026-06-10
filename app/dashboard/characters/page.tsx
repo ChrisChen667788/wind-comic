@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { Users, Plus, X, Clipboard, Check, Tag, Eye, Trash as Trash2, MagnifyingGlass as Search, MagicWand as Wand2, CircleNotch as Loader2, Sparkle as Sparkles } from '@phosphor-icons/react';
 
 interface CharacterItem {
@@ -120,17 +121,16 @@ function SaveCharacterModal({
     }
   };
 
+  // 滚动锁(Escape 由 useFocusTrap 统一处理)
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handler);
     document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('keydown', handler);
       document.body.style.overflow = '';
     };
-  }, [onClose]);
+  }, []);
+
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
   const addTag = () => {
     const t = tagInput.trim();
@@ -196,9 +196,14 @@ function SaveCharacterModal({
       style={{ zIndex: 99999 }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
       <div
-        className="relative w-full max-w-lg mx-4 rounded-2xl border border-[var(--border)] overflow-hidden flex flex-col"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="保存角色"
+        tabIndex={-1}
+        className="relative w-full max-w-lg mx-4 rounded-2xl border border-[var(--border)] overflow-hidden flex flex-col outline-none"
         style={{ background: 'rgba(18,18,20,0.98)', maxHeight: '90vh' }}
       >
         {/* Header */}
@@ -403,17 +408,16 @@ function CharacterDetailModal({
   const [genMode, setGenMode] = useState<null | 'profile' | 'images'>(null);
   const [profileErr, setProfileErr] = useState('');
 
+  // 滚动锁(Escape 由 useFocusTrap 统一处理)
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handler);
     document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('keydown', handler);
       document.body.style.overflow = '';
     };
-  }, [onClose]);
+  }, []);
+
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
   // 打开详情时载入已落库的档案 (有就显示)
   useEffect(() => {
@@ -482,9 +486,14 @@ function CharacterDetailModal({
       className="fixed inset-0 flex items-center justify-center"
       style={{ zIndex: 99999 }}
     >
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
       <div
-        className="relative w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] overflow-hidden flex flex-col"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={character.name}
+        tabIndex={-1}
+        className="relative w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] overflow-hidden flex flex-col outline-none"
         style={{ background: 'rgba(18,18,20,0.98)', maxHeight: '88vh' }}
       >
         {/* Header */}

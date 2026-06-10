@@ -16,6 +16,7 @@
  */
 
 import { useMemo } from 'react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { X, ClockCounterClockwise as History, Stethoscope, Gauge, ArrowsLeftRight as ArrowRightLeft, Eye, Pulse as Activity, FileText, TrendUp as TrendingUp, TrendDown as TrendingDown, Minus } from '@phosphor-icons/react';
 import type { PolishAudit } from './IndustryAuditCard';
 import { readinessLevel } from '@/lib/polish-prompts';
@@ -72,12 +73,18 @@ export default function PolishHistoryPanel({
   const trendDelta =
     trend.length >= 2 ? trend[trend.length - 1].score - trend[0].score : 0;
 
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还(此前无任何键盘关闭路径)
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+      ref={dialogRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 outline-none"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      aria-label="润色历史"
+      tabIndex={-1}
     >
       <div
         className="w-full max-w-2xl max-h-[85vh] rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl flex flex-col overflow-hidden"

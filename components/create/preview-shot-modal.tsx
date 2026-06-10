@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { X, CircleNotch as Loader2, ArrowsClockwise as RefreshCw, Check, Sparkle as Sparkles, Warning as AlertTriangle, Clock, Trash as Trash2 } from '@phosphor-icons/react';
 
 interface RateLimit {
@@ -132,11 +133,17 @@ export function PreviewShotModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idea, style, aspect]);
 
+  // v10.3.6 a11y: Escape + 焦点陷阱 + 焦点归还(此前无任何键盘关闭路径)
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onCancel);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
+      ref={dialogRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 outline-none"
       role="dialog"
       aria-modal="true"
+      aria-label="试拍 · 1 镜端到端"
+      tabIndex={-1}
     >
       <div className="w-full max-w-3xl max-h-[90vh] rounded-2xl bg-[var(--cinema-surface)] border border-[var(--cinema-border-hi)] shadow-2xl flex flex-col overflow-hidden">
         {/* header */}
