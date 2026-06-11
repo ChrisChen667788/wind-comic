@@ -46,6 +46,7 @@ test.describe('a11y dashboard (authed)', () => {
       ([t, u]) => {
         localStorage.setItem('qfmj-token', t as string);
         localStorage.setItem('qfmj-user', u as string);
+        localStorage.setItem('qfmj-create-guide-done', '1'); // v10.5.3: 预置引导完成,防遮罩挡操作/污染 axe 基线
       },
       [token, JSON.stringify(user)] as [string, string],
     );

@@ -314,6 +314,16 @@ CREATE TABLE IF NOT EXISTS pipeline_jobs (
 );
 CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_state ON pipeline_jobs(state, created_at);
 CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_project ON pipeline_jobs(project_id);
+
+-- v10.5.3: 轻量 UI 埋点(首跑引导完成率等)。user_id 可空(匿名也记),不设 FK。
+CREATE TABLE IF NOT EXISTS ui_events (
+  id TEXT PRIMARY KEY,
+  event TEXT NOT NULL,
+  user_id TEXT,
+  meta TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ui_events_event ON ui_events(event, created_at);
 `);
 
 // Safe ALTER TABLE — add columns if missing

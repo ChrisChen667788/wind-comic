@@ -30,6 +30,7 @@ import { CameraLanguagePicker } from '@/components/create/camera-language-picker
 import { ScriptDraftsCompare } from '@/components/create/script-drafts-compare';
 import { StyleLoraLibrary } from '@/components/create/style-lora-library';
 import { TemplateLibraryPicker } from '@/components/create/template-library-picker';
+import { FirstRunGuide } from '@/components/create/first-run-guide';
 import { PreviewShotModal } from '@/components/create/preview-shot-modal';
 import { DemoModeBanner } from '@/components/demo-mode-banner';
 import type { ScriptDraft } from '@/lib/script-drafts';
@@ -126,6 +127,18 @@ export default function DashboardCreatePage() {
   const [cameraDefault, setCameraDefault] = useState<string | null>(null);
   // v2.15 G9: 草稿数 (1=直接走 Writer; 2/3=先 hit /api/script-drafts 拿对比卡, 用户选完再走完整流程)
   const [draftCount, setDraftCount] = useState<1 | 2 | 3>(1);
+  // v10.5.3: 简易/专业开关 —— 默认 pro(与既有 UI 逐像素一致,验收条款);localStorage 记忆
+  const [createMode, setCreateMode] = useState<'simple' | 'pro'>('pro');
+  useEffect(() => {
+    try {
+      const m = localStorage.getItem('qfmj-create-mode');
+      if (m === 'simple' || m === 'pro') setCreateMode(m);
+    } catch { /* ignore */ }
+  }, []);
+  const switchCreateMode = (m: 'simple' | 'pro') => {
+    setCreateMode(m);
+    try { localStorage.setItem('qfmj-create-mode', m); } catch { /* ignore */ }
+  };
   const [showDraftCompare, setShowDraftCompare] = useState(false);
   // v2.18 P1.3: 试拍 1 镜端到端 modal
   const [showPreview, setShowPreview] = useState(false);
@@ -631,6 +644,8 @@ export default function DashboardCreatePage() {
 
       {/* v10.1.2: 演示模式提示 — 无图像/视频引擎 key 时,告知产出为占位/示意 + 指引启用 */}
       <DemoModeBanner />
+      {/* v10.5.3: 首跑三步引导(写创意→选风格→ROLL);完成/跳过后不再弹 */}
+      <FirstRunGuide />
 
       {/* ── 顶部:场记板 (Slate) 形式标题 + Action — 替代单调 h2 ── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start mb-6">
@@ -642,6 +657,24 @@ export default function DashboardCreatePage() {
           notes="从一句创意到完整短剧 — 设定文本 · 角色 · 风格 · 时长后开机"
         />
         <div className="flex flex-col gap-2 items-stretch sm:items-end">
+          {/* v10.5.3: 简易/专业开关 —— 简易只留「创意→风格→时长画幅→ROLL」主干 */}
+          <div className="inline-flex self-stretch sm:self-end rounded-lg border border-[var(--cinema-border-hi)] overflow-hidden" role="group" aria-label="创作模式">
+            {([['simple', '简易'], ['pro', '专业']] as const).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => switchCreateMode(m)}
+                aria-pressed={createMode === m}
+                className={`px-3 py-1 cinema-mono text-[11px] transition-colors ${
+                  createMode === m
+                    ? 'bg-[var(--cinema-amber,#C9A35E)] text-[#0A0908] font-semibold'
+                    : 'text-[var(--cinema-text-2)] hover:text-[var(--cinema-text)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {/* v2.18 P1.3: 试拍按钮 — 30-60s 出 1 镜让用户先看 vibe 再决定走全流程 */}
           <button
             onClick={() => setShowPreview(true)}
@@ -653,6 +686,7 @@ export default function DashboardCreatePage() {
             试拍 1 镜
           </button>
           <MovingBorderButton
+            data-guide="roll"
             onClick={handleStartCreation}
             disabled={!isReady}
             duration={3000}
@@ -697,12 +731,13 @@ export default function DashboardCreatePage() {
               onChange={(e) => setIdea(e.target.value)}
               rows={10}
               placeholder={"支持两种输入:\n1. 简短创意:暮色城市中的旅人,霓虹雨夜...\n2. 完整剧本:直接粘贴含场景、角色对白、△画面描述的剧本文本"}
+              data-guide="idea"
               className="cinema-textarea"
             />
           </label>
 
           {/* v2.18 P1: 模板库 — 搜索 / tag 筛选 / 个人模板 / 克隆 / 保存当前 集中入口 */}
-          <TemplateLibraryPicker
+          {createMode === 'pro' && <TemplateLibraryPicker
             selectedId={selectedTemplate?.id || null}
             onSelect={(t) => {
               if (t === null) setSelectedTemplate(null);
@@ -751,10 +786,10 @@ export default function DashboardCreatePage() {
                 showToast({ title: e instanceof Error ? e.message : '保存失败', type: 'error' });
               }
             }}
-          />
+          />}
 
           {/* Style preset shelf — cinema redesign */}
-          <div>
+          <div data-guide="style">
             <div className="flex items-center justify-between mb-2">
               <Eyebrow>Look · 画风预设</Eyebrow>
               <span className="cinema-mono text-[10px] opacity-50">{stylePresets.length} looks</span>
@@ -807,16 +842,19 @@ export default function DashboardCreatePage() {
             </div>
           </div>
 
-          {/* v2.12 Phase 1 — 角色锁脸前置(1-3 人) */}
-          <CharacterLockSection
-            value={lockedCharacters}
-            onChange={setLockedCharacters}
-          />
-
-          {/* v9.5.6: 多参元素货架(对标可灵 Elements)— 角色/风格/场景/道具/运镜/音色 → 路由进 cref/sref/构图 */}
-          <div className="mt-5">
-            <MultimodalRefShelf refs={references} onChange={setReferences} />
-          </div>
+          {/* v2.12 Phase 1 — 角色锁脸前置(1-3 人)(v10.5.3: 专业模式专属) */}
+          {createMode === 'pro' && (
+            <>
+              <CharacterLockSection
+                value={lockedCharacters}
+                onChange={setLockedCharacters}
+              />
+              {/* v9.5.6: 多参元素货架(对标可灵 Elements)— 角色/风格/场景/道具/运镜/音色 → 路由进 cref/sref/构图 */}
+              <div className="mt-5">
+                <MultimodalRefShelf refs={references} onChange={setReferences} />
+              </div>
+            </>
+          )}
 
           <FilmStripDivider label="ACT 2 · 镜头规格" />
 
@@ -852,7 +890,7 @@ export default function DashboardCreatePage() {
             </div>
           </div>
 
-          <div>
+          {createMode === 'pro' && <div>
             <Eyebrow>Engine · 视频引擎</Eyebrow>
             <div className="grid grid-cols-3 gap-2 mt-2">
               {[
@@ -876,15 +914,15 @@ export default function DashboardCreatePage() {
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
 
           {/* v2.14 P1.1 + v2.16 P1.2: 全局默认镜头语言 — 包到 cinema-card-hi 与周围 cards 视觉对齐 */}
-          <div className="cinema-card-hi p-3">
+          {createMode === 'pro' && <div className="cinema-card-hi p-3">
             <CameraLanguagePicker value={cameraDefault} onChange={setCameraDefault} />
-          </div>
+          </div>}
 
           {/* v2.15 G8 + v2.16 P1.2: 我的风格库 — 同款卡片包装 */}
-          <div className="cinema-card-hi p-3">
+          {createMode === 'pro' && <div className="cinema-card-hi p-3">
             <StyleLoraLibrary
               currentStyle={style}
               currentCameraDefault={cameraDefault}
@@ -894,10 +932,10 @@ export default function DashboardCreatePage() {
                 showToast({ title: `已应用风格: ${applied.stylePreset || ''}`, type: 'success' });
               }}
             />
-          </div>
+          </div>}
 
           {/* v2.15 G9: 草稿数 — 1=直跑, 2/3=先弹对比卡 */}
-          <div>
+          {createMode === 'pro' && <div>
             <Eyebrow>Drafts · 草稿对比</Eyebrow>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {([1, 2, 3] as const).map((n) => (
@@ -916,7 +954,7 @@ export default function DashboardCreatePage() {
                 ↑ 点 ROLL 后会先弹 {draftCount} 个剧本草稿对比, 选完再走完整流程 (额外 +30-60s)
               </div>
             )}
-          </div>
+          </div>}
 
           {/* 技术读数面板 — 当前选择的实时反馈 */}
           <div className="cinema-card-hi p-3">

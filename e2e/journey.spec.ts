@@ -53,6 +53,7 @@ test('journey: 登录 → 创建 → ROLL → 出片 → 导出(mock 引擎)', a
     ([t, u]) => {
       localStorage.setItem('qfmj-token', t as string);
       localStorage.setItem('qfmj-user', u as string);
+        localStorage.setItem('qfmj-create-guide-done', '1'); // v10.5.3: 预置引导完成,防遮罩挡操作/污染 axe 基线
     },
     [token, JSON.stringify(user)] as [string, string],
   );
