@@ -16,6 +16,26 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'completed' | 'active' | 'draft'>('all');
+  const [importingDemo, setImportingDemo] = useState(false);
+
+  // v10.5.0: 演示工程一键导入 —— 0 key 也能逛完整成片工作台(Time-to-Wow 专项)
+  const importDemo = async () => {
+    if (importingDemo) return;
+    setImportingDemo(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('qfmj-token') : null;
+      const res = await fetch('/api/demo-project', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const { projectId } = await res.json();
+        router.push(`/projects/${projectId}`);
+        return;
+      }
+    } catch { /* 失败落回按钮态 */ }
+    setImportingDemo(false);
+  };
 
   useEffect(() => {
     // v5.0.x fix: 走 api-client (带 Authorization), 解析真实登录用户而非 no-auth 兜底.
@@ -102,10 +122,18 @@ export default function ProjectsPage() {
           <div className="cinema-eyebrow tracking-widest mb-2">EMPTY ROSTER</div>
           <p className="cinema-headline text-base mb-1">{filter === 'all' ? '还没有创作项目' : '没有符合条件的项目'}</p>
           <p className="cinema-subhead text-xs mb-5 opacity-65 max-w-md mx-auto">输入你的创意，AI 团队将自动为你完成从剧本到成片的全流程创作</p>
-          <Link href="/dashboard/create" className="cinema-btn cinema-btn-primary !text-[12px]">
-            <Sparkles className="w-4 h-4" weight="duotone" />
-            开始创作
-          </Link>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Link href="/dashboard/create" className="cinema-btn cinema-btn-primary !text-[12px]">
+              <Sparkles className="w-4 h-4" weight="duotone" />
+              开始创作
+            </Link>
+            {/* v10.5.0: 还没配引擎 key?先导入演示工程逛逛完整工作台(分镜/成片/审计/导出全真) */}
+            <button onClick={importDemo} disabled={importingDemo} className="cinema-btn !text-[12px] disabled:opacity-60">
+              <Film className="w-4 h-4" weight="duotone" />
+              {importingDemo ? '导入中…' : '导入演示工程《雨夜信号》'}
+            </button>
+          </div>
+          <p className="cinema-mono text-[10px] opacity-70 mt-3">演示工程无需任何 API key — 4 镜悬疑短剧,成片/审计/导出即刻可看</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
