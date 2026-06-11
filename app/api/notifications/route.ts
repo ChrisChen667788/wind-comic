@@ -36,6 +36,9 @@ export async function GET(request: NextRequest) {
   const userId = resolveUserId(request);
   if (!userId) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
+  // v10.5.4 懒 digest:拉通知时顺手检查 —— ≥7 天且本周有创作活动才发周报(fire-and-forget)
+  void import('@/lib/weekly-digest').then(({ maybeSendWeeklyDigest }) => maybeSendWeeklyDigest(userId)).catch(() => {});
+
   const unreadOnly = request.nextUrl.searchParams.get('unread') === '1';
   const limitStr = request.nextUrl.searchParams.get('limit');
   const limit = limitStr ? parseInt(limitStr, 10) : 30;

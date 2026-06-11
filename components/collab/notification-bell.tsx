@@ -25,7 +25,7 @@ import { getToken } from '@/lib/auth';
 
 interface NotificationItem {
   id: string;
-  type: 'mention' | 'reply' | 'project_invite';
+  type: 'mention' | 'reply' | 'project_invite' | 'weekly_digest'; // v10.5.4: 周报
   sourceUserId: string;
   sourceUserName: string;
   projectId: string | null;
@@ -168,7 +168,7 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
                 const href = n.projectId
                   ? `/projects/${n.projectId}${n.commentId ? `#comment-${n.commentId}` : ''}`
                   : '#';
-                const Icon = n.type === 'mention' ? AtSign : MessageCircle;
+                const Icon = n.type === 'mention' ? AtSign : MessageCircle; // weekly_digest 也走 MessageCircle,动词置空
                 return (
                   <Link
                     key={n.id}
@@ -182,7 +182,7 @@ export function NotificationBell({ pollIntervalMs = 60_000 }: NotificationBellPr
                         <div className="cinema-mono text-[11px]">
                           <span className="font-medium">{n.sourceUserName}</span>
                           <span className="opacity-70">
-                            {n.type === 'mention' ? ` ${t.collab.mentioned}` : ` ${t.collab.replied}`}
+                            {n.type === 'mention' ? ` ${t.collab.mentioned}` : n.type === 'weekly_digest' ? '' : ` ${t.collab.replied}`}
                           </span>
                         </div>
                         {n.preview && (

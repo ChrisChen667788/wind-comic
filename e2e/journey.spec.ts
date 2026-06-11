@@ -36,7 +36,7 @@ async function pollUntil<T>(fn: () => Promise<T | null>, timeoutMs: number, inte
 }
 
 test('journey: 登录 → 创建 → ROLL → 出片 → 导出(mock 引擎)', async ({ page, request }, testInfo) => {
-  test.setTimeout(300_000); // 轮询预算 120s+110s(队列模式下前序任务可占满双 worker 槽位)
+  test.setTimeout(480_000); // 预算:排空等待 300s(独立)+ projectId 120s + 资产 110s
   test.skip(testInfo.project.name !== 'desktop', '主链路只跑 desktop(mobile 由 smoke/a11y 覆盖)');
 
   const ready = await request.get('/api/runtime/readiness');
@@ -71,6 +71,19 @@ test('journey: 登录 → 创建 → ROLL → 出片 → 导出(mock 引擎)', a
     return arr.map((p) => p.id);
   };
   const prevIds = new Set(await listIds());
+
+  // ── 1.5 队列模式排空等待:重复全量跑会堆积前序任务(剪辑段 ffmpeg 分钟级),
+  // 双槽位占满时新 job 干等 —— 显式等到有空闲槽位再 ROLL,预算独立不挤占后续轮询。
+  await pollUntil<boolean>(async () => {
+    const res = await request.get('/api/pipeline-jobs', { headers: auth });
+    if (!res.ok()) return true; // 队列 API 不可用(旧路径/未启队列)→ 直接放行
+    const jobs = (await res.json()).jobs as Array<{ state: string }>;
+    const running = jobs.filter((j) => j.state === 'running').length;
+    const queued = jobs.filter((j) => j.state === 'queued').length;
+    if (running < 2 && queued === 0) return true;
+    console.log(`[journey] 等空闲槽位… running=${running} queued=${queued}`);
+    return null;
+  }, 300_000, 5_000);
 
   // ≥30 字且带题材信号 —— mock 全封闭模式只走规则清洗,要过 thin-idea 闸门
   const idea = 'E2E旅程:暮色城市霓虹雨夜,失忆旅人凭一张旧照片追查身世之谜的悬疑短剧,巷尾追逐与天台对峙';

@@ -9,6 +9,7 @@ import { BezelCard } from '@/components/ui/bezel-card';
 import { Sparkle, Kanban, Lightning, BookOpen, ArrowRight, Clock, FilmReel, TrendUp } from '@phosphor-icons/react';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { useLocale } from '@/hooks/use-locale';
+import { ContinueCard } from '@/components/dashboard/continue-card';
 
 export default function DashboardPage() {
   const { t } = useLocale();
@@ -37,6 +38,9 @@ export default function DashboardPage() {
           <LocaleSwitcher />
         </div>
       </div>
+
+      {/* v10.5.4 留存面:继续创作卡 — 最近项目 + 下一步建议;空项目态不渲染 */}
+      <ContinueCard />
 
       {/* v8.3 P4: Asymmetric Bento — 12 列, 打破"三等宽卡片"的 AI 标志布局.
           create hero 占 7×2 主导左上, 统计卡在右栏不等高堆叠, 内容/活动 7/5 收尾. */}
