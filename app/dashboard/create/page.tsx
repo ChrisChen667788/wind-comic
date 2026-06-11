@@ -64,7 +64,8 @@ function useStylePreviews() {
   return previews;
 }
 const durationOptions = ['3s', '5s', '8s']; // 调整为适配当前API能力的时长选项
-const aspectOptions = ['16:9', '9:16', '1:1', '2.35:1'];
+// v10.6.0 竖屏优先:9:16 置首 = 新项目默认竖屏(2026 短剧主战场);横屏仍一键可选
+const aspectOptions = ['9:16', '16:9', '1:1', '2.35:1'];
 
 const exampleIdeas = [
   { title: '赛博朋克侦探', content: '2077年的新东京，一位赛博侦探接到神秘委托，调查连环失踪案，却发现背后隐藏着惊天阴谋', icon: Zap },

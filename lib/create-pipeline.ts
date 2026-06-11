@@ -241,6 +241,7 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
         await insertProjectFull({
           id: projectId, userId, title: idea.slice(0, 30), description: idea,
           coverUrls: [], status: 'active',
+          aspect: aspect || '16:9', // v10.6.0 项目级画幅(注:题材触发的 orchestrator 内部自动竖屏翻转不回写,以用户显式选择为准)
           styleId: style || null, primaryCharacterRef: effectiveCameoRef || null,
           lockedCharacters: sanitizedLocked,
         });
@@ -251,6 +252,7 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
         try {
           await updateProjectById(projectId, {
             ...(style ? { style_id: style } : {}),
+            ...(aspect ? { aspect } : {}), // v10.6.0 换画幅重跑时同步
             locked_characters: lockedJson,
             ...(effectiveCameoRef ? { primary_character_ref: effectiveCameoRef } : {}),
           });

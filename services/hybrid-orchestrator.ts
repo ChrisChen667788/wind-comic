@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { API_CONFIG } from '@/lib/config';
+import { withVerticalHints } from '@/lib/vertical-composition';
 // v2.18.1: 复用 polish 那套 4 级 JSON fallback (LLM 对中文长文本经常返回非法 JSON)
 import { robustJsonParse } from '@/lib/polish-json';
 import {
@@ -2651,6 +2652,10 @@ ${shots.map((s, i) => {
       if (planData.characterAction) {
         renderPrompt = `${renderPrompt}, character action: ${planData.characterAction}`;
       }
+
+      // v10.6.0 竖屏优先:9:16 注入竖构图模板(单主体居中/头部留白/底部 20% 留字幕区);
+      // 画幅参数只决定"图多大",构图思维要靠 prompt —— 其他画幅零注入(横屏零回归)。
+      renderPrompt = withVerticalHints(renderPrompt, this.aspect);
 
       // P1: 注入角色视觉锚点
       const anchorPrompt = buildCharacterAnchorPrompt(this.characterAnchors, shotCharacters);

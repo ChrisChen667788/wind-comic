@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { SafeAreaOverlay } from '@/components/ui/safe-area-overlay';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -59,6 +60,11 @@ export default function ProjectDetailPage() {
   const id = params.id as string;
   const { user } = useAuth();
   const [project, setProject] = useState<any>(null);
+  // v10.6.0 竖屏优先:项目级画幅驱动预览框(旧项目无列值 → 16:9 零回归);字幕安全区可开关
+  const [showSafeArea, setShowSafeArea] = useState(false);
+  const isVertical = project?.aspect === '9:16';
+  const frameClass = isVertical ? 'aspect-[9/16]' : 'aspect-video';
+  const mainFrameClass = isVertical ? 'aspect-[9/16] max-w-[320px] mx-auto' : 'aspect-video';
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('script');
   const [playingIndex, setPlayingIndex] = useState<number>(-1);
@@ -609,9 +615,12 @@ export default function ProjectDetailPage() {
                       {/* Sprint A.4 · 右上角 Cameo 徽章 (没分数时不渲染) */}
                       <CameoBadge data={sb.data || {}} />
                       {sb.mediaUrls?.[0] ? (
-                        <img loading="lazy" decoding="async" src={sb.mediaUrls[0]} alt={sb.name} className="w-full aspect-video object-cover" />
+                        <div className="relative">
+                          <img loading="lazy" decoding="async" src={sb.mediaUrls[0]} alt={sb.name} className={`w-full ${frameClass} object-cover`} />
+                          {isVertical && showSafeArea && <SafeAreaOverlay />}
+                        </div>
                       ) : (
-                        <div className="w-full aspect-video flex items-center justify-center bg-[var(--cinema-surface-2)] cinema-mono text-[10px] opacity-40">
+                        <div className={`w-full ${frameClass} flex items-center justify-center bg-[var(--cinema-surface-2)] cinema-mono text-[10px] opacity-40`}>
                           NO RENDER
                         </div>
                       )}
@@ -663,6 +672,18 @@ export default function ProjectDetailPage() {
 
           {/* 视频 */}
           {activeTab === 'videos' && (
+            <>
+            {isVertical && (
+              <div className="flex justify-end mb-3">
+                <button
+                  onClick={() => setShowSafeArea((v) => !v)}
+                  aria-pressed={showSafeArea}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] border transition-colors ${showSafeArea ? 'border-[#E8C547] text-[#E8C547] bg-[#E8C547]/10' : 'border-white/15 text-white/70 hover:text-white'}`}
+                >
+                  字幕安全区 {showSafeArea ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {videos.map((v: any) => {
                 const url = v.mediaUrls?.[0];
@@ -671,10 +692,13 @@ export default function ProjectDetailPage() {
                   <div key={v.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                     {url && (
                       isVid ? (
-                        <video src={url} controls playsInline crossOrigin="anonymous" className="w-full aspect-video" />
+                        <div className="relative">
+                          <video src={url} controls playsInline crossOrigin="anonymous" className={`w-full ${frameClass}`} />
+                          {isVertical && showSafeArea && <SafeAreaOverlay />}
+                        </div>
                       ) : (
                         <div className="relative">
-                          <img loading="lazy" decoding="async" src={url} alt={v.name} className="w-full aspect-video object-cover" />
+                          <img loading="lazy" decoding="async" src={url} alt={v.name} className={`w-full ${frameClass} object-cover`} />
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                             <div className="text-center">
                               <AlertTriangle className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
@@ -692,6 +716,7 @@ export default function ProjectDetailPage() {
                 );
               })}
             </div>
+            </>
           )}
 
           {/* v2.16 P1.4: 镜头工坊 — 4K 重渲 / 多分辨率导出 / 跳到 U2V 工具 */}
@@ -856,14 +881,14 @@ export default function ProjectDetailPage() {
                             src={url}
                             autoPlay
                             playsInline
-                                                        className="w-full aspect-video"
+                            className={`w-full ${mainFrameClass}`}
                             onEnded={() => {
                               if (playingIndex < videos.length - 1) setPlayingIndex(playingIndex + 1);
                             }}
                           />
                         ) : (
                           <div className="relative">
-                            <img loading="lazy" decoding="async" src={url} alt="playing" className="w-full aspect-video object-cover" />
+                            <img loading="lazy" decoding="async" src={url} alt="playing" className={`w-full ${mainFrameClass} object-cover`} />
                             <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px]">
                               分镜图（视频生成失败）
                             </div>
@@ -871,14 +896,14 @@ export default function ProjectDetailPage() {
                         );
                       })()
                     ) : (
-                      <div className="w-full aspect-video bg-black grid place-items-center text-gray-500">无视频</div>
+                      <div className={`w-full ${mainFrameClass} bg-black grid place-items-center text-gray-500`}>无视频</div>
                     )}
                     <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/70 text-xs text-white">
                       镜头 {playingIndex >= 0 ? videos[playingIndex]?.shotNumber : '-'} / {videos.length}
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full aspect-video grid place-items-center text-gray-500">暂无视频</div>
+                  <div className={`w-full ${mainFrameClass} grid place-items-center text-gray-500`}>暂无视频</div>
                 )}
               </div>
 

@@ -107,6 +107,9 @@ test('journey: 登录 → 创建 → ROLL → 出片 → 导出(mock 引擎)', a
     return text.includes('/api/mock-assets/clip/') ? text : null;
   }, 110_000, 3_000); // 110s:rm -rf .next 后首跑会叠加 Turbopack 按需编译(实测 +40s+),给足冷启动余量
   expect(assetsJson).toContain('/api/mock-assets/image/'); // 分镜图也走了 mock 成功路径
+  // v10.6.0 竖屏优先:create 页默认画幅已是 9:16 → 资产 URL 必带 ar=9:16
+  // (mock 引擎把画幅写进 URL,等于全链路「无横屏假设」的自动化锚点)
+  expect(assetsJson).toContain('ar=9%3A16');
   console.log(`[journey] mock 视频资产已出现 (+${((Date.now() - t0) / 1000).toFixed(1)}s)`);
 
   // ── 5. 导出 EDL(剪辑交付物)──
