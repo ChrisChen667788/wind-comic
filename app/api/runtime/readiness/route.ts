@@ -14,6 +14,7 @@ import { listTTSProviders } from '@/lib/tts-providers/registry';
 import '@/lib/tts-providers/builtins'; // 副作用:注册内置 TTS provider
 import { lipSyncEngineConfigured } from '@/lib/lipsync-providers';
 import { computeReadiness } from '@/lib/engine-readiness';
+import { API_CONFIG } from '@/lib/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +30,13 @@ function anyAvailable(list: Array<{ available: () => boolean }>): boolean {
 }
 
 export async function GET() {
+  // v10.5.1: LLM 探测与 orchestrator hasLLM 同源语义(含 MOCK_ENGINES 全封闭 = 模板剧本,如实标占位)
+  const llm =
+    !!API_CONFIG.openai.apiKey &&
+    !API_CONFIG.openai.apiKey.startsWith('your_') &&
+    process.env.MOCK_ENGINES !== '1';
   const report = computeReadiness({
+    llm,
     image: anyAvailable(listImageProviders()),
     video: anyAvailable(listVideoProviders()),
     tts: anyAvailable(listTTSProviders()),

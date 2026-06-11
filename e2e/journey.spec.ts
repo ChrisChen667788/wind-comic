@@ -36,7 +36,7 @@ async function pollUntil<T>(fn: () => Promise<T | null>, timeoutMs: number, inte
 }
 
 test('journey: 登录 → 创建 → ROLL → 出片 → 导出(mock 引擎)', async ({ page, request }, testInfo) => {
-  test.setTimeout(180_000); // 轮询预算 30s+110s,默认 90s 不够
+  test.setTimeout(300_000); // 轮询预算 120s+110s(队列模式下前序任务可占满双 worker 槽位)
   test.skip(testInfo.project.name !== 'desktop', '主链路只跑 desktop(mobile 由 smoke/a11y 覆盖)');
 
   const ready = await request.get('/api/runtime/readiness');
@@ -82,7 +82,7 @@ test('journey: 登录 → 创建 → ROLL → 出片 → 导出(mock 引擎)', a
   const projectId = await pollUntil<string>(async () => {
     const ids = await listIds();
     return ids.find((id) => !prevIds.has(id)) || null;
-  }, 30_000);
+  }, 120_000); // 队列模式:projectId 在 worker 认领后才落库;前序任务剪辑段(ffmpeg 分钟级)可占满双槽位 → 排队等待计入预算
   console.log(`[journey] projectId=${projectId} (+${((Date.now() - t0) / 1000).toFixed(1)}s)`);
 
   // ── 4. 出片:轮询资产直到出现 mock 视频(provider 成功路径的铁证)──
@@ -103,5 +103,5 @@ test('journey: 登录 → 创建 → ROLL → 出片 → 导出(mock 引擎)', a
 
   const elapsed = (Date.now() - t0) / 1000;
   console.log(`[journey] 全链路完成,耗时 ${elapsed.toFixed(1)}s(暖机验收目标 <60s)`);
-  expect(elapsed).toBeLessThan(140); // 硬上限(防挂死);<60s 为暖机验收目标,冷编译首跑实测可 +40s+
+  expect(elapsed).toBeLessThan(280); // 硬上限只防挂死;<60s 为空载暖机验收目标 —— 队列排队(双槽位被前序剪辑段占满,实测 +58s)与冷编译首跑(+40s+)不计入性能口径
 });
