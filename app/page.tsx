@@ -141,6 +141,28 @@ export default function Home() {
             </Link>
           </div>
 
+          {/* v10.5.2 定位改版:制作台是主角,生成层 = BYO 当下最强引擎。
+              ⭐ 常驻刷新位:每次 GitHub 同步联网核实并更新下列引擎阵容
+              (与 README「vs. competitors」表 / MARKETING-zh|en / modelscope-profile 同步刷)。
+              当前阵容联网核验于 2026-06-09:Kling v3 登顶 text-to-video arena /
+              Veo 3.1 综合最强 / Seedance 2.0 性价比第一 / Runway Gen-4.5 I2V 最强。 */}
+          <div className="mt-9 flex flex-col items-center gap-2.5">
+            <span className="text-[10px] tracking-[0.25em] uppercase text-white/60" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+              {t.home.heroEngines}
+            </span>
+            <div className="flex flex-wrap justify-center gap-2">
+              {['Veo 3.1', 'Kling 3.0', 'Seedance 2.0', 'Runway Gen-4.5'].map((e) => (
+                <span
+                  key={e}
+                  className="px-3 py-1 rounded-full border border-white/15 bg-white/5 backdrop-blur-md text-[11px] text-white/80"
+                  style={{ textShadow: '0 1px 6px rgba(0,0,0,0.4)' }}
+                >
+                  {e}
+                </span>
+              ))}
+            </div>
+          </div>
+
           {/* 数据条 - 放到底部,半透明 */}
           <div className="absolute bottom-14 left-1/2 -translate-x-1/2 flex gap-8 flex-wrap justify-center">
             {heroStats.map((s) => (

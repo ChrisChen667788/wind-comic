@@ -207,6 +207,9 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🥊 vs. competitors
 
+> 阵容核验 2026-06-11:Veo 3.1 / Kling 3.0 / Seedance 2.0 / Gen-4.5 仍为生产可用第一梯队(Sora 2 已宣布年内停服)。
+> 关注位:**HappyHorse-1.0(阿里,2026-04)已连续两轮核验占 Artificial Analysis arena 前二** —— 公开 BYO API 成熟后将入列对比。
+
 | Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | Sora 2 | **Wind Comic** |
 |---|---|---|---|---|---|---|
 | Multi-shot story from one prompt | ⚠️ | ✅ storyboard mode | ✅ multi-shot native | ⚠️ | ⚠️ (one clip) | **✅ 8-agent script→edit pipeline** |

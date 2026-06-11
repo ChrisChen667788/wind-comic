@@ -176,6 +176,7 @@ export interface Translations {
     heroTagline2: string;
     heroCtaCreate: string;
     heroCtaCases: string;
+    heroEngines: string;
     featureTitle: string;
     featureSubtitle: string;
     agentsTitle: string;
@@ -405,8 +406,9 @@ const zhCN: Translations = {
     usePrompt: '用这个创作',
   },
   home: {
-    heroTagline1: '/ 情绪渲染专家 · 史诗收束',
-    heroTagline2: '从静立蓄势，到壮阔全景 — 一支 AI 团队，三段式升格把故事搬上银幕',
+    heroTagline1: '/ AI 短剧制作台 · 不止生成',
+    heroTagline2: '节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把「能出片」变成「能交付」',
+    heroEngines: '生成层 · 接入当下最强引擎(BYO Key)',
     heroCtaCreate: '开始创作 →',
     heroCtaCases: '查看作品',
     featureTitle: '像导演一样掌控节奏',
@@ -659,8 +661,9 @@ const en: Translations = {
     usePrompt: 'Use This',
   },
   home: {
-    heroTagline1: '/ Emotion-rendering specialists · Epic finales',
-    heroTagline2: 'From a poised stillness to a sweeping panorama — one AI team brings your story to the screen in three escalating beats.',
+    heroTagline1: '/ The AI short-drama production console — beyond generation',
+    heroTagline2: 'Pacing audits · quality gates · character-lock consistency · AAF/EDL into your NLE · team workflow — turning "it generates" into "it ships".',
+    heroEngines: 'Generation layer · plug in today\'s strongest engines (BYO key)',
     heroCtaCreate: 'Start Creating →',
     heroCtaCases: 'View Work',
     featureTitle: 'Direct the pacing like a filmmaker',
@@ -887,8 +890,9 @@ const zhTW: Translations = {
     usePrompt: '用這個創作',
   },
   home: {
-    heroTagline1: '/ 情緒渲染專家 · 史詩收束',
-    heroTagline2: '從靜立蓄勢，到壯闊全景 — 一支 AI 團隊，三段式升格把故事搬上銀幕',
+    heroTagline1: '/ AI 短劇製作台 · 不止生成',
+    heroTagline2: '節奏審計 · 品質門禁 · 角色鎖臉一致性 · AAF/EDL 進剪輯線 · 團隊協作 — 把「能出片」變成「能交付」',
+    heroEngines: '生成層 · 接入當下最強引擎(BYO Key)',
     heroCtaCreate: '開始創作 →',
     heroCtaCases: '查看作品',
     featureTitle: '像導演一樣掌控節奏',
@@ -1115,8 +1119,9 @@ const ja: Translations = {
     usePrompt: 'これで作成',
   },
   home: {
-    heroTagline1: '/ 感情表現のスペシャリスト · 壮大なフィナーレ',
-    heroTagline2: '静かな構えから壮大なパノラマへ — 一つのAIチームが、三段階の高まりで物語をスクリーンへ。',
+    heroTagline1: '/ AIショートドラマ制作コンソール — 生成のその先へ',
+    heroTagline2: 'テンポ監査 · 品質ゲート · キャラ顔ロック一貫性 · AAF/EDLでNLEへ · チーム協業 — 「作れる」を「納品できる」に。',
+    heroEngines: '生成レイヤー · 最強エンジンを接続(BYOキー)',
     heroCtaCreate: '作成を始める →',
     heroCtaCases: '作品を見る',
     featureTitle: '映画監督のようにテンポを操る',
