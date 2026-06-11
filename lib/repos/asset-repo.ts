@@ -163,6 +163,23 @@ export async function deleteAssetsByType(projectId: string, type: string): Promi
   return r.changes;
 }
 
+/** v10.6.1: 按镜号置 stale —— 台账条目(服装/场景/道具)描述变更后,只失效受影响镜头. */
+export async function setAssetsStaleByShots(
+  projectId: string,
+  types: string[],
+  shotNumbers: number[],
+  stale: boolean,
+): Promise<number> {
+  if (types.length === 0 || shotNumbers.length === 0) return 0;
+  const tph = types.map(() => '?').join(', ');
+  const sph = shotNumbers.map(() => '?').join(', ');
+  const r = await getDbDriver().run(
+    `UPDATE project_assets SET stale = ? WHERE project_id = ? AND type IN (${tph}) AND shot_number IN (${sph})`,
+    [stale ? 1 : 0, projectId, ...types, ...shotNumbers],
+  );
+  return r.changes;
+}
+
 /** v9.0.1: 批量置 stale (rerun: 选中重跑环节的下游失效). */
 export async function setAssetsStaleByTypes(projectId: string, types: string[], stale: boolean): Promise<number> {
   if (types.length === 0) return 0;

@@ -32,6 +32,7 @@ import { InviteProjectButton } from '@/components/project/invite-project-button'
 import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
+import { AssetLedgerPanel } from '@/components/project/asset-ledger-panel';
 import { ProjectFormatBar } from '@/components/project/project-format-bar';
 import { EmotionRhythmChart } from '@/components/project/emotion-rhythm-chart';
 import { computeEmotionCurve } from '@/lib/emotion-curve';
@@ -661,13 +662,17 @@ export default function ProjectDetailPage() {
 
           {/* v7.3 连贯性 + 种子锁控制台 */}
           {activeTab === 'continuity' && (
-            <ContinuityConsole
-              projectId={id}
-              characters={characters}
-              scenes={scenes}
-              storyboards={storyboards}
-              initialSettings={assets.find((a: any) => a.type === 'continuity')?.data}
-            />
+            <>
+              <ContinuityConsole
+                projectId={id}
+                characters={characters}
+                scenes={scenes}
+                storyboards={storyboards}
+                initialSettings={assets.find((a: any) => a.type === 'continuity')?.data}
+              />
+              {/* v10.6.1: 资产级连续性台账 — 服装/场景/道具 × 引用镜号,改描述列受影响镜头 */}
+              <AssetLedgerPanel projectId={id} />
+            </>
           )}
 
           {/* 视频 */}
