@@ -325,6 +325,19 @@ CREATE TABLE IF NOT EXISTS ui_events (
 );
 CREATE INDEX IF NOT EXISTS idx_ui_events_event ON ui_events(event, created_at);
 
+-- v11.0.3: 任务进度事件 append-only 表 —— 取代 pipeline_jobs.progress_log 的
+-- 读改写(非原子,多副本/PG 下有 lost update;部署文档限位 #2)。INSERT 天然原子。
+-- 排序 (at, ord):job 同一时刻只被一个 worker 认领,进程内 ord 单调递增即可全序。
+CREATE TABLE IF NOT EXISTS pipeline_job_events (
+  id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL,
+  ord INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  data TEXT NOT NULL DEFAULT '{}',
+  at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pje_job ON pipeline_job_events(job_id, at, ord);
+
 -- v10.6.3: 模型雷达 — 扫描后采用的模型覆盖(env_key 如 OPENAI_CREATIVE_MODEL)
 CREATE TABLE IF NOT EXISTS model_overrides (
   env_key TEXT PRIMARY KEY,

@@ -27,7 +27,7 @@ function PresetRow({ icon: Icon, title, list, value, onPick }: {
       <div className="flex flex-wrap gap-1.5">
         {list.map((p) => (
           <button key={p.id} onClick={() => onPick(p.id)} title={p.ref}
-            className={`text-left px-2 py-1 rounded-md border transition ${value === p.id ? 'border-[var(--primary)] bg-[var(--primary-muted)]' : 'border-[var(--border)] hover:border-[var(--border-hover)]'}`}>
+            className={`text-left px-2 py-1 rounded-md border transition ${value === p.id ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] hover:border-[var(--cinema-border-hi)]'}`}>
             <span className="block text-[11px] leading-tight">{p.label}</span>
             <span className="block cinema-mono text-[9px] opacity-50">{p.ref}</span>
           </button>
@@ -75,7 +75,7 @@ export default function MasterPromptPage() {
   return (
     <div className="cinema-page min-h-screen px-5 py-5 max-w-[1480px] mx-auto">
       <header className="mb-4">
-        <div className="cinema-headline !text-xl flex items-center gap-2"><Wand2 size={20} className="text-[var(--primary)]" /> 顶级创意生成器</div>
+        <div className="cinema-headline !text-xl flex items-center gap-2"><Wand2 size={20} className="text-[var(--cinema-amber)]" /> 顶级创意生成器</div>
         <div className="cinema-eyebrow !mt-1">MASTER PROMPT GENERATOR · 结构化导演级提示词</div>
       </header>
 
@@ -113,13 +113,13 @@ export default function MasterPromptPage() {
         <div className="flex flex-col gap-4">
           <div className="cinema-card !p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="cinema-eyebrow flex items-center gap-1.5"><Clapperboard size={13} className="text-[var(--primary)]" /> {refined ? '优化后 Prompt' : 'Master Prompt'}</span>
+              <span className="cinema-eyebrow flex items-center gap-1.5"><Clapperboard size={13} className="text-[var(--cinema-amber)]" /> {refined ? '优化后 Prompt' : 'Master Prompt'}</span>
               <span className="cinema-mono text-[10px] opacity-60">{describeMasterPrompt(spec)}</span>
             </div>
-            <pre className="cinema-mono text-[10px] leading-relaxed text-[var(--accent-green)] bg-[var(--surface)] rounded-md p-3 max-h-[360px] overflow-auto custom-scrollbar whitespace-pre-wrap">{shown}</pre>
+            <pre className="cinema-mono text-[10px] leading-relaxed text-[var(--cinema-green)] bg-[var(--cinema-surface)] rounded-md p-3 max-h-[360px] overflow-auto custom-scrollbar whitespace-pre-wrap">{shown}</pre>
             {err && <p className="text-[var(--secondary)] text-xs mt-1.5">{err}</p>}
             <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <button onClick={copy} className="cinema-btn-ghost !text-[11px]">{copied ? <Check size={13} className="text-[var(--accent-green)]" /> : <Copy size={13} />} 复制</button>
+              <button onClick={copy} className="cinema-btn-ghost !text-[11px]">{copied ? <Check size={13} className="text-[var(--cinema-green)]" /> : <Copy size={13} />} 复制</button>
               <button onClick={refine} disabled={refining} className="cinema-btn-ghost !text-[11px] disabled:opacity-50">{refining ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} 优化 Prompt</button>
               {refined && <button onClick={() => setRefined(null)} className="cinema-btn-ghost !text-[11px]">还原</button>}
               <button onClick={sendToCreate} className="cinema-btn-primary !text-[11px] ml-auto"><Sparkles size={13} /> 用此创作 <span className="cinema-cta-island"><ArrowRight size={12} /></span></button>
@@ -132,7 +132,7 @@ export default function MasterPromptPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
               {GLOSSARY.map((g) => (
                 <div key={g.term} className="text-[11px] leading-snug">
-                  <span className="cinema-mono text-[var(--primary)]">{g.term}</span>
+                  <span className="cinema-mono text-[var(--cinema-amber)]">{g.term}</span>
                   {g.en && <span className="cinema-mono text-[9px] opacity-50"> {g.en}</span>}
                   <span className="opacity-80"> — {g.def}</span>
                 </div>

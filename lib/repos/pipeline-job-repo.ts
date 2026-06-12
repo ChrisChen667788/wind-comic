@@ -107,20 +107,39 @@ export async function setJobStep(id: string, step: string): Promise<void> {
   await getDbDriver().run('UPDATE pipeline_jobs SET step = ?, updated_at = ? WHERE id = ?', [String(step).slice(0, 60), nowIso(), id]);
 }
 
-/** 追加进度事件(读改写;调用方负责串行 —— worker 用 promise 链保证)。 */
+// v11.0.3: 进程内事件序号 —— job 同一时刻只被一个 worker 认领(claim 乐观锁),
+// 故 (at, ord) 在该 job 的事件流上是全序;跨进程接力(requeue 后换 worker)由 at 区分。
+let eventOrd = 0;
+
+/**
+ * 追加进度事件 —— v11.0.3 改 append-only INSERT(pipeline_job_events 表)。
+ * 旧实现是 progress_log 列的 SELECT→parse→push→UPDATE 读改写:多副本/PG 下
+ * 有 lost update,且 JSON 越长写放大越狠(O(n²),部署文档限位 #2)。
+ * INSERT 天然原子,无需调用方串行(worker 的 promise 链仅保「落库完再标完成」)。
+ */
 export async function appendJobProgress(id: string, ev: { type: string; data: unknown }): Promise<void> {
-  const drv = getDbDriver();
-  const r = await drv.get<any>('SELECT progress_log FROM pipeline_jobs WHERE id = ?', [id]);
-  if (!r) return;
-  let log: ProgressEvent[] = [];
-  try { log = r.progress_log ? JSON.parse(r.progress_log) : []; } catch { /* ignore */ }
-  log.push({ type: ev.type, data: ev.data, at: nowIso() });
-  if (log.length > MAX_LOG) log = log.slice(log.length - MAX_LOG);
-  await drv.run('UPDATE pipeline_jobs SET progress_log = ?, updated_at = ? WHERE id = ?', [JSON.stringify(log), nowIso(), id]);
+  await getDbDriver().run(
+    `INSERT INTO pipeline_job_events (id, job_id, ord, type, data, at) VALUES (?, ?, ?, ?, ?, ?)`,
+    ['pje_' + nanoid(10), id, ++eventOrd, ev.type, JSON.stringify(ev.data ?? {}), nowIso()],
+  );
 }
 
+/** 回放(最近 MAX_LOG 条,升序)。空结果回退旧 progress_log 列(历史任务兼容)。 */
 export async function getJobProgressLog(id: string): Promise<ProgressEvent[]> {
-  const r = await getDbDriver().get<any>('SELECT progress_log FROM pipeline_jobs WHERE id = ?', [id]);
+  const drv = getDbDriver();
+  const rows = await drv.query<any>(
+    `SELECT type, data, at FROM pipeline_job_events WHERE job_id = ? ORDER BY at DESC, ord DESC LIMIT ${MAX_LOG}`,
+    [id],
+  );
+  if (rows.length > 0) {
+    return rows.reverse().map((r) => {
+      let data: unknown = {};
+      try { data = r.data ? JSON.parse(r.data) : {}; } catch { /* ignore */ }
+      return { type: r.type, data, at: r.at };
+    });
+  }
+  // 历史任务:v11.0.3 之前的进度存 progress_log 列
+  const r = await drv.get<any>('SELECT progress_log FROM pipeline_jobs WHERE id = ?', [id]);
   if (!r) return [];
   try { return r.progress_log ? JSON.parse(r.progress_log) : []; } catch { return []; }
 }
@@ -194,6 +213,11 @@ export async function recoverOrphanJobs(staleMs: number = ORPHAN_STALE_MS): Prom
     `UPDATE pipeline_jobs SET state = 'failed', last_error = '过期未执行(超 24h)', updated_at = ?
      WHERE state IN ('queued','running') AND created_at < ?`,
     [t, cutoff24h],
+  );
+  // v11.0.3: 顺带清超 24h 任务的进度事件(回放窗口已过,防表无限增长)
+  await drv.run(
+    `DELETE FROM pipeline_job_events WHERE job_id IN (SELECT id FROM pipeline_jobs WHERE created_at < ?)`,
+    [cutoff24h],
   );
   const staleCutoff = new Date(Date.now() - staleMs).toISOString();
   const req = await drv.run(

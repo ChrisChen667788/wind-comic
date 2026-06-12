@@ -58,6 +58,24 @@ describe('v10.4.1 · enqueue / get / claim 状态机', () => {
 });
 
 describe('v10.4.1 · 进度 / 阶段 / 心跳', () => {
+  it('v11.0.3:并发追加零丢失(append-only INSERT,旧读改写会丢)', async () => {
+    const job = await enqueuePipelineJob({ type: 'create', projectId: 'p-conc', payload: {} });
+    await Promise.all(Array.from({ length: 25 }, (_, i) =>
+      appendJobProgress(job.id, { type: 'status', data: { i } })));
+    const log = await getJobProgressLog(job.id);
+    expect(log.length).toBe(25); // 读改写实现下并发会 lost update
+    expect(new Set(log.map((e: any) => e.data.i)).size).toBe(25);
+  });
+
+  it('v11.0.3:历史任务回退旧 progress_log 列', async () => {
+    const job = await enqueuePipelineJob({ type: 'create', projectId: 'p-legacy', payload: {} });
+    db.prepare('UPDATE pipeline_jobs SET progress_log = ? WHERE id = ?')
+      .run(JSON.stringify([{ type: 'plan', data: { ok: 1 }, at: '2026-01-01T00:00:00.000Z' }]), job.id);
+    const log = await getJobProgressLog(job.id);
+    expect(log.length).toBe(1);
+    expect(log[0].type).toBe('plan');
+  });
+
   it('appendJobProgress 顺序累积,getJobProgressLog 回放', async () => {
     const job = await enqueuePipelineJob({ type: 'create', projectId: 'p2', payload: {} });
     await appendJobProgress(job.id, { type: 'status', data: { message: 'A' } });

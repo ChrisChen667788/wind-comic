@@ -35,8 +35,8 @@ PIPELINE_QUEUE=1                 # 任务队列(断线续跑/kill -9 恢复)
 **1. ~~recoverJobsAtBoot 多副本竞争~~（✅ v11.0.1 已修）**
 v11.0.1 起孤儿判定改为**心跳超时**(`recoverOrphanJobs`,`lib/repos/pipeline-job-repo.ts`):running 任务每 15s 心跳,超 90s 未达才回收(开机 + 运行期每 30s 扫描共用同一函数);心跳新鲜的 running 不再被动 —— 多副本同时启动不会互踢双跑。残余假设:各副本 NTP 对时(时间戳跨副本比较,偏差需 ≪ 90s)。
 
-**2. appendJobProgress 读改写非原子（中等风险）**
-`appendJobProgress()` 是 SELECT progress_log → parse → push → UPDATE 的非事务操作（`lib/repos/pipeline-job-repo.ts:111-119`）。Worker 代码用 promise 链串行化保证同一 job 内顺序，但 SQLite 驱动下多进程并发写同一行仍可能竞争。PG 驱动下并发写同一行不加锁也有 lost update 风险。
+**2. ~~appendJobProgress 读改写非原子~~（✅ v11.0.3 已修）**
+v11.0.3 起进度事件改 **append-only INSERT**(`pipeline_job_events` 表):天然原子,多副本/PG 下无 lost update,也消除了 JSON 越长写放大越狠的 O(n²)。回放按 `(at, ord)` 升序取最近 400 条;历史任务自动回退旧 `progress_log` 列;超 24h 任务的事件随过期清扫一并删除。
 
 **3. `lib/db.ts` 直接 import 绕过 DbDriver 抽象**
 `app/api/projects/[id]/export/route.ts:2` 仍直接 `import { db } from '@/lib/db'`（raw better-sqlite3），切 `DB_DRIVER=pg` 时此路径仍走 SQLite。需检查所有直接 import `@/lib/db` 的 API 路由是否已完全迁移到 repo 层。
