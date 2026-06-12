@@ -106,7 +106,7 @@ export default function ProjectsPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3].map(i => (
-            <div key={i} className="project-card animate-shimmer">
+            <div key={i} className="cinema-card animate-shimmer">
               <div className="h-[160px] bg-[var(--surface)]" />
               <div className="p-4 space-y-3">
                 <div className="h-4 bg-[var(--surface)] rounded w-2/3" />
@@ -147,7 +147,7 @@ export default function ProjectsPage() {
               <Link
                 key={p.id}
                 href={`/projects/${p.id}`}
-                className="project-card animate-fade-up group"
+                className="cinema-card animate-fade-up group"
                 style={{ animationDelay: `${0.1 + i * 0.05}s` }}
               >
                 {/* Cover */}

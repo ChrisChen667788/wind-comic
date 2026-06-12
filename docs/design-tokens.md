@@ -10,7 +10,13 @@
 - ✅ P1 `app/cameo-market/page.tsx` — 根容器补 `cinema-page`
 - ✅ P1 `app/workflow-studio/page.tsx` — 根容器补 `cinema-page`
 
-**P2/P3(语义越界、渲染正常)**:留作后续批量替换,见下文处置表;豁免项附原因。
+**v11.0.2 已修(P2 批量替换)**:
+- ✅ P2 #1 `app/projects/[id]/page.tsx` — 9 处 Default token → cinema 等效值
+- ✅ P2 #2 `components/project/distribution-panel.tsx` — 7 处
+- ✅ P2 #4 `app/dashboard/projects/page.tsx` — `project-card` ×2 → `cinema-card`
+- ✅ P2 #6 `app/dashboard/short-video/page.tsx` — 47 处(--primary/--border/--muted/--surface/--accent-green 全清)
+
+**P3(轻微,渲染正常)**:#3 create 页子组件、#5 master-prompt 图标色 —— 留作后续;豁免项附原因。
 
 ---
 

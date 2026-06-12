@@ -71,13 +71,13 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
     <div className="flex flex-col gap-4">
       {/* 平台选择 + 生成 */}
       <div className="cinema-card !p-4">
-        <div className="cinema-eyebrow mb-3 flex items-center gap-1.5"><Megaphone size={13} className="text-[var(--primary)]" /> 多平台分发 · DISTRIBUTION</div>
+        <div className="cinema-eyebrow mb-3 flex items-center gap-1.5"><Megaphone size={13} className="text-[var(--cinema-amber)]" /> 多平台分发 · DISTRIBUTION</div>
         <div className="flex flex-wrap gap-2 mb-3">
           {PLATFORM_SPECS.map((s) => {
             const on = selected.includes(s.id);
             return (
               <button key={s.id} onClick={() => toggle(s.id)}
-                className={`px-3 py-1.5 rounded-full border text-[12px] transition ${on ? 'border-[var(--primary)] bg-[var(--primary-muted)] text-[var(--primary)]' : 'border-[var(--border)] opacity-70 hover:opacity-100'}`}>
+                className={`px-3 py-1.5 rounded-full border text-[12px] transition ${on ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)] text-[var(--cinema-amber)]' : 'border-[var(--cinema-border)] opacity-70 hover:opacity-100'}`}>
                 {s.label}
               </button>
             );
@@ -114,11 +114,11 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
 
 function PlatformCard({ p, copiedKey, onCopy }: { p: PlatformPack; copiedKey: string; onCopy: (t: string, k: string) => void }) {
   const Row = ({ k, label, value }: { k: string; label: string; value: string }) => (
-    <div className="flex items-start gap-2 py-1.5 border-b border-[var(--border)] last:border-0">
+    <div className="flex items-start gap-2 py-1.5 border-b border-[var(--cinema-border)] last:border-0">
       <span className="cinema-mono text-[9px] opacity-50 w-10 shrink-0 pt-0.5">{label}</span>
       <span className="text-[12px] flex-1 leading-relaxed">{value}</span>
       <button onClick={() => onCopy(value, k)} className="opacity-50 hover:opacity-100 shrink-0" title="复制">
-        {copiedKey === k ? <Check size={12} className="text-[var(--accent-green)]" /> : <Copy size={12} />}
+        {copiedKey === k ? <Check size={12} className="text-[var(--cinema-green)]" /> : <Copy size={12} />}
       </button>
     </div>
   );

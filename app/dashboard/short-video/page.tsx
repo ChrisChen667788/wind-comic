@@ -151,7 +151,7 @@ export default function ShortVideoStudioPage() {
               <Zap size={18} className="text-black" />
             </div>
             <div>
-              <div className="cinema-headline !text-lg leading-none">极速分镜台 <span className="cinema-mono text-[var(--primary)]">15s</span></div>
+              <div className="cinema-headline !text-lg leading-none">极速分镜台 <span className="cinema-mono text-[var(--cinema-amber)]">15s</span></div>
               <div className="cinema-eyebrow !mt-0.5">CINESPARK · 三幕极速短视频</div>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function ShortVideoStudioPage() {
             <div className="flex gap-1">
               {SHORT_DURATIONS.map((d) => (
                 <button key={d} onClick={() => setDurationS(d)}
-                  className={`cinema-mono text-xs px-2.5 py-1.5 rounded-md border transition ${durationS === d ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary-muted)]' : 'border-[var(--border)] text-[var(--muted)] hover:border-[var(--border-hover)]'}`}>
+                  className={`cinema-mono text-xs px-2.5 py-1.5 rounded-md border transition ${durationS === d ? 'border-[var(--cinema-amber)] text-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)] hover:border-[var(--cinema-border-hi)]'}`}>
                   {d}s
                 </button>
               ))}
@@ -187,8 +187,8 @@ export default function ShortVideoStudioPage() {
             const Icon = t.id === 'suspense' ? Flame : t.id === 'blockbuster' ? Film : Sparkles;
             return (
               <button key={t.id} onClick={() => setRhythmId(t.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left transition ${active ? 'border-[var(--primary)] bg-[var(--primary-muted)]' : 'border-[var(--border)] hover:border-[var(--border-hover)]'}`}>
-                <Icon size={15} className={active ? 'text-[var(--primary)]' : 'text-[var(--muted)]'} />
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left transition ${active ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] hover:border-[var(--cinema-border-hi)]'}`}>
+                <Icon size={15} className={active ? 'text-[var(--cinema-amber)]' : 'text-[var(--cinema-text-3)]'} />
                 <span className="leading-tight">
                   <span className="block text-xs font-semibold">{t.label}</span>
                   <span className="block cinema-mono text-[10px] opacity-60">{t.desc}</span>
@@ -224,7 +224,7 @@ export default function ShortVideoStudioPage() {
                       onClick={() => { const tgt = plan?.shots.find((s) => s.phase === phase); if (tgt) patchShot(tgt.index, { cameraMoveId: m.id }); }}
                       disabled={!plan}
                       title={plan ? `应用到 ${PHASE_TAG[phase]} 镜` : '先生成分镜计划'}
-                      className={`text-left px-2 py-1 rounded-md border text-[11px] transition disabled:opacity-40 ${usedBy ? 'border-[var(--primary)] bg-[var(--primary-muted)]' : 'border-[var(--border)] hover:border-[var(--border-hover)]'}`}>
+                      className={`text-left px-2 py-1 rounded-md border text-[11px] transition disabled:opacity-40 ${usedBy ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] hover:border-[var(--cinema-border-hi)]'}`}>
                       <span className="block leading-tight">{m.labelZh}</span>
                       <span className="block cinema-mono text-[9px] opacity-50">{m.label}</span>
                     </button>
@@ -240,7 +240,7 @@ export default function ShortVideoStudioPage() {
           {!plan && !loading && (
             <div className="cinema-card grid place-items-center text-center py-20">
               <div>
-                <Clapperboard size={40} className="mx-auto text-[var(--muted)] mb-3" />
+                <Clapperboard size={40} className="mx-auto text-[var(--cinema-text-3)] mb-3" />
                 <div className="cinema-subhead">输入创意,一键生成三幕分镜</div>
                 <div className="cinema-mono text-[11px] opacity-50 mt-1">HOOK 钩子 · BODY 核心 · CLIMAX 高潮</div>
               </div>
@@ -248,7 +248,7 @@ export default function ShortVideoStudioPage() {
           )}
           {loading && (
             <div className="cinema-card grid place-items-center py-20">
-              <Loader2 size={28} className="animate-spin text-[var(--primary)]" />
+              <Loader2 size={28} className="animate-spin text-[var(--cinema-amber)]" />
             </div>
           )}
 
@@ -258,7 +258,7 @@ export default function ShortVideoStudioPage() {
               <div className="cinema-card !p-3 mb-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="cinema-eyebrow">{plan.durationS}s 时间轴分镜</span>
-                  <span className="cinema-mono text-[11px] text-[var(--primary)]">{plan.title}</span>
+                  <span className="cinema-mono text-[11px] text-[var(--cinema-amber)]">{plan.title}</span>
                 </div>
                 <div className="flex gap-0.5 h-9 rounded-md overflow-hidden">
                   {plan.acts.map((a) => (
@@ -289,7 +289,7 @@ export default function ShortVideoStudioPage() {
                             <div className="flex gap-0.5">
                               {SHOT_SIZES.map((sz) => (
                                 <button key={sz} onClick={() => patchShot(s.index, { shotSize: sz })}
-                                  className={`cinema-mono text-[10px] px-1.5 py-0.5 rounded border transition ${s.shotSize === sz ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary-muted)]' : 'border-[var(--border)] text-[var(--muted)] hover:border-[var(--border-hover)]'}`}
+                                  className={`cinema-mono text-[10px] px-1.5 py-0.5 rounded border transition ${s.shotSize === sz ? 'border-[var(--cinema-amber)] text-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)] hover:border-[var(--cinema-border-hi)]'}`}
                                   title={SHOT_SIZE_LABEL_ZH[sz]}>{sz}</button>
                               ))}
                             </div>
@@ -306,15 +306,15 @@ export default function ShortVideoStudioPage() {
 
                           {/* 行 3:AI prompt + 操作 */}
                           <div className="flex gap-2">
-                            <code className="flex-1 block cinema-mono text-[10px] leading-relaxed text-[var(--accent-green)] bg-[var(--surface)] rounded-md p-2 max-h-20 overflow-auto custom-scrollbar">{s.aiPrompt}</code>
-                            {pv?.url && <img loading="lazy" decoding="async" src={pv.url} alt="" className="w-16 h-28 object-cover rounded-md border border-[var(--border)]" />}
+                            <code className="flex-1 block cinema-mono text-[10px] leading-relaxed text-[var(--cinema-green)] bg-[var(--cinema-surface)] rounded-md p-2 max-h-20 overflow-auto custom-scrollbar">{s.aiPrompt}</code>
+                            {pv?.url && <img loading="lazy" decoding="async" src={pv.url} alt="" className="w-16 h-28 object-cover rounded-md border border-[var(--cinema-border)]" />}
                           </div>
                           <div className="flex items-center gap-2 mt-2">
                             <button onClick={() => previewShot(s)} disabled={pv?.loading} className="cinema-btn-ghost !text-[11px] !py-1">
                               {pv?.loading ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} 预览
                             </button>
                             <button onClick={() => copyPrompt(s)} className="cinema-btn-ghost !text-[11px] !py-1">
-                              {copied === s.index ? <Check size={12} className="text-[var(--accent-green)]" /> : <Copy size={12} />} 复制 Prompt
+                              {copied === s.index ? <Check size={12} className="text-[var(--cinema-green)]" /> : <Copy size={12} />} 复制 Prompt
                             </button>
                             {pv?.err && <span className="text-[10px] text-[var(--secondary)]">{pv.err}</span>}
                           </div>
@@ -337,13 +337,13 @@ export default function ShortVideoStudioPage() {
               {/* 运动控制 */}
               <div>
                 <div className="text-[11px] font-semibold mb-1.5">运动控制</div>
-                <label className="cinema-mono text-[10px] opacity-60 flex justify-between">Motion Intensity <span className="text-[var(--primary)]">{plan.params.motionIntensity}%</span></label>
+                <label className="cinema-mono text-[10px] opacity-60 flex justify-between">Motion Intensity <span className="text-[var(--cinema-amber)]">{plan.params.motionIntensity}%</span></label>
                 <input type="range" min={0} max={100} value={plan.params.motionIntensity}
-                  onChange={(e) => patchParams({ motionIntensity: Number(e.target.value) })} className="w-full accent-[var(--primary)]" />
+                  onChange={(e) => patchParams({ motionIntensity: Number(e.target.value) })} className="w-full accent-[var(--cinema-amber)]" />
                 <div className="flex gap-1 mt-1.5">
                   {(['slow', 'normal', 'fast'] as CameraSpeed[]).map((sp) => (
                     <button key={sp} onClick={() => patchParams({ cameraSpeed: sp })}
-                      className={`flex-1 text-[10px] py-1 rounded border transition ${plan.params.cameraSpeed === sp ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary-muted)]' : 'border-[var(--border)] text-[var(--muted)]'}`}>
+                      className={`flex-1 text-[10px] py-1 rounded border transition ${plan.params.cameraSpeed === sp ? 'border-[var(--cinema-amber)] text-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>
                       {sp === 'slow' ? '慢' : sp === 'normal' ? '正常' : '快'}
                     </button>
                   ))}
@@ -356,7 +356,7 @@ export default function ShortVideoStudioPage() {
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="cinema-mono text-[10px] opacity-60">插帧 Interpolation</span>
                   <button onClick={() => patchParams({ interpolation: !plan.params.interpolation })}
-                    className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${plan.params.interpolation ? 'border-[var(--accent-green)] text-[var(--accent-green)]' : 'border-[var(--border)] text-[var(--muted)]'}`}>
+                    className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${plan.params.interpolation ? 'border-[var(--cinema-green)] text-[var(--cinema-green)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>
                     {plan.params.interpolation ? 'ON' : 'OFF'}
                   </button>
                 </div>
@@ -365,7 +365,7 @@ export default function ShortVideoStudioPage() {
                   <div className="flex gap-1">
                     {([1, 2, 4] as UpscaleFactor[]).map((u) => (
                       <button key={u} onClick={() => patchParams({ upscale: u })}
-                        className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${plan.params.upscale === u ? 'border-[var(--primary)] text-[var(--primary)] bg-[var(--primary-muted)]' : 'border-[var(--border)] text-[var(--muted)]'}`}>{u}x</button>
+                        className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${plan.params.upscale === u ? 'border-[var(--cinema-amber)] text-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>{u}x</button>
                     ))}
                   </div>
                 </div>
@@ -434,7 +434,7 @@ function RhythmDonut({ acts }: { acts: ShortVideoPlan['acts'] }) {
   let acc = 0;
   return (
     <svg width="56" height="56" viewBox="0 0 56 56" className="-rotate-90">
-      <circle cx="28" cy="28" r={r} fill="none" stroke="var(--border)" strokeWidth="7" />
+      <circle cx="28" cy="28" r={r} fill="none" stroke="var(--cinema-border)" strokeWidth="7" />
       {acts.map((a) => {
         const len = (a.pct / 100) * c;
         const seg = <circle key={a.phase} cx="28" cy="28" r={r} fill="none" stroke={PHASE_COLOR[a.phase]} strokeWidth="7"

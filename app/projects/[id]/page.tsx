@@ -194,13 +194,13 @@ export default function ProjectDetailPage() {
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E8C547] to-[#D4A830] grid place-items-center animate-pulse">
           <Film className="w-5 h-5 text-white" />
         </div>
-        <div className="text-sm text-[var(--muted)]">加载项目中...</div>
+        <div className="text-sm text-[var(--cinema-text-3)]">加载项目中...</div>
       </div>
     </div>
   );
   if (!project) return (
     <div className="min-h-screen bg-[var(--background)] text-white grid place-items-center">
-      <div className="text-[var(--muted)]">项目不存在</div>
+      <div className="text-[var(--cinema-text-3)]">项目不存在</div>
     </div>
   );
 
@@ -314,13 +314,13 @@ export default function ProjectDetailPage() {
             </div>
             <h1 className="cinema-headline text-3xl sm:text-4xl leading-[1.1] tracking-tight">{project.title}</h1>
             {script?.synopsis && (
-              <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed max-w-2xl">{script.synopsis}</p>
+              <p className="mt-3 text-sm text-[var(--cinema-text-3)] leading-relaxed max-w-2xl">{script.synopsis}</p>
             )}
             {script?.theme && (
-              <p className="mt-2 text-xs text-[var(--primary)]">主题 · {script.theme}</p>
+              <p className="mt-2 text-xs text-[var(--cinema-amber)]">主题 · {script.theme}</p>
             )}
           </div>
-          <dl className="lg:border-l lg:border-[var(--border)] lg:pl-8 grid grid-cols-2 lg:grid-cols-1 gap-x-8 gap-y-3 shrink-0">
+          <dl className="lg:border-l lg:border-[var(--cinema-border)] lg:pl-8 grid grid-cols-2 lg:grid-cols-1 gap-x-8 gap-y-3 shrink-0">
             {[
               { label: '镜头', value: String(script?.shots?.length ?? 0) },
               { label: '角色', value: String(Array.isArray(project.lockedCharacters) ? project.lockedCharacters.length : 0) },
@@ -643,9 +643,9 @@ export default function ProjectDetailPage() {
                             <button
                               onClick={() => setCinemaShot({ shotNumber: sb.shotNumber, title: sb.data?.description?.slice(0, 60), spec: curSpec, emotion: (script?.shots || [])[sb.shotNumber - 1]?.emotion })}
                               title="单镜头摄影台 — 景别/机位/镜头/运镜/焦点/氛围"
-                              className="mt-1.5 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--border)] hover:border-[var(--primary)] transition group/cine"
+                              className="mt-1.5 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--cinema-border)] hover:border-[var(--cinema-amber)] transition group/cine"
                             >
-                              <Clapperboard size={11} className={hasSaved ? 'text-[var(--primary)]' : 'text-[var(--muted)]'} />
+                              <Clapperboard size={11} className={hasSaved ? 'text-[var(--cinema-amber)]' : 'text-[var(--cinema-text-3)]'} />
                               <span className="cinema-mono text-[9px] truncate opacity-75 group-hover/cine:opacity-100">
                                 {describeShotSpec(curSpec)}
                               </span>
