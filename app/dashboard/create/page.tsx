@@ -515,6 +515,12 @@ export default function DashboardCreatePage() {
         break;
       }
 
+      // v10.6.2: 节奏/钩子审计(Writer 后首发,Editor BGM 析拍后回填重推)→ 并入 script 资产
+      case 'pacingAudit': {
+        const sa = s.assets.find(a => a.type === 'script');
+        if (sa) s.updateAsset(sa.id, { data: { ...sa.data, pacingReport: data } });
+        break;
+      }
       case 'editResult': {
         s.updateNodeData('node-editor', { status: 'completed', progress: 100, editResult: data } as any);
         refreshNodeAssets();

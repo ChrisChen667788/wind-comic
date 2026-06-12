@@ -20,6 +20,27 @@ interface ShotReport {
   warning: string | null;
 }
 
+interface HookMetric {
+  score: number;
+  reasons: string[];
+}
+
+interface BgmSyncMetric {
+  available: boolean;
+  rate: number | null;
+  alignedCuts: number;
+  totalCuts: number;
+  windowS: number;
+}
+
+// v10.6.2 — 钩子审计三指标(开场 3 秒 / 集尾悬念 / BGM 卡点)
+interface HookAuditShape {
+  openingHook: HookMetric;
+  cliffhanger: HookMetric;
+  bgmSync: BgmSyncMetric;
+  llmAssisted: boolean;
+}
+
 interface PacingReport {
   dramaMode: boolean;
   averageConflictScore: number;
@@ -29,6 +50,7 @@ interface PacingReport {
   shots: ShotReport[];
   warnings: string[];
   suggestions: string[];
+  hooks?: HookAuditShape;
 }
 
 // v2.24 A — Style audit per-shot data (from Storyboard.styleAuditScore etc)
@@ -143,6 +165,59 @@ export function PacingChart({ report, styleAuditShots, dialogueCoverage }: Pacin
           </div>
         </div>
       </div>
+
+      {/* v10.6.2 — 钩子审计三指标 */}
+      {report.hooks && (
+        <div className="cinema-card-hi p-4" data-testid="hook-audit">
+          <div className="flex items-center justify-between mb-3">
+            <div className="cinema-eyebrow">钩子审计</div>
+            <div className="cinema-mono text-[10px] opacity-50">
+              {report.hooks.llmAssisted ? '启发式 + LLM 复核' : '确定性启发式'}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <div className="cinema-mono text-[10px] opacity-60 mb-1">开场 3 秒钩子</div>
+              <div className="flex items-baseline gap-1">
+                <span className="cinema-headline text-xl" style={{ color: scoreColor(report.hooks.openingHook.score) }}>
+                  {report.hooks.openingHook.score}
+                </span>
+                <span className="cinema-mono text-[10px] opacity-50">/10</span>
+              </div>
+            </div>
+            <div>
+              <div className="cinema-mono text-[10px] opacity-60 mb-1">集尾悬念</div>
+              <div className="flex items-baseline gap-1">
+                <span className="cinema-headline text-xl" style={{ color: scoreColor(report.hooks.cliffhanger.score) }}>
+                  {report.hooks.cliffhanger.score}
+                </span>
+                <span className="cinema-mono text-[10px] opacity-50">/10</span>
+              </div>
+            </div>
+            <div>
+              <div className="cinema-mono text-[10px] opacity-60 mb-1">BGM 卡点对齐</div>
+              {report.hooks.bgmSync.available && report.hooks.bgmSync.rate !== null ? (
+                <div className="flex items-baseline gap-1">
+                  <span className="cinema-headline text-xl" style={{ color: scoreColor(report.hooks.bgmSync.rate * 10) }}>
+                    {Math.round(report.hooks.bgmSync.rate * 100)}%
+                  </span>
+                  <span className="cinema-mono text-[10px] opacity-50">
+                    {report.hooks.bgmSync.alignedCuts}/{report.hooks.bgmSync.totalCuts} 切点
+                  </span>
+                </div>
+              ) : (
+                <div className="cinema-mono text-[11px] opacity-50">未生成 BGM,暂不可测</div>
+              )}
+            </div>
+          </div>
+          <ul className="mt-3 space-y-0.5">
+            {[...report.hooks.openingHook.reasons.map((r) => `开场:${r}`),
+              ...report.hooks.cliffhanger.reasons.map((r) => `集尾:${r}`)].map((r, i) => (
+              <li key={i} className="cinema-mono text-[10px] opacity-50">· {r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* 每镜柱状条 + 反转箭头 */}
       <div className="cinema-card-hi p-4">

@@ -1923,6 +1923,14 @@ ${raw.slice(0, 2000)}
       const { isDramaContext } = await import('@/lib/drama-tropes');
       const dramaMode = isDramaContext(plan.genre, this.originalIdea);
       const report = auditScript(script, { dramaMode });
+      // v10.6.2: 钩子审计三指标 — 开场 3 秒 / 集尾悬念立即可算;
+      // BGM 卡点对齐率等 Editor 阶段真 BGM 落盘后回填。配 LLM key 时复核前两项。
+      try {
+        const { auditHooks, assistHookAuditWithLLM } = await import('@/lib/hook-audit');
+        report.hooks = await assistHookAuditWithLLM(script, auditHooks(script));
+      } catch (e) {
+        console.warn('[HookAudit] failed (non-blocking):', e instanceof Error ? e.message : e);
+      }
       // 挂到 script 上, 供前端 SSE + 项目页"节奏分析" tab 用
       (script as any).pacingReport = report;
       this.emit('pacingAudit', report);
@@ -4068,6 +4076,40 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
 
         console.log(`[Editor] Music generated: ${musicUrl.slice(0, 80)}...`);
         this.emit('agentTalk', { role: AgentRole.EDITOR, text: '🎵 配乐生成完成！' });
+
+        // v10.6.2: BGM 卡点对齐率 — 真 BGM 落盘后 ffmpeg 析拍,回填钩子审计并重推 SSE。
+        // 仅本地文件可析(serve-file 路径);远端 URL / 析不出拍 → 保持「不可测」诚实呈现。
+        try {
+          const bgmLocalPath = musicUrl.startsWith('/api/serve-file')
+            ? decodeURIComponent(new URL(musicUrl, 'http://local').searchParams.get('path') || '')
+            : '';
+          let pacingReport = (script as any).pacingReport;
+          if (!pacingReport?.hooks) {
+            // 续跑路径:checkpoint 里的 script 不含审计 → 现算补挂(确定性可重算),
+            // 同时让 finalize 落库的 script_data 重新带上节奏报告
+            const { auditScript } = await import('@/lib/pacing-audit');
+            const { auditHooks } = await import('@/lib/hook-audit');
+            const { isDramaContext } = await import('@/lib/drama-tropes');
+            pacingReport = pacingReport
+              ?? auditScript(script as any, { dramaMode: isDramaContext(this.genre || '', this.originalIdea) });
+            pacingReport.hooks = pacingReport.hooks ?? auditHooks(script as any);
+            (script as any).pacingReport = pacingReport;
+          }
+          if (bgmLocalPath && pacingReport?.hooks) {
+            const { detectBeats } = await import('@/lib/beat-detect');
+            const { beatAlignmentRate } = await import('@/lib/hook-audit');
+            const beats = await detectBeats(bgmLocalPath);
+            if (beats.length > 0) {
+              const durations = (timeline as any[]).map((t) => (Number(t.duration) > 0 ? Number(t.duration) : 5));
+              pacingReport.hooks.bgmSync = beatAlignmentRate(durations, beats);
+              this.emit('pacingAudit', pacingReport);
+              const pct = Math.round((pacingReport.hooks.bgmSync.rate ?? 0) * 100);
+              this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🥁 BGM 卡点对齐率 ${pct}%(${pacingReport.hooks.bgmSync.alignedCuts}/${pacingReport.hooks.bgmSync.totalCuts} 个切点踩拍)` });
+            }
+          }
+        } catch (e) {
+          console.warn('[Editor] BGM beat alignment failed (non-blocking):', e instanceof Error ? e.message : e);
+        }
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
         console.error('[Editor] Music generation failed:', errMsg);

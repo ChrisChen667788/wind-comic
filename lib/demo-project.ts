@@ -13,6 +13,8 @@
 import { getProject, insertProjectFull, updateProjectById } from './repos/project-repo';
 import { upsertAsset } from './repos/asset-repo';
 import { insertQualityScore } from './quality-scores';
+import { auditScript } from './pacing-audit';
+import { auditHooks } from './hook-audit';
 
 export const DEMO_PROJECT_ID = 'qfmj-demo-showcase';
 
@@ -132,6 +134,21 @@ export async function importDemoProject(userId: string): Promise<{ projectId: st
     theme: 'noir-mystery',
     shots: SHOTS.map(({ image, video, ...s }) => s),
   };
+  // v10.6.2: 对演示内容跑真节奏/钩子审计(demo 字段名 → ScriptShot 映射),
+  // 节奏分析 tab 含钩子审计三指标即开即见。BGM 卡点:demo 无真 BGM → 诚实标不可测。
+  const auditShots = SHOTS.map((s) => ({
+    shotNumber: s.shotNumber,
+    sceneDescription: s.description,
+    action: s.description,
+    emotion: '',
+    characters: [s.character],
+    dialogue: s.dialogue,
+    duration: s.duration,
+  }));
+  const demoScript = { title: TITLE, synopsis: IDEA, shots: auditShots } as any;
+  const pacingReport = auditScript(demoScript, { dramaMode: true });
+  pacingReport.hooks = auditHooks(demoScript);
+  (scriptData as any).pacingReport = pacingReport;
 
   if (!existing) {
     await insertProjectFull({

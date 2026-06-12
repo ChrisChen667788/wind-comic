@@ -15,6 +15,7 @@
  */
 
 import type { ScriptShot, Script } from '@/types/agents';
+import type { HookAuditResult } from './hook-audit';
 
 // ─── 词典 ────────────────────────────────────────────────────────────────────
 // 冲突词: 直接表征"事件发生"的动词 + 情绪词. 越多分越高.
@@ -137,6 +138,12 @@ export interface PacingAuditReport {
   shots: ShotReport[];
   warnings: string[];
   suggestions: string[];
+  /**
+   * v10.6.2 钩子审计三指标(开场 3 秒钩子分 / 集尾悬念分 / BGM 卡点对齐率)。
+   * 由 orchestrator 在 audit 后用 lib/hook-audit.auditHooks 填充;
+   * bgmSync 在 Editor 阶段真 BGM 落盘后回填(Writer 阶段标不可测)。
+   */
+  hooks?: HookAuditResult;
 }
 
 export interface AuditOptions {
