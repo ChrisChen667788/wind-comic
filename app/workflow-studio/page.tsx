@@ -130,7 +130,7 @@ export default function WorkflowStudioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--cinema-bg,#0a0a0f)] text-white p-6 max-w-6xl mx-auto">
+    <div className="cinema-page min-h-screen bg-[var(--cinema-bg,#0a0a0f)] text-white p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-white/60 hover:text-white text-sm"><ArrowLeft className="w-4 h-4" /> 返回</Link>
         <h1 className="inline-flex items-center gap-2 text-lg font-semibold"><Workflow className="w-5 h-5 text-indigo-400" /> Agent 编排工作室</h1>

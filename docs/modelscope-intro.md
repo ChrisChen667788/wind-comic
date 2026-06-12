@@ -209,7 +209,7 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🥊 vs. competitors
 
-| Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | Sora 2 | **Wind Comic** |
+| Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | HappyHorse-1.0 | **Wind Comic** |
 |---|---|---|---|---|---|---|
 | Multi-shot story from one prompt | ⚠️ | ✅ storyboard mode | ✅ multi-shot native | ⚠️ | ⚠️ (one clip) | **✅ 8-agent script→edit pipeline** |
 | Character consistency across shots | ✅ | ✅ | ✅ | ✅ reference | ✅ | **✅ cref + sref + 8-dim DNA + vision retry** |

@@ -203,7 +203,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 
 ## 🥊 跟竞品比
 
-| 能力 | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | Sora 2 | **Wind Comic** |
+| 能力 | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | HappyHorse-1.0 | **Wind Comic** |
 |---|---|---|---|---|---|---|
 | 一句 prompt 多镜叙事 | ⚠️ | ✅ 故事板模式 | ✅ 原生多镜 | ⚠️ | ⚠️ (单条片) | **✅ 8 智能体 编剧→剪辑 流水线** |
 | 跨镜角色一致性 | ✅ | ✅ | ✅ | ✅ 参考图 | ✅ | **✅ cref+sref+8 维 DNA+vision 重生** |

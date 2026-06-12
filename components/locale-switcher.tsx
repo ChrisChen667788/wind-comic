@@ -19,7 +19,7 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="cinema-btn !px-2.5 !py-1.5 !text-[11px] inline-flex items-center gap-1.5"
+        className="px-2.5 py-1.5 text-[11px] inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] text-[var(--muted)] hover:text-white hover:border-[var(--border-hover,var(--border))] transition-colors"
         title="切换语言 / Language"
       >
         <Globe className="w-3.5 h-3.5" />
@@ -29,7 +29,7 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
       {open && (
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} aria-hidden="true" />
-          <div className="absolute right-0 mt-1 w-32 z-30 cinema-card-hi p-1 shadow-xl">
+          <div className="absolute right-0 mt-1 w-32 z-30 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 shadow-xl">
             {LOCALES.map((l) => (
               <button
                 key={l}

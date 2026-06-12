@@ -69,7 +69,7 @@ export default function CameoMarketPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[var(--cinema-bg,#0a0a0f)] text-white p-6 max-w-6xl mx-auto">
+    <div className="cinema-page min-h-screen bg-[var(--cinema-bg,#0a0a0f)] text-white p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-white/60 hover:text-white text-sm">
           <ArrowLeft className="w-4 h-4" /> 返回

@@ -98,7 +98,7 @@ export default function UsagePage() {
   const maxDay = Math.max(1, ...daysArr.map((d) => d.costCny));
 
   return (
-    <div className="max-w-5xl mx-auto flex flex-col gap-5">
+    <div className="cinema-page max-w-5xl mx-auto flex flex-col gap-5">
       {/* header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
