@@ -75,7 +75,12 @@ function buildMockScript(shotCount: number) {
 }
 
 describe('HybridOrchestrator × XVerse', () => {
-  const originalXverse = { ...API_CONFIG.xverse };
+  // v10.6.3: model/fastModel 改为 getter(模型雷达免重启生效)→ 只快照/还原本测试实际改动的可写字段
+  const originalXverse = {
+    baseURL: API_CONFIG.xverse.baseURL,
+    enabled: API_CONFIG.xverse.enabled,
+    fallback: API_CONFIG.xverse.fallback,
+  };
 
   beforeEach(() => {
     API_CONFIG.xverse.baseURL = 'http://localhost:8000/v1';

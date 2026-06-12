@@ -324,6 +324,14 @@ CREATE TABLE IF NOT EXISTS ui_events (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ui_events_event ON ui_events(event, created_at);
+
+-- v10.6.3: 模型雷达 — 扫描后采用的模型覆盖(env_key 如 OPENAI_CREATIVE_MODEL)
+CREATE TABLE IF NOT EXISTS model_overrides (
+  env_key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  prev_value TEXT,
+  updated_at TEXT NOT NULL
+);
 `);
 
 // Safe ALTER TABLE — add columns if missing

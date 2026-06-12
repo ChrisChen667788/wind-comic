@@ -4,19 +4,20 @@ export const API_CONFIG = {
     apiKey: process.env.OPENAI_API_KEY || '',
     baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
     // v6.8: 通用 LLM (高频: 规划/校验/质检) —— Claude Sonnet 4.6 via 主网关
-    model: process.env.OPENAI_MODEL || 'claude-sonnet-4-6',
+    // v10.6.3 模型雷达:模型 ID 一律 getter 读 env —— 扫描采用后免重启生效
+    get model() { return process.env.OPENAI_MODEL || 'claude-sonnet-4-6'; },
     // v7.0: 编剧/导演 创意主 LLM —— 默认 DeepSeek 最强 deepseek-v4-pro (独立 endpoint, 推理模型/质量优先)
-    creativeModel: process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro',
+    get creativeModel() { return process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro'; },
     // v7.1: 创意"快档" LLM —— deepseek-v4-flash, 同属 DeepSeek v4 最新一族, 推理 token 远少于 pro
     //   用于"快草稿对比 / 润色basic"这类需要秒级响应的轻量环节 (pro 单次 35-75s 体验太差)。
     //   pro 仍用于主管线 runWriter / 导演 / 润色pro 等质量优先环节。
-    creativeFastModel: process.env.OPENAI_CREATIVE_FAST_MODEL || 'deepseek-v4-flash',
+    get creativeFastModel() { return process.env.OPENAI_CREATIVE_FAST_MODEL || 'deepseek-v4-flash'; },
     creativeBaseURL: process.env.CREATIVE_BASE_URL || process.env.DEEPSEEK_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
     creativeApiKey: process.env.CREATIVE_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || '',
     // v7.0: 全局 LLM 兜底 —— 任何主 LLM 异常/欠费 → 路由到 MiniMax (OpenAI 兼容)
     fallbackBaseURL: process.env.LLM_FALLBACK_BASE_URL || 'https://api.minimaxi.com/v1',
     fallbackApiKey: process.env.LLM_FALLBACK_API_KEY || process.env.MINIMAX_API_KEY || '',
-    fallbackModel: process.env.LLM_FALLBACK_MODEL || 'MiniMax-M2.7',
+    get fallbackModel() { return process.env.LLM_FALLBACK_MODEL || 'MiniMax-M2.7'; },
     pricing: {
       input: 2.5,  // $/1M tokens
       output: 10   // $/1M tokens
@@ -51,10 +52,12 @@ export const API_CONFIG = {
     apiKey: process.env.VEO_API_KEY || '',
     baseURL: process.env.VEO_BASE_URL || 'https://api.qingyuntop.top',
     // v6.8: 默认升到最强 Veo 3.1 Pro; unified 通道 (qingyuntop /v1/video/create)
-    model: process.env.VEO_MODEL || 'veo3.1-pro',
+    get model() { return process.env.VEO_MODEL || 'veo3.1-pro'; },
     format: process.env.VEO_API_FORMAT || 'unified', // 'unified' | 'openai'
-    fallbackModels: (process.env.VEO_FALLBACK_MODELS || 'veo3.1,sora-2-pro')
-      .split(',').map(s => s.trim()).filter(Boolean),
+    get fallbackModels() {
+      return (process.env.VEO_FALLBACK_MODELS || 'veo3.1,sora-2-pro')
+        .split(',').map(s => s.trim()).filter(Boolean);
+    },
     pricing: 0.25  // ¥/秒（估算）
   },
 
@@ -95,9 +98,9 @@ export const API_CONFIG = {
     apiKey: process.env.XVERSE_API_KEY || '',
     baseURL: process.env.XVERSE_BASE_URL || 'http://localhost:8000/v1',
     /** 默认模型——A5.7B 适合编剧/导演等强创意环节，质量更高 */
-    model: process.env.XVERSE_MODEL || 'xverse/XVERSE-Ent-A5.7B',
+    get model() { return process.env.XVERSE_MODEL || 'xverse/XVERSE-Ent-A5.7B'; },
     /** 快速模型——A4.2B 适合规划、校验、补丁等高频小任务，速度更快 */
-    fastModel: process.env.XVERSE_FAST_MODEL || 'xverse/XVERSE-Ent-A4.2B',
+    get fastModel() { return process.env.XVERSE_FAST_MODEL || 'xverse/XVERSE-Ent-A4.2B'; },
     /** 是否启用 XVERSE 作为编剧/导演主用 LLM（true=强制启用；false=仅在 OpenAI 缺席时降级使用） */
     enabled: process.env.XVERSE_ENABLED === 'true',
     /** 是否在 OpenAI/Claude 主链路失败时作为 fallback 使用 */
