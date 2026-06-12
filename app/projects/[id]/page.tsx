@@ -33,6 +33,7 @@ import { ShotCinematographyModal } from '@/components/project/shot-cinematograph
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
 import { AssetLedgerPanel } from '@/components/project/asset-ledger-panel';
+import { PullSheetTable } from '@/components/project/pull-sheet-table';
 import { ProjectFormatBar } from '@/components/project/project-format-bar';
 import { EmotionRhythmChart } from '@/components/project/emotion-rhythm-chart';
 import { computeEmotionCurve } from '@/lib/emotion-curve';
@@ -235,6 +236,8 @@ export default function ProjectDetailPage() {
     { key: 'timeline', label: 'Cinema 时间线', icon: Clapperboard, count: script?.shots?.length || 0 },
     // v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议
     { key: 'pacing', label: '节奏分析', icon: BarChart3, count: script?.pacingReport?.warnings?.length || 0 },
+    // v11.1.0: 拉片 — 出厂参数真值逐镜五栏(阶段十九)
+    { key: 'pullsheet', label: '拉片', icon: Clapperboard, count: 0 },
     // v3.4.1: 成片质检 — 每镜画面对剧本的 Vision 评分
     { key: 'vision-audit', label: '成片质检', icon: ScanEye, count: 0 },
     { key: 'oneclick', label: '一键成片', icon: MagicWand, count: 0 },
@@ -750,6 +753,8 @@ export default function ProjectDetailPage() {
           )}
 
           {/* v2.21 P1.4: 节奏分析 — 每镜冲突分 + 反转标记 + 警告/建议 */}
+          {activeTab === 'pullsheet' && <PullSheetTable projectId={id} />}
+
           {activeTab === 'pacing' && (
             <div className="flex flex-col gap-4">
               {/* v7.5 情感曲线 + 多轨节奏热力图 */}
