@@ -7,9 +7,18 @@
  * 数据 = 流水线出厂真值(ScriptShot v2.8 摄影字段),不是 AI 看图猜;
  * 缺的字段如实显示 —。CSV 导出走同一 API(?format=csv)。
  */
-import { useEffect, useState } from 'react';
-import { DownloadSimple, FilmSlate } from '@phosphor-icons/react';
+import { useCallback, useEffect, useState } from 'react';
+import { DownloadSimple, FilmSlate, CircleNotch, LinkSimple } from '@phosphor-icons/react';
 import type { PullSheet, PullSheetShot } from '@/lib/pull-sheet';
+import { getToken } from '@/lib/auth';
+
+interface ExternalSheetRow { id: string; name: string; createdAt: string; sheet: PullSheet & { labeledShots?: number; truncated?: boolean } }
+
+const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
+  factory: { label: '出厂真值', cls: 'text-emerald-300 border-emerald-500/30' },
+  vision: { label: 'Vision 打标', cls: 'text-sky-300 border-sky-500/30' },
+  skeleton: { label: '骨架(配 Vision key 可逐镜打标)', cls: 'text-white/50 border-white/15' },
+};
 
 const GROUPS: Array<{ title: string; rows: Array<{ key: keyof PullSheetShot; label: string }> }> = [
   {
@@ -110,6 +119,17 @@ export function PullSheetTable({ projectId }: { projectId: string }) {
         </a>
       </div>
 
+      <SheetView sheet={sheet} />
+
+      {/* v11.1.1 — 外部参考片拆条 + 拉片 */}
+      <ExternalPullSection projectId={projectId} />
+    </div>
+  );
+}
+
+function SheetView({ sheet }: { sheet: PullSheet }) {
+  return (
+    <div className="space-y-4">
       {sheet.shots.map((s) => (
         <div key={s.shotNumber} className="cinema-card-hi p-4">
           <div className="flex gap-4">
@@ -148,6 +168,93 @@ export function PullSheetTable({ projectId }: { projectId: string }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ExternalPullSection({ projectId }: { projectId: string }) {
+  const [sheets, setSheets] = useState<ExternalSheetRow[]>([]);
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/pull-sheet?external=1`);
+      if (res.ok) setSheets((await res.json()).sheets || []);
+    } catch { /* 非关键路径 */ }
+  }, [projectId]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const submit = async () => {
+    const videoUrl = url.trim();
+    if (!videoUrl) return;
+    setBusy(true); setNotice('');
+    try {
+      const t = getToken();
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/pull-sheet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+        body: JSON.stringify({ videoUrl }),
+      });
+      const b = await res.json();
+      if (res.ok) {
+        setNotice(b.queued ? `已入队拆条(任务 ${b.jobId})— 完成后自动出现在下方` : `拆条完成:${b.done?.shots ?? 0} 镜${b.done?.labeled ? `,Vision 打标 ${b.done.labeled} 镜` : '(骨架表)'}`);
+        setUrl('');
+        await refresh();
+      } else setNotice(b.message || '拆条失败');
+    } catch { setNotice('拆条失败'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="cinema-card-hi p-4 mt-6" data-testid="external-pull">
+      <div className="cinema-eyebrow mb-1">参考片拉片(外部视频)</div>
+      <p className="cinema-mono text-[10px] opacity-50 mb-3">
+        贴视频 URL → ffmpeg 场景切分出骨架表(切点/时长/缩略图全真);配 Vision key 后逐镜打标镜头语言。
+        请确认你对参考素材的使用权 —— 拉片用于结构学习与二次创作,不复制原片内容。
+      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <LinkSimple className="w-3.5 h-3.5 opacity-50 shrink-0" />
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+          placeholder="https://… 或 /api/serve-file?key=…"
+          aria-label="参考片视频 URL"
+          className="cinema-input flex-1 min-w-[240px] !text-[12px]"
+        />
+        <button onClick={submit} disabled={busy || !url.trim()} className="cinema-btn cinema-btn-primary !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-50">
+          {busy ? <CircleNotch className="w-3.5 h-3.5 animate-spin" /> : <FilmSlate className="w-3.5 h-3.5" />}拉片
+        </button>
+        <button onClick={refresh} className="cinema-btn !px-2.5 !py-1.5 !text-[11px]">刷新</button>
+      </div>
+      {notice && <p className="mt-2 text-[11px] text-[var(--cinema-amber)]" role="status">{notice}</p>}
+
+      {sheets.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {sheets.map((row) => {
+            const badge = SOURCE_BADGE[row.sheet.source] || SOURCE_BADGE.skeleton;
+            const isOpen = expanded === row.id;
+            return (
+              <div key={row.id}>
+                <button onClick={() => setExpanded(isOpen ? null : row.id)}
+                  className="w-full flex items-center gap-2 text-left text-[12px] text-white/80 py-1.5">
+                  <span className="font-medium">{row.name}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] border ${badge.cls}`}>{badge.label}</span>
+                  <span className="cinema-mono text-[10px] opacity-45">
+                    {row.sheet.shotCount} 镜 · {row.sheet.totalDurationSec}s{row.sheet.truncated ? ' · 超长截断' : ''}
+                  </span>
+                  <span className="ml-auto text-[10px] text-white/40">{isOpen ? '收起 ▲' : '展开 ▼'}</span>
+                </button>
+                {isOpen && <SheetView sheet={row.sheet} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

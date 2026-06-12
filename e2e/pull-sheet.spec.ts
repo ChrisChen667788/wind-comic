@@ -58,3 +58,43 @@ test('拉片表:五栏出厂真值 + 时间轴 + CSV 导出', async ({ request }
   expect(body).toContain('霓虹雨巷');
   expect(body.split('\r\n').length).toBe(5); // 表头 + 4 镜
 });
+
+test('外部参考片拆条:URL → 队列 → 骨架表落库(MOCK 模式零外部调用)', async ({ request }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', '桌面验收');
+  test.setTimeout(120_000);
+  const token = mint();
+  const jsonAuth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const pid = 'qfmj-demo-showcase';
+  await request.post('/api/demo-project', { headers: { Authorization: `Bearer ${token}` } });
+
+  // 用仓库自带真 mp4 作参考片(dev server 可达)
+  const post = await request.post(`/api/projects/${pid}/pull-sheet`, {
+    headers: jsonAuth,
+    data: { videoUrl: 'http://localhost:3000/cases/clip-a.mp4', name: 'e2e 参考片' },
+  });
+  expect(post.status()).toBe(200);
+  const bq = await post.json();
+  expect(bq.queued).toBe(true); // dev server 带 PIPELINE_QUEUE=1
+
+  // 等队列消化(ffmpeg 切分 + 抽帧,短片秒级)
+  let jobState = '';
+  for (let i = 0; i < 40; i++) {
+    const jr = await (await request.get('/api/pipeline-jobs', { headers: { Authorization: `Bearer ${token}` } })).json();
+    jobState = jr.jobs.find((j: any) => j.id === bq.jobId)?.state || '';
+    if (jobState === 'done' || jobState === 'failed') break;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  expect(jobState).toBe('done');
+
+  const ext = await (await request.get(`/api/projects/${pid}/pull-sheet?external=1`)).json();
+  expect(ext.count).toBeGreaterThanOrEqual(1);
+  const sheet = ext.sheets[0].sheet; // 新→旧排序,取最新
+  expect(sheet.source).toBe('skeleton');       // MOCK_ENGINES=1 → Vision 跳过,诚实骨架
+  expect(sheet.shotCount).toBeGreaterThanOrEqual(1);
+  expect(sheet.totalDurationSec).toBeGreaterThan(0);
+  const s1 = sheet.shots[0];
+  expect(s1.startSec).toBe(0);
+  expect(s1.durationSec).toBeGreaterThan(0);
+  expect(s1.thumbnail).toBeTruthy();           // 中帧已入库存储
+  expect(s1.shotSize).toBe('');                // 骨架不编造镜头语言
+});

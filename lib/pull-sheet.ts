@@ -152,6 +152,30 @@ export const PULL_SHEET_COLUMNS: Array<{ key: keyof PullSheetShot; label: string
   { key: 'whyThisChoice', label: '镜头叙事功能', group: '叙事功能' },
 ];
 
+/** Vision 打标可写字段白名单(单帧可判维度;声音列单帧无声,不让 LLM 编) */
+const VISION_LABEL_KEYS = [
+  'description', 'scene', 'shotSize', 'composition', 'cameraAngle', 'lens', 'lightingIntent',
+] as const;
+
+/**
+ * Vision 打标结果校验(纯函数):只收白名单字符串字段,trim + 截断 200 字;
+ * characters 数组单独校验。LLM 输出越界字段一律丢弃 —— 不编造、不溢出 schema。
+ */
+export function validateVisionLabel(raw: unknown): Partial<PullSheetShot> {
+  if (!raw || typeof raw !== 'object') return {};
+  const r = raw as Record<string, unknown>;
+  const out: Partial<PullSheetShot> = {};
+  for (const k of VISION_LABEL_KEYS) {
+    const v = r[k];
+    if (typeof v === 'string' && v.trim()) (out as any)[k] = v.trim().slice(0, 200);
+  }
+  if (Array.isArray(r.characters)) {
+    const cs = r.characters.filter((c) => typeof c === 'string' && c.trim()).map((c) => String(c).trim().slice(0, 40));
+    if (cs.length) out.characters = cs.slice(0, 8);
+  }
+  return out;
+}
+
 function csvCell(v: unknown): string {
   const s = Array.isArray(v) ? v.join('、') : v == null ? '' : String(v);
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
