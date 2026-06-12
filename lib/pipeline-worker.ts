@@ -38,6 +38,11 @@ const g = globalThis as unknown as { __qfmjPipelineWorker?: { timer: ReturnType<
 
 let active = 0;
 
+// v11.0.1: 周期孤儿扫描间隔 —— 心跳超时(90s)的 running 重新入队。
+// 多副本安全(行级互斥);单机快速重启后本进程的孤儿也由此路径在 ~90s 内复活。
+const ORPHAN_SWEEP_MS = 30_000;
+let lastOrphanSweep = 0;
+
 async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>): Promise<void> {
   console.log(`[PipelineWorker] claim ${job.id} (project=${job.projectId}, attempt=${job.attempts})`);
   const hb = setInterval(() => { void heartbeatJob(job.id).catch(() => {}); }, HEARTBEAT_MS);
@@ -91,6 +96,14 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
 }
 
 async function tick(): Promise<void> {
+  if (Date.now() - lastOrphanSweep >= ORPHAN_SWEEP_MS) {
+    lastOrphanSweep = Date.now();
+    try {
+      const { recoverOrphanJobs } = await import('./repos/pipeline-job-repo');
+      const { requeued, expired } = await recoverOrphanJobs();
+      if (requeued || expired) console.log(`[PipelineWorker] orphan sweep: ${requeued} requeued, ${expired} expired`);
+    } catch { /* driver 未就绪 — 下个周期再试 */ }
+  }
   while (active < MAX_ACTIVE) {
     const job = await claimNextJob();
     if (!job) return;
@@ -109,10 +122,10 @@ export function ensurePipelineWorker(): void {
   g.__qfmjPipelineWorker = { timer };
   void (async () => {
     try {
-      const { recoverJobsAtBoot } = await import('./repos/pipeline-job-repo');
-      const { requeued, expired } = await recoverJobsAtBoot();
+      const { recoverOrphanJobs } = await import('./repos/pipeline-job-repo');
+      const { requeued, expired } = await recoverOrphanJobs();
       if (requeued || expired) {
-        console.log(`[PipelineWorker] boot recovery: ${requeued} requeued, ${expired} expired`);
+        console.log(`[PipelineWorker] boot recovery (heartbeat-based): ${requeued} requeued, ${expired} expired`);
       }
     } catch (e) {
       console.warn('[PipelineWorker] boot recovery failed:', e);

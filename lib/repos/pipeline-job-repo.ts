@@ -170,24 +170,36 @@ export async function requeueJob(id: string): Promise<boolean> {
   return (r.changes ?? 0) > 0;
 }
 
+/** 心跳 15s × 6 次未达 = 判孤儿(留足 ffmpeg 重载下事件循环抖动的余量) */
+export const ORPHAN_STALE_MS = 90_000;
+
 /**
- * 开机恢复(单进程 worker 假设):
- *   - running → queued(刚启动,任何 running 必是上一进程的孤儿)
- *   - 超过 24h 的 queued/running → failed(过期不再 surprise 续跑)
- * 返回 { requeued, expired } 计数。
+ * v11.0.1: 孤儿任务回收 —— 按**心跳超时**判定,开机与运行期周期扫描共用。
+ *
+ * 取代 v10.4.1 的「开机把所有 running 重置」:多副本下旧做法会把**别的副本
+ * 正在执行**的任务踢回 queued 造成双跑(v11.0 部署文档列为最高风险限位)。
+ * 心跳法只回收真死的:heartbeat_at 超 staleMs 未更新(运行中的 job 每 15s
+ * 心跳一次,活着永远不会过期;空心跳的历史行视为孤儿)。
+ *
+ * 语义保留:requeue 不动 attempts(→ worker 按 attempt>1 走断点续跑);
+ * 超 24h 的 queued/running → failed(过期不再 surprise 续跑)。
+ * 多副本并发安全:UPDATE WHERE state='running' 行级互斥,双副本同时扫不双跑。
+ * 时钟假设:跨副本比较 ISO 时间戳,要求各副本 NTP 对时(偏差 ≪ 90s)。
  */
-export async function recoverJobsAtBoot(): Promise<{ requeued: number; expired: number }> {
+export async function recoverOrphanJobs(staleMs: number = ORPHAN_STALE_MS): Promise<{ requeued: number; expired: number }> {
   const drv = getDbDriver();
   const t = nowIso();
-  const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const cutoff24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const exp = await drv.run(
-    `UPDATE pipeline_jobs SET state = 'failed', last_error = '过期未执行(跨进程恢复时超 24h)', updated_at = ?
+    `UPDATE pipeline_jobs SET state = 'failed', last_error = '过期未执行(超 24h)', updated_at = ?
      WHERE state IN ('queued','running') AND created_at < ?`,
-    [t, cutoff],
+    [t, cutoff24h],
   );
+  const staleCutoff = new Date(Date.now() - staleMs).toISOString();
   const req = await drv.run(
-    `UPDATE pipeline_jobs SET state = 'queued', updated_at = ? WHERE state = 'running'`,
-    [t],
+    `UPDATE pipeline_jobs SET state = 'queued', updated_at = ?
+     WHERE state = 'running' AND (heartbeat_at IS NULL OR heartbeat_at = '' OR heartbeat_at < ?)`,
+    [t, staleCutoff],
   );
   return { requeued: req.changes ?? 0, expired: exp.changes ?? 0 };
 }

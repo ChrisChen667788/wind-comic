@@ -32,8 +32,8 @@ PIPELINE_QUEUE=1                 # 任务队列(断线续跑/kill -9 恢复)
 
 ### 多副本已知限位(诚实清单)
 
-**1. recoverJobsAtBoot 多副本竞争（高风险）**
-`recoverJobsAtBoot()` 把所有 `state='running'` 任务重置为 `queued`。多副本同时启动时，副本 A 的 boot recovery 会把副本 B 正在执行的任务踢回 queued，触发双跑。来源：`lib/repos/pipeline-job-repo.ts:179-193`。单机单副本无此问题；水平扩容前必须解决（可改用心跳超时判孤儿，而非开机全清）。
+**1. ~~recoverJobsAtBoot 多副本竞争~~（✅ v11.0.1 已修）**
+v11.0.1 起孤儿判定改为**心跳超时**(`recoverOrphanJobs`,`lib/repos/pipeline-job-repo.ts`):running 任务每 15s 心跳,超 90s 未达才回收(开机 + 运行期每 30s 扫描共用同一函数);心跳新鲜的 running 不再被动 —— 多副本同时启动不会互踢双跑。残余假设:各副本 NTP 对时(时间戳跨副本比较,偏差需 ≪ 90s)。
 
 **2. appendJobProgress 读改写非原子（中等风险）**
 `appendJobProgress()` 是 SELECT progress_log → parse → push → UPDATE 的非事务操作（`lib/repos/pipeline-job-repo.ts:111-119`）。Worker 代码用 promise 链串行化保证同一 job 内顺序，但 SQLite 驱动下多进程并发写同一行仍可能竞争。PG 驱动下并发写同一行不加锁也有 lost update 风险。

@@ -15,7 +15,7 @@ import {
   getJobProgressLog,
   completeJob,
   failJob,
-  recoverJobsAtBoot,
+  recoverOrphanJobs,
   listPipelineJobs,
   requeueJob,
 } from '@/lib/repos/pipeline-job-repo';
@@ -138,19 +138,40 @@ describe('v10.4.2 · 死信列表 / 重投', () => {
   });
 });
 
-describe('v10.4.1 · 开机恢复', () => {
-  it('running → queued(孤儿续跑);超 24h 的 → failed(过期)', async () => {
-    const fresh = await enqueuePipelineJob({ type: 'create', projectId: 'p7', payload: {} });
-    await claimNextJob(); // fresh → running(模拟 kill -9 时正在跑)
+describe('v11.0.1 · 孤儿回收(心跳判定,取代开机全清)', () => {
+  it('心跳新鲜的 running 不被动(多副本下可能是别的副本在跑);心跳超时/空心跳 → 重新入队;超 24h → failed', async () => {
+    // alive:刚认领,heartbeat_at = now → 必须保留 running(旧逻辑会误踢造成双跑)
+    const alive = await enqueuePipelineJob({ type: 'create', projectId: 'p7', payload: {} });
+    await claimNextJob();
+    // dead:认领后心跳停了 2 分钟(进程死了)
+    const dead = await enqueuePipelineJob({ type: 'create', projectId: 'p7b', payload: {} });
+    await claimNextJob();
+    db.prepare('UPDATE pipeline_jobs SET heartbeat_at = ? WHERE id = ?')
+      .run(new Date(Date.now() - 120_000).toISOString(), dead.id);
+    // legacy:running 但心跳为空(历史行)→ 视为孤儿
+    const legacy = await enqueuePipelineJob({ type: 'create', projectId: 'p7c', payload: {} });
+    await claimNextJob();
+    db.prepare("UPDATE pipeline_jobs SET heartbeat_at = '' WHERE id = ?").run(legacy.id);
+    // expired:超 24h
     const stale = await enqueuePipelineJob({ type: 'create', projectId: 'p8', payload: {} });
     db.prepare('UPDATE pipeline_jobs SET created_at = ? WHERE id = ?').run('2020-01-01T00:00:00.000Z', stale.id);
 
-    const { requeued, expired } = await recoverJobsAtBoot();
-    expect(requeued).toBe(1);
+    const { requeued, expired } = await recoverOrphanJobs();
+    expect(requeued).toBe(2); // dead + legacy
     expect(expired).toBe(1);
-    expect((await getPipelineJob(fresh.id))!.state).toBe('queued');
+    expect((await getPipelineJob(alive.id))!.state).toBe('running');  // 多副本安全核心断言
+    const d = (await getPipelineJob(dead.id))!;
+    expect(d.state).toBe('queued');
+    expect(d.attempts).toBe(1); // requeue 不动 attempts → resume 生效
+    expect((await getPipelineJob(legacy.id))!.state).toBe('queued');
     const s = (await getPipelineJob(stale.id))!;
     expect(s.state).toBe('failed');
     expect(s.lastError).toContain('过期');
+  });
+
+  it('双副本同时扫描幂等:第二次扫无新回收', async () => {
+    const r2 = await recoverOrphanJobs();
+    expect(r2.requeued).toBe(0);
+    expect(r2.expired).toBe(0);
   });
 });
