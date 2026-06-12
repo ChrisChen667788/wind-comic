@@ -56,6 +56,15 @@ const EMOTION_BASELINE: Array<{ match: RegExp; p: ProsodyParams }> = [
 const NEUTRAL: ProsodyParams = { speed: 1.00, pitch: 0, vol: 0.85 };
 
 /**
+ * v10.6.4 台词级情绪标签 —— retake 面板的可选项,每个都命中 EMOTION_BASELINE
+ * 的一档(「中性」= 不匹配走 NEUTRAL)。改标签 → deriveProsody 直接出新 prosody。
+ */
+export const EMOTION_LABELS = [
+  '中性', '愤怒', '狂喜', '激动', '恐惧', '惊讶', '紧张',
+  '绝望', '悲伤', '委屈', '深沉', '低落', '温柔', '俏皮', '冷静', '旁白',
+] as const;
+
+/**
  * 从情绪语义生成 MiniMax TTS prosody 参数。
  *
  * @example

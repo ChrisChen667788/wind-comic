@@ -13,6 +13,7 @@
 import { getProject, insertProjectFull, updateProjectById } from './repos/project-repo';
 import { upsertAsset } from './repos/asset-repo';
 import { insertQualityScore } from './quality-scores';
+import { getDbDriver } from './db-driver';
 import { auditScript } from './pacing-audit';
 import { auditHooks } from './hook-audit';
 
@@ -227,6 +228,10 @@ export async function importDemoProject(userId: string): Promise<{ projectId: st
   } catch (e) {
     console.warn('[demo-project] quality score 写入失败(不阻断):', e instanceof Error ? e.message : e);
   }
+
+  // v10.6.4: 「还原出厂」补全 —— upsert 不碰 stale 列,跨场景演示(台账标失效/
+  // retake 标待重渲)会留下残留;重置时统一归零,让幂等导入名副其实。
+  await getDbDriver().run('UPDATE project_assets SET stale = 0 WHERE project_id = ?', [DEMO_PROJECT_ID]);
 
   return { projectId: DEMO_PROJECT_ID, refreshed: !!existing };
 }

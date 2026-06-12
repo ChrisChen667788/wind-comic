@@ -32,7 +32,7 @@ const MAX_ACTIVE = 2;
 // 高频/纯瞬时事件不入回放日志(逐句 agentTalk、心跳、进度百分比……):
 // progress_log 是读改写整个 JSON,逐事件落这些会把落库拖成 O(n²);
 // 它们对重连回放也无价值 —— 回放需要的是「状态承载」事件(plan/script/storyboards/…)。
-const SKIP_PERSIST = new Set(['agentTalk', 'heartbeat', 'mjProgress', 'videoProgress', 'agents']);
+const SKIP_PERSIST = new Set(['agentTalk', 'heartbeat', 'mjProgress', 'videoProgress', 'agents', 'retakeProgress']);
 
 const g = globalThis as unknown as { __qfmjPipelineWorker?: { timer: ReturnType<typeof setInterval> } };
 
@@ -63,8 +63,14 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
   };
 
   try {
-    // v10.4.2: attempt>1 = 续跑 —— 断点装载,已有产物阶段跳过(不重复生成/计费)
-    await runCreatePipeline(job.payload as CreatePipelineInput, emit, { resume: job.attempts > 1 });
+    if (job.type === 'voice-retake') {
+      // v10.6.4: 重录队列 —— 按 type 派发;重试 = 重跑(单句 TTS 幂等成本低,失败句留面板可单录)
+      const { runVoiceRetakeJob } = await import('./voice-retake');
+      await runVoiceRetakeJob(job.payload as any, emit);
+    } else {
+      // v10.4.2: attempt>1 = 续跑 —— 断点装载,已有产物阶段跳过(不重复生成/计费)
+      await runCreatePipeline(job.payload as CreatePipelineInput, emit, { resume: job.attempts > 1 });
+    }
     await appendChain; // 进度全部落库后再标完成
     if (fatalError) {
       const state = await failJob(job.id, fatalError);

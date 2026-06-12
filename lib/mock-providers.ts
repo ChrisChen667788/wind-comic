@@ -100,7 +100,8 @@ registerTTSProvider({
   async generate(input) {
     await delay(40);
     const dur = Math.max(1, Math.round((input.text.length / 4) * 10) / 10); // 中文 ~4 字/秒
-    const seed = mockSeed(`${input.text}|${input.voiceId}`);
+    // v10.6.4: 种子带 prosody —— 改情绪标签重录(speed/pitch 变)产物 URL 随之不同
+    const seed = mockSeed(`${input.text}|${input.voiceId}|${input.speed ?? ''}|${input.pitch ?? ''}`);
     return {
       audioUrl: `${mockAssetBase()}/api/mock-assets/voice/${seed}.wav?d=${dur}`,
       duration: dur,

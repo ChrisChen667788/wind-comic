@@ -57,7 +57,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!dialogueShots.length) return NextResponse.json({ ok: false, message: '无对白镜 —— 无需合成配音' });
 
   // 角色 → 音色路由(首次出现顺序 + 性别池轮转,稳定互异);forceVoice 时不用
-  const routing = forceVoice ? null : buildVoiceRouting(dialogueShots.map((s) => (s.characters?.[0] || '')));
+  // v10.6.4: speaker 提取与 lib/voice-retake.loadDialogueShots 完全对齐(单数 character
+  // 回退 + trim)—— 否则演示工程(单数字段)整集合成全落默认音色,retake 却走轮转,两路打架
+  const routing = forceVoice ? null : buildVoiceRouting(dialogueShots.map((s) => ((s.characters?.[0] || (s as any).character || '') as string).trim()));
   // 用户手动覆盖(v9.7.7,优先级最高,仅次于 forceVoice)
   let overrides: Record<string, string> = {};
   try {
@@ -74,7 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   for (const s of dialogueShots) {
     try {
-      const speaker = (s.characters?.[0] || '').trim();
+      const speaker = ((s.characters?.[0] || (s as any).character || '') as string).trim();
       const voiceId = effectiveVoice(speaker, { force: forceVoice || undefined, overrides, routing: routing || undefined });
       const prosody = deriveProsody({ emotion: s.emotion, emotionTemperature: s.emotionTemperature });
       const r = await dispatchTTSGenerate({ text: s.dialogue!, voiceId, language: 'zh-CN', speed: prosody.speed, pitch: prosody.pitch });
