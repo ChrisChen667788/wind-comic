@@ -238,7 +238,8 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 - **项目/资产管理(v11.2.0)**:我的项目 / 我的资产 删除 + 下架(级联清理 + 属主守卫)。
 - **模型雷达(v10.6.3)**:一键扫描各 API 最新模型 + 同家族自动升级(四护栏 + 回滚)。
 - **钩子审计三指标(v10.6.2)**:开场 3 秒钩子 / 集尾悬念 / BGM 卡点对齐率。
-- **阶段二十 智能剪辑(v12.0.x)**:卡点剪辑(切点吸附音乐拍点)+ 情绪节奏曲线(峰值镜 breathe / 动作镜快切)。
+- **阶段二十 A 智能剪辑(v12.0.x,五刀全交付)**:卡点剪辑(切点吸附音乐拍点)· 情绪节奏曲线(峰值镜 breathe / 动作镜快切)· 侧重强调(关键镜不压 + 沉稳转场)· 转场审美(按镜头关系选转场)· **一句指令调风格(v12.0.4,BYO)**——「快节奏燃向」/「慢叙抒情」一句话调 pacing 力度 + 转场软硬,无 key 走规则、配 key LLM 解析自由文本。
+- **阶段二十 B 预览音频(v12.1.x)**:片段预览叠播配音(静音裸片 + 同步配音轨)+ 成片音频体检自愈(ffprobe 缺流补轨)。
 - **安全加固(v11.1.4)**:JWT 公开兜底密钥根除(进程级随机密钥,旧泄露值作废)。
 
 | 我的项目 · 删除/下架管理 | 拉片表 + 复刻工作台 |
@@ -248,6 +249,10 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 | 素材库 · 资产管理 | API 健康 · 模型雷达 |
 |---|---|
 | ![素材库](docs/screenshots/v12/02-my-assets-manage.png) | ![模型雷达](docs/screenshots/v12/03-api-health-model-radar.png) |
+
+| 钩子审计三指标 | 一句指令调剪辑风格(v12.0.4) |
+|---|---|
+| ![钩子审计](docs/screenshots/v12/05-pacing-hook-audit.png) | ![剪辑风格](docs/screenshots/v12/06-edit-style-instruction.png) |
 
 完整逐版本核心迭代见 [`VERSIONS.md`](VERSIONS.md);阶段计划见 `docs/stage18`–`docs/stage20`。
 
