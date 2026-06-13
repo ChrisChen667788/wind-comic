@@ -77,3 +77,4 @@ next-env.d.ts
 # v4.x: 测试隔离 DB (vitest 专用, 不入库)
 data/qfmj.test.db
 data/qfmj.test.db-*
+data/qfmj.db.bak-*

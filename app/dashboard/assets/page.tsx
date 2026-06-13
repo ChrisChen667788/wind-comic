@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Users, Mountains as Mountain, FilmStrip as Film, Video, MusicNotes as Music, FileText, Package, Play } from '@phosphor-icons/react';
+import { Users, Mountains as Mountain, FilmStrip as Film, Video, MusicNotes as Music, FileText, Package, Play, Trash as Trash2 } from '@phosphor-icons/react';
+import { getToken } from '@/lib/auth';
 import { VideoModal } from '@/components/ui/video-modal';
 import { ImageLightboxModal } from '@/components/ui/image-lightbox';
 import { AudioPlayerModal } from '@/components/ui/audio-player-modal';
@@ -73,6 +74,18 @@ export default function AssetsPage() {
       setAssets([]);
     }
     setLoading(false);
+  };
+
+  const removeAsset = async (id: string, name: string) => {
+    if (!confirm(`确定删除资产「${name || id}」?此操作不可恢复。`)) return;
+    try {
+      const t = getToken();
+      const res = await fetch(`/api/assets?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE', headers: t ? { Authorization: `Bearer ${t}` } : {},
+      });
+      if (res.ok) setAssets((as) => as.filter((a) => a.id !== id));
+      else { const b = await res.json().catch(() => ({})); alert(b.message || '删除失败'); }
+    } catch { alert('删除失败'); }
   };
 
   const filtered = filter === 'all' ? assets : assets.filter(a => a.type === filter);
@@ -198,6 +211,14 @@ export default function AssetsPage() {
                   <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${meta.color}`}>
                     {meta.label}
                   </div>
+
+                  {/* v11.2.0 删除按钮(hover) */}
+                  <button type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeAsset(asset.id, asset.name); }}
+                    title="删除资产(不可恢复)"
+                    className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600/80 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white opacity-0 group-hover:opacity-100 transition-all z-10">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
 
                   {/* 版本标签 */}
                   {asset.version > 1 && (

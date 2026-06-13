@@ -106,6 +106,42 @@ export async function deleteProject(id: string, userId: string): Promise<boolean
   return r.changes > 0;
 }
 
+/** v11.2.0: 项目级联表(删项目时一并清空,事务内执行)。 */
+const PROJECT_CHILD_TABLES = [
+  'project_assets', 'project_quality_scores', 'shot_vision_audits', 'cost_log',
+  'api_usage_events', 'generations', 'chat_messages', 'comments', 'notifications',
+  'project_review_status', 'project_track_edits', 'project_share_tokens',
+  'project_collaborators', 'pipeline_reruns', 'pipeline_jobs',
+];
+
+/**
+ * v11.2.0: 级联删除项目 —— 事务内清 15 张子表 + projects 行。
+ * userId 给定时按属主守卫(不是你的项目不删,返回 false);省略 = 管理/清理路径无守卫。
+ * 返回是否删到 projects 行。
+ */
+export async function deleteProjectCascade(id: string, userId?: string): Promise<boolean> {
+  return getDbDriver().transaction(async (tx) => {
+    if (userId) {
+      const owned = await tx.get<{ id: string }>('SELECT id FROM projects WHERE id = ? AND user_id = ?', [id, userId]);
+      if (!owned) return false;
+    }
+    for (const t of PROJECT_CHILD_TABLES) {
+      await tx.run(`DELETE FROM ${t} WHERE project_id = ?`, [id]);
+    }
+    const r = await tx.run('DELETE FROM projects WHERE id = ?', [id]);
+    return r.changes > 0;
+  });
+}
+
+/** v11.2.0: 归档/恢复(下架 = status 'archived';恢复 = 'completed')。属主守卫。 */
+export async function setProjectArchived(id: string, userId: string, archived: boolean): Promise<boolean> {
+  const r = await getDbDriver().run(
+    `UPDATE projects SET status = ?, updated_at = ? WHERE id = ? AND user_id = ?`,
+    [archived ? 'archived' : 'completed', new Date().toISOString(), id, userId],
+  );
+  return r.changes > 0;
+}
+
 // ─── v9.0.2: 创作管线 / 无 ACL 的按 id 写 (create-stream / cameo / share 复用) ──
 // 这些路由是 demo-friendly 不强制归属, 按 id 直接写 (与现状一致, 不引 owner 守卫)。
 

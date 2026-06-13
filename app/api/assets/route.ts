@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { normalizeAssetRow } from '@/lib/asset-storage';
+import { getUserFromRequest } from '../auth/lib';
+import { getAsset, deleteAsset } from '@/lib/repos/asset-repo';
+import { getOwnedProject } from '@/lib/repos/project-repo';
 
 export const runtime = 'nodejs';
 
@@ -55,4 +58,19 @@ export async function GET(request: NextRequest) {
     console.error('[API] Assets query failed:', e);
     return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500 });
   }
+}
+
+// DELETE /api/assets?id=<assetId> — 删除单个资产(属主守卫:资产→项目→用户)
+export async function DELETE(request: NextRequest) {
+  const payload = getUserFromRequest(request);
+  if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const id = request.nextUrl.searchParams.get('id') || '';
+  if (!id) return NextResponse.json({ message: '缺 id' }, { status: 400 });
+  const asset = await getAsset(id);
+  if (!asset) return NextResponse.json({ message: '资产不存在' }, { status: 404 });
+  if (!(await getOwnedProject(asset.project_id, payload.sub))) {
+    return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+  }
+  const ok = await deleteAsset(id);
+  return NextResponse.json({ ok }, { status: ok ? 200 : 404 });
 }

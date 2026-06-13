@@ -3,6 +3,7 @@ import { db, now } from '@/lib/db';
 import { getUserFromRequest } from '../../auth/lib';
 import { normalizeAssetRow } from '@/lib/asset-storage';
 import { listProjectAssets, getAsset, updateAssetDataInProject } from '@/lib/repos/asset-repo';
+import { getOwnedProject, deleteProjectCascade, setProjectArchived } from '@/lib/repos/project-repo';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -75,6 +76,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
 
+  // v11.2.0: 归档/恢复(下架/上架)—— {status:'archived'|'active'} 走属主守卫
+  if (typeof body?.status === 'string' && body.assetId === undefined) {
+    const payload = getUserFromRequest(request);
+    if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    if (!(await getOwnedProject(id, payload.sub))) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    const ok = await setProjectArchived(id, payload.sub, body.status === 'archived');
+    return NextResponse.json({ ok });
+  }
+
   const { assetId, data } = body;
 
   if (!assetId || data === undefined) {
@@ -87,4 +97,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   await updateAssetDataInProject(assetId, id, data);
 
   return NextResponse.json({ success: true });
+}
+
+/** v11.2.0: 删除项目(级联清子表)。属主守卫。 */
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const payload = getUserFromRequest(request);
+  if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  if (!(await getOwnedProject(id, payload.sub))) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+  const ok = await deleteProjectCascade(id, payload.sub);
+  return NextResponse.json({ ok }, { status: ok ? 200 : 404 });
 }

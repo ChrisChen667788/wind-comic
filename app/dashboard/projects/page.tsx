@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
-import { Kanban as FolderKanban, Clock, CheckCircle as CheckCircle2, Play, FilmStrip as Film, Plus, Sparkle as Sparkles, MagnifyingGlass as Search, MagicWand as Wand2 } from '@phosphor-icons/react';
+import { Kanban as FolderKanban, Clock, CheckCircle as CheckCircle2, Play, FilmStrip as Film, Plus, Sparkle as Sparkles, MagnifyingGlass as Search, MagicWand as Wand2, Trash as Trash2, Archive, ArrowCounterClockwise as Restore } from '@phosphor-icons/react';
+import { getToken } from '@/lib/auth';
 import { FilmStripDivider } from '@/components/cinema/primitives';
 import { NumberTicker, AnimatedShinyText } from '@/components/cinema/effects';
 import { ScoreDonut } from '@/components/cinema/dataviz';
@@ -46,18 +47,47 @@ export default function ProjectsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const authHeaders = () => { const t = getToken(); return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) }; };
+
+  const removeProject = async (id: string, title: string) => {
+    if (!confirm(`确定删除「${title || '未命名'}」?此操作不可恢复(连同分镜/视频/配音等全部资产)。`)) return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE', headers: authHeaders() });
+      if (res.ok) setProjects((ps) => ps.filter((p) => p.id !== id));
+    } finally { setBusyId(null); }
+  };
+
+  const toggleArchive = async (id: string, archived: boolean) => {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(id)}`, {
+        method: 'PATCH', headers: authHeaders(),
+        body: JSON.stringify({ status: archived ? 'archived' : 'completed' }),
+      });
+      if (res.ok) setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, status: archived ? 'archived' : 'completed' } : p)));
+    } finally { setBusyId(null); }
+  };
+
   const statusConfig: Record<string, { label: string; dotColor: string; bgColor: string; icon: any }> = {
     completed: { label: '已完成', dotColor: 'bg-emerald-400', bgColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
     active: { label: '创作中', dotColor: 'bg-[#E8C547]', bgColor: 'bg-[#E8C547]/10 text-[#E8C547] border-[#E8C547]/20', icon: Play },
     draft: { label: '草稿', dotColor: 'bg-gray-400', bgColor: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: Clock },
+    archived: { label: '已下架', dotColor: 'bg-white/30', bgColor: 'bg-white/5 text-white/40 border-white/10', icon: Archive },
   };
 
-  const filtered = filter === 'all' ? projects : projects.filter(p => p.status === filter);
+  // 「全部」默认不含已下架(下架=从主列表移走);选「已下架」单独看
+  const filtered = filter === 'all'
+    ? projects.filter(p => p.status !== 'archived')
+    : projects.filter(p => p.status === filter);
   const filterOptions = [
     { key: 'all', label: '全部' },
     { key: 'active', label: '创作中' },
     { key: 'completed', label: '已完成' },
     { key: 'draft', label: '草稿' },
+    { key: 'archived', label: '已下架' },
   ];
 
   return (
@@ -86,7 +116,7 @@ export default function ProjectsPage() {
       <div className="flex items-center gap-1.5 mb-6 mt-4 animate-fade-up" style={{ animationDelay: '0.1s' }}>
         <span className="cinema-eyebrow mr-2">FILTER</span>
         {filterOptions.map(f => {
-          const count = projects.filter(p => f.key === 'all' || p.status === f.key).length;
+          const count = projects.filter(p => (f.key === 'all' ? p.status !== 'archived' : p.status === f.key)).length;
           const active = filter === f.key;
           return (
             <button
@@ -157,6 +187,21 @@ export default function ProjectsPage() {
                   <div className={`absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-sm ${sc.bgColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
                     {sc.label}
+                  </div>
+                  {/* v11.2.0 管理操作(hover 显示):下架/上架 + 删除 */}
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button type="button" disabled={busyId === p.id}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleArchive(p.id, p.status !== 'archived'); }}
+                      title={p.status === 'archived' ? '恢复到主列表' : '下架(从主列表移走,可恢复)'}
+                      className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white border border-white/10">
+                      {p.status === 'archived' ? <Restore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                    </button>
+                    <button type="button" disabled={busyId === p.id}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeProject(p.id, p.title); }}
+                      title="删除项目(不可恢复)"
+                      className="w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600/80 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-white border border-white/10">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                   {shotCount > 0 && (
                     <div className="absolute bottom-3 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-sm text-[10px] text-white/80">
