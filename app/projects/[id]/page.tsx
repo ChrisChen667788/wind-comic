@@ -33,6 +33,7 @@ import { ShotCinematographyModal } from '@/components/project/shot-cinematograph
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
 import { AssetLedgerPanel } from '@/components/project/asset-ledger-panel';
+import { ClipWithAudio } from '@/components/project/clip-with-audio';
 import { PullSheetTable } from '@/components/project/pull-sheet-table';
 import { ProjectFormatBar } from '@/components/project/project-format-bar';
 import { EmotionRhythmChart } from '@/components/project/emotion-rhythm-chart';
@@ -216,6 +217,11 @@ export default function ProjectDetailPage() {
     prompt: s.prompt || (s.data && typeof s.data === 'object' ? s.data.prompt : '') || '',
   }));
   const videos = assets.filter((a: any) => a.type === 'video').sort((a: any, b: any) => (a.shotNumber || 0) - (b.shotNumber || 0));
+  // v12.1.0 片段预览叠播配音:镜号 → shot-audio(TTS 配音)URL
+  const shotAudioByShot: Record<number, string> = {};
+  for (const a of assets as any[]) {
+    if (a.type === 'shot-audio' && typeof a.shotNumber === 'number' && a.mediaUrls?.[0]) shotAudioByShot[a.shotNumber] = a.mediaUrls[0];
+  }
   const timeline = assets.find((a: any) => a.type === 'timeline');
   const review = project.directorNotes;
   const script = project.scriptData || scriptAsset?.data;
@@ -700,10 +706,12 @@ export default function ProjectDetailPage() {
                   <div key={v.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                     {url && (
                       isVid ? (
-                        <div className="relative">
-                          <video src={url} controls playsInline crossOrigin="anonymous" className={`w-full ${frameClass}`} />
-                          {isVertical && showSafeArea && <SafeAreaOverlay />}
-                        </div>
+                        <ClipWithAudio
+                          videoUrl={url}
+                          audioUrl={shotAudioByShot[v.shotNumber]}
+                          className={`w-full ${frameClass}`}
+                          overlay={isVertical && showSafeArea ? <SafeAreaOverlay /> : undefined}
+                        />
                       ) : (
                         <div className="relative">
                           <img loading="lazy" decoding="async" src={url} alt={v.name} className={`w-full ${frameClass} object-cover`} />
