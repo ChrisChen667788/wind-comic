@@ -144,14 +144,16 @@ export default function Home() {
           {/* v10.5.2 定位改版:制作台是主角,生成层 = BYO 当下最强引擎。
               ⭐ 常驻刷新位:每次 GitHub 同步联网核实并更新下列引擎阵容
               (与 README「vs. competitors」表 / MARKETING-zh|en / modelscope-profile 同步刷)。
-              当前阵容联网核验于 2026-06-09:Kling v3 登顶 text-to-video arena /
-              Veo 3.1 综合最强 / Seedance 2.0 性价比第一 / Runway Gen-4.5 I2V 最强。 */}
+              当前阵容联网核验于 2026-06-14:Artificial Analysis arena 前二易主为
+              Seedance 2.0(字节)+ HappyHorse-1.0(阿里,API 已商用,配 FAL_KEY 可 BYO),
+              Veo 3.1 第三(唯一原生对白音轨)/ Kling 3.0 仍 top10 四席;
+              Runway Gen-4.5 跌出 top10(控制面仍最强)→ hero chips 换上 HappyHorse-1.0。 */}
           <div className="mt-9 flex flex-col items-center gap-2.5">
             <span className="text-[10px] tracking-[0.25em] uppercase text-white/60" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
               {t.home.heroEngines}
             </span>
             <div className="flex flex-wrap justify-center gap-2">
-              {['Veo 3.1', 'Kling 3.0', 'Seedance 2.0', 'Runway Gen-4.5'].map((e) => (
+              {['Seedance 2.0', 'HappyHorse-1.0', 'Veo 3.1', 'Kling 3.0'].map((e) => (
                 <span
                   key={e}
                   className="px-3 py-1 rounded-full border border-white/15 bg-white/5 backdrop-blur-md text-[11px] text-white/80"

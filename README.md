@@ -207,8 +207,8 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🥊 vs. competitors
 
-> 阵容核验 2026-06-12:Veo 3.1 / Kling 3.0 / Seedance 2.0 / Gen-4.5 仍为生产可用第一梯队。
-> **HappyHorse-1.0(阿里)正式入列**:Artificial Analysis arena T2V/I2V 双榜第一,API 已商用(阿里云百炼;fal 为官方 API 伙伴 —— 本项目配 `FAL_KEY` 即可 BYO 接入)。Sora 2 已宣布年内停服,移出对比。
+> 阵容核验 2026-06-14:Artificial Analysis arena 榜首易主 —— **Seedance 2.0(字节)+ HappyHorse-1.0(阿里)现占前二**,Veo 3.1 第三(唯一原生 48kHz 对白音轨)。**Kling 3.0** 仍盘踞 top 10 四席(原生 4K/60fps/15s + 多语唇形)。**Runway Gen-4.5** 已跌出 top 10(控制面仍最强:motion brush + GWM-1 世界模型,故保留对比)。Sora 2 已宣布年内停服,移出对比。五家均为生产可用第一梯队 + 公开 BYO API。
+> 结论不变:**生成层已是红海(竞品在出片/多镜/音频都第一梯队),Wind Comic 护城河收窄到「制作/平台层」**——节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO。
 
 | Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | HappyHorse-1.0 | **Wind Comic** |
 |---|---|---|---|---|---|---|
@@ -224,6 +224,7 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 | Open source | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ MIT** |
 | Per-shot regenerate with custom prompt | ⚠️ | ✅ | ⚠️ | ✅ motion brush | ⚠️ | **✅ + reference image upload** |
 | Pacing / conflict audit | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ shot-level score + reversal detection** |
+| Smart editing (beat-snap + emotion pacing + one-instruction style) | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ beat-snap · emotion pacing · emphasis · transition aesthetics · "fast & hype/slow & lyrical" in one line (BYO LLM)** |
 
 > Cells marked ⚠️ = the feature exists but in a limited / locked-down form (e.g. "you can only do this on a paid Pro tier through a UI panel").
 

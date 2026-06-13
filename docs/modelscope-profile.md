@@ -163,10 +163,10 @@
 - 想用 Claude / DeepSeek / 通义 而不是 OpenAI 的开发者
 - 探索"多 Agent 协同"如何打败"超大模型"的研究者
 
-**vs 主流闭源工具**:
-- Veo 3.1 / Kling 3.0 / Seedance 2.0 画质 + 一致性 + 原生多镜/音频已第一梯队, 但都不烧中文字幕、不开源、不能自托管、无协作时间线
-- HappyHorse-1.0 (阿里) arena 双榜第一、音画联合生成, API 已商用 (百炼/fal, 配 FAL_KEY 可 BYO) — 但不烧中文字幕、不开源、单段为主 (Sora 2 已宣停服, 移出)
-- Runway Gen-4.5 工业级控制, 但中文适配弱 + 闭源
+**vs 主流闭源工具** (阵容核验 2026-06-14):
+- Seedance 2.0 (字节) + HappyHorse-1.0 (阿里) 现占 Artificial Analysis arena 前二, 音画联合生成、API 已商用 (百炼/fal, 配 FAL_KEY 可 BYO) — 但都不烧中文字幕、不开源、单段为主
+- Veo 3.1 第三 (唯一原生 48kHz 对白音轨) / Kling 3.0 仍 top10 四席 (原生 4K/60fps/多语唇形) — 同样不烧中文字幕、不能自托管、无协作时间线
+- Runway Gen-4.5 已跌出 top10, 但工业级控制面最强 (运动笔刷 + GWM-1 世界模型); 中文适配弱 + 闭源 (Sora 2 已宣停服, 移出)
 - 我们的差异: 多 agent 管线 + 中文字幕烧入 + 开源 + 自托管 + 自带 LLM + 实时协作
 - **我们是: 多 Agent + 开源 + 中文优先 + 自部署 + 你自己的 LLM + 实时协作**
 
@@ -206,7 +206,7 @@ Repo: github.com/ChrisChen667788/wind-comic
 
 **Target users**: Creators · marketing teams · AI builders · privacy-conscious deployments wanting local LLM · researchers studying multi-agent vs monolithic models
 
-**vs Competitors** (verified 2026-06-12): Veo 3.1 / Kling 3.0 / Seedance 2.0 (top-tier generation + native multi-shot/audio, but no CJK subtitle burn · closed · no self-host) · HappyHorse-1.0 (arena #1 T2V+I2V, API live via Bailian/fal) · Runway Gen-4.5 (pro control, weak Chinese) → **We are multi-agent + open + Chinese-first + self-host + your LLM + real-time collab**.
+**vs Competitors** (verified 2026-06-14): Seedance 2.0 + HappyHorse-1.0 now top-2 on Artificial Analysis arena (API live via Bailian/fal, BYO with FAL_KEY) · Veo 3.1 #3 (only native 48kHz dialogue) · Kling 3.0 (four top-10 slots, 4K/60fps/multilingual lip-sync) · Runway Gen-4.5 dropped out of top-10 but keeps the strongest control surface (motion brush + GWM-1) — all top-tier generation, none burn CJK subtitles · closed · no self-host → **We are multi-agent + open + Chinese-first + self-host + your LLM + real-time collab + smart editing**.
 
 **Trust signals**: 1711 vitest tests · TypeScript strict · 21 sprints (v2.0 → v3.1.3) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
 

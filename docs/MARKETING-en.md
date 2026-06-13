@@ -99,7 +99,7 @@ The LLM is provider-agnostic — `docs/llm-providers.md` documents how to swap t
 
 Tech: Next.js 16 + TypeScript strict + SQLite + Web Audio API + Yjs. 1150 vitest tests passing. MIT.
 
-Honest competitor comparison: README's vs-competitors table is kept current (verified 2026-06-12: Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5 / HappyHorse-1.0; Sora 2 sunsetting in 2026, removed). `docs/COMPETITIVE-GAP-2026-05.md` is a dated self-audit.
+Honest competitor comparison: README's vs-competitors table is kept current (verified 2026-06-14: Seedance 2.0 + HappyHorse-1.0 now top-2 on the Artificial Analysis arena, Veo 3.1 #3 with native dialogue audio, Kling 3.0 holds four top-10 slots; Runway Gen-4.5 dropped out of the top 10 but keeps the strongest control surface; Sora 2 sunsetting in 2026, removed). `docs/COMPETITIVE-GAP-2026-05.md` is a dated self-audit.
 
 GitHub: https://github.com/ChrisChen667788/wind-comic
 
