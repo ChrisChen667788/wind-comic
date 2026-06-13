@@ -115,3 +115,28 @@ describe('v12.0.0 · snapDurationsToBeatsClamped(卡点剪辑:只收紧不越界
     r.durations.forEach((d, i) => expect(d).toBeLessThanOrEqual([3, 4, 5][i] + 0.001));
   });
 });
+
+describe('v12.0.1 · applyEmotionPacing(情绪节奏:只压不拉,对白镜保满长)', () => {
+  it('高张力镜快切压缩、情感峰值/对白镜满长、平淡过场轻压', async () => {
+    const { applyEmotionPacing } = await import('@/lib/edit-rhythm');
+    const { durations, changed } = applyEmotionPacing([
+      { durationS: 5, tensionLevel: 10 },                       // 高张力 → 压
+      { durationS: 5, emotionTemperature: 9 },                  // 情感峰值 → 满长
+      { durationS: 5, tensionLevel: 8, hasDialogue: true },     // 对白镜 → 满长(保配音)
+      { durationS: 5, emotionTemperature: 1, tensionLevel: 1 }, // 平淡过场 → 轻压
+    ]);
+    expect(durations[0]).toBeLessThan(5);          // 高张力压缩
+    expect(durations[1]).toBe(5);                  // 峰值满长
+    expect(durations[2]).toBe(5);                  // 对白镜满长
+    expect(durations[3]).toBeLessThan(5);          // 过场轻压
+    durations.forEach((d) => expect(d).toBeLessThanOrEqual(5)); // 只压不拉
+    expect(changed).toBe(2);
+  });
+
+  it('无情绪数据 → 全满长(诚实降级)', async () => {
+    const { applyEmotionPacing } = await import('@/lib/edit-rhythm');
+    const r = applyEmotionPacing([{ durationS: 5 }, { durationS: 6 }]);
+    expect(r.durations).toEqual([5, 6]);
+    expect(r.changed).toBe(0);
+  });
+});

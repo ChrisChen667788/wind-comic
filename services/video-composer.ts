@@ -90,6 +90,7 @@ export interface ComposeResult {
   hasVoiceover: boolean;
   highlights: number[];      // 高光镜头编号列表
   beatEdit?: string;         // v12.0.0 卡点剪辑摘要(如 "120 拍, 5/8 镜切点对齐"),无则空
+  emotionPacing?: string;    // v12.0.1 情绪节奏摘要(如 "3/8 镜情绪调速"),无则空
 }
 
 // ═══════════════════════════════════════════
@@ -523,6 +524,32 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     console.warn('[Composer] subtitle setup failed (non-blocking):', e instanceof Error ? e.message : e);
   }
 
+  // ─── v12.0.1 情绪节奏曲线(阶段二十 A)─────────────────────────────────────
+  // 动作/高张力镜快切压缩、情感峰值镜 breathe、对白镜保配音满长(只压不拉,用现有素材)。
+  // 先于卡点剪辑:情绪 pacing 定宏观节奏,卡点再把切点微对齐到拍。durations[] 共用链路
+  // 自动带动配音 adelay(对白镜不压 → 配音不断)。EMOTION_PACING_DISABLE=1 关闭。
+  let pacingInfo = '';
+  if (localClips.length > 1 && process.env.EMOTION_PACING_DISABLE !== '1') {
+    try {
+      const { applyEmotionPacing } = await import('@/lib/edit-rhythm');
+      const { durations: paced, changed } = applyEmotionPacing(
+        validClips.map((c, i) => ({
+          durationS: durations[i],
+          emotionTemperature: c?.emotionTemperature,
+          tensionLevel: c?.tensionLevel,
+          hasDialogue: !!(c?.dialogue || '').trim(),
+        })),
+      );
+      if (changed > 0) {
+        for (let i = 0; i < durations.length; i++) durations[i] = Math.min(durations[i], paced[i]);
+        pacingInfo = `${changed}/${durations.length} 镜情绪调速`;
+        console.log(`[Composer] v12.0.1 情绪节奏: ${pacingInfo}`);
+      }
+    } catch (e) {
+      console.warn('[Composer] 情绪节奏失败(非阻塞):', e instanceof Error ? e.message : e);
+    }
+  }
+
   // ─── v12.0.0 卡点剪辑(阶段二十 A)──────────────────────────────────────────
   // 多镜 + 有 BGM 时,把每镜切点吸附到音乐拍点(detectBeats → snap,只收紧不越界源片)。
   // durations[] 被 xfade offset / 配音 adelay / 静音轨 共用 → 改它即同步全链对齐,口型不脱节。
@@ -826,6 +853,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           hasVoiceover: localVoiceovers.size > 0,
           highlights: highlightShots,
           beatEdit: beatEditInfo || undefined,
+          emotionPacing: pacingInfo || undefined,
         });
       })
       .on('error', (err) => {
