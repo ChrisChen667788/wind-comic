@@ -11,7 +11,7 @@ function mint() {
   const db = new Database('data/qfmj.db', { readonly: true });
   const u = db.prepare("SELECT id, role FROM users WHERE email='demo@qfmanju.ai'").get() as any;
   db.close();
-  return jwt.sign({ sub: u.id, role: u.role }, process.env.JWT_SECRET || 'qingfeng-manju-secret', { expiresIn: '1h' });
+  return jwt.sign({ sub: u.id, role: u.role }, process.env.JWT_SECRET || 'e2e-fixture-secret-not-for-prod', { expiresIn: '1h' });
 }
 
 test('台账:登记 → 改服装描述 → 受影响镜头清单 + stale 落库', async ({ request }, testInfo) => {

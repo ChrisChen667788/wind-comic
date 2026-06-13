@@ -25,6 +25,13 @@ export interface TemplatePayload {
   previewUrl?: string;
   /** v9.7.12:市场卡片预览 —— 首镜成片视频(优先于图,静音循环播) */
   previewVideoUrl?: string;
+  /** v11.1.4:拉片复刻结构(逐镜镜头语言 + 时长 + 综述提示;沉淀爆款结构可复用) */
+  pullSheetStructure?: {
+    shotCount: number;
+    totalDurationSec: number;
+    synopsisHint: string;
+    perShot: Array<{ shotNumber: number; shotSize: string; cameraMovement: string; durationSec: number }>;
+  };
 }
 
 export interface StoredTemplate extends FilmTemplate {

@@ -1,31 +1,34 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { db } from '@/lib/db';
 
-// 开发/测试兜底密钥(公开在仓库里,绝不能用于生产)。
-const DEV_FALLBACK_SECRET = 'qingfeng-manju-secret';
-let warnedDevSecret = false;
+// 进程级随机开发密钥(惰性生成;仓库里**没有任何可用密钥串**)。
+// 重启即失效 —— dev/test 重新登录无妨;泄露的旧硬编码值因此彻底作废。
+let devSecret: string | null = null;
 
 /**
  * 运行时解析 JWT 密钥(刻意不在模块顶层求值 —— 避免 `next build` 期间误抛中断构建)。
- *   - 设了 `JWT_SECRET` → 用它。
- *   - 没设 + 生产环境(`NODE_ENV=production`)→ **fail-fast 抛错**:源码内置兜底值是公开的,
- *     任何人都能据此伪造任意用户(含 admin)的登录令牌。
- *   - 没设 + 开发/测试 → 用兜底值(本地方便),首次解析打一次告警提醒部署前必须设置。
+ *   - 设了 `JWT_SECRET` → 用它(生产/CI/e2e 都走这条)。
+ *   - 没设 + 生产环境(`NODE_ENV=production`)→ **fail-fast 抛错**:绝不静默用弱密钥。
+ *   - 没设 + 开发/测试 → 生成**进程级随机密钥**(非源码内置,无法被仓库读者据此伪造令牌),
+ *     首次打一次告警提醒部署前必须设 JWT_SECRET。
+ *
+ * 安全说明:历史上这里曾内置公开兜底串,任何人都能据此伪造任意用户(含 admin)的令牌。
+ * 改随机后,即便误以 `NODE_ENV≠production` 裸跑,攻击者也拿不到可用密钥;旧泄露值作废。
  */
 function getJwtSecret(): string {
   const s = process.env.JWT_SECRET;
   if (s && s.length > 0) return s;
   if (process.env.NODE_ENV === 'production') {
     throw new Error(
-      '[auth] JWT_SECRET 未设置 —— 生产环境必须配置一个高强度随机密钥;' +
-        '源码内置兜底值是公开的,任何人都能据此伪造登录令牌。',
+      '[auth] JWT_SECRET 未设置 —— 生产环境必须配置一个高强度随机密钥(否则无法签发/校验令牌)。',
     );
   }
-  if (!warnedDevSecret) {
-    warnedDevSecret = true;
-    console.warn('[auth] ⚠️ JWT_SECRET 未设置,正在使用开发兜底密钥;部署前务必设置 JWT_SECRET。');
+  if (!devSecret) {
+    devSecret = crypto.randomBytes(32).toString('hex');
+    console.warn('[auth] ⚠️ JWT_SECRET 未设置,已生成进程级随机开发密钥(重启失效);部署前务必设置 JWT_SECRET。');
   }
-  return DEV_FALLBACK_SECRET;
+  return devSecret;
 }
 
 export interface JWTPayload {

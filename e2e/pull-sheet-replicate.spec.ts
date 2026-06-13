@@ -10,7 +10,7 @@ function mint() {
   const db = new Database('data/qfmj.db', { readonly: true });
   const u = db.prepare("SELECT id, role FROM users WHERE email='demo@qfmanju.ai'").get() as any;
   db.close();
-  return { token: jwt.sign({ sub: u.id, role: u.role }, process.env.JWT_SECRET || 'qingfeng-manju-secret', { expiresIn: '1h' }), uid: u.id };
+  return { token: jwt.sign({ sub: u.id, role: u.role }, process.env.JWT_SECRET || 'e2e-fixture-secret-not-for-prod', { expiresIn: '1h' }), uid: u.id };
 }
 
 test('复刻:全员换猫 → 预览改写 → 起片 → 新项目保结构', async ({ request }, testInfo) => {
@@ -100,3 +100,33 @@ test('复刻:全员换猫 → 预览改写 → 起片 → 新项目保结构', a
   const assets = await (await request.get(`/api/projects/${gj.newProjectId}/assets`)).json();
   expect(Array.isArray(assets) && assets.some((x: any) => x.type === 'video')).toBe(true);
 });
+
+test('存为私有模板:拉片结构沉淀 → 模板市场可见(私有)', async ({ request }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', '桌面验收');
+  const { token } = mint();
+  const jsonAuth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const pid = 'qfmj-demo-showcase';
+  await request.post('/api/demo-project', { headers: { Authorization: `Bearer ${token}` } });
+
+  const res = await request.post(`/api/projects/${pid}/pull-sheet/save-template`, {
+    headers: jsonAuth, data: { sheetSource: 'factory', title: 'e2e 结构模板' },
+  });
+  expect(res.status()).toBe(200);
+  const b = await res.json();
+  expect(b.ok).toBe(true);
+  expect(b.templateId).toMatch(/^tpl_/);
+  expect(b.visibility).toBe('private');
+
+  // 模板落库可读(payload 带拉片结构)
+  const db = new Database('data/qfmj.db', { readonly: true });
+  const row = db.prepare('SELECT shot_count, visibility, payload FROM film_templates WHERE id = ?').get(b.templateId) as any;
+  db.close();
+  expect(row.visibility).toBe('private');
+  expect(row.shot_count).toBe(4);                    // 拉片镜数沉淀
+  const payload = JSON.parse(row.payload);
+  expect(payload.pullSheetStructure.shotCount).toBe(4);
+  expect(payload.pullSheetStructure.totalDurationSec).toBe(20);
+  expect(payload.pullSheetStructure.perShot.length).toBe(4);
+  expect(payload.pullSheetStructure.perShot[0].shotSize).toBe('全景'); // 逐镜镜头语言留存
+});
+

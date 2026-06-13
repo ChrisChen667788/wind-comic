@@ -12,7 +12,7 @@ function mint() {
   const db = new Database('data/qfmj.db', { readonly: true });
   const u = db.prepare("SELECT id, role FROM users WHERE email='demo@qfmanju.ai'").get() as any;
   db.close();
-  return jwt.sign({ sub: u.id, role: u.role }, process.env.JWT_SECRET || 'qingfeng-manju-secret', { expiresIn: '1h' });
+  return jwt.sign({ sub: u.id, role: u.role }, process.env.JWT_SECRET || 'e2e-fixture-secret-not-for-prod', { expiresIn: '1h' });
 }
 
 test('retake:单句换情绪 → A/B 不同 → 采用只动该镜 → 批量走重录队列', async ({ request }, testInfo) => {

@@ -7,7 +7,7 @@
  * 预览改写后的逐镜 prompt(全开放可编辑)→ 复刻起片(建新项目并行生成)。
  */
 import { useCallback, useState } from 'react';
-import { MagicWand, Plus, X, CircleNotch, FilmSlate } from '@phosphor-icons/react';
+import { MagicWand, Plus, X, CircleNotch, FilmSlate, BookmarkSimple as Bookmark } from '@phosphor-icons/react';
 import { getToken } from '@/lib/auth';
 
 type Kind = 'global' | 'character' | 'scene' | 'prop';
@@ -76,6 +76,19 @@ export function ReplicateWorkbench({ projectId, sheetSource = 'factory' }: { pro
     finally { setBusy(false); }
   };
 
+  const doSaveTemplate = async () => {
+    setBusy(true); setNotice('');
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/pull-sheet/save-template`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ sheetSource, title: preview?.title }),
+      });
+      const b = await res.json();
+      if (res.ok) setNotice(`已存为私有模板「${b.title}」—— 去模板市场可一键复用结构`);
+      else setNotice(b.message || '存模板失败');
+    } catch { setNotice('存模板失败'); }
+    finally { setBusy(false); }
+  };
+
   return (
     <div className="cinema-card-hi p-4 mt-6" data-testid="replicate-workbench">
       <div className="cinema-eyebrow flex items-center gap-1.5 mb-1"><MagicWand className="w-3.5 h-3.5" />复刻 · 替换工作台</div>
@@ -121,6 +134,10 @@ export function ReplicateWorkbench({ projectId, sheetSource = 'factory' }: { pro
             <FilmSlate className="w-3.5 h-3.5" />复刻起片({preview.shots.length} 镜)
           </button>
         )}
+        <button onClick={doSaveTemplate} disabled={busy} title="把这张拉片表的镜头结构存成私有模板,复用爆款骨架"
+          className="cinema-btn !px-2.5 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-50">
+          <Bookmark className="w-3.5 h-3.5" />存为私有模板
+        </button>
       </div>
       {notice && <p className="mt-2 text-[11px] text-[var(--cinema-amber)]" role="status">{notice}</p>}
 

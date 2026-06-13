@@ -13,7 +13,7 @@ function mintSession() {
     .prepare("SELECT id,email,name,role,avatar_url,locale FROM users WHERE email='demo@qfmanju.ai'")
     .get() as any;
   db.close();
-  const token = jwt.sign({ sub: u.id, role: u.role }, process.env.JWT_SECRET || 'qingfeng-manju-secret', { expiresIn: '1h' });
+  const token = jwt.sign({ sub: u.id, role: u.role }, process.env.JWT_SECRET || 'e2e-fixture-secret-not-for-prod', { expiresIn: '1h' });
   const user = { id: u.id, email: u.email, name: u.name, role: u.role, avatarUrl: u.avatar_url, locale: u.locale };
   return { token, user };
 }

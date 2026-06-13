@@ -28,5 +28,8 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: true,
     timeout: 120_000,
+    // e2e mint 的令牌与 server 须同一密钥;auth/lib.ts 无设值时用进程随机密钥(对不上)。
+    // 自启 server 走这里;复用手动 server 时由启动命令带同名 env(见 .env.example)。
+    env: { JWT_SECRET: process.env.JWT_SECRET || 'e2e-fixture-secret-not-for-prod' },
   },
 });
