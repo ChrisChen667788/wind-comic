@@ -18,6 +18,7 @@ Wind Comic 里若干「打分 / 判定」是**确定性启发式**(规则 / 信�
 | **节奏 / 冲突审计** | `lib/pacing*` / McKee skill | 规则(冲突分 + 反转标记) | 启发式阈值 | LLM 叙事结构分析 |
 | **卡点剪辑(v12.0.0)** | `lib/beat-detect.ts` → `services/video-composer.ts` | ffmpeg 析 BGM 拍点,镜头切点吸附最近拍(±150ms,只收紧不越界源片);durations[] 共用链路自动带动配音 adelay 对齐 | 析拍用 silencedetect 近似 onset;只收紧 | madmom 级 onset/downbeat;能量分段(BeatSync)/ LLM 剪辑计划(CutClaw) |
 | **情绪节奏曲线(v12.0.1)** | `lib/edit-rhythm.ts` → `services/video-composer.ts` | 按 emotionTemperature/tensionLevel:情感峰值镜 breathe 满长、高张力镜快切压缩、平淡过场轻压;对白镜不压保配音;**只压不拉** | 数值阈值启发式;无情绪数据则不动 | LLM 一句指令调风格(CutClaw)/ 能量分段细化(BeatSync) |
+| **侧重强调(v12.0.2)** | `lib/edit-rhythm.ts` `detectKeyShots` → composer | 标关键镜(开场钩子/集尾悬念/情绪反转/峰值)→ 关键镜不压保满长(注意力倾斜)+ 进关键镜用沉稳 fade 略长转场 | 结构启发式(位置+情绪跳变) | pacing-audit/hook-audit 真关键镜联动 / LLM 重点位 |
 | **钩子审计三指标** | `lib/hook-audit.ts` | 词典 + 算术:开场 3 秒钩子分 / 集尾悬念分 / BGM 卡点对齐率(ffmpeg 析拍 ±150ms 窗口) | 词典覆盖有限;析拍用 silencedetect 近似 onset | 配 LLM key → 复核开场/集尾两个判断型指标(与规则分取均值);卡点是测量值不交给 LLM |
 | **长篇分集** | `lib/story-intake.ts` | 章节标记优先,否则按字数贪心打包 + 句子降级 | 无语义边界感知 | LLM 按情节断点分集 |
 | **按名推性别选音色** | `lib/voice-routing.ts` | 名字字符表 + 规则推断性别 → 默认音色 | 中性名 / 外文名不准 | LLM / 性别分类器;**或用户手动覆盖音色(已支持)** |

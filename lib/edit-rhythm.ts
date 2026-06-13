@@ -19,6 +19,36 @@ export interface RhythmClip {
   tensionLevel?: number;
   /** 该镜有对白(有配音)→ 不压缩,保配音满长 */
   hasDialogue?: boolean;
+  /** v12.0.2:镜号(给关键镜判定用) */
+  shotNumber?: number;
+}
+
+export interface KeyShotInput {
+  shotNumber: number;
+  emotionTemperature?: number;
+}
+
+/**
+ * v12.0.2 关键镜判定 —— 叙事侧重点(对标 pacing-audit/hook-audit 的结构关键镜):
+ *   开场钩子(首镜)· 集尾悬念(末镜)· 情绪反转(温度大幅跳变/极性翻转)· 情感峰值(|温度|最大)。
+ * 纯函数;返回关键镜号集合。剪辑把注意力(时长/转场)倾斜给这些镜。
+ */
+export function detectKeyShots(clips: KeyShotInput[]): Set<number> {
+  const keys = new Set<number>();
+  if (!clips.length) return keys;
+  keys.add(clips[0].shotNumber);                       // 开场钩子
+  keys.add(clips[clips.length - 1].shotNumber);        // 集尾 cliffhanger
+  for (let i = 1; i < clips.length; i++) {
+    const prev = clips[i - 1].emotionTemperature ?? 0;
+    const cur = clips[i].emotionTemperature ?? 0;
+    if (Math.abs(cur - prev) >= 6 || (prev > 1 && cur < -1) || (prev < -1 && cur > 1)) {
+      keys.add(clips[i].shotNumber);                   // 情绪反转
+    }
+  }
+  let peakIdx = 0, peakVal = -1;
+  clips.forEach((c, i) => { const v = Math.abs(c.emotionTemperature ?? 0); if (v > peakVal) { peakVal = v; peakIdx = i; } });
+  if (peakVal >= 5) keys.add(clips[peakIdx].shotNumber); // 情感峰值
+  return keys;
 }
 
 export interface PacingResult {
@@ -42,8 +72,9 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  *   4. 平淡过场(|温度| ≤ 2 且 tension ≤ 3)→ 轻压 0.82(避免温吞)
  *   5. 其余 → 满长
  */
-export function applyEmotionPacing(clips: RhythmClip[], opts?: { minShotS?: number }): PacingResult {
+export function applyEmotionPacing(clips: RhythmClip[], opts?: { minShotS?: number; keyShots?: Set<number> }): PacingResult {
   const minShot = opts?.minShotS ?? 1.2;
+  const keyShots = opts?.keyShots;
   const out: number[] = [];
   const reasons: string[] = [];
   let changed = 0;
@@ -54,10 +85,12 @@ export function applyEmotionPacing(clips: RhythmClip[], opts?: { minShotS?: numb
     const hasData = c.emotionTemperature !== undefined || c.tensionLevel !== undefined;
     const temp = Math.abs(c.emotionTemperature ?? 0);
     const tension = c.tensionLevel ?? 0;
+    const isKey = c.shotNumber !== undefined && !!keyShots?.has(c.shotNumber);
 
     let factor = 1.0;
     let why = '满长';
-    if (c.hasDialogue) { factor = 1.0; why = '对白镜·保配音'; }
+    if (isKey) { factor = 1.0; why = '关键镜·满长(侧重)'; }   // v12.0.2:关键镜不压,注意力倾斜
+    else if (c.hasDialogue) { factor = 1.0; why = '对白镜·保配音'; }
     else if (temp >= 7) { factor = 1.0; why = '情感峰值·breathe'; }
     else if (tension >= 6) { factor = clamp(1 - 0.4 * ((tension - 6) / 4), 0.6, 1.0); why = '高张力·快切'; }
     else if (hasData && temp <= 2 && tension <= 3) { factor = 0.82; why = '平淡过场·轻压'; }

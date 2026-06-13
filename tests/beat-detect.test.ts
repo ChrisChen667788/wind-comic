@@ -140,3 +140,30 @@ describe('v12.0.1 · applyEmotionPacing(情绪节奏:只压不拉,对白镜保�
     expect(r.changed).toBe(0);
   });
 });
+
+describe('v12.0.2 · detectKeyShots + 关键镜侧重', () => {
+  it('关键镜=开场+集尾+情绪反转+峰值', async () => {
+    const { detectKeyShots } = await import('@/lib/edit-rhythm');
+    const keys = detectKeyShots([
+      { shotNumber: 1, emotionTemperature: 2 },   // 开场
+      { shotNumber: 2, emotionTemperature: 1 },
+      { shotNumber: 3, emotionTemperature: -8 },  // 反转(Δ9)+ 峰值
+      { shotNumber: 4, emotionTemperature: 0 },   // 集尾
+    ]);
+    expect(keys.has(1)).toBe(true);  // 开场
+    expect(keys.has(4)).toBe(true);  // 集尾
+    expect(keys.has(3)).toBe(true);  // 反转 + 峰值
+    expect(keys.has(2)).toBe(false); // 平凡镜不入
+  });
+
+  it('关键镜不被压缩(注意力倾斜):高张力但是关键镜 → 满长', async () => {
+    const { applyEmotionPacing } = await import('@/lib/edit-rhythm');
+    const keyShots = new Set([1]);
+    const { durations } = applyEmotionPacing(
+      [{ durationS: 5, tensionLevel: 10, shotNumber: 1 }, { durationS: 5, tensionLevel: 10, shotNumber: 2 }],
+      { keyShots },
+    );
+    expect(durations[0]).toBe(5);          // 关键镜 1:高张力但侧重 → 满长
+    expect(durations[1]).toBeLessThan(5);  // 非关键镜 2:高张力 → 快切压缩
+  });
+});

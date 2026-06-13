@@ -528,6 +528,13 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   // 动作/高张力镜快切压缩、情感峰值镜 breathe、对白镜保配音满长(只压不拉,用现有素材)。
   // 先于卡点剪辑:情绪 pacing 定宏观节奏,卡点再把切点微对齐到拍。durations[] 共用链路
   // 自动带动配音 adelay(对白镜不压 → 配音不断)。EMOTION_PACING_DISABLE=1 关闭。
+  // v12.0.2 侧重强调:先标关键镜(开场/集尾/反转/峰值)—— 关键镜不压(注意力倾斜)+ 转场更沉稳
+  let keyShots = new Set<number>();
+  try {
+    const { detectKeyShots } = await import('@/lib/edit-rhythm');
+    keyShots = detectKeyShots(validClips.map((c) => ({ shotNumber: c?.shotNumber, emotionTemperature: c?.emotionTemperature })));
+  } catch { /* 非关键路径 */ }
+
   let pacingInfo = '';
   if (localClips.length > 1 && process.env.EMOTION_PACING_DISABLE !== '1') {
     try {
@@ -538,12 +545,14 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           emotionTemperature: c?.emotionTemperature,
           tensionLevel: c?.tensionLevel,
           hasDialogue: !!(c?.dialogue || '').trim(),
+          shotNumber: c?.shotNumber,
         })),
+        { keyShots },
       );
       if (changed > 0) {
         for (let i = 0; i < durations.length; i++) durations[i] = Math.min(durations[i], paced[i]);
-        pacingInfo = `${changed}/${durations.length} 镜情绪调速`;
-        console.log(`[Composer] v12.0.1 情绪节奏: ${pacingInfo}`);
+        pacingInfo = `${changed}/${durations.length} 镜情绪调速${keyShots.size ? `,${keyShots.size} 关键镜侧重` : ''}`;
+        console.log(`[Composer] v12.0.1/.2 情绪节奏+侧重: ${pacingInfo}`);
       }
     } catch (e) {
       console.warn('[Composer] 情绪节奏失败(非阻塞):', e instanceof Error ? e.message : e);
@@ -695,10 +704,18 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     for (let i = 1; i < n; i++) {
       // 使用高光分析推荐的转场
       const clipAnalysis = highlights.find(h => h.shotNumber === validClips[i]?.shotNumber);
-      const transition = mapTransition(clipAnalysis?.editStrategy.transition || validClips[i]?.transition || 'dissolve');
       const isLastCut = validClips[i]?.transition === 'cut' || validClips[i]?.transition === 'flash-cut';
+      // v12.0.2 侧重:进关键镜(开场/集尾/反转/峰值)用沉稳 fade(不快切)+ 略长转场,
+      // 让叙事关键时刻有"郑重入场"感;非关键镜沿用高光分析推荐的转场。
+      const enteringKey = !isLastCut && keyShots.has(validClips[i]?.shotNumber as number);
+      const transition = enteringKey
+        ? mapTransition('fade')
+        : mapTransition(clipAnalysis?.editStrategy.transition || validClips[i]?.transition || 'dissolve');
+      const baseTd = enteringKey
+        ? Math.max(td, clipAnalysis?.editStrategy.transitionDuration || td) * 1.3
+        : (clipAnalysis?.editStrategy.transitionDuration || td);
       const effectiveTd = isLastCut ? 0.1 : Math.min(
-        clipAnalysis?.editStrategy.transitionDuration || td,
+        baseTd,
         Math.min(durations[i - 1], durations[i]) / 2
       );
 
