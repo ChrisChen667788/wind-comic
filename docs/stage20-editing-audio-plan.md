@@ -60,7 +60,7 @@
 ### v12.0.3 — 转场审美(aesthetic transitions)【S】
 - 按相邻镜关系自动选转场:同场景内 match-cut/硬切、场景切 J-cut/L-cut(composer 已有 j/l-cut adelay 链路,补「自动选择」)、情绪转折叠化。转场落点对齐拍点。
 
-### v12.0.4(可选 BYO)— 一句指令调剪辑风格【M】✅ 已交付(commit 待回填)
+### v12.0.4(可选 BYO)— 一句指令调剪辑风格【M】✅ 已交付(commit ddb704e)
 - CutClaw 式:用户一句话(「快节奏燃向」/「慢叙抒情」)→ 风格参数(`compressionBias` 压缩力度 + `cutBias` 转场软硬),喂给 v12.0.1–.3 的确定性管线。无 key 时用默认风格。
 - 落地:`lib/edit-style.ts` 两层——规则层 `resolveEditStyleRule`(关键词字典,零配置可跑)+ LLM 层 `resolveEditStyle`(配 key 把自由文本映射成参数,白名单 sanitize 夹紧,失败/无 key/MOCK 回退规则层)。
 - 调制点:`applyEmotionPacing` 加 `compressionBias`(只缩放压缩量,满长镜恒不动);`selectTransitions` 加 `cutBias`(硬切池/柔池 + 张力→cut 阈值,显式硬切保留)。端到端:create 页预设 chip + 自由文本框 → create-stream → CreatePipelineInput.editStyle → orchestrator.setEditStyle → composeVideo。
