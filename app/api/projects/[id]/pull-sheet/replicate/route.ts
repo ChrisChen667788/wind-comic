@@ -17,6 +17,7 @@ import { insertProjectFull, getOwnedProject, deleteProject } from '@/lib/repos/p
 import { getUserFromRequest } from '../../../../auth/lib';
 import { buildPullSheetFromScript, type PullSheet } from '@/lib/pull-sheet';
 import { applyReplacements, buildReplicaScript, collectRefImages, type ReplaceRule } from '@/lib/pull-sheet-replace';
+import { compareReplicaFidelity } from '@/lib/replica-fidelity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -89,8 +90,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ? body.editedPrompts : {};
   const title = (typeof body?.title === 'string' && body.title.trim())
     ? body.title.trim().slice(0, 60) : `${sheet.title} · 复刻`;
-  // 预览:返回替换后逐镜 prompt(可编辑)+ 命中参考图,不建项目不起片
+  // 预览:返回替换后逐镜 prompt(可编辑)+ 命中参考图 + 复刻保真度对照,不建项目不起片
   if (body?.preview === true) {
+    const previewScript = buildReplicaScript(title, replicaShots);
+    const fidelity = compareReplicaFidelity(sheet, previewScript);
     return NextResponse.json({
       title,
       shotCount: replicaShots.length,
@@ -99,10 +102,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         characters: s.characters, scene: s.scene, prompt: s.prompt, refImages: s.refImages,
       })),
       refImages: collectRefImages(replicaShots),
+      fidelity,
     });
   }
 
   const replicaScript = buildReplicaScript(title, replicaShots, { editedPrompts });
+  const fidelity = compareReplicaFidelity(sheet, replicaScript);
   const refImages = collectRefImages(replicaShots);
   const aspect = typeof body?.aspect === 'string' ? body.aspect : '9:16';
 
@@ -126,12 +131,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const { ensurePipelineWorker } = await import('@/lib/pipeline-worker');
       ensurePipelineWorker();
       const job = await enqueuePipelineJob({ type: 'create', projectId: newProjectId, userId: payload.sub, payload: pipelineInput });
-      return NextResponse.json({ newProjectId, jobId: job.id, shots: replicaShots.length, queued: true });
+      return NextResponse.json({ newProjectId, jobId: job.id, shots: replicaShots.length, queued: true, fidelity });
     }
     // 无队列:后台跑(不阻塞响应),前端轮询新项目
     const { runCreatePipeline } = await import('@/lib/create-pipeline');
     void runCreatePipeline(pipelineInput as any, () => {}).catch((e) => console.error('[replicate] pipeline error:', e));
-    return NextResponse.json({ newProjectId, shots: replicaShots.length, queued: false });
+    return NextResponse.json({ newProjectId, shots: replicaShots.length, queued: false, fidelity });
   } catch (e) {
     await deleteProject(newProjectId, payload.sub).catch(() => {});
     return NextResponse.json({ message: `复刻起片失败:${e instanceof Error ? e.message : '入队异常'}` }, { status: 500 });

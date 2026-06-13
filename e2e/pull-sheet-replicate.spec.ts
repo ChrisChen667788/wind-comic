@@ -37,6 +37,11 @@ test('复刻:全员换猫 → 预览改写 → 起片 → 新项目保结构', a
   expect(pv.shots[0].characters).toContain('一只橘猫');       // 角色已换
   expect(pv.shots[0].durationSec).toBe(5);                    // 时长锁定
   expect(pv.shots[0].prompt).toContain('镜头:');             // 镜头语言入 prompt
+  // v11.1.3 复刻保真度对照(换名保留冲突词 → 高保真)
+  expect(pv.fidelity).toBeTruthy();
+  expect(pv.fidelity.fidelity.overall).toBeGreaterThanOrEqual(0);
+  expect(pv.fidelity.fidelity.overall).toBeLessThanOrEqual(100);
+  expect(pv.fidelity.original.openingHook).toBeGreaterThanOrEqual(0);
 
   // 队列排空等待:满负载下另一条整片 e2e(journey)会占满双槽,先等空闲槽位再起片(独立预算)
   async function drainWait() {

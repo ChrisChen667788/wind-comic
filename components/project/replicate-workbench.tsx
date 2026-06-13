@@ -13,6 +13,18 @@ import { getToken } from '@/lib/auth';
 type Kind = 'global' | 'character' | 'scene' | 'prop';
 interface Rule { kind: Kind; from: string; to: string; refImage?: string }
 interface PreviewShot { shotNumber: number; durationSec: number; characters: string[]; scene: string; prompt: string; refImages: string[] }
+interface FidelityReport {
+  original: { openingHook: number; cliffhanger: number; averageConflictScore: number; reversalCount: number };
+  replica: { openingHook: number; cliffhanger: number; averageConflictScore: number; reversalCount: number };
+  fidelity: { pacing: number; hook: number; overall: number };
+  notes: string[];
+}
+
+function fidColor(v: number): string {
+  if (v >= 85) return 'var(--cinema-green)';
+  if (v >= 60) return 'var(--cinema-amber)';
+  return 'var(--cinema-red)';
+}
 
 const KIND_LABEL: Record<Kind, string> = { global: '全局替换', character: '角色', scene: '场景', prop: '道具' };
 
@@ -23,7 +35,7 @@ function authHeaders(): Record<string, string> {
 
 export function ReplicateWorkbench({ projectId, sheetSource = 'factory' }: { projectId: string; sheetSource?: string }) {
   const [rules, setRules] = useState<Rule[]>([{ kind: 'global', from: '', to: '' }]);
-  const [preview, setPreview] = useState<{ title: string; shots: PreviewShot[] } | null>(null);
+  const [preview, setPreview] = useState<{ title: string; shots: PreviewShot[]; fidelity?: FidelityReport } | null>(null);
   const [edited, setEdited] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
@@ -111,6 +123,29 @@ export function ReplicateWorkbench({ projectId, sheetSource = 'factory' }: { pro
         )}
       </div>
       {notice && <p className="mt-2 text-[11px] text-[var(--cinema-amber)]" role="status">{notice}</p>}
+
+      {preview?.fidelity && (
+        <div className="mt-4 rounded-md border border-[var(--cinema-border)] bg-black/20 px-3 py-2.5" data-testid="fidelity">
+          <div className="cinema-eyebrow !text-[9px] mb-2">复刻保真度(节奏 / 钩子贴合原片)</div>
+          <div className="grid grid-cols-3 gap-3">
+            {([['总体', preview.fidelity.fidelity.overall], ['节奏', preview.fidelity.fidelity.pacing], ['钩子', preview.fidelity.fidelity.hook]] as Array<[string, number]>).map(([label, v]) => (
+              <div key={label}>
+                <div className="cinema-mono text-[9px] opacity-50 mb-0.5">{label}</div>
+                <div className="flex items-baseline gap-1">
+                  <span className="cinema-headline text-lg" style={{ color: fidColor(v) }}>{v}</span>
+                  <span className="cinema-mono text-[9px] opacity-40">/100</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="cinema-mono text-[9px] opacity-45 mt-2">
+            开场 {preview.fidelity.original.openingHook}→{preview.fidelity.replica.openingHook} · 集尾 {preview.fidelity.original.cliffhanger}→{preview.fidelity.replica.cliffhanger} · 反转 {preview.fidelity.original.reversalCount}→{preview.fidelity.replica.reversalCount}
+          </div>
+          {preview.fidelity.notes.map((n, i) => (
+            <p key={i} className="text-[10px] text-[var(--cinema-text-3)] mt-1">· {n}</p>
+          ))}
+        </div>
+      )}
 
       {preview && (
         <div className="mt-4 space-y-2">
