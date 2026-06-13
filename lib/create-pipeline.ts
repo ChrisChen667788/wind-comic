@@ -670,7 +670,7 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       await saveAsset(projectId, 'timeline', '剪辑时间线', editResult);
       // 保存最终成片视频URL
       if (editResult.finalVideoUrl) {
-        await saveAsset(projectId, 'final_video', '最终成片', { duration: editResult.totalDuration }, [editResult.finalVideoUrl]);
+        await saveAsset(projectId, 'final_video', '最终成片', { duration: editResult.totalDuration, hasBgm: !!(editResult as any).hasBgm, hasVoiceover: !!(editResult as any).hasVoiceover, audible: !!((editResult as any).hasBgm || (editResult as any).hasVoiceover) }, [editResult.finalVideoUrl]);
       }
       // 保存配乐
       if (editResult.musicUrl) {

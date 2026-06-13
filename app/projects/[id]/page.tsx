@@ -71,6 +71,15 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('script');
   const [playingIndex, setPlayingIndex] = useState<number>(-1);
+  // v12.1.1 成片音频体检
+  const [audioCheck, setAudioCheck] = useState<{ audible: boolean; label: string; hasAudioStream: boolean | null; healed: boolean } | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'play') return;
+    let alive = true;
+    fetch(`/api/projects/${encodeURIComponent(id)}/audio-check`)
+      .then((r) => r.json()).then((d) => { if (alive && d.exists) setAudioCheck(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, [activeTab, id]);
 
   // Editing state
   const [editingShot, setEditingShot] = useState<number | null>(null);
@@ -887,6 +896,15 @@ export default function ProjectDetailPage() {
           {/* 完整播放 */}
           {activeTab === 'play' && (
             <div>
+              {audioCheck && (
+                <div className="mb-3 flex items-center gap-2 text-[12px]" data-testid="final-audio-badge">
+                  <span className={`px-2 py-0.5 rounded-md border ${audioCheck.audible ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}`}>
+                    🔊 {audioCheck.label}
+                  </span>
+                  {audioCheck.healed && <span className="text-[10px] text-white/40">已自愈补音轨</span>}
+                  {!audioCheck.audible && <span className="text-[10px] text-white/45">— 缺配乐/配音?去「镜头工坊」合成配音或重生成片补音</span>}
+                </div>
+              )}
               <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden mb-4">
                 {videos.length > 0 ? (
                   <div className="relative">

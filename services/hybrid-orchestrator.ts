@@ -4277,6 +4277,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
       // v2.11 #B1: 把本次跑出来的音频降级信息透给前端, 便于 UI 明示成片缺 BGM / 配音降级
       audioWarnings,
       hasBgm: Boolean(musicUrl),
+      hasVoiceover: voiceoverClips.length > 0,   // v12.1.1 成片音频体检用
     };
   }
 
