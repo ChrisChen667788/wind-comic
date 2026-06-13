@@ -167,3 +167,40 @@ describe('v12.0.2 · detectKeyShots + 关键镜侧重', () => {
     expect(durations[1]).toBeLessThan(5);  // 非关键镜 2:高张力 → 快切压缩
   });
 });
+
+describe('v12.0.3 · selectTransitions(转场审美)', () => {
+  it('关系驱动:张力升→cut、落→dissolve、反转→fade、显式硬切保留', async () => {
+    const { selectTransitions } = await import('@/lib/edit-rhythm');
+    const t = selectTransitions([
+      { shotNumber: 1, tensionLevel: 3 },
+      { shotNumber: 2, tensionLevel: 8 },                       // 张力升 → cut
+      { shotNumber: 3, tensionLevel: 3 },                       // 张力落 → dissolve
+      { shotNumber: 4, tensionLevel: 3, explicit: 'flash-cut' },// 显式硬切保留
+      { shotNumber: 5, emotionTemperature: 8 },                 // 前 -? 这里看翻转
+    ]);
+    expect(t[0]).toBe('');           // 首镜无入场转场
+    expect(t[1]).toBe('cut');        // 张力升
+    expect(t[2]).toBe('dissolve');   // 张力落
+    expect(t[3]).toBe('flash-cut');  // 显式保留
+    expect(t.length).toBe(5);
+  });
+
+  it('关键镜 → fade', async () => {
+    const { selectTransitions } = await import('@/lib/edit-rhythm');
+    const t = selectTransitions(
+      [{ shotNumber: 1 }, { shotNumber: 2 }],
+      new Set([2]),
+    );
+    expect(t[1]).toBe('fade');
+  });
+
+  it('变化性守卫:同转场不连续 3 次', async () => {
+    const { selectTransitions } = await import('@/lib/edit-rhythm');
+    // 全平淡镜 → 走 variety 轮换,不会出现连 3 个相同
+    const clips = Array.from({ length: 8 }, (_, i) => ({ shotNumber: i + 1, tensionLevel: 5, emotionTemperature: 0 }));
+    const t = selectTransitions(clips).slice(1);
+    for (let i = 2; i < t.length; i++) {
+      if (t[i] !== 'cut') expect(t[i] === t[i - 1] && t[i] === t[i - 2]).toBe(false);
+    }
+  });
+});

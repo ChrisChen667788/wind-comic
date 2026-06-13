@@ -62,6 +62,70 @@ export interface PacingResult {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+export interface TransitionClip {
+  shotNumber: number;
+  emotionTemperature?: number;
+  tensionLevel?: number;
+  hasDialogue?: boolean;
+  /** 用户/上游显式指定的转场(cut/flash-cut 等硬切优先保留) */
+  explicit?: string;
+}
+
+/**
+ * v12.0.3 转场审美 —— 按相邻镜关系选转场,而非一律 dissolve:
+ *   · 显式硬切(cut/flash-cut)→ 保留(尊重创作意图)
+ *   · 关键镜(开场/集尾/反转/峰值)→ fade(郑重入场)
+ *   · 张力骤升(Δtension ≥ 3)→ cut(硬切给冲击)
+ *   · 张力回落(Δtension ≤ -3)→ dissolve(叠化软收)
+ *   · 情绪极性翻转 → fade(沉稳过反转)
+ *   · 双对白镜 → dissolve(平顺,l-cut 管音轨衔接)
+ *   · 其余 → 在 dissolve / fadeblack / wipeleft 间轮换求变化
+ * **变化性守卫**:同一转场连续 3 次 → 换一个,避免单调。
+ * 返回 transition[](长度 = 镜数;index 0 = ''(首镜无入场转场))。纯函数。
+ */
+export function selectTransitions(clips: TransitionClip[], keyShots?: Set<number>): string[] {
+  const VARIETY = ['dissolve', 'fadeblack', 'wipeleft'];
+  const out: string[] = clips.length ? [''] : [];
+  let varietyIdx = 0;
+  let runTransition = '';
+  let runLen = 0;
+
+  for (let i = 1; i < clips.length; i++) {
+    const prev = clips[i - 1];
+    const cur = clips[i];
+    const explicit = (cur.explicit || '').toLowerCase();
+    let t: string;
+
+    if (explicit === 'cut' || explicit === 'flash-cut') {
+      t = explicit;
+    } else if (keyShots?.has(cur.shotNumber)) {
+      t = 'fade';
+    } else {
+      const dT = (cur.tensionLevel ?? 5) - (prev.tensionLevel ?? 5);
+      const pe = prev.emotionTemperature ?? 0;
+      const ce = cur.emotionTemperature ?? 0;
+      const flip = (pe > 1 && ce < -1) || (pe < -1 && ce > 1);
+      if (flip) t = 'fade';
+      else if (dT >= 3) t = 'cut';
+      else if (dT <= -3) t = 'dissolve';
+      else if (cur.hasDialogue && prev.hasDialogue) t = 'dissolve';
+      else { t = VARIETY[varietyIdx % VARIETY.length]; varietyIdx++; }
+    }
+
+    // 变化性守卫:同转场连 3 次 → 换 variety 池下一个(硬切不算单调,跳过)
+    if (t !== 'cut' && t !== 'flash-cut') {
+      if (t === runTransition) runLen++;
+      else { runTransition = t; runLen = 1; }
+      if (runLen >= 3) {
+        const alt = VARIETY.find((v) => v !== t) || t;
+        t = alt; runTransition = alt; runLen = 1;
+      }
+    }
+    out.push(t);
+  }
+  return out;
+}
+
 /**
  * 情绪驱动 pacing —— 返回逐镜新时长(只压不拉)+ 调速摘要。
  *

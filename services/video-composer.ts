@@ -529,11 +529,20 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   // 先于卡点剪辑:情绪 pacing 定宏观节奏,卡点再把切点微对齐到拍。durations[] 共用链路
   // 自动带动配音 adelay(对白镜不压 → 配音不断)。EMOTION_PACING_DISABLE=1 关闭。
   // v12.0.2 侧重强调:先标关键镜(开场/集尾/反转/峰值)—— 关键镜不压(注意力倾斜)+ 转场更沉稳
+  // v12.0.3 转场审美:按镜头关系 + 变化性统一选转场(在 async 体内预算,Promise executor 引用)
   let keyShots = new Set<number>();
+  let transitionNames: string[] = [];
   try {
-    const { detectKeyShots } = await import('@/lib/edit-rhythm');
+    const { detectKeyShots, selectTransitions } = await import('@/lib/edit-rhythm');
     keyShots = detectKeyShots(validClips.map((c) => ({ shotNumber: c?.shotNumber, emotionTemperature: c?.emotionTemperature })));
-  } catch { /* 非关键路径 */ }
+    transitionNames = selectTransitions(
+      validClips.map((c) => ({
+        shotNumber: c?.shotNumber, emotionTemperature: c?.emotionTemperature,
+        tensionLevel: c?.tensionLevel, hasDialogue: !!(c?.dialogue || '').trim(), explicit: c?.transition,
+      })),
+      keyShots,
+    );
+  } catch { /* 降级:逐镜 explicit/dissolve */ }
 
   let pacingInfo = '';
   if (localClips.length > 1 && process.env.EMOTION_PACING_DISABLE !== '1') {
@@ -702,15 +711,12 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     let cumulativeDuration = durations[0];
 
     for (let i = 1; i < n; i++) {
-      // 使用高光分析推荐的转场
       const clipAnalysis = highlights.find(h => h.shotNumber === validClips[i]?.shotNumber);
-      const isLastCut = validClips[i]?.transition === 'cut' || validClips[i]?.transition === 'flash-cut';
-      // v12.0.2 侧重:进关键镜(开场/集尾/反转/峰值)用沉稳 fade(不快切)+ 略长转场,
-      // 让叙事关键时刻有"郑重入场"感;非关键镜沿用高光分析推荐的转场。
+      const pick = transitionNames[i] || validClips[i]?.transition || 'dissolve';
+      const isLastCut = pick === 'cut' || pick === 'flash-cut';
+      const transition = mapTransition(pick);
+      // 关键镜 fade 略长(郑重入场);其余用高光分析推荐时长
       const enteringKey = !isLastCut && keyShots.has(validClips[i]?.shotNumber as number);
-      const transition = enteringKey
-        ? mapTransition('fade')
-        : mapTransition(clipAnalysis?.editStrategy.transition || validClips[i]?.transition || 'dissolve');
       const baseTd = enteringKey
         ? Math.max(td, clipAnalysis?.editStrategy.transitionDuration || td) * 1.3
         : (clipAnalysis?.editStrategy.transitionDuration || td);
