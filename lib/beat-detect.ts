@@ -133,6 +133,30 @@ export function snapDurationsToBeats(
   return adjusted;
 }
 
+/**
+ * v12.0.0 卡点剪辑用 —— snap 后 clamp 到源片真实时长。
+ *
+ * composer 的 xfade 用 [v{i}] 全长素材 + offset 定切点:若 snap 把某镜拉长超过
+ * 源片实长,xfade 在素材结束后还要 fade → ffmpeg 缺素材报错/卡帧。所以卡点剪辑
+ * **只收紧不拉长**:snap 想延后切点超过源片 → 保持源片长(没有更多画面可放)。
+ * 「收紧到拍点」也正是行业「trim to the beat」手法。返回新时长 + 实际改动镜数。
+ */
+export function snapDurationsToBeatsClamped(
+  durations: number[],
+  beats: number[],
+  opts?: SnapOptions,
+): { durations: number[]; changed: number } {
+  const snapped = snapDurationsToBeats(durations, beats, opts);
+  const out: number[] = [];
+  let changed = 0;
+  for (let i = 0; i < durations.length; i++) {
+    const v = Math.min(snapped[i], durations[i]); // 不越界源片
+    if (Math.abs(v - durations[i]) > 0.04) changed++;
+    out.push(v);
+  }
+  return { durations: out, changed };
+}
+
 /** 在已排序 beats 数组里找离 t 最近的, 没 beat 返回 null */
 export function findNearestBeat(t: number, beats: number[]): number | null {
   if (beats.length === 0) return null;

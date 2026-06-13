@@ -89,6 +89,7 @@ export interface ComposeResult {
   hasMusic: boolean;
   hasVoiceover: boolean;
   highlights: number[];      // 高光镜头编号列表
+  beatEdit?: string;         // v12.0.0 卡点剪辑摘要(如 "120 拍, 5/8 镜切点对齐"),无则空
 }
 
 // ═══════════════════════════════════════════
@@ -522,6 +523,28 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     console.warn('[Composer] subtitle setup failed (non-blocking):', e instanceof Error ? e.message : e);
   }
 
+  // ─── v12.0.0 卡点剪辑(阶段二十 A)──────────────────────────────────────────
+  // 多镜 + 有 BGM 时,把每镜切点吸附到音乐拍点(detectBeats → snap,只收紧不越界源片)。
+  // durations[] 被 xfade offset / 配音 adelay / 静音轨 共用 → 改它即同步全链对齐,口型不脱节。
+  // 诚实降级:无 BGM / 析不出拍 → 原样拼接(现状)。BEAT_EDIT_DISABLE=1 关闭。
+  let beatEditInfo = '';
+  if (localClips.length > 1 && localMusicPath && process.env.BEAT_EDIT_DISABLE !== '1') {
+    try {
+      const { detectBeats, snapDurationsToBeatsClamped } = await import('@/lib/beat-detect');
+      const beats = await detectBeats(localMusicPath);
+      if (beats.length > 0) {
+        const { durations: snapped, changed } = snapDurationsToBeatsClamped(durations, beats);
+        for (let i = 0; i < durations.length; i++) durations[i] = snapped[i];
+        beatEditInfo = `${beats.length} 拍, ${changed}/${durations.length} 镜切点对齐`;
+        console.log(`[Composer] v12.0.0 卡点剪辑: ${beatEditInfo}`);
+      } else {
+        console.log('[Composer] v12.0.0 卡点剪辑: BGM 析不出拍点 → 原样拼接');
+      }
+    } catch (e) {
+      console.warn('[Composer] 卡点剪辑失败(非阻塞):', e instanceof Error ? e.message : e);
+    }
+  }
+
   // 5. 如果只有一个片段：也应用变速 + 转场 + 配乐 + 配音
   if (localClips.length === 1) {
     return new Promise((resolve, reject) => {
@@ -802,6 +825,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           hasMusic: !!localMusicPath,
           hasVoiceover: localVoiceovers.size > 0,
           highlights: highlightShots,
+          beatEdit: beatEditInfo || undefined,
         });
       })
       .on('error', (err) => {

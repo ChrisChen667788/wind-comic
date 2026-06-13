@@ -16,6 +16,7 @@ Wind Comic 里若干「打分 / 判定」是**确定性启发式**(规则 / 信�
 | **Vision 质检分** | `lib/quality-gate.ts` 等 | 规则维度聚合(画面对剧本 / 一致性 / 口型…)+ 可选 LLM 视觉评分 | 规则维度是固定权重 | 全量交给多模态 LLM 打分 |
 | **情绪 / 节奏曲线** | `lib/emotion-curve.ts` | 关键词 / 规则映射到强度值 | 不懂语义细微差别 | LLM 逐镜情绪打分 |
 | **节奏 / 冲突审计** | `lib/pacing*` / McKee skill | 规则(冲突分 + 反转标记) | 启发式阈值 | LLM 叙事结构分析 |
+| **卡点剪辑(v12.0.0)** | `lib/beat-detect.ts` → `services/video-composer.ts` | ffmpeg 析 BGM 拍点,镜头切点吸附最近拍(±150ms,只收紧不越界源片);durations[] 共用链路自动带动配音 adelay 对齐 | 析拍用 silencedetect 近似 onset;只收紧 | madmom 级 onset/downbeat;能量分段(BeatSync)/ LLM 剪辑计划(CutClaw) |
 | **钩子审计三指标** | `lib/hook-audit.ts` | 词典 + 算术:开场 3 秒钩子分 / 集尾悬念分 / BGM 卡点对齐率(ffmpeg 析拍 ±150ms 窗口) | 词典覆盖有限;析拍用 silencedetect 近似 onset | 配 LLM key → 复核开场/集尾两个判断型指标(与规则分取均值);卡点是测量值不交给 LLM |
 | **长篇分集** | `lib/story-intake.ts` | 章节标记优先,否则按字数贪心打包 + 句子降级 | 无语义边界感知 | LLM 按情节断点分集 |
 | **按名推性别选音色** | `lib/voice-routing.ts` | 名字字符表 + 规则推断性别 → 默认音色 | 中性名 / 外文名不准 | LLM / 性别分类器;**或用户手动覆盖音色(已支持)** |

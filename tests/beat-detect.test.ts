@@ -97,3 +97,21 @@ describe('snapDurationsToBeats (Sprint B.3)', () => {
     expect(adjusted).toHaveLength(durs.length);
   });
 });
+
+describe('v12.0.0 · snapDurationsToBeatsClamped(卡点剪辑:只收紧不越界)', () => {
+  it('snap 想拉长超过源片 → clamp 回源片长(不越界)', async () => {
+    const { snapDurationsToBeatsClamped } = await import('@/lib/beat-detect');
+    // 两镜各 5s,拍点在 4.95 / 10.1:镜1 收紧到 4.95(对齐),镜2 out 想到 10.1(>10)→ clamp
+    const { durations, changed } = snapDurationsToBeatsClamped([5, 5], [4.95, 10.1]);
+    expect(durations[0]).toBeCloseTo(4.95, 2);       // 收紧对齐
+    expect(durations[1]).toBeLessThanOrEqual(5);      // 第二镜不越界源片 5s
+    expect(changed).toBeGreaterThanOrEqual(1);
+  });
+
+  it('无拍点 → 原样;每镜都 ≤ 源片', async () => {
+    const { snapDurationsToBeatsClamped } = await import('@/lib/beat-detect');
+    expect(snapDurationsToBeatsClamped([5, 5], []).durations).toEqual([5, 5]);
+    const r = snapDurationsToBeatsClamped([3, 4, 5], [2.9, 6.8, 11.9]);
+    r.durations.forEach((d, i) => expect(d).toBeLessThanOrEqual([3, 4, 5][i] + 0.001));
+  });
+});
