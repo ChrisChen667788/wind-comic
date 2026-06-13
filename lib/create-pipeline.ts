@@ -42,12 +42,14 @@ export interface CreatePipelineInput {
   cameraDefault?: string;
   previewSeedImage?: string;
   references?: any[];
+  /** v11.1.2 拉片复刻:预构脚本 → 跳过 Writer 创意,保结构起片 */
+  replicaScript?: any;
 }
 
 export type PipelineEmit = (type: string, data: unknown) => void;
 
 export async function runCreatePipeline(input: CreatePipelineInput, emit: PipelineEmit, opts?: { resume?: boolean }): Promise<void> {
-  const { idea, projectId, videoProvider, style, aspect, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references } = input as CreatePipelineInput & Record<string, any>;
+  const { idea, projectId, videoProvider, style, aspect, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references, replicaScript } = input as CreatePipelineInput & Record<string, any>;
   const send = emit; // 原文 send() 调用零改动
 
 
@@ -312,6 +314,18 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       send('step', { step: 'director' });
       send('status', { message: '[续跑] 导演计划已就绪,跳过' });
       send('plan', plan);
+    } else if (replicaScript && Array.isArray(replicaScript.shots) && replicaScript.shots.length) {
+      // v11.1.2 拉片复刻:从替换后的 shots 合成 plan(角色/场景取真实替换值),
+      // 跳过 Director —— 它只拿到「基于拉片结构复刻」synopsis 会回退占位角色,渲染错主体
+      const { buildReplicaPlan } = await import('./pull-sheet-replace');
+      plan = buildReplicaPlan(
+        (replicaScript.shots as any[]).map((sh) => ({ characters: sh.characters || [], scene: sh.sceneDescription || '' })),
+        { style: style || '' },
+      );
+      send('step', { step: 'director' });
+      send('status', { message: '拉片复刻:按原片结构合成导演计划(跳过创意导演)...' });
+      send('plan', plan);
+      await saveAsset(projectId, 'plan', '导演计划', plan);
     } else try {
       send('step', { step: 'director' });
       send('status', { message: 'AI 导演正在分析创意...' });
@@ -350,6 +364,14 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       send('step', { step: 'writer' });
       send('status', { message: '[续跑] 剧本已就绪,跳过' });
       send('script', script);
+      orchestrator.setWriterScript(script);
+    } else if (replicaScript && Array.isArray(replicaScript.shots) && replicaScript.shots.length) {
+      // v11.1.2 拉片复刻:用预构脚本,跳过 Writer 创意(保原片镜头结构/时长)
+      script = replicaScript;
+      send('step', { step: 'writer' });
+      send('status', { message: '拉片复刻:按原片结构构建脚本(跳过创意编剧)...' });
+      send('script', script);
+      await saveAsset(projectId, 'script', '剧本', { synopsis: script.synopsis, title: script.title, shots: script.shots, theme: (script as any).theme });
       orchestrator.setWriterScript(script);
     } else try {
       send('step', { step: 'writer' });

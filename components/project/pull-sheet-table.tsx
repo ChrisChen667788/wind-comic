@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { DownloadSimple, FilmSlate, CircleNotch, LinkSimple } from '@phosphor-icons/react';
 import type { PullSheet, PullSheetShot } from '@/lib/pull-sheet';
 import { getToken } from '@/lib/auth';
+import { ReplicateWorkbench } from './replicate-workbench';
 
 interface ExternalSheetRow { id: string; name: string; createdAt: string; sheet: PullSheet & { labeledShots?: number; truncated?: boolean } }
 
@@ -120,6 +121,9 @@ export function PullSheetTable({ projectId }: { projectId: string }) {
       </div>
 
       <SheetView sheet={sheet} />
+
+      {/* v11.1.2 — 复刻 · 替换工作台(本项目出厂表) */}
+      <ReplicateWorkbench projectId={projectId} sheetSource="factory" />
 
       {/* v11.1.1 — 外部参考片拆条 + 拉片 */}
       <ExternalPullSection projectId={projectId} />
@@ -249,7 +253,7 @@ function ExternalPullSection({ projectId }: { projectId: string }) {
                   </span>
                   <span className="ml-auto text-[10px] text-white/40">{isOpen ? '收起 ▲' : '展开 ▼'}</span>
                 </button>
-                {isOpen && <SheetView sheet={row.sheet} />}
+                {isOpen && <><SheetView sheet={row.sheet} /><ReplicateWorkbench projectId={projectId} sheetSource={row.id} /></>}
               </div>
             );
           })}

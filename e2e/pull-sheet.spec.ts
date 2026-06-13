@@ -67,6 +67,20 @@ test('外部参考片拆条:URL → 队列 → 骨架表落库(MOCK 模式零外
   const pid = 'qfmj-demo-showcase';
   await request.post('/api/demo-project', { headers: { Authorization: `Bearer ${token}` } });
 
+  // 队列排空等待:满负载下复刻整片 job 会占满双槽 ~2min,先等空闲槽位再提交(独立预算)
+  async function drainWait() {
+    for (let i = 0; i < 100; i++) {
+      const res = await request.get('/api/pipeline-jobs', { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok()) return;
+      const jobs = (await res.json()).jobs as Array<{ state: string }>;
+      const running = jobs.filter((j) => j.state === 'running').length;
+      const queued = jobs.filter((j) => j.state === 'queued').length;
+      if (running < 2 && queued === 0) return;
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+
+  await drainWait();
   // 用仓库自带真 mp4 作参考片(dev server 可达)
   const post = await request.post(`/api/projects/${pid}/pull-sheet`, {
     headers: jsonAuth,
@@ -78,7 +92,7 @@ test('外部参考片拆条:URL → 队列 → 骨架表落库(MOCK 模式零外
 
   // 等队列消化(ffmpeg 切分 + 抽帧,短片秒级)
   let jobState = '';
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 90; i++) {
     const jr = await (await request.get('/api/pipeline-jobs', { headers: { Authorization: `Bearer ${token}` } })).json();
     jobState = jr.jobs.find((j: any) => j.id === bq.jobId)?.state || '';
     if (jobState === 'done' || jobState === 'failed') break;
