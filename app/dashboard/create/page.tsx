@@ -126,6 +126,8 @@ export default function DashboardCreatePage() {
   const [references, setReferences] = useState<ReferenceAsset[]>([]); // v9.5.6: 多参元素(对标可灵 Elements)
   // v2.14 P1.1: 全局默认镜头语言 — 选了之后所有镜头都默认走这个运镜, 单镜可在分镜调整时覆盖
   const [cameraDefault, setCameraDefault] = useState<string | null>(null);
+  // v12.0.4: 一句指令调剪辑风格(''=默认中速 / preset / 自由文本)→ 智能剪辑管线 pacing+转场
+  const [editStyle, setEditStyle] = useState('');
   // v2.15 G9: 草稿数 (1=直接走 Writer; 2/3=先 hit /api/script-drafts 拿对比卡, 用户选完再走完整流程)
   const [draftCount, setDraftCount] = useState<1 | 2 | 3>(1);
   // v10.5.3: 简易/专业开关 —— 默认 pro(与既有 UI 逐像素一致,验收条款);localStorage 记忆
@@ -260,6 +262,8 @@ export default function DashboardCreatePage() {
           previewSeedImage: opts?.previewSeedImage || undefined,
           // v9.5.6: 多参元素(角色/风格/场景/道具/...)— create-stream 经 bindElements 路由进 cref/sref/构图
           references: references.length ? references : undefined,
+          // v12.0.4: 一句指令调剪辑风格(空 → 默认中速)
+          editStyle: editStyle.trim() || undefined,
         }),
       });
       if (!response.ok) throw new Error('创作失败');
@@ -926,6 +930,34 @@ export default function DashboardCreatePage() {
           {/* v2.14 P1.1 + v2.16 P1.2: 全局默认镜头语言 — 包到 cinema-card-hi 与周围 cards 视觉对齐 */}
           {createMode === 'pro' && <div className="cinema-card-hi p-3">
             <CameraLanguagePicker value={cameraDefault} onChange={setCameraDefault} />
+          </div>}
+
+          {/* v12.0.4: 一句指令调剪辑风格 — 喂智能剪辑管线(情绪压缩力度 + 转场软硬) */}
+          {createMode === 'pro' && <div className="cinema-card-hi p-3" data-testid="edit-style-picker">
+            <div className="cinema-mono text-[10px] opacity-50 mb-1.5 tracking-wider">剪辑风格 · 一句话调节奏</div>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {[
+                { v: '', label: '默认中速' },
+                { v: '快节奏燃向', label: '⚡ 快节奏燃向' },
+                { v: '慢叙抒情', label: '🌙 慢叙抒情' },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => setEditStyle(p.v)}
+                  className={`cinema-btn !px-3 !py-1 cinema-mono !text-[11px] ${editStyle === p.v ? 'cinema-btn-primary' : ''}`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              value={editStyle}
+              onChange={(e) => setEditStyle(e.target.value)}
+              placeholder="或自定义:「抖音爆款卡点」「王家卫式留白」(配 LLM key 智能解析)"
+              className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white placeholder:text-gray-500 focus:outline-none focus:border-[var(--cinema-amber)] transition-colors"
+            />
           </div>}
 
           {/* v2.15 G8 + v2.16 P1.2: 我的风格库 — 同款卡片包装 */}

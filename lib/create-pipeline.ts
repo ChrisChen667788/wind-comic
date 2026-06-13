@@ -44,12 +44,14 @@ export interface CreatePipelineInput {
   references?: any[];
   /** v11.1.2 拉片复刻:预构脚本 → 跳过 Writer 创意,保结构起片 */
   replicaScript?: any;
+  /** v12.0.4 一句指令调剪辑风格(「快节奏燃向」/「慢叙抒情」),空 → 默认中速 */
+  editStyle?: string;
 }
 
 export type PipelineEmit = (type: string, data: unknown) => void;
 
 export async function runCreatePipeline(input: CreatePipelineInput, emit: PipelineEmit, opts?: { resume?: boolean }): Promise<void> {
-  const { idea, projectId, videoProvider, style, aspect, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references, replicaScript } = input as CreatePipelineInput & Record<string, any>;
+  const { idea, projectId, videoProvider, style, aspect, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references, replicaScript, editStyle } = input as CreatePipelineInput & Record<string, any>;
   const send = emit; // 原文 send() 调用零改动
 
 
@@ -111,6 +113,11 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     // ── 注入用户选定画风（覆盖自动检测）──
     if (style) {
       orchestrator.setUserStyle(style);
+    }
+
+    // ── v12.0.4 注入剪辑风格指令(一句话调 pacing/转场)──
+    if (editStyle && typeof editStyle === 'string') {
+      orchestrator.setEditStyle(editStyle);
     }
 
     // v2.14 P1.1: 全局默认镜头语言 — 影响所有镜头的运镜默认值。

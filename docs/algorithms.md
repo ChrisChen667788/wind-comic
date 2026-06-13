@@ -20,6 +20,7 @@ Wind Comic 里若干「打分 / 判定」是**确定性启发式**(规则 / 信�
 | **情绪节奏曲线(v12.0.1)** | `lib/edit-rhythm.ts` → `services/video-composer.ts` | 按 emotionTemperature/tensionLevel:情感峰值镜 breathe 满长、高张力镜快切压缩、平淡过场轻压;对白镜不压保配音;**只压不拉** | 数值阈值启发式;无情绪数据则不动 | LLM 一句指令调风格(CutClaw)/ 能量分段细化(BeatSync) |
 | **侧重强调(v12.0.2)** | `lib/edit-rhythm.ts` `detectKeyShots` → composer | 标关键镜(开场钩子/集尾悬念/情绪反转/峰值)→ 关键镜不压保满长(注意力倾斜)+ 进关键镜用沉稳 fade 略长转场 | 结构启发式(位置+情绪跳变) | pacing-audit/hook-audit 真关键镜联动 / LLM 重点位 |
 | **转场审美(v12.0.3)** | `lib/edit-rhythm.ts` `selectTransitions` → composer | 按镜头关系选转场:张力升→cut/落→dissolve/反转→fade/关键镜→fade/双对白→dissolve;变化性守卫(同转场不连 3 次);显式硬切保留 | 仅用 emotion/tension 数值;无 scene 字段 | 场景边界感知(match-cut)/ 真 j-cut·l-cut 自动选 |
+| **一句指令调剪辑风格(v12.0.4,BYO)** | `lib/edit-style.ts` → composer | 用户一句话→风格参数(compressionBias 压缩力度 + cutBias 转场软硬),调制 v12.0.1–.3 管线。规则层关键词字典零配置可跑;可选 LLM 层把自由文本映射成参数(白名单 sanitize 夹紧,失败回退规则层) | 规则层关键词覆盖有限;参数维度仅压缩+转场两轴 | LLM 出更细剪辑计划(分段 pacing 曲线/逐镜强调权重),CutClaw 式三 Agent 复核 |
 | **钩子审计三指标** | `lib/hook-audit.ts` | 词典 + 算术:开场 3 秒钩子分 / 集尾悬念分 / BGM 卡点对齐率(ffmpeg 析拍 ±150ms 窗口) | 词典覆盖有限;析拍用 silencedetect 近似 onset | 配 LLM key → 复核开场/集尾两个判断型指标(与规则分取均值);卡点是测量值不交给 LLM |
 | **长篇分集** | `lib/story-intake.ts` | 章节标记优先,否则按字数贪心打包 + 句子降级 | 无语义边界感知 | LLM 按情节断点分集 |
 | **按名推性别选音色** | `lib/voice-routing.ts` | 名字字符表 + 规则推断性别 → 默认音色 | 中性名 / 外文名不准 | LLM / 性别分类器;**或用户手动覆盖音色(已支持)** |

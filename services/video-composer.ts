@@ -79,6 +79,7 @@ export interface ComposeOptions {
   transitionDuration?: number; // 转场时长（秒），默认 0.5
   musicVolume?: number;        // 配乐音量 0~1，默认 0.3
   voiceoverVolume?: number;    // 配音音量 0~1，默认 0.9
+  editStyle?: string;          // v12.0.4 一句指令调剪辑风格(快节奏燃向/慢叙抒情...)
   onProgress?: (percent: number, stage: string) => void;
 }
 
@@ -528,6 +529,12 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   // 动作/高张力镜快切压缩、情感峰值镜 breathe、对白镜保配音满长(只压不拉,用现有素材)。
   // 先于卡点剪辑:情绪 pacing 定宏观节奏,卡点再把切点微对齐到拍。durations[] 共用链路
   // 自动带动配音 adelay(对白镜不压 → 配音不断)。EMOTION_PACING_DISABLE=1 关闭。
+  // v12.0.4 一句指令调风格:解析 editStyle → 压缩力度 + 转场软硬偏置(BYO,无 key/MOCK 走规则)
+  let editStyle = { pace: 'medium' as const, compressionBias: 1.0, cutBias: 0, label: '默认(中速)', source: 'default' as const };
+  if (options.editStyle && options.editStyle.trim()) {
+    try { const { resolveEditStyle } = await import('@/lib/edit-style'); editStyle = await resolveEditStyle(options.editStyle) as any; } catch { /* 规则兜底 */ }
+  }
+
   // v12.0.2 侧重强调:先标关键镜(开场/集尾/反转/峰值)—— 关键镜不压(注意力倾斜)+ 转场更沉稳
   // v12.0.3 转场审美:按镜头关系 + 变化性统一选转场(在 async 体内预算,Promise executor 引用)
   let keyShots = new Set<number>();
@@ -541,6 +548,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         tensionLevel: c?.tensionLevel, hasDialogue: !!(c?.dialogue || '').trim(), explicit: c?.transition,
       })),
       keyShots,
+      editStyle.cutBias,
     );
   } catch { /* 降级:逐镜 explicit/dissolve */ }
 
@@ -556,12 +564,12 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           hasDialogue: !!(c?.dialogue || '').trim(),
           shotNumber: c?.shotNumber,
         })),
-        { keyShots },
+        { keyShots, compressionBias: editStyle.compressionBias },
       );
       if (changed > 0) {
         for (let i = 0; i < durations.length; i++) durations[i] = Math.min(durations[i], paced[i]);
-        pacingInfo = `${changed}/${durations.length} 镜情绪调速${keyShots.size ? `,${keyShots.size} 关键镜侧重` : ''}`;
-        console.log(`[Composer] v12.0.1/.2 情绪节奏+侧重: ${pacingInfo}`);
+        pacingInfo = `${changed}/${durations.length} 镜情绪调速${keyShots.size ? `,${keyShots.size} 关键镜侧重` : ''}${editStyle.source !== 'default' ? `,风格:${editStyle.label}` : ''}`;
+        console.log(`[Composer] v12.0.1/.2/.4 情绪节奏+侧重+风格: ${pacingInfo}`);
       }
     } catch (e) {
       console.warn('[Composer] 情绪节奏失败(非阻塞):', e instanceof Error ? e.message : e);

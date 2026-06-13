@@ -575,6 +575,10 @@ export class HybridOrchestrator {
     return this.projectId;
   }
 
+  // ── v12.0.4 用户一句指令调剪辑风格(快节奏燃向/慢叙抒情...)→ 喂确定性剪辑管线 ──
+  private editStyleInstruction: string = '';
+  setEditStyle(instruction: string) { this.editStyleInstruction = (instruction || '').trim(); }
+
   // ── 用户选定画风 → 覆盖自动检测 ──
   private userSelectedStyle: string = '';
   setUserStyle(style: string) {
@@ -4159,6 +4163,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           transitionDuration: 0.5,
           musicVolume: voiceoverClips.length > 0 ? 0.2 : 0.3, // 有配音时降低配乐音量
           voiceoverVolume: 0.9,
+          editStyle: this.editStyleInstruction || undefined, // v12.0.4 一句指令调风格
           onProgress: (pct, stage) => {
             const mappedPct = 65 + Math.round(pct * 0.30);
             this.update(AgentRole.EDITOR, { progress: mappedPct, currentTask: stage });

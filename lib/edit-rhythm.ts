@@ -83,8 +83,12 @@ export interface TransitionClip {
  * **变化性守卫**:同一转场连续 3 次 → 换一个,避免单调。
  * 返回 transition[](长度 = 镜数;index 0 = ''(首镜无入场转场))。纯函数。
  */
-export function selectTransitions(clips: TransitionClip[], keyShots?: Set<number>): string[] {
-  const VARIETY = ['dissolve', 'fadeblack', 'wipeleft'];
+export function selectTransitions(clips: TransitionClip[], keyShots?: Set<number>, cutBias = 0): string[] {
+  // v12.0.4 风格偏置:cutBias>0(快剪)硬切池 + 张力阈值放宽;<0(慢叙)柔池 + 阈值收紧
+  const VARIETY = cutBias > 0.3 ? ['cut', 'fadeblack', 'dissolve']
+    : cutBias < -0.3 ? ['dissolve', 'fade', 'fadeblack']
+    : ['dissolve', 'fadeblack', 'wipeleft'];
+  const riseThresh = cutBias > 0.3 ? 2 : cutBias < -0.3 ? 4 : 3;   // 张力升→硬切的阈值
   const out: string[] = clips.length ? [''] : [];
   let varietyIdx = 0;
   let runTransition = '';
@@ -106,7 +110,7 @@ export function selectTransitions(clips: TransitionClip[], keyShots?: Set<number
       const ce = cur.emotionTemperature ?? 0;
       const flip = (pe > 1 && ce < -1) || (pe < -1 && ce > 1);
       if (flip) t = 'fade';
-      else if (dT >= 3) t = 'cut';
+      else if (dT >= riseThresh) t = 'cut';
       else if (dT <= -3) t = 'dissolve';
       else if (cur.hasDialogue && prev.hasDialogue) t = 'dissolve';
       else { t = VARIETY[varietyIdx % VARIETY.length]; varietyIdx++; }
@@ -136,9 +140,10 @@ export function selectTransitions(clips: TransitionClip[], keyShots?: Set<number
  *   4. 平淡过场(|温度| ≤ 2 且 tension ≤ 3)→ 轻压 0.82(避免温吞)
  *   5. 其余 → 满长
  */
-export function applyEmotionPacing(clips: RhythmClip[], opts?: { minShotS?: number; keyShots?: Set<number> }): PacingResult {
+export function applyEmotionPacing(clips: RhythmClip[], opts?: { minShotS?: number; keyShots?: Set<number>; compressionBias?: number }): PacingResult {
   const minShot = opts?.minShotS ?? 1.2;
   const keyShots = opts?.keyShots;
+  const bias = typeof opts?.compressionBias === 'number' ? Math.max(0.4, Math.min(1.6, opts.compressionBias)) : 1.0;
   const out: number[] = [];
   const reasons: string[] = [];
   let changed = 0;
@@ -159,7 +164,10 @@ export function applyEmotionPacing(clips: RhythmClip[], opts?: { minShotS?: numb
     else if (tension >= 6) { factor = clamp(1 - 0.4 * ((tension - 6) / 4), 0.6, 1.0); why = '高张力·快切'; }
     else if (hasData && temp <= 2 && tension <= 3) { factor = 0.82; why = '平淡过场·轻压'; }
 
-    const nd = Math.max(minShot, dur * factor);
+    // v12.0.4 风格调制:压缩量 ×bias(快剪压更狠/慢叙压更轻);满长镜(factor=1)不受影响
+    const styled = factor < 1 ? 1 - (1 - factor) * bias : factor;
+    const finalFactor = clamp(styled, 0.5, 1.0);
+    const nd = Math.max(minShot, dur * finalFactor);
     if (Math.abs(nd - dur) > 0.04) { changed++; reasons.push(why); }
     out.push(nd);
   }

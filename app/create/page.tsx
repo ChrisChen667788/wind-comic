@@ -21,6 +21,8 @@ import { PromptReadiness } from '@/components/prompt-readiness';
 export default function CreatePage() {
   const [idea, setIdea] = useState('');
   const [videoProvider, setVideoProvider] = useState('minimax');
+  // v12.0.4 一句指令调剪辑风格 —— ''(默认中速)/ preset / 自由文本
+  const [editStyle, setEditStyle] = useState('');
   // v6.1.2: 多模态参考 (图/音/视频), 随创作请求一起提交
   const [references, setReferences] = useState<ReferenceAsset[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -136,6 +138,8 @@ export default function CreatePage() {
           primaryCharacterRef: cameoPreview || undefined,
           // v6.1.2: 多模态参考 (图/音/视频). 图片参考可被 cref 消费; 音/视频前向兼容载荷.
           references: references.length ? references : undefined,
+          // v12.0.4: 一句指令调剪辑风格(空 → 默认中速)
+          editStyle: editStyle.trim() || undefined,
         }),
       });
 
@@ -407,6 +411,40 @@ export default function CreatePage() {
                         </div>
                       </button>
                     </div>
+                  </div>
+
+                  {/* v12.0.4: 一句指令调剪辑风格(快节奏燃向 / 慢叙抒情 / 自由文本)→ 智能剪辑管线 */}
+                  <div data-testid="edit-style-picker">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      剪辑风格 <span className="text-xs text-gray-500">一句话调节奏与转场,可留空(默认中速)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {[
+                        { v: '', label: '默认中速' },
+                        { v: '快节奏燃向', label: '⚡ 快节奏燃向' },
+                        { v: '慢叙抒情', label: '🌙 慢叙抒情' },
+                      ].map((p) => (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => setEditStyle(p.v)}
+                          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
+                            editStyle === p.v
+                              ? 'border-[#E8C547] bg-[#E8C547]/10 text-[#E8C547]'
+                              : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={editStyle}
+                      onChange={(e) => setEditStyle(e.target.value)}
+                      placeholder="或自定义:如「抖音爆款卡点」「王家卫式留白」(配 LLM key 时智能解析)"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40 focus:border-[#E8C547]/40 transition-all"
+                    />
                   </div>
 
                   {/* v6.1.3: 生成前就绪度预览 (实时) */}

@@ -204,3 +204,89 @@ describe('v12.0.3 · selectTransitions(转场审美)', () => {
     }
   });
 });
+
+describe('v12.0.4 · resolveEditStyleRule(一句指令调风格:规则层)', () => {
+  it('快节奏关键词 → fast(压更狠 + 硬切偏置)', async () => {
+    const { resolveEditStyleRule } = await import('@/lib/edit-style');
+    for (const s of ['快节奏燃向', '热血打斗高能', '抖音爆款卡点']) {
+      const st = resolveEditStyleRule(s);
+      expect(st.pace).toBe('fast');
+      expect(st.compressionBias).toBeGreaterThan(1);
+      expect(st.cutBias).toBeGreaterThan(0);
+    }
+  });
+
+  it('慢叙关键词 → slow(压更轻 + 柔转场偏置)', async () => {
+    const { resolveEditStyleRule } = await import('@/lib/edit-style');
+    for (const s of ['慢叙抒情', '唯美治愈留白', '王家卫式诗意']) {
+      const st = resolveEditStyleRule(s);
+      expect(st.pace).toBe('slow');
+      expect(st.compressionBias).toBeLessThan(1);
+      expect(st.cutBias).toBeLessThan(0);
+    }
+  });
+
+  it('空/无命中 → 默认中速(零配置安全)', async () => {
+    const { resolveEditStyleRule, DEFAULT_EDIT_STYLE } = await import('@/lib/edit-style');
+    expect(resolveEditStyleRule('').source).toBe('default');
+    expect(resolveEditStyleRule(undefined)).toEqual(DEFAULT_EDIT_STYLE);
+    const neutral = resolveEditStyleRule('讲一个故事');
+    expect(neutral.pace).toBe('medium');
+    expect(neutral.compressionBias).toBe(1.0);
+    expect(neutral.cutBias).toBe(0);
+  });
+});
+
+describe('v12.0.4 · 风格调制确定性管线(compressionBias / cutBias)', () => {
+  it('compressionBias 放大/缩小压缩量,满长镜不受影响', async () => {
+    const { applyEmotionPacing } = await import('@/lib/edit-rhythm');
+    const clips = [
+      { durationS: 5, tensionLevel: 10 },                       // 高张力 → 压
+      { durationS: 5, emotionTemperature: 9 },                  // 峰值 → 满长(不受 bias 影响)
+    ];
+    const slow = applyEmotionPacing(clips, { compressionBias: 0.5 });
+    const fast = applyEmotionPacing(clips, { compressionBias: 1.4 });
+    expect(fast.durations[0]).toBeLessThan(slow.durations[0]); // 快剪压得更短
+    expect(slow.durations[1]).toBe(5);                          // 峰值满长,任何风格都不动
+    expect(fast.durations[1]).toBe(5);
+    [slow, fast].forEach((r) => r.durations.forEach((d) => expect(d).toBeLessThanOrEqual(5)));
+  });
+
+  it('cutBias>0 → 硬切池(含 cut);cutBias<0 → 柔池(无 cut)', async () => {
+    const { selectTransitions } = await import('@/lib/edit-rhythm');
+    const clips = Array.from({ length: 6 }, (_, i) => ({ shotNumber: i + 1, tensionLevel: 5, emotionTemperature: 0 }));
+    const hard = selectTransitions(clips, undefined, 0.6).slice(1);
+    const soft = selectTransitions(clips, undefined, -0.6).slice(1);
+    expect(hard).toContain('cut');                              // 快剪 variety 池含硬切
+    expect(soft.every((t) => t !== 'cut')).toBe(true);          // 慢叙柔池无硬切
+    expect(soft.every((t) => ['dissolve', 'fade', 'fadeblack'].includes(t))).toBe(true);
+  });
+
+  it('cutBias 收紧/放宽张力升→cut 阈值', async () => {
+    const { selectTransitions } = await import('@/lib/edit-rhythm');
+    // Δtension = 2:快剪(阈值2)→ cut;慢叙(阈值4)→ 不 cut
+    const clips = [{ shotNumber: 1, tensionLevel: 5 }, { shotNumber: 2, tensionLevel: 7 }];
+    expect(selectTransitions(clips, undefined, 0.6)[1]).toBe('cut');
+    expect(selectTransitions(clips, undefined, -0.6)[1]).not.toBe('cut');
+  });
+});
+
+describe('v12.0.4 · resolveEditStyle(LLM 层 BYO:MOCK/无 key 零调用)', () => {
+  it('MOCK_ENGINES=1 → 不打 LLM,回退规则层', async () => {
+    const prev = process.env.MOCK_ENGINES;
+    process.env.MOCK_ENGINES = '1';
+    try {
+      const { resolveEditStyle } = await import('@/lib/edit-style');
+      const st = await resolveEditStyle('快节奏燃向');
+      expect(st.pace).toBe('fast');
+      expect(st.source).toBe('rule'); // 规则层,非 llm
+    } finally {
+      if (prev === undefined) delete process.env.MOCK_ENGINES; else process.env.MOCK_ENGINES = prev;
+    }
+  });
+
+  it('空指令 → 默认风格(不调用任何引擎)', async () => {
+    const { resolveEditStyle } = await import('@/lib/edit-style');
+    expect((await resolveEditStyle('')).source).toBe('default');
+  });
+});
