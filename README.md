@@ -229,6 +229,29 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ---
 
+## 🆕 New in v11 → v12 — pull-replicate, smart editing & management
+
+Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核心迭代:
+
+- **阶段十九 AI 拉片复刻(v11.1.x)**:拉片五栏真值表(出厂参数,非 AI 看图猜)· 外部视频 ffmpeg 拆条 + BYO Vision 打标 · 替换工作台(「全员换猫」级全局替换)+ 复刻起片(保原片镜头结构/时长)· 复刻保真度对照 · 存为私有模板。
+- **项目/资产管理(v11.2.0)**:我的项目 / 我的资产 删除 + 下架(级联清理 + 属主守卫)。
+- **模型雷达(v10.6.3)**:一键扫描各 API 最新模型 + 同家族自动升级(四护栏 + 回滚)。
+- **钩子审计三指标(v10.6.2)**:开场 3 秒钩子 / 集尾悬念 / BGM 卡点对齐率。
+- **阶段二十 智能剪辑(v12.0.x)**:卡点剪辑(切点吸附音乐拍点)+ 情绪节奏曲线(峰值镜 breathe / 动作镜快切)。
+- **安全加固(v11.1.4)**:JWT 公开兜底密钥根除(进程级随机密钥,旧泄露值作废)。
+
+| 我的项目 · 删除/下架管理 | 拉片表 + 复刻工作台 |
+|---|---|
+| ![我的项目](docs/screenshots/v12/01-my-projects-manage.png) | ![拉片](docs/screenshots/v12/04-pull-sheet-replicate.png) |
+
+| 素材库 · 资产管理 | API 健康 · 模型雷达 |
+|---|---|
+| ![素材库](docs/screenshots/v12/02-my-assets-manage.png) | ![模型雷达](docs/screenshots/v12/03-api-health-model-radar.png) |
+
+完整逐版本核心迭代见 [`VERSIONS.md`](VERSIONS.md);阶段计划见 `docs/stage18`–`docs/stage20`。
+
+---
+
 ## 🎬 Screenshots
 
 Below is the **foundational v3 pipeline** (the v6 studio screens are in the [New in v6](#-new-in-v6--from-demo-to-studio) section above). Every panel is **a real puppeteer capture of the running app** (run `node scripts/capture-screenshots.mjs` / `node scripts/capture-v6.mjs` to refresh).
