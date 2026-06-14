@@ -78,8 +78,11 @@
 - 路径一:生成模型支持原生音频时(Veo 3.1 native audio)请求 `generate_audio` → 片段自带声。
 - 路径二(兜底):片段预览叠播该镜 TTS 配音资产(shot-audio),`<video>` + 同步 `<audio>` 对齐;无配音的镜明确标「片段无独立音轨,成片含配乐+配音」。
 
-### v12.1.2 — 预览体验【S】
-- 视频 tab 每镜「带声试听」开关;音频就绪度徽章(配音/配乐/原生音三态)。
+### v12.1.2 — 预览体验【S】✅ 已交付(commit 待回填)
+- 视频 tab 每镜「带声试听」开关(静音/恢复该镜音频,aria-pressed 受控,仅有可听声源时显示);三态就绪度徽章。
+- 诚实落地:per-clip 无「配乐」(BGM 仅成片级)→ 三态按片段真实落为 **带配音(TTS 叠层)/ 原生音轨(裸片自带,探测到才标)/ 片段无独立音轨(成片含配乐+配音)**。原生音只在有正向证据(webkitAudioDecodedByteCount/mozHasAudio/audioTracks)时上调,不臆断。
+- `components/project/clip-with-audio.tsx`:三 effect 状态机(原生探测 / 叠播同步 / 试听开关→声源切换)。对抗式三镜评审 + 逐条 refute 后定稿。
+- **阶段二十 B 预览音频收官**(片段叠播 → 成片体检自愈 → 预览体验)。
 
 ---
 

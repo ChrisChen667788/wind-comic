@@ -35,9 +35,20 @@ test('片段预览:音频徽章 + 有配音的镜叠播 <audio>', async ({ page,
   const count = await badges.count();
   expect(count).toBeGreaterThanOrEqual(1);
 
-  // 至少出现「带配音」或「片段无独立音轨」文案之一
-  const bodyText = await page.locator('[data-testid="clip-audio-badge"]').first().textContent();
-  expect(bodyText === null || /带配音|片段无独立音轨/.test(bodyText || '')).toBeTruthy();
+  // v12.1.2 三态徽章:带配音 / 原生音轨 / 片段无独立音轨 之一
+  const first = page.locator('[data-testid="clip-audio-badge"]').first();
+  const bodyText = await first.textContent();
+  expect(bodyText === null || /带配音|原生音轨|片段无独立音轨/.test(bodyText || '')).toBeTruthy();
+  const stateAttr = await first.getAttribute('data-audio-state');
+  expect(['voiceover', 'native', 'none', null]).toContain(stateAttr);
+
+  // v12.1.2 带声试听开关:demo 有 shot-audio(配音镜)→ 必现 ≥1 toggle(硬断言,防回归静默跳过)
+  const toggle = page.locator('[data-testid="clip-audio-toggle"]').first();
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');   // 默认带声
+  await expect(toggle).toHaveAttribute('aria-label', '带声试听');   // 稳定可达名(随状态不变)
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');  // 点后静音
 });
 
 test('成片音频体检:audio-check 端点 + play tab 徽章', async ({ page, request }, testInfo) => {
