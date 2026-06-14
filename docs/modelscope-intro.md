@@ -209,6 +209,9 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🥊 vs. competitors
 
+> 阵容核验 2026-06-14:Artificial Analysis arena 榜首易主 —— **Seedance 2.0(字节)+ HappyHorse-1.0(阿里)现占前二**,Veo 3.1 第三(唯一原生 48kHz 对白音轨)。**Kling 3.0** 仍盘踞 top 10 四席(原生 4K/60fps/15s + 多语唇形)。**Runway Gen-4.5** 已跌出 top 10(控制面仍最强:motion brush + GWM-1 世界模型,故保留对比)。Sora 2 已宣布年内停服,移出对比。五家均为生产可用第一梯队 + 公开 BYO API。
+> 结论不变:**生成层已是红海(竞品在出片/多镜/音频都第一梯队),Wind Comic 护城河收窄到「制作/平台层」**——节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO。
+
 | Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | HappyHorse-1.0 | **Wind Comic** |
 |---|---|---|---|---|---|---|
 | Multi-shot story from one prompt | ⚠️ | ✅ storyboard mode | ✅ multi-shot native | ⚠️ | ⚠️ (one clip) | **✅ 8-agent script→edit pipeline** |
@@ -223,8 +226,41 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 | Open source | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ MIT** |
 | Per-shot regenerate with custom prompt | ⚠️ | ✅ | ⚠️ | ✅ motion brush | ⚠️ | **✅ + reference image upload** |
 | Pacing / conflict audit | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ shot-level score + reversal detection** |
+| Smart editing (beat-snap + emotion pacing + one-instruction style) | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ beat-snap · emotion pacing · emphasis · transition aesthetics · "fast & hype/slow & lyrical" in one line (BYO LLM)** |
 
 > Cells marked ⚠️ = the feature exists but in a limited / locked-down form (e.g. "you can only do this on a paid Pro tier through a UI panel").
+
+---
+
+## 🆕 New in v11 → v12 — pull-replicate, smart editing & management
+
+Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核心迭代:
+
+- **阶段十九 AI 拉片复刻(v11.1.x)**:拉片五栏真值表(出厂参数,非 AI 看图猜)· 外部视频 ffmpeg 拆条 + BYO Vision 打标 · 替换工作台(「全员换猫」级全局替换)+ 复刻起片(保原片镜头结构/时长)· 复刻保真度对照 · 存为私有模板。
+- **项目/资产管理(v11.2.0)**:我的项目 / 我的资产 删除 + 下架(级联清理 + 属主守卫)。
+- **模型雷达(v10.6.3)**:一键扫描各 API 最新模型 + 同家族自动升级(四护栏 + 回滚)。
+- **钩子审计三指标(v10.6.2)**:开场 3 秒钩子 / 集尾悬念 / BGM 卡点对齐率。
+- **阶段二十 A 智能剪辑(v12.0.x,五刀全交付)**:卡点剪辑(切点吸附音乐拍点)· 情绪节奏曲线(峰值镜 breathe / 动作镜快切)· 侧重强调(关键镜不压 + 沉稳转场)· 转场审美(按镜头关系选转场)· **一句指令调风格(v12.0.4,BYO)**——「快节奏燃向」/「慢叙抒情」一句话调 pacing 力度 + 转场软硬,无 key 走规则、配 key LLM 解析自由文本。
+- **阶段二十 B 预览音频(v12.1.x)**:片段预览叠播配音(静音裸片 + 同步配音轨)+ 成片音频体检自愈(ffprobe 缺流补轨)。
+- **安全加固(v11.1.4)**:JWT 公开兜底密钥根除(进程级随机密钥,旧泄露值作废)。
+
+| 我的项目 · 删除/下架管理 | 拉片表 + 复刻工作台 |
+|---|---|
+| ![我的项目](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/screenshots/v12/01-my-projects-manage.png) | ![拉片](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/screenshots/v12/04-pull-sheet-replicate.png) |
+
+| 素材库 · 资产管理 | API 健康 · 模型雷达 |
+|---|---|
+| ![素材库](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/screenshots/v12/02-my-assets-manage.png) | ![模型雷达](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/screenshots/v12/03-api-health-model-radar.png) |
+
+| 钩子审计三指标 | 一句指令调剪辑风格(v12.0.4) |
+|---|---|
+| ![钩子审计](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/screenshots/v12/05-pacing-hook-audit.png) | ![剪辑风格](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/screenshots/v12/06-edit-style-instruction.png) |
+
+| 片段预览音频:三态徽章 + 带声试听(v12.1.2) | |
+|---|---|
+| ![片段音频预览](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/screenshots/v12/07-clip-audio-preview.png) | 左:带配音(TTS 叠层)+ 带声试听开关 · 右:片段无独立音轨(成片含配乐+配音) |
+
+完整逐版本核心迭代见 [`VERSIONS.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/VERSIONS.md);阶段计划见 `docs/stage18`–`docs/stage20`。
 
 ---
 
