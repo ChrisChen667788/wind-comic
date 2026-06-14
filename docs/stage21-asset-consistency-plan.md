@@ -44,7 +44,7 @@
 
 ## 三、版本拆解 · 阶段二十一 A · 全局资产记忆库 v2(v12.2.x)
 
-### v12.2.0 — 名称归一 + DNA 命中匹配修复(确定性,先堵漏)【S】✅ 已交付(commit 待回填)
+### v12.2.0 — 名称归一 + DNA 命中匹配修复(确定性,先堵漏)【S】✅ 已交付(commit 8194e2d)
 - **名称归一**:`normalizeCharacterName()`(同源 `consistency-policy` normalizeKey + 扩 CJK 角括号「」『』)导出。
 - **DNA 命中匹配**:`matchDnaForName()` 复用 `matchLockedCharactersInShot` 策略(原样精确 → 归一精确 → 子串双向 ≥2 字符);`injectDnaIntoPrompt` 改走它 + 同 DNA 去重 → 修「林小满(镜头)vs 小满(dnaMap)」静默漏注入。orchestrator 透明受益(已调 injectDnaIntoPrompt,无需改)。
 - 纯函数、零依赖、零 BYO。**单测**:归一 + 归一精确 + 子串命中 + 单字不误匹配 + 去重(6 例)。
