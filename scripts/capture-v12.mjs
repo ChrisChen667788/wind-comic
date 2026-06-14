@@ -108,6 +108,23 @@ function mintDemoSession() {
   await sleep(900);
   if (picked) await shot('06-edit-style-instruction');
 
+  // 7. v12.1.2 预览音频:视频 tab 三态音频徽章 + 每镜「带声试听」开关(演示工程)
+  await page.goto(`${BASE}/projects/qfmj-demo-showcase`, { waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {});
+  await sleep(2500);
+  const onVideos = await page.evaluate(() => {
+    const tabs = Array.from(document.querySelectorAll('button, a'));
+    const t = tabs.find((el) => /^视频/.test((el.textContent || '').trim()));
+    if (t) { t.click(); return true; }
+    return false;
+  });
+  await sleep(2000);
+  if (onVideos) {
+    // 滚到首个带音频徽章的镜
+    await page.evaluate(() => document.querySelector('[data-testid="clip-audio-badge"]')?.scrollIntoView({ block: 'center' }));
+    await sleep(700);
+    await shot('07-clip-audio-preview');
+  }
+
   await browser.close();
   console.log('[v12] done →', OUT);
 })().catch((e) => { console.error('[v12] FAIL:', e.message); process.exit(1); });

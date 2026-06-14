@@ -254,6 +254,10 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 |---|---|
 | ![钩子审计](docs/screenshots/v12/05-pacing-hook-audit.png) | ![剪辑风格](docs/screenshots/v12/06-edit-style-instruction.png) |
 
+| 片段预览音频:三态徽章 + 带声试听(v12.1.2) | |
+|---|---|
+| ![片段音频预览](docs/screenshots/v12/07-clip-audio-preview.png) | 左:带配音(TTS 叠层)+ 带声试听开关 · 右:片段无独立音轨(成片含配乐+配音) |
+
 完整逐版本核心迭代见 [`VERSIONS.md`](VERSIONS.md);阶段计划见 `docs/stage18`–`docs/stage20`。
 
 ---
