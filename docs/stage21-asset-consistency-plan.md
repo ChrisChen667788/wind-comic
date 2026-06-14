@@ -44,23 +44,27 @@
 
 ## 三、版本拆解 · 阶段二十一 A · 全局资产记忆库 v2(v12.2.x)
 
-### v12.2.0 — 记忆持久化地基(确定性,先把易失态落库)【S】
-- **DNA 落库**:`character_library`(global_assets type='character')加 `dna` 列(`addColumnIfMissing`);抽出即 upsert,orchestrator init 预载 → 消除重复 vision 重抽 + 早镜漏注入。
-- **名称归一**:`normalizeCharacterName()`(复用 `consistency-policy` 的 normalizeKey 模式)作 dnaMap + `shot.characters` 的 key → 修「林小满 vs 小满」漏注入。
-- **场景锚落库**:`SceneAnchorRegistry` 持久化为 project_assets(type='scene-anchor',按归一 location key)→ orchestrator init 从 DB seed。
-- 纯确定性、零新依赖、零 BYO。复用 `upsertCharacterBible`/`addColumnIfMissing`/`upsertAsset`。**单测**:名归一 + DNA 预载 round-trip。
+### v12.2.0 — 名称归一 + DNA 命中匹配修复(确定性,先堵漏)【S】✅ 已交付(commit 待回填)
+- **名称归一**:`normalizeCharacterName()`(同源 `consistency-policy` normalizeKey + 扩 CJK 角括号「」『』)导出。
+- **DNA 命中匹配**:`matchDnaForName()` 复用 `matchLockedCharactersInShot` 策略(原样精确 → 归一精确 → 子串双向 ≥2 字符);`injectDnaIntoPrompt` 改走它 + 同 DNA 去重 → 修「林小满(镜头)vs 小满(dnaMap)」静默漏注入。orchestrator 透明受益(已调 injectDnaIntoPrompt,无需改)。
+- 纯函数、零依赖、零 BYO。**单测**:归一 + 归一精确 + 子串命中 + 单字不误匹配 + 去重(6 例)。
 
-### v12.2.1 — 资产向量化(BYO embedding,把死列通电)【M】
+### v12.2.1 — 记忆持久化地基(DNA/场景锚落库,确定性)【S】
+- **DNA 落库**:`character_library`(global_assets type='character')加 `dna` 列(`addColumnIfMissing`);抽出即 upsert,orchestrator init 预载 → 消除重复 vision 重抽 + 早镜漏注入。
+- **场景锚落库**:`SceneAnchorRegistry` 持久化为 project_assets(type='scene-anchor',按归一 location key)→ orchestrator init 从 DB seed。
+- 纯确定性、复用 `upsertCharacterBible`/`addColumnIfMissing`/`upsertAsset`。**单测**:DNA 预载 round-trip + 场景锚持久化。
+
+### v12.2.2 — 资产向量化(BYO embedding,把死列通电)【M】
 - `embedAsset(id)`:配 embedding key + 非 MOCK → 对 `visual_anchors + DNA promptBlock` 文本嵌入 → 写 `global_assets.embedding`(JSON)。无 key/MOCK → 跳过(列保持 null,退回现状),诚实降级。
 - `findSimilarGlobalAssets(userId, queryEmbedding, topK)`:拉该 user 非空 embedding 行 → 内存余弦相似 → topK。纯函数 cosine 可单测。
 - upsert 角色/资产时机会性触发 `embedAsset`(fire-and-forget,失败不阻塞)。**单测**:cosine + topK 排序 + 无 key 零调用。
 
-### v12.2.2 — 跨集/跨项目复用(检索接 UI + 管线)【M】
+### v12.2.3 — 跨集/跨项目复用(检索接 UI + 管线)【M】
 - `/api/global-assets/similar?q=&type=`(调 `findSimilarGlobalAssets`;无 embedding → 退回 `findCharacterBibleByName` + visual_anchors 文本匹配)。
 - `CharacterLockSection`/`MultimodalRefShelf` 加「你库里的相似角色/资产」推荐:建角色时 surface 复用机会(防重复建 + 漂移),一键复用其 DNA/sampleFaces。
 - 管线:`injectDnaIntoPrompt` 对无本地 DNA 的角色,回退取库中相似资产的 `lastDnaBlock`(承接 v12.2.0 的 DNA 落库)。**e2e**:建相似名角色 → 推荐出现 → 复用回填。
 
-### v12.2.3 — 身份漂移检测(成片级一致性体检,embedding 距离)【M】
+### v12.2.4 — 身份漂移检测(成片级一致性体检,embedding 距离)【M】
 - 全镜渲染后:对每张 storyboard 取视觉 embedding(BYO 托管端点)→ 两两余弦距离 → 标 outlier 镜(漂移最大)→ 喂进现有 `ConsistencyReport` + 最弱镜重生入口(v9.4.2 Vision 重生)。
 - `scoreShotConsistency` 的 LLM 文本判断**补**一条 embedding 距离信号(确定、可量化);无 vision-embedding key → 退回现有 LLM 评分,诚实降级。
 - **单测**:漂移 outlier 检测纯函数(给定距离矩阵 → 标最离群镜)。

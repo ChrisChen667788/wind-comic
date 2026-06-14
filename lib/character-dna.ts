@@ -188,8 +188,39 @@ export async function extractCharacterDnaBatch(
 }
 
 /**
- * 在 shot prompt 末尾拼 DNA — 仅当 shot 出场的角色在 dnaMap 里时才注入.
- * 多角色同框时拼接所有命中角色, 各占 1 段, 用 ' | ' 分隔.
+ * v12.2.0 角色名归一 —— 与 consistency-policy 的 normalizeKey 同源(大小写/标点/空格归一)。
+ * 导出供 dnaMap 命中匹配 + 跨集资产记忆复用(阶段二十一)。
+ */
+export function normalizeCharacterName(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[\s,.，。、:：;；!！?？\-—()（）\[\]【】<>《》「」『』"'""'']/g, '')
+    .trim();
+}
+
+/**
+ * v12.2.0 在 dnaMap 里给一个 shot 角色名找 DNA —— 复用 matchLockedCharactersInShot 的策略:
+ *   1. 原样精确(快路径)2. 归一精确 3. 子串双向(≥2 字符,避免单字误匹配)。
+ * 修「林小满(镜头)vs 小满(dnaMap)」这类静默漏注入。
+ */
+export function matchDnaForName(name: string, dnaMap: Map<string, CharacterDna>): CharacterDna | undefined {
+  if (!name || dnaMap.size === 0) return undefined;
+  const exact = dnaMap.get(name);
+  if (exact) return exact;
+  const norm = normalizeCharacterName(name);
+  if (!norm) return undefined;
+  let substrHit: CharacterDna | undefined;
+  for (const [key, dna] of dnaMap) {
+    const k = normalizeCharacterName(key);
+    if (k === norm) return dna;                                  // 归一精确优先
+    if (!substrHit && k.length >= 2 && norm.length >= 2 && (k.includes(norm) || norm.includes(k))) substrHit = dna;
+  }
+  return substrHit;                                              // 子串兜底
+}
+
+/**
+ * 在 shot prompt 末尾拼 DNA — 仅当 shot 出场的角色在 dnaMap 里命中时才注入.
+ * 多角色同框时拼接所有命中角色, 各占 1 段, 用 ' | ' 分隔. 同一 DNA 命中多个别名只拼一次.
  */
 export function injectDnaIntoPrompt(
   basePrompt: string,
@@ -199,9 +230,10 @@ export function injectDnaIntoPrompt(
   if (!Array.isArray(shotCharacters) || shotCharacters.length === 0) return basePrompt;
   if (dnaMap.size === 0) return basePrompt;
   const blocks: string[] = [];
+  const usedBlocks = new Set<string>();
   for (const name of shotCharacters) {
-    const dna = dnaMap.get(name);
-    if (dna?.promptBlock) blocks.push(dna.promptBlock);
+    const dna = matchDnaForName(name, dnaMap);
+    if (dna?.promptBlock && !usedBlocks.has(dna.promptBlock)) { blocks.push(dna.promptBlock); usedBlocks.add(dna.promptBlock); }
   }
   if (blocks.length === 0) return basePrompt;
   return `${basePrompt}. ${blocks.join(' | ')}`;

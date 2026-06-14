@@ -28,6 +28,8 @@ import {
   buildPromptBlock,
   injectDnaIntoPrompt,
   extractCharacterDna,
+  normalizeCharacterName,
+  matchDnaForName,
   type CharacterDna,
 } from '@/lib/character-dna';
 
@@ -127,6 +129,43 @@ describe('v2.21 P1.2 · extractCharacterDna', () => {
   it('returns null for missing name', async () => {
     const result = await extractCharacterDna('', 'https://example.com/a.png');
     expect(result).toBeNull();
+  });
+});
+
+describe('v12.2.0 · normalizeCharacterName + matchDnaForName(名称归一,修漏注入)', () => {
+  const dnaMap = new Map<string, CharacterDna>([
+    ['小满', { name: '小满', sourceImageUrl: 'http://x', signature: { eyeShape: 'wide' }, promptBlock: '小满 visual DNA: eyes: wide' }],
+    ['Alice Chen', { name: 'Alice Chen', sourceImageUrl: 'http://a', signature: { jawShape: 'soft' }, promptBlock: 'Alice Chen visual DNA: jaw: soft' }],
+  ]);
+
+  it('归一:大小写/标点/空格剥离', () => {
+    expect(normalizeCharacterName('Alice, Chen!')).toBe('alicechen');
+    expect(normalizeCharacterName('「小满」')).toBe('小满');
+    expect(normalizeCharacterName('')).toBe('');
+  });
+
+  it('归一精确命中:「Alice Chen」↔「alice，chen」', () => {
+    expect(matchDnaForName('alice，chen', dnaMap)?.name).toBe('Alice Chen');
+  });
+
+  it('子串命中:镜头「林小满」↔ dnaMap「小满」(此前静默漏注入)', () => {
+    const dna = matchDnaForName('林小满', dnaMap);
+    expect(dna?.name).toBe('小满');
+  });
+
+  it('单字不误匹配(norm 长度 ≥2 才走子串)', () => {
+    const m = new Map<string, CharacterDna>([['李', { name: '李', sourceImageUrl: 'h', signature: {}, promptBlock: '李 dna' }]]);
+    expect(matchDnaForName('王', m)).toBeUndefined();
+  });
+
+  it('injectDnaIntoPrompt 经子串命中注入「林小满」', () => {
+    const out = injectDnaIntoPrompt('shot', ['林小满'], dnaMap);
+    expect(out).toContain('小满 visual DNA');
+  });
+
+  it('同一 DNA 被多个别名命中只拼一次(去重)', () => {
+    const out = injectDnaIntoPrompt('shot', ['小满', '林小满'], dnaMap);
+    expect(out.match(/小满 visual DNA/g)?.length).toBe(1);
   });
 });
 
