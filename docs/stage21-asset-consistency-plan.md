@@ -67,7 +67,7 @@
 - **验证**:tsc 0 + vitest 2348(+6 textMatchScore:精确/子串/词覆盖/无关/优先级单调)+ e2e(种带头像库角色 → 路由近似名命中 → 工坊填近似名出推荐 + 复用按钮 → 清理)。
 - 注:管线 `injectDnaIntoPrompt` 跨库 DNA 回退需 orchestrator userId(同 v12.2.1 约束),留作 B 项;本刀聚焦建角色入口的复用 surface。
 
-### v12.2.4 — 身份漂移检测(成片级一致性体检,embedding 距离)【M】✅ 已交付(commit 待回填)
+### v12.2.4 — 身份漂移检测(成片级一致性体检,embedding 距离)【M】✅ 已交付(commit 159e483)
 - `lib/drift-detect.ts` `detectDriftOutliers`(纯函数):逐镜「到其余镜的平均余弦距离」= 离群程度 → 相对(mean+z·std)+ 绝对地板(minDrift 0.15)双判 → 标漂移最大的 outlier 镜,降序截断。
 - `lib/asset-embedding.ts` `embedImage`(BYO,需配 `IMAGE_EMBED_MODEL` 多模态嵌入端点;未配/无 key/MOCK/失败 → null 诚实降级)。
 - `/api/projects/[id]/drift-check`:嵌全部 storyboard 图(并发 2)→ detectDriftOutliers → 返回 outlier 镜(可喂 v9.4.2 最弱镜重生);无图像嵌入能力 → `{available:false, reason}`,前端退回现有 `scoreShotConsistency` LLM 评分。
