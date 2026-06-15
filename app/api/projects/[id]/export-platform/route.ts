@@ -23,21 +23,35 @@ export const maxDuration = 300;
 const VALID_ASPECTS: ExportAspect[] = ['16:9', '9:16', '1:1', '4:5'];
 const VALID_FITS: FitMode[] = ['contain', 'cover', 'blur-pad'];
 
-/** 从 media_urls 里抽出本地绝对路径 (serve-file?path=... 形式). */
-function extractLocalPath(mediaUrls: string[]): string | null {
-  for (const u of mediaUrls) {
-    if (typeof u !== 'string') continue;
-    if (u.startsWith('/api/serve-file')) {
-      try {
-        const parsed = new URL(u, 'http://localhost');
-        const p = parsed.searchParams.get('path');
-        if (p && fs.existsSync(p)) return p;
-      } catch { /* ignore */ }
-    }
-    // 直接是本地路径
-    if (u.startsWith('/') && !u.startsWith('/api/') && fs.existsSync(u)) return u;
+/** serve-file?path= / 本地路径 → 本地绝对路径(存在才返回). */
+function toLocalPath(u: string | null | undefined): string | null {
+  if (typeof u !== 'string' || !u) return null;
+  if (u.startsWith('/api/serve-file')) {
+    try {
+      const p = new URL(u, 'http://localhost').searchParams.get('path');
+      if (p && fs.existsSync(p)) return p;
+    } catch { /* ignore */ }
+    return null;
   }
+  if (u.startsWith('/') && !u.startsWith('/api/') && fs.existsSync(u)) return u;
   return null;
+}
+
+/** 从 media_urls 里抽出本地绝对路径. */
+function extractLocalPath(mediaUrls: string[]): string | null {
+  for (const u of mediaUrls) { const p = toLocalPath(u); if (p) return p; }
+  return null;
+}
+
+/** v12.3.0: 取项目 narration 的 SRT 本地路径(persistent_url=srtUrl),供平台成片烧字幕. */
+function resolveProjectSrtPath(projectId: string): string | null {
+  const row = db
+    .prepare(`SELECT persistent_url, data FROM project_assets WHERE project_id = ? AND type = 'narration' ORDER BY version DESC LIMIT 1`)
+    .get(projectId) as any;
+  if (!row) return null;
+  let srtUrl: string | null = row.persistent_url || null;
+  if (!srtUrl) { try { srtUrl = JSON.parse(row.data || '{}')?.srtUrl || null; } catch { /* ignore */ } }
+  return toLocalPath(srtUrl);
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -70,14 +84,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: '成片源文件不在本地 (可能是占位/外链), 无法平台导出' }, { status: 400 });
   }
 
+  // v12.3.0: 自动接入 SRT —— 指定了平台字幕样式就从 narration 资产取 SRT 路径烧入(此前从不传 → 字幕从未真烧)
+  const subtitlePath = subtitlePlatform ? (resolveProjectSrtPath(id) ?? undefined) : undefined;
+
   try {
-    const result = await exportForPlatform({ inputPath, aspect, fit, subtitlePlatform });
+    const result = await exportForPlatform({ inputPath, aspect, fit, subtitlePlatform, subtitlePath });
     return NextResponse.json({
       projectId: id,
       aspect: result.aspect,
       width: result.width,
       height: result.height,
       url: `/api/serve-file?path=${encodeURIComponent(result.outputPath)}`,
+      subtitled: !!subtitlePath, // v12.3.0: 是否真烧了字幕(平台样式 + 找到 SRT)
     });
   } catch (e) {
     return NextResponse.json(

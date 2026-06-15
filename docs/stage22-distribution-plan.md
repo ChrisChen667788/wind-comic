@@ -41,10 +41,11 @@
 
 ## 三、版本拆解 · 阶段二十二 · 分发/发布闭环(v12.3.x)
 
-### v12.3.0 — 一键成片打包(Ready-to-post bundle,确定性核心)【M】
-- 新 `GET/POST /api/projects/[id]/publish-package?platform=<id>`:把 **distribution 文案 + export-platform 平台成片(对应 aspect + 字幕)+ 选定封面** 拼成一个「可直发包」(结构化 JSON:{video_url, cover_url, title, tags, description, hashtags, platform_spec})。
-- **修 SRT 自动接入**:export-platform 从 narration 资产取 `srtUrl` → 传 `subtitlePath` → server 烧字幕(复用 `buildSubtitlesFilter` + 平台预设)。
-- 前端「发布」面板:选平台 → 一键出包,视频/封面/文案逐项下载+复制。纯组装、复用既有函数、无外部 API。**验证**:tsc + 单测(包组装纯函数)+ e2e(出包契约)。
+### v12.3.0 — 一键成片打包(Ready-to-post bundle,确定性核心)【M】✅ 已交付(commit 待回填)
+- `lib/publish-package.ts` `buildPublishPackage(spec, pack, media)` 纯函数:把 **distribution 文案 + 成片 + 封面** 组装成「可直发包」(平台规格 + 标题/备选/标签/话题/简介 + 视频(平台成片优先,无则回退原片)+ 封面 + 一键复制文案 + 缺件 warnings + ready)。
+- `GET /api/projects/[id]/publish-package?platform=<id>`:取 DB 资产(distribution / final_video / chosen-cover→cover-candidates)喂进纯函数;附 `exportHint`(一键导该平台 aspect 成片)。
+- **修 SRT 自动接入**:export-platform 加 `resolveProjectSrtPath`,指定平台字幕样式时从 narration 资产(persistent_url=srtUrl)取 SRT 传 `subtitlePath` → **字幕此前从未真烧(path 从不传)的 bug 修复**;响应加 `subtitled`。
+- **验证**:tsc 0 + vitest 2373(+5:齐件 ready / 无平台成片回退 + warning / 缺件不报错 / tags 截上限+标题超限告警 / B站 16:9)+ playwright(publish-package 契约 + 平台校验)。前端发布面板留 v12.3.1 同发布动作一起接。
 
 ### v12.3.1 — 发布闸门 + 发布记录(硬门禁 + 状态)【M】
 - 新 `POST /api/projects/[id]/publish`:**硬接 `evaluateQualityGate`**(block → 422)+ `checkPlan(req,'creator')`(发布锁 creator+)+ 属主守卫 + 生成/复用 share token。
