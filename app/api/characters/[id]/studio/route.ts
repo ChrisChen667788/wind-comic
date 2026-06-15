@@ -47,7 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         try {
           const { result } = await dispatchImageGenerate({ prompt: view.prompt }, { refCount: 0 });
           if (result?.imageUrl) {
-            (view as any).imageUrl = result.imageUrl;
+            view.imageUrl = result.imageUrl; // v12.2.6: TurnaroundView.imageUrl 已类型化,去 as any
             generatedUrls.push(result.imageUrl);
           }
         } catch { /* 单视图失败跳过 */ }

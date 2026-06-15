@@ -433,6 +433,10 @@ addColumnIfMissing('character_library', 'source_token_id', 'TEXT');
 // 多视角设定图 prompt/图 URL). 由 lib/character-studio 生成, /api/characters/[id]/studio 落库.
 addColumnIfMissing('character_library', 'profile', 'TEXT');
 
+// v12.2.7 (阶段二十一 B): IP 反向同步 —— 来源 token 被撤销/更新时,把导入它的 character_library
+// 行标 stale(=1),并给行主人发通知(见 cameo-ip-repo.fanOutTokenInvalidation)。
+addColumnIfMissing('character_library', 'stale', 'INTEGER NOT NULL DEFAULT 0');
+
 // v6.5: 团队工作区 — 主账号 (owner_user_id) 的积分额度分配. allocations 为成员额度 JSON 数组.
 db.exec(`CREATE TABLE IF NOT EXISTS team_allocations (
   owner_user_id TEXT PRIMARY KEY,
@@ -648,6 +652,23 @@ CREATE TABLE IF NOT EXISTS project_collaborators (
 );
 CREATE INDEX IF NOT EXISTS idx_project_collaborators_project ON project_collaborators(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_collaborators_user ON project_collaborators(user_id);
+`);
+
+// v12.2.5 (阶段二十一 B): 锁脸角色归一表 —— projects.locked_characters JSON blob 的索引镜像,
+// 让「哪些项目用过角色 X」从全表 JSON 扫变 idx_plc_character_name 索引查(双写,JSON 仍为读源)。
+db.exec(`
+CREATE TABLE IF NOT EXISTS project_locked_characters (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  character_name TEXT NOT NULL,
+  image_url TEXT NOT NULL DEFAULT '',
+  cw INTEGER NOT NULL DEFAULT 100,
+  role TEXT NOT NULL DEFAULT 'lead',
+  created_at TEXT NOT NULL,
+  UNIQUE(project_id, character_name)
+);
+CREATE INDEX IF NOT EXISTS idx_plc_project ON project_locked_characters(project_id);
+CREATE INDEX IF NOT EXISTS idx_plc_character_name ON project_locked_characters(character_name);
 `);
 
 db.exec(`

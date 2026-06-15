@@ -88,7 +88,46 @@ export async function revokeIpToken(tokenId: string, ownerId: string): Promise<b
   if (!t) return false;
   if (t.ownerId !== ownerId) throw new Error('revokeIpToken: 非所有者不能撤销');
   await getDbDriver().run(`UPDATE character_ip_tokens SET status='revoked', updated_at=? WHERE id=?`, [new Date().toISOString(), tokenId]);
+  await fanOutTokenInvalidation(t, 'revoked'); // v12.2.7 反向同步:扇出失效到导入方
   return true;
+}
+
+/**
+ * v12.2.7 IP 反向同步:token 被撤销/更新时,找出所有导入它的 character_library 行
+ * (source_token_id = tokenId),标 stale=1,并给行主人发通知(铃铛 + SSE)。
+ * best-effort:任一步失败不影响撤销主流程。返回受影响的导入行数。
+ */
+export async function fanOutTokenInvalidation(token: IpToken, event: 'revoked' | 'updated'): Promise<number> {
+  try {
+    const driver = getDbDriver();
+    const rows = await driver.query<{ id: string; user_id: string }>(
+      'SELECT id, user_id FROM character_library WHERE source_token_id = ?', [token.id],
+    );
+    if (rows.length === 0) return 0;
+    await driver.run('UPDATE character_library SET stale = 1 WHERE source_token_id = ?', [token.id]);
+    const { createNotification } = await import('./notification-repo');
+    const { emitNotification } = await import('../event-bus');
+    const verb = event === 'revoked' ? '撤销了授权' : '更新了授权';
+    const seen = new Set<string>();
+    for (const r of rows) {
+      if (!r.user_id || seen.has(r.user_id)) continue;
+      seen.add(r.user_id);
+      try {
+        await createNotification({
+          recipientUserId: r.user_id,
+          type: `ip_${event}`,
+          sourceUserId: token.ownerId,
+          sourceUserName: 'IP 授权',
+          preview: `你复用的角色「${token.name}」作者${verb},该角色已标记为需复核(可能不再可商用)。`,
+        });
+        emitNotification(r.user_id, { kind: `ip_${event}`, tokenId: token.id });
+      } catch { /* 单条通知失败跳过 */ }
+    }
+    return rows.length;
+  } catch (e) {
+    console.warn('[cameo-ip] fanOutTokenInvalidation failed (non-blocking):', e instanceof Error ? e.message : e);
+    return 0;
+  }
 }
 
 export async function listMarketplaceTokens(opts: { limit?: number } = {}): Promise<IpToken[]> {

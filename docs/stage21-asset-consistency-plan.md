@@ -77,11 +77,11 @@
 
 ---
 
-## 四、阶段二十一 B · 候选后续(按需,本阶段 A 完成后再评估)
-- **lockedCharacters 归一表**:`projects.locked_characters` JSON blob → `project_locked_characters` join 表,「查所有用过角色 X 的项目」变索引查。
-- **character-studio turnaround 派发**:`buildTurnaroundPrompts` 输出接图像 provider 后台 job,回写三视图 URL(现为 stub)。
-- **IP 反向同步**:`source_token_id` 上游更新 → 扇出失效通知到 importer 的 `character_library` 行。
-- **cameo 重生升级**:`CAMEO_RETRY_MAX_ATTEMPTS` 1→2 + 第二次换 boostedCw 策略 + 仍低分则人审升级。
+## 四、阶段二十一 B · 收尾(v12.2.5–.8,全部交付)
+- ✅ **v12.2.5 lockedCharacters 归一表**:`project_locked_characters` 表(SQLite+PG)+ `upsertLockedCharacters`/`getLockedCharactersByName`,双写(JSON 仍读源)+ 级联删。
+- ✅ **v12.2.6 turnaround 派发**:核实派发早已接通(v6.0.1 studio 路由 dispatchImageGenerate),计划「stub」是误判;本刀只做 `TurnaroundView.imageUrl` 类型收口。
+- ✅ **v12.2.7 IP 反向同步**:`character_library.stale` 列 + `fanOutTokenInvalidation`(撤销 → 导入行标 stale + 发通知),接进 `revokeIpToken`。
+- ✅ **v12.2.8 cameo 重生升级**:`CAMEO_RETRY_MAX_ATTEMPTS` 1→2 + keep-best 多次重生循环(逐次升 cw+sref)+ `needsHumanReview` 待人审标记,透传到 Storyboard/落库/单镜重拍。
 
 ---
 

@@ -45,6 +45,8 @@ export interface TurnaroundView {
   label: string;
   /** 可直接交给 image provider 的完整 prompt */
   prompt: string;
+  /** v12.2.6: 派发(generate=true)真出图后回写的 URL;未出图则空 */
+  imageUrl?: string;
 }
 
 export interface BuildTurnaroundInput {

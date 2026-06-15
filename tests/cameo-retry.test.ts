@@ -209,10 +209,11 @@ describe('evaluateAndRetry · 重生路径', () => {
     expect(out.reasoning).toBe('first reason'); // 复用首评的解释
   });
 
-  it('第二次 vision 反而更差 → 回滚到原图', async () => {
+  it('两次重生都更差 → keep-best 回滚保原图 + 标人审 (v12.2.8)', async () => {
     mockScore
       .mockResolvedValueOnce(mkScore(60))
-      .mockResolvedValueOnce(mkScore(45)); // 越改越差
+      .mockResolvedValueOnce(mkScore(45))  // 重生 1 越改越差
+      .mockResolvedValueOnce(mkScore(40)); // 重生 2 还更差
     const regen = vi.fn(async () => 'regen.png');
     const out = await evaluateAndRetry({
       shotImageUrl: 'orig.png',
@@ -221,16 +222,17 @@ describe('evaluateAndRetry · 重生路径', () => {
       regenerate: regen,
     });
     expect(out.retried).toBe(true);
-    expect(out.finalImageUrl).toBe('orig.png'); // 回滚
-    expect(out.finalScore).toBe(60); // 原始分数
-    expect(out.finalCw).toBe(100); // 原始 cw (回滚一同回滚 cw 字段, 真实落库就不会写错)
-    expect(out.reasoning).toContain('回滚');
+    expect(out.finalImageUrl).toBe('orig.png'); // keep-best 回滚
+    expect(out.finalScore).toBe(60); // 原始分数(最优)
+    expect(out.finalCw).toBe(100); // 回滚 cw
+    expect(out.needsHumanReview).toBe(true); // 两次跑完仍 < 75
   });
 
-  it('第二次和第一次相同 → 不视为更差 (>= 不 <), 接受新图', async () => {
+  it('重生与原图同分 → strict-better 不替换, 保留原图 (v12.2.8)', async () => {
     mockScore
       .mockResolvedValueOnce(mkScore(60))
-      .mockResolvedValueOnce(mkScore(60)); // 相同
+      .mockResolvedValueOnce(mkScore(60))  // 相同(不 > best)
+      .mockResolvedValueOnce(mkScore(60));
     const regen = vi.fn(async () => 'regen.png');
     const out = await evaluateAndRetry({
       shotImageUrl: 'orig.png',
@@ -239,7 +241,7 @@ describe('evaluateAndRetry · 重生路径', () => {
       regenerate: regen,
     });
     expect(out.retried).toBe(true);
-    expect(out.finalImageUrl).toBe('regen.png'); // 接受
+    expect(out.finalImageUrl).toBe('orig.png'); // 同分不替换,保原图(避免无谓抖动)
     expect(out.finalScore).toBe(60);
   });
 
@@ -289,10 +291,11 @@ describe('evaluateAndRetry · 决策值', () => {
     expect(out.finalScore).toBe(90);
   });
 
-  it('单次重生上限 — vision 显示重生后仍不达标也不会再重生', async () => {
+  it('两次重生上限 (v12.2.8) — 仍不达标也不超过 2 次重生 + 标人审', async () => {
     mockScore
       .mockResolvedValueOnce(mkScore(60))
-      .mockResolvedValueOnce(mkScore(70)); // 重生后仍 < 75 但 > 60
+      .mockResolvedValueOnce(mkScore(70))  // 重生 1: > 60 采用, 但仍 < 75
+      .mockResolvedValueOnce(mkScore(72)); // 重生 2: > 70 采用, 仍 < 75 → 上限,停
     const regen = vi.fn(async () => 'regen.png');
     const out = await evaluateAndRetry({
       shotImageUrl: 'orig.png',
@@ -300,10 +303,10 @@ describe('evaluateAndRetry · 决策值', () => {
       originalCw: 100,
       regenerate: regen,
     });
-    // 接受新图, 但只重生一次 (regen 只调 1 次, mockScore 只调 2 次)
-    expect(regen).toHaveBeenCalledTimes(1);
-    expect(mockScore).toHaveBeenCalledTimes(2);
-    expect(out.attempts).toBe(2);
-    expect(out.finalScore).toBe(70);
+    expect(regen).toHaveBeenCalledTimes(2);     // 上限 2 次重生
+    expect(mockScore).toHaveBeenCalledTimes(3);  // 首评 + 2 次重生评
+    expect(out.attempts).toBe(3);
+    expect(out.finalScore).toBe(72);            // keep-best
+    expect(out.needsHumanReview).toBe(true);
   });
 });

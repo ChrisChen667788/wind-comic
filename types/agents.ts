@@ -144,6 +144,7 @@ export interface Storyboard {
   cameoAttempts?: number;       // 实际跑了几次生成 (1 = 首次成功, 2 = 重生过 1 次)
   cameoFinalCw?: number;        // 重生时实际使用的 cw, 调试用
   cameoReason?: string;         // 一句话说明 vision 给低分的理由 (来自 LLM)
+  cameoNeedsReview?: boolean;   // v12.2.8: 重生跑完仍 < 阈值 → 待人工复核(UI 标「待复核」)
   /**
    * v2.12 Phase 3: 多角色锁脸独立评分。
    * 单角色镜头此字段缺省;多角色镜头(2-3 角色锁脸命中)按 [primary, ...additional] 顺序展开。

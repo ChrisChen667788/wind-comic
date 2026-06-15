@@ -12,7 +12,7 @@
 import { HybridOrchestrator } from '@/services/hybrid-orchestrator';
 import { db, now } from '@/lib/db';
 import { updateAssetBySelector, listAssetsByType, upsertAsset } from '@/lib/repos/asset-repo';
-import { getProject, insertProjectFull, updateProjectById } from '@/lib/repos/project-repo';
+import { getProject, insertProjectFull, updateProjectById, upsertLockedCharacters } from '@/lib/repos/project-repo';
 import { createUser } from '@/lib/repos/user-repo';
 import { storyTemplates } from '@/lib/story-templates';
 import { toSsePayload } from '@/lib/pipeline-error';
@@ -265,6 +265,7 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
             locked_characters: lockedJson,
             ...(effectiveCameoRef ? { primary_character_ref: effectiveCameoRef } : {}),
           });
+          await upsertLockedCharacters(projectId, sanitizedLocked); // v12.2.5 双写归一表(重跑路径)
         } catch (e) {
           console.warn(`[DB] style/locked_characters update failed for ${projectId}:`, e);
         }
@@ -610,6 +611,7 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
           cameoAttempts: sb.cameoAttempts,
           cameoFinalCw: sb.cameoFinalCw,
           cameoReason: sb.cameoReason,
+          cameoNeedsReview: sb.cameoNeedsReview, // v12.2.8 待人工复核标记
         }, mediaUrls, sb.shotNumber);
       }
     } catch (e) {

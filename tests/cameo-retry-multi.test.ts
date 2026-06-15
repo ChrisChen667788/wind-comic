@@ -111,23 +111,27 @@ describe('Phase 3 — multi-character scoring', () => {
     ]);
   });
 
-  it('regen makes min worse → ROLLBACK to original (with first perCharacterScores preserved)', async () => {
+  it('两次重生 min 都更差 → keep-best 回滚原图 + 标人审 (v12.2.8)', async () => {
     mockScore
       .mockResolvedValueOnce(mkScore(85))  // A first
       .mockResolvedValueOnce(mkScore(60))  // B first  (min)
       .mockResolvedValueOnce(mkScore(90))  // C first
-      // After regen: min became worse
+      // 重生 1: min 更差
       .mockResolvedValueOnce(mkScore(70))
-      .mockResolvedValueOnce(mkScore(50))  // B even lower → rollback trigger
-      .mockResolvedValueOnce(mkScore(75));
+      .mockResolvedValueOnce(mkScore(50))  // B 50 < 60
+      .mockResolvedValueOnce(mkScore(75))
+      // 重生 2: min 仍更差
+      .mockResolvedValueOnce(mkScore(72))
+      .mockResolvedValueOnce(mkScore(52))  // B 52 < 60
+      .mockResolvedValueOnce(mkScore(78));
     const out = await evaluateAndRetry({ ...baseInput, additionalReferences: additionalRefs });
     expect(out.retried).toBe(true);
-    expect(out.finalImageUrl).toBe(baseInput.shotImageUrl); // rolled back
-    expect(out.finalCw).toBe(baseInput.originalCw); // cw also rolled back
+    expect(out.finalImageUrl).toBe(baseInput.shotImageUrl); // keep-best 回滚原图
+    expect(out.finalCw).toBe(baseInput.originalCw); // cw 也回滚
     expect(out.firstScore).toBe(60);
     expect(out.finalScore).toBe(60);
-    expect(out.reasoning).toContain('回滚');
-    // Rollback keeps the FIRST snapshot of per-char scores (the ones still showing)
+    expect(out.needsHumanReview).toBe(true); // 两次跑完 min 仍 < 75
+    // keep-best 保留首评的 per-char 快照
     expect(out.perCharacterScores?.find(p => p.name === '柳如烟')?.score).toBe(60);
   });
 

@@ -112,6 +112,7 @@ const PROJECT_CHILD_TABLES = [
   'api_usage_events', 'generations', 'chat_messages', 'comments', 'notifications',
   'project_review_status', 'project_track_edits', 'project_share_tokens',
   'project_collaborators', 'pipeline_reruns', 'pipeline_jobs',
+  'project_locked_characters', // v12.2.5 锁脸角色归一表
 ];
 
 /**
@@ -177,6 +178,7 @@ export async function insertProjectFull(input: InsertProjectFullInput): Promise<
   );
   const row = await getProject(input.id);
   if (!row) throw new Error('insertProjectFull: 插入后读取失败');
+  await upsertLockedCharacters(input.id, input.lockedCharacters as any[]); // v12.2.5 双写归一表
   return row;
 }
 
@@ -212,4 +214,50 @@ export async function updateProjectById(
   params.push(id);
   const r = await getDbDriver().run(`UPDATE projects SET ${sets.join(', ')} WHERE id = ?`, params);
   return r.changes > 0;
+}
+
+// ─── v12.2.5 (阶段二十一 B): 锁脸角色归一表(projects.locked_characters JSON 的索引镜像)──
+
+export interface LockedCharRow { projectId: string; characterName: string; imageUrl: string; cw: number; role: string }
+
+/**
+ * 把项目的锁脸角色重写进归一表(幂等:先删本项目旧行再批量插)。JSON blob 仍是读源,这里只为索引查。
+ * 容错:脏数据(缺 name)跳过;事务内原子。空列表 = 清空该项目的归一行。
+ */
+export async function upsertLockedCharacters(projectId: string, chars: any[] | undefined): Promise<void> {
+  if (!projectId) return;
+  const list = Array.isArray(chars) ? chars : [];
+  const ts = new Date().toISOString();
+  // 同项目内按归一名去重(UNIQUE(project_id, character_name) 守卫,最后一个胜)
+  const seen = new Map<string, { name: string; imageUrl: string; cw: number; role: string }>();
+  for (const c of list) {
+    const name = typeof c?.name === 'string' ? c.name.trim() : '';
+    if (!name) continue;
+    seen.set(name, {
+      name,
+      imageUrl: typeof c?.imageUrl === 'string' ? c.imageUrl : '',
+      cw: Number.isFinite(c?.cw) ? Math.round(c.cw) : 100,
+      role: typeof c?.role === 'string' ? c.role : 'lead',
+    });
+  }
+  await getDbDriver().transaction(async (tx) => {
+    await tx.run('DELETE FROM project_locked_characters WHERE project_id = ?', [projectId]);
+    for (const c of seen.values()) {
+      await tx.run(
+        'INSERT INTO project_locked_characters (id, project_id, character_name, image_url, cw, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [nanoid(), projectId, c.name, c.imageUrl, c.cw, c.role, ts],
+      );
+    }
+  });
+}
+
+/** 「哪些项目用过角色 X」—— 索引查(idx_plc_character_name),按名精确。返回去重项目维度。 */
+export async function getLockedCharactersByName(characterName: string): Promise<LockedCharRow[]> {
+  const name = (characterName || '').trim();
+  if (!name) return [];
+  const rows = await getDbDriver().query<{ project_id: string; character_name: string; image_url: string; cw: number; role: string }>(
+    'SELECT project_id, character_name, image_url, cw, role FROM project_locked_characters WHERE character_name = ?',
+    [name],
+  );
+  return rows.map((r) => ({ projectId: r.project_id, characterName: r.character_name, imageUrl: r.image_url, cw: r.cw, role: r.role }));
 }

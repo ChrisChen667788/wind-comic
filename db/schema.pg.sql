@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS character_library (
   style_keywords TEXT NOT NULL DEFAULT '',
   usage_count INTEGER DEFAULT 0,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL, source_token_id TEXT, profile TEXT
+  updated_at TEXT NOT NULL, source_token_id TEXT, profile TEXT, stale INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS chat_messages (
   id TEXT PRIMARY KEY,
@@ -449,3 +449,17 @@ CREATE INDEX IF NOT EXISTS idx_waitlist_email ON waitlist(email);
 CREATE INDEX IF NOT EXISTS idx_waitlist_status ON waitlist(status);
 CREATE INDEX IF NOT EXISTS idx_workflows_user ON agent_workflows(user_id, updated_at);
 CREATE INDEX IF NOT EXISTS idx_yjs_docs_updated ON yjs_docs(updated_at);
+
+-- v12.2.5 (阶段二十一 B): 锁脸角色归一表(projects.locked_characters JSON 的索引镜像)
+CREATE TABLE IF NOT EXISTS project_locked_characters (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  character_name TEXT NOT NULL,
+  image_url TEXT NOT NULL DEFAULT '',
+  cw INTEGER NOT NULL DEFAULT 100,
+  role TEXT NOT NULL DEFAULT 'lead',
+  created_at TEXT NOT NULL,
+  UNIQUE(project_id, character_name)
+);
+CREATE INDEX IF NOT EXISTS idx_plc_project ON project_locked_characters(project_id);
+CREATE INDEX IF NOT EXISTS idx_plc_character_name ON project_locked_characters(character_name);

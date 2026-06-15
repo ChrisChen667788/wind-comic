@@ -33,8 +33,8 @@ export const CAMEO_RETRY_THRESHOLD = 75;
 export const CAMEO_RETRY_CW_BOOST = 25;
 /** MJ cw 物理上限 */
 export const CAMEO_CW_MAX = 125;
-/** 最多重生次数, 防止 vision 抖动反复打分 */
-export const CAMEO_RETRY_MAX_ATTEMPTS = 1;
+/** v12.2.8: 最多重生次数 1→2;第 2 次升级策略(更高 cw + 更多 sref),仍不达标 → 标人审 */
+export const CAMEO_RETRY_MAX_ATTEMPTS = 2;
 
 export interface CameoRetryInput {
   /** 第一次生成出来的镜头图 URL */
@@ -99,6 +99,11 @@ export interface CameoRetryOutcome {
    * 单角色镜头 (additionalReferences 为空) 时省略此字段以保持 outcome 体积。
    */
   perCharacterScores?: Array<{ name?: string; score: number | null; reasoning: string }>;
+  /**
+   * v12.2.8: 所有重生跑完后最终分仍 < 阈值 → true,建议人工复核(UI 标「待复核」)。
+   * 达标 / 无参考 / vision 全挂(无分可判)→ false。
+   */
+  needsHumanReview: boolean;
 }
 
 /**
@@ -162,92 +167,71 @@ export async function evaluateAndRetry(input: CameoRetryInput): Promise<CameoRet
     return out;
   }
 
-  // ── 触发重生 ────────────────────────────────────────────────
-  const boostedCw = Math.min(CAMEO_CW_MAX, input.originalCw + CAMEO_RETRY_CW_BOOST);
-  const extraRefs = (input.sameCharacterRecentShots || []).slice(-2);
-  console.log(
-    `${tag} min ${firstMinScore} < ${threshold}${isMulti ? ` (worst: ${firstWorst.name || '?'})` : ''}, retry with cw ${input.originalCw}→${boostedCw}, +${extraRefs.length} ref(s). reason: ${firstMinReasoning || '(no reason)'}`,
-  );
+  // ── v12.2.8 触发重生(最多 CAMEO_RETRY_MAX_ATTEMPTS 次,逐次升级 cw + sref;keep-best 回滚)──
+  // best 初始 = 原图 + 第一次分;每次重生分更高才采用(否则保留=回滚),达标即停;跑完仍不达标 → 人审。
+  let bestImage = input.shotImageUrl;
+  let bestScore: number = firstMinScore;
+  let bestCw = input.originalCw;
+  let bestReasoning = firstMinReasoning;
+  let bestPerChar = firstPerChar;
+  let attempts = 1;
+  let trustedNull = false; // 某次重生 vision 全挂 → 信任该新图(无分可判)
 
-  let regenUrl: string;
-  try {
-    regenUrl = await input.regenerate(boostedCw, extraRefs);
-  } catch (e) {
-    // 重生彻底失败 — 用原图兜底, 但记一下 outcome 是 retried
-    console.warn(`${tag} regenerate threw, fallback to original. err:`, e instanceof Error ? e.message : e);
-    return {
-      retried: true,
-      attempts: 2,
-      finalImageUrl: input.shotImageUrl,
-      finalScore: firstMinScore,
-      firstScore: firstMinScore,
-      finalCw: input.originalCw,
-      reasoning: firstMinReasoning,
-      skipReason: 'ok',
-      ...(isMulti ? { perCharacterScores: firstPerChar } : {}),
-    };
+  for (let k = 1; k <= CAMEO_RETRY_MAX_ATTEMPTS; k++) {
+    // 逐次升级:cw 步进 k×boost(封顶 125);sref 取最近 (1+k) 张(k1→2, k2→3,第 2 次更狠)
+    const boostedCw = Math.min(CAMEO_CW_MAX, input.originalCw + k * CAMEO_RETRY_CW_BOOST);
+    const extraRefs = (input.sameCharacterRecentShots || []).slice(-(1 + k));
+    console.log(`${tag} attempt ${k}/${CAMEO_RETRY_MAX_ATTEMPTS}: best ${bestScore} < ${threshold}, retry cw ${input.originalCw}→${boostedCw}, +${extraRefs.length} ref(s)`);
+
+    attempts = 1 + k; // 计这次尝试(即便重生抛错也算尝试过)
+    let regenUrl: string;
+    try {
+      regenUrl = await input.regenerate(boostedCw, extraRefs);
+    } catch (e) {
+      console.warn(`${tag} regenerate threw on attempt ${k}, keep best so far. err:`, e instanceof Error ? e.message : e);
+      break; // 重生失败 → 停,保最优
+    }
+
+    const results = await Promise.all(allRefs.map(ref => scoreShotConsistency(regenUrl, ref.url, ref.name)));
+    const perChar = allRefs.map((ref, i) => ({ name: ref.name, score: results[i]?.score ?? null, reasoning: results[i]?.reasoning || '' }));
+    const valid = results
+      .map((r, i) => (r ? { result: r, name: allRefs[i].name } : null))
+      .filter((x): x is { result: ShotConsistencyResult; name: string | undefined } => x !== null);
+
+    if (valid.length === 0) {
+      // 本次 vision 全挂 — 信任新图(花了钱,默认更好),无分可判 → 停
+      console.log(`${tag} attempt ${k} vision-null, trust regen image`);
+      bestImage = regenUrl; bestCw = boostedCw; bestPerChar = perChar; trustedNull = true;
+      break;
+    }
+
+    const minScore = Math.min(...valid.map(x => x.result.score));
+    const worst = valid.find(x => x.result.score === minScore) || valid[0]!;
+    if (minScore > bestScore) {
+      bestImage = regenUrl; bestScore = minScore; bestCw = boostedCw;
+      bestReasoning = worst.result.reasoning || bestReasoning; bestPerChar = perChar;
+      console.log(`${tag} attempt ${k} improved → ${minScore} (worst: ${worst.name || '?'})`);
+    } else {
+      console.log(`${tag} attempt ${k} min ${minScore} ≤ best ${bestScore}, keep best (rollback)`);
+    }
+    if (bestScore >= threshold) break; // 达标即停,不浪费第 2 次
   }
 
-  // 第二次评分 — 同样并行所有角色
-  const secondResults = await Promise.all(
-    allRefs.map(ref => scoreShotConsistency(regenUrl, ref.url, ref.name)),
-  );
-  const secondPerChar = allRefs.map((ref, i) => ({
-    name: ref.name,
-    score: secondResults[i]?.score ?? null,
-    reasoning: secondResults[i]?.reasoning || '',
-  }));
-  const validSecond = secondResults
-    .map((r, i) => (r ? { result: r, name: allRefs[i].name } : null))
-    .filter((x): x is { result: ShotConsistencyResult; name: string | undefined } => x !== null);
-
-  if (validSecond.length === 0) {
-    // 第二次全 vision 挂 — 信任新图 (花了钱, 默认它更好)
-    console.log(`${tag} second vision-null, trust regen image`);
-    return {
-      retried: true,
-      attempts: 2,
-      finalImageUrl: regenUrl,
-      finalScore: null,
-      firstScore: firstMinScore,
-      finalCw: boostedCw,
-      reasoning: firstMinReasoning,
-      skipReason: 'ok',
-      ...(isMulti ? { perCharacterScores: secondPerChar } : {}),
-    };
-  }
-
-  // 同上 — Math.min + find 收敛到具体条目
-  const secondMinScore = Math.min(...validSecond.map(x => x.result.score));
-  const secondWorst = validSecond.find(x => x.result.score === secondMinScore) || validSecond[0]!;
-
-  // 重生后 min 分数反而更低 → 回滚到原图 (LLM 抖动保护)
-  if (secondMinScore < firstMinScore) {
-    console.log(`${tag} regen min ${secondMinScore} < first min ${firstMinScore}, ROLLBACK to original`);
-    return {
-      retried: true,
-      attempts: 2,
-      finalImageUrl: input.shotImageUrl,
-      finalScore: firstMinScore,
-      firstScore: firstMinScore,
-      finalCw: input.originalCw,
-      reasoning: `重生后反而更差 (${firstMinScore}→${secondMinScore}), 已回滚`,
-      skipReason: 'ok',
-      ...(isMulti ? { perCharacterScores: firstPerChar } : {}),
-    };
-  }
-
-  console.log(`${tag} regen min ${firstMinScore}→${secondMinScore} ✓ (cw ${input.originalCw}→${boostedCw})${isMulti ? ` worst-char: ${secondWorst.name || '?'}` : ''}`);
+  const needsHumanReview = !trustedNull && bestScore < threshold;
+  const improved = bestImage !== input.shotImageUrl;
   return {
     retried: true,
-    attempts: 2,
-    finalImageUrl: regenUrl,
-    finalScore: secondMinScore,
+    attempts,
+    finalImageUrl: bestImage,
+    finalScore: trustedNull ? null : bestScore,
     firstScore: firstMinScore,
-    finalCw: boostedCw,
-    reasoning: secondWorst.result.reasoning || firstMinReasoning,
+    finalCw: bestCw,
+    reasoning: needsHumanReview
+      ? `${attempts - 1} 次重生后仍 ${bestScore} < ${threshold},建议人工复核`
+      : (improved ? bestReasoning : `重生未超过原图 (${firstMinScore}),已保留原图`),
     skipReason: 'ok',
-    ...(isMulti ? { perCharacterScores: secondPerChar } : {}),
+    needsHumanReview,
+    ...(isMulti ? { perCharacterScores: bestPerChar } : {}),
   };
 }
 
@@ -266,5 +250,6 @@ function baseOutcome(
     finalCw: input.originalCw,
     reasoning: result?.reasoning || '',
     skipReason: reason,
+    needsHumanReview: false, // v12.2.8: 达标/无参考/vision 全挂 → 不标人审
   };
 }
