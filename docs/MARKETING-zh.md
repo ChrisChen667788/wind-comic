@@ -65,7 +65,7 @@ GitHub: https://github.com/ChrisChen667788/wind-comic
 
 今年初, 短剧 / 漫剧赛道大爆发. 抖音/快手日均上线 300+ 部, 单集 30 秒, 90% 是 AI 半成品 + 人工补救. 现存工具的问题非常痛:
 
-> 阵容核验 2026-06-14:Artificial Analysis arena 前二易主为 Seedance 2.0(字节)+ HappyHorse-1.0(阿里);Runway Gen-4.5 跌出 top10。
+> 阵容核验 2026-06-16:Artificial Analysis arena 前二易主为 Seedance 2.0(字节)+ HappyHorse-1.0(阿里);Runway Gen-4.5 跌出 top10。
 - **Seedance 2.0(字节)/ HappyHorse-1.0(阿里)** 现占 arena 前二、音画联合生成、API 已商用(百炼/fal,配 FAL_KEY 可 BYO)— 但都不烧中文字幕、不开源、单段为主;多镜可控管线仍得自己接.
 - **Veo 3.1 / Kling 3.0** 第三梯队龙头(Veo 唯一原生对白音轨 / Kling 仍 top10 四席、原生 4K + 多语唇形)— 同样不烧中文字幕、不能自托管、没多人协作时间线.
 - **Runway Gen-4.5** 已跌出 top10,但工业级控制面最强(运动笔刷 + GWM-1 世界模型);中文适配弱 + 闭源 + 无字幕烧入.(Sora 2 已宣布 2026 年内停服,移出对比)

@@ -207,7 +207,7 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🥊 vs. competitors
 
-> 阵容核验 2026-06-14:Artificial Analysis arena 榜首易主 —— **Seedance 2.0(字节)+ HappyHorse-1.0(阿里)现占前二**,Veo 3.1 第三(唯一原生 48kHz 对白音轨)。**Kling 3.0** 仍盘踞 top 10 四席(原生 4K/60fps/15s + 多语唇形)。**Runway Gen-4.5** 已跌出 top 10(控制面仍最强:motion brush + GWM-1 世界模型,故保留对比)。Sora 2 已宣布年内停服,移出对比。五家均为生产可用第一梯队 + 公开 BYO API。
+> 阵容核验 2026-06-16:Artificial Analysis arena 榜首易主 —— **Seedance 2.0(字节)+ HappyHorse-1.0(阿里)现占前二**,Veo 3.1 第三(唯一原生 48kHz 对白音轨)。**Kling 3.0** 仍盘踞 top 10 四席(原生 4K/60fps/15s + 多语唇形)。**Runway Gen-4.5** 已跌出 top 10(控制面仍最强:motion brush + GWM-1 世界模型,故保留对比)。Sora 2 已宣布年内停服,移出对比。五家均为生产可用第一梯队 + 公开 BYO API。
 > 结论不变:**生成层已是红海(竞品在出片/多镜/音频都第一梯队),Wind Comic 护城河收窄到「制作/平台层」**——节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO。
 
 | Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | HappyHorse-1.0 | **Wind Comic** |
@@ -240,6 +240,7 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 - **钩子审计三指标(v10.6.2)**:开场 3 秒钩子 / 集尾悬念 / BGM 卡点对齐率。
 - **阶段二十 A 智能剪辑(v12.0.x,五刀全交付)**:卡点剪辑(切点吸附音乐拍点)· 情绪节奏曲线(峰值镜 breathe / 动作镜快切)· 侧重强调(关键镜不压 + 沉稳转场)· 转场审美(按镜头关系选转场)· **一句指令调风格(v12.0.4,BYO)**——「快节奏燃向」/「慢叙抒情」一句话调 pacing 力度 + 转场软硬,无 key 走规则、配 key LLM 解析自由文本。
 - **阶段二十 B 预览音频(v12.1.x)**:片段预览叠播配音(静音裸片 + 同步配音轨)+ 成片音频体检自愈(ffprobe 缺流补轨)。
+- **阶段二十一 角色/资产一致性升级 · 全局资产记忆库 v2(v12.2.x,五刀全交付)**:对标同构竞品 OiiOii「角色高维特征向量 + 跨场景一致性」——名称归一修 DNA 漏注入 · DNA/场景锚落库(rerun/重启复用、早镜不漏) · **给 `global_assets.embedding` 死列通电**(BYO 文本嵌入 + 内存余弦检索) · 建角色入口「相似角色」推荐一键复用(防重复建/跨集漂移) · **身份漂移检测**(逐镜视觉 embedding 余弦距离标 outlier 漂移镜)。全程**无 key 走确定性地板(精确名+文本匹配),有 key 向量增强**,诚实降级。
 - **安全加固(v11.1.4)**:JWT 公开兜底密钥根除(进程级随机密钥,旧泄露值作废)。
 
 | 我的项目 · 删除/下架管理 | 拉片表 + 复刻工作台 |

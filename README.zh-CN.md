@@ -203,7 +203,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 
 ## 🥊 跟竞品比
 
-> 阵容核验 2026-06-14:Artificial Analysis arena 榜首易主 —— **Seedance 2.0(字节)+ HappyHorse-1.0(阿里)现占前二**,Veo 3.1 第三(唯一原生 48kHz 对白音轨)。**Kling 3.0** 仍盘踞 top 10 四席(原生 4K/60fps/15s + 多语唇形)。**Runway Gen-4.5** 已跌出 top 10(控制面仍最强:motion brush + GWM-1 世界模型,故保留对比)。Sora 2 已宣布年内停服,移出对比。五家均为生产可用第一梯队 + 公开 BYO API。
+> 阵容核验 2026-06-16:Artificial Analysis arena 榜首易主 —— **Seedance 2.0(字节)+ HappyHorse-1.0(阿里)现占前二**,Veo 3.1 第三(唯一原生 48kHz 对白音轨)。**Kling 3.0** 仍盘踞 top 10 四席(原生 4K/60fps/15s + 多语唇形)。**Runway Gen-4.5** 已跌出 top 10(控制面仍最强:motion brush + GWM-1 世界模型,故保留对比)。Sora 2 已宣布年内停服,移出对比。五家均为生产可用第一梯队 + 公开 BYO API。
 > 结论不变:**生成层已是红海(竞品在出片/多镜/音频都第一梯队),Wind Comic 护城河收窄到「制作/平台层」**——节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO。
 
 | 能力 | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | HappyHorse-1.0 | **Wind Comic** |
