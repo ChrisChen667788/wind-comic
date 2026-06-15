@@ -55,10 +55,11 @@
 - **场景锚落库**:`SceneAnchorRegistry` 加 `toEntries()`/`seed()`;分镜前从 `project_assets`(type='scene-anchor')seed,登记后持久化 → rerun/重启复用上次场景锚(首张基线优先,不覆盖)。
 - 纯确定性、复用 `upsertAsset`/`listAssetsByType`。**验证**:tsc 0 + vitest 2329(+4 SceneAnchor round-trip/seed 容错/共存)+ journey e2e 通(DB 实证 scene-anchor 落库、新路径零报错)。
 
-### v12.2.2 — 资产向量化(BYO embedding,把死列通电)【M】
-- `embedAsset(id)`:配 embedding key + 非 MOCK → 对 `visual_anchors + DNA promptBlock` 文本嵌入 → 写 `global_assets.embedding`(JSON)。无 key/MOCK → 跳过(列保持 null,退回现状),诚实降级。
-- `findSimilarGlobalAssets(userId, queryEmbedding, topK)`:拉该 user 非空 embedding 行 → 内存余弦相似 → topK。纯函数 cosine 可单测。
-- upsert 角色/资产时机会性触发 `embedAsset`(fire-and-forget,失败不阻塞)。**单测**:cosine + topK 排序 + 无 key 零调用。
+### v12.2.2 — 资产向量化(BYO embedding,把死列通电)【M】✅ 已交付(commit 待回填)
+- `lib/asset-embedding.ts`:`cosineSimilarity`/`topKByCosine`/`buildEmbedSource`(纯函数)+ `embedText`(BYO,走 OpenAI 兼容网关 `OPENAI_EMBED_MODEL`,无 key/MOCK/失败 → null 诚实降级)。
+- `global-asset-repo`:`embedAsset(id)`(buildEmbedSource → embedText → 写 `embedding` 列 bare number[] + metadata 记 model/dim);`findSimilarGlobalAssets(userId, {vector,model}, opts)`(拉非空 embedding 行 → **按 model+dim 过滤异构** → 内存余弦 topK);`setGlobalAssetEmbedding`。
+- `upsertCharacterBible` 新建/更新后机会主义 `void embedAsset(id)`(fire-and-forget,失败不阻塞)。
+- **验证**:tsc 0 + vitest 2342(+13:余弦同/正交/反向/异维 0、topK 降序/minScore/无向量剔除、嵌入源拼接/两 DNA 落点/截断、embedText MOCK 零调用/空文本/模型 env)。检索接 UI+管线在 v12.2.3。
 
 ### v12.2.3 — 跨集/跨项目复用(检索接 UI + 管线)【M】
 - `/api/global-assets/similar?q=&type=`(调 `findSimilarGlobalAssets`;无 embedding → 退回 `findCharacterBibleByName` + visual_anchors 文本匹配)。

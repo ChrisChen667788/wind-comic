@@ -217,13 +217,14 @@ export async function upsertCharacterBible(input: {
     );
     const updated = await getGlobalAssetById(existing.id);
     if (!updated) throw new Error('upsertCharacterBible: 更新后读取失败');
+    void embedAsset(updated.id); // v12.2.2 机会主义向量化(fire-and-forget,无 key/MOCK 自降级)
     return updated;
   }
 
   const initialSamples = Array.from(new Set(
     [input.bible.imageUrl, ...input.bible.sampleFaces].filter(Boolean),
   )).slice(0, 10);
-  return createGlobalAsset({
+  const created = await createGlobalAsset({
     userId: input.userId,
     type: 'character',
     name: normalizedName,
@@ -231,6 +232,8 @@ export async function upsertCharacterBible(input: {
     thumbnail: input.bible.imageUrl,
     metadata: { bible: { ...input.bible, sampleFaces: initialSamples, lastUsedProjectId: input.projectId } },
   });
+  void embedAsset(created.id); // v12.2.2 机会主义向量化
+  return created;
 }
 
 /** 按 (user_id, name) 精确查 Character Bible. 找到 → bible + 历史项目数; 否则 null. */
@@ -249,4 +252,71 @@ export async function findCharacterBibleByName(
   const bible = asset.metadata.bible as CharacterBible | undefined;
   if (!bible || !bible.imageUrl) return null;
   return { bible, usedInProjectsCount: asset.referencedByProjects.length };
+}
+
+// ─── v12.2.2 资产向量化(把 embedding 死列通电)──────────────────────────────
+
+/** 写 embedding 列(bare number[] JSON,匹配既有解析)+ 把 model/dim 记进 metadata(供检索按模型过滤)。 */
+export async function setGlobalAssetEmbedding(id: string, vector: number[], model: string): Promise<void> {
+  const existing = await getGlobalAssetById(id);
+  if (!existing) return;
+  const metadata = { ...existing.metadata, embeddingModel: model, embeddingDim: vector.length };
+  await getDbDriver().run(
+    'UPDATE global_assets SET embedding = ?, metadata = ?, updated_at = ? WHERE id = ?',
+    [JSON.stringify(vector), JSON.stringify(metadata), new Date().toISOString(), id],
+  );
+}
+
+/**
+ * 给单个资产嵌入并落库。无 key/MOCK/空源/失败 → 返回 false(embedding 保持空,诚实降级)。
+ * 机会主义触发(fire-and-forget),失败不阻塞主流程。
+ */
+export async function embedAsset(id: string): Promise<boolean> {
+  try {
+    const asset = await getGlobalAssetById(id);
+    if (!asset) return false;
+    const { buildEmbedSource, embedText } = await import('../asset-embedding');
+    const source = buildEmbedSource(asset);
+    if (!source) return false;
+    const res = await embedText(source);
+    if (!res) return false;
+    await setGlobalAssetEmbedding(id, res.vector, res.model);
+    return true;
+  } catch (e) {
+    console.warn('[GlobalAsset] embedAsset failed (non-blocking):', e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
+/**
+ * 按向量相似找该 user 的同类资产(跨集/跨项目复用核心)。
+ * 只比同 model 的向量(维度/模型不一致不可比 → 跳过)。无 query → []。纯检索,不改库。
+ */
+export async function findSimilarGlobalAssets(
+  userId: string,
+  query: { vector: number[]; model: string },
+  opts?: { type?: GlobalAssetType; k?: number; minScore?: number; excludeId?: string },
+): Promise<Array<{ asset: GlobalAsset; score: number }>> {
+  if (!query?.vector?.length) return [];
+  const conds = ['user_id = ?', 'embedding IS NOT NULL'];
+  const params: unknown[] = [userId];
+  if (opts?.type) { conds.push('type = ?'); params.push(opts.type); }
+  const rows = await getDbDriver().query<GlobalAssetRow>(
+    `SELECT * FROM global_assets WHERE ${conds.join(' AND ')}`,
+    params,
+  );
+  const { cosineSimilarity } = await import('../asset-embedding');
+  const k = Math.max(1, opts?.k ?? 5);
+  const min = opts?.minScore ?? 0;
+  const scored: Array<{ asset: GlobalAsset; score: number }> = [];
+  for (const row of rows) {
+    const asset = rowToAsset(row);
+    if (opts?.excludeId && asset.id === opts.excludeId) continue;
+    if (!asset.embedding?.length) continue;
+    if ((asset.metadata as any)?.embeddingModel && (asset.metadata as any).embeddingModel !== query.model) continue; // 异模型不可比
+    if (asset.embedding.length !== query.vector.length) continue; // 异维不可比
+    const score = cosineSimilarity(query.vector, asset.embedding);
+    if (score > min) scored.push({ asset, score });
+  }
+  return scored.sort((a, b) => b.score - a.score).slice(0, k);
 }
