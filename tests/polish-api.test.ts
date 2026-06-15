@@ -25,8 +25,16 @@ vi.mock('@/lib/config', () => ({
   },
 }));
 
+// v12.2.9: mock plan-gate —— Polish Pro 计费 gate 默认放行(测 pro 逻辑用);gate 测试再单独覆写 checkPlan
+vi.mock('@/lib/plan-gate', async (orig) => {
+  const actual = await (orig() as Promise<typeof import('@/lib/plan-gate')>);
+  return { ...actual, checkPlan: vi.fn(() => ({ ok: true, current: 'pro', required: 'pro', userId: 'u' })) };
+});
+
 // 真正 import route handler (依赖 mock 已生效)
 import { POST } from '@/app/api/polish-script/route';
+import { checkPlan } from '@/lib/plan-gate';
+const mockCheckPlan = checkPlan as unknown as ReturnType<typeof vi.fn>;
 
 /** 构造 NextRequest 兼容的 Request (route 只用 .json(), 普通 Request 够用) */
 function mkReq(body: any): Request {
@@ -62,6 +70,7 @@ let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   fetchSpy = vi.spyOn(globalThis, 'fetch' as any);
+  mockCheckPlan.mockReturnValue({ ok: true, current: 'pro', required: 'pro', userId: 'u' }); // 默认放行
 });
 
 afterEach(() => {
@@ -352,5 +361,29 @@ describe('POST /api/polish-script · mode 容错', () => {
     const res = await POST(mkReq({ script: '原文', mode: 'pro' }) as any);
     const body = await res.json();
     expect(body.mode).toBe('pro');
+  });
+});
+
+// ──────────────────────────────────────────────────
+// v12.2.9 Polish Pro 计费 gate
+// ──────────────────────────────────────────────────
+describe('POST /api/polish-script · v12.2.9 Polish Pro 计费 gate', () => {
+  it('free 用户请求 mode=pro → 402 plan_required(不打 LLM)', async () => {
+    mockCheckPlan.mockReturnValueOnce({ ok: false, current: 'free', required: 'pro', userId: 'u-free' });
+    const res = await POST(mkReq({ script: '原文', mode: 'pro' }) as any);
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.error).toBe('plan_required');
+    expect(body.required).toBe('pro');
+    expect(fetchSpy).not.toHaveBeenCalled(); // gate 在打 LLM 之前
+  });
+
+  it('basic 模式不受 gate 限制(免费用户照常出稿)', async () => {
+    mockCheckPlan.mockReturnValueOnce({ ok: false, current: 'free', required: 'pro', userId: 'u-free' });
+    fetchSpy.mockResolvedValueOnce(mockLlmResponse({ polished: '改稿', summary: 's', notes: [] }) as any);
+    const res = await POST(mkReq({ script: '原文', mode: 'basic' }) as any);
+    expect(res.status).toBe(200); // basic 不调 checkPlan
+    const body = await res.json();
+    expect(body.mode).toBe('basic');
   });
 });

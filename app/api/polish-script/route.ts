@@ -59,6 +59,16 @@ export async function POST(request: NextRequest) {
   const script = scriptVerdict.sanitized;
 
   const mode: PolishMode = body?.mode === 'pro' ? 'pro' : 'basic';
+  // v12.2.9 计费 gate:Polish Pro 走 deepseek-v4-pro 行业级体检(贵),锁 pro 档;
+  // 免费/creator 用户仍可用 basic(快档)。商业化必做,堵免费用户烧高单价 API。
+  if (mode === 'pro') {
+    const { checkPlan, planRejection } = await import('@/lib/plan-gate');
+    const gate = checkPlan(request, 'pro');
+    if (!gate.ok) {
+      console.warn(`[polish-script] plan-gate blocked pro: user=${gate.userId} tier=${gate.current}`);
+      return planRejection(gate.current, gate.required);
+    }
+  }
   const style = typeof body?.style === 'string' ? body.style : undefined;
   const intensity = typeof body?.intensity === 'string' ? body.intensity : 'moderate';
 

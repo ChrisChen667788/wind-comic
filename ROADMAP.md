@@ -187,7 +187,7 @@
 - [x] 镜头时长保护:snap 不允许压到 < 0.5s 或 < 60% 原值
 - [x] out 单调递增校验,避免 beat 抖动让镜头时长出负数
 - [x] tests/beat-detect.test.ts(11 条):空 beats / disabled / 窗内 snap / 窗外不动 / 自定义窗 / minDuration 保护 / 长度不变 / 二分边界
-- **TODO**:编排器接入 beat snap 默认开(下次 minor 跟进,目前 lib 已就绪)
+- ~~**TODO**:编排器接入 beat snap 默认开~~ ✅ 已交付(阶段二十 A v12.0.0:composer 多镜+有 BGM 即 `detectBeats → snapDurationsToBeatsClamped` 无条件接入)
 
 ### B.4 片头 / 片尾自动生成 ✅ 2026-04-26
 - [x] `services/intro-outro.ts` 新增 `generateIntroOutro()` + `buildIntroFilters()` + `buildOutroFilters()` + 转义 helper
@@ -233,7 +233,7 @@
 - [x] `.env.example` 新增 STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_ID_{CREATOR,PRO,ENTERPRISE} / NEXT_PUBLIC_APP_URL / NEXT_PUBLIC_STRIPE_PORTAL_LINK
 - [x] tests/stripe-webhook.test.ts(15 条):3 事件类型解析 / metadata 缺字段防御 / 取消永远降到 free / 无关事件 ignore / mapTierToPriceId env 缺报 StripeNotConfiguredError / 设计常量
 - [x] tests/plan-gate.test.ts(6 条):tier 排序 / 未登录视为 free / DB 缺 row 视为 free / pro 用户能用 pro 及以下 / enterprise 通杀 / 402 响应格式
-- **TODO**:plan gate 接入具体路由(U2V → enterprise / Polish Pro → pro)留给下次 minor — middleware 已就绪,只需在路由里加一行 `const r = checkPlan(req, 'pro'); if (!r.ok) return planRejection(...)`
+- ~~**TODO**:plan gate 接入具体路由~~ ✅ 已交付:U2V/U2V-FLF 已按**时长分档**接入(v2.16 P0.1 `requiredTierForVideoDuration`,优于 flat-enterprise);**Polish Pro → pro**(v12.2.9:mode=pro 走 deepseek-v4-pro 行业体检,锁 pro 档,免费用户仍可 basic)
 
 ### C.3 GitHub Actions CI/CD ✅ 2026-04-26
 - [x] `.github/workflows/ci.yml`(已在 v2.12.0 初次开源 release 时落地)
