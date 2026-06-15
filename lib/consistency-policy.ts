@@ -279,6 +279,30 @@ export class SceneAnchorRegistry {
   size(): number {
     return this.entries.length;
   }
+
+  /** v12.2.1 序列化(持久化到 project_assets);location 已是归一形,可直接回灌。 */
+  toEntries(): Array<{ location: string; description?: string; url: string }> {
+    return this.entries.map((e) => ({ ...e }));
+  }
+
+  /**
+   * v12.2.1 从持久化条目回灌(rerun/重启复用上次场景锚)。
+   * 条目来自 toEntries() → location 已归一;只补未注册的(首张基线优先,不覆盖)。返回新增数。
+   */
+  seed(entries: Array<{ location?: string; description?: string; url?: string }> | undefined): number {
+    if (!Array.isArray(entries)) return 0;
+    let added = 0;
+    for (const e of entries) {
+      const loc = (e?.location || '').trim();
+      if (!loc || !e?.url) continue;
+      if (!this.byLocation.has(loc)) {
+        this.byLocation.set(loc, e.url);
+        this.entries.push({ location: loc, description: e.description, url: e.url });
+        added++;
+      }
+    }
+    return added;
+  }
 }
 
 /** 把场景名/描述统一成"小写 + 去标点 + 去空格", 让匹配少受标点干扰 */

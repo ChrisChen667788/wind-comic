@@ -49,10 +49,11 @@
 - **DNA 命中匹配**:`matchDnaForName()` 复用 `matchLockedCharactersInShot` 策略(原样精确 → 归一精确 → 子串双向 ≥2 字符);`injectDnaIntoPrompt` 改走它 + 同 DNA 去重 → 修「林小满(镜头)vs 小满(dnaMap)」静默漏注入。orchestrator 透明受益(已调 injectDnaIntoPrompt,无需改)。
 - 纯函数、零依赖、零 BYO。**单测**:归一 + 归一精确 + 子串命中 + 单字不误匹配 + 去重(6 例)。
 
-### v12.2.1 — 记忆持久化地基(DNA/场景锚落库,确定性)【S】
-- **DNA 落库**:`character_library`(global_assets type='character')加 `dna` 列(`addColumnIfMissing`);抽出即 upsert,orchestrator init 预载 → 消除重复 vision 重抽 + 早镜漏注入。
-- **场景锚落库**:`SceneAnchorRegistry` 持久化为 project_assets(type='scene-anchor',按归一 location key)→ orchestrator init 从 DB seed。
-- 纯确定性、复用 `upsertCharacterBible`/`addColumnIfMissing`/`upsertAsset`。**单测**:DNA 预载 round-trip + 场景锚持久化。
+### v12.2.1 — 记忆持久化地基(DNA/场景锚落库,确定性)【S】✅ 已交付(commit 待回填)
+- **DNA 落库(项目级)**:抽出即 upsert 到 `project_assets`(type='character-dna',按归一名 key,data={name,dna});orchestrator 分镜前 `preloadCharacterDnaFromDb()` 预载 → rerun/重启不重抽 vision + 早镜(异步抽取未完成前)补注入。DNA 改**合并不替换**,与预载共存。
+  > 实现取 **project_assets 而非 character_library.dna 列**:orchestrator 只有 projectId 无 userId(跨项目 bible 落 DNA 留 v12.2.3 复用刀,届时 API 路由有 userId);且 bible 本就存 `metadata.bible` JSON,无需新列。
+- **场景锚落库**:`SceneAnchorRegistry` 加 `toEntries()`/`seed()`;分镜前从 `project_assets`(type='scene-anchor')seed,登记后持久化 → rerun/重启复用上次场景锚(首张基线优先,不覆盖)。
+- 纯确定性、复用 `upsertAsset`/`listAssetsByType`。**验证**:tsc 0 + vitest 2329(+4 SceneAnchor round-trip/seed 容错/共存)+ journey e2e 通(DB 实证 scene-anchor 落库、新路径零报错)。
 
 ### v12.2.2 — 资产向量化(BYO embedding,把死列通电)【M】
 - `embedAsset(id)`:配 embedding key + 非 MOCK → 对 `visual_anchors + DNA promptBlock` 文本嵌入 → 写 `global_assets.embedding`(JSON)。无 key/MOCK → 跳过(列保持 null,退回现状),诚实降级。

@@ -339,6 +339,28 @@ export class HybridOrchestrator {
   // 拼成短 prompt block, 在每个该角色出场的 shot 里追加. 与 cref/sref 双锁.
   private characterDnaMap: Map<string, import('@/lib/character-dna').CharacterDna> = new Map();
 
+  /**
+   * v12.2.1 从 project_assets(type='character-dna')预载上次抽好的 DNA → 合并进 characterDnaMap。
+   * rerun/重启不必重抽 vision;且分镜早镜(DNA 异步抽取未完成前)也能拿到上次的 DNA(不漏注入)。
+   * 只补未在内存里的 key(不覆盖本次新鲜抽取的)。返回预载条数。
+   */
+  private async preloadCharacterDnaFromDb(): Promise<number> {
+    if (!this.projectId) return 0;
+    try {
+      const { listAssetsByType } = await import('@/lib/repos/asset-repo');
+      const rows = await listAssetsByType(this.projectId, 'character-dna');
+      let n = 0;
+      for (const r of rows) {
+        const data = typeof (r as any).data === 'string' ? JSON.parse((r as any).data) : (r as any).data;
+        const name: string | undefined = data?.name;
+        const dna = data?.dna;
+        if (name && dna?.promptBlock && !this.characterDnaMap.has(name)) { this.characterDnaMap.set(name, dna); n++; }
+      }
+      if (n > 0) console.log(`[CharacterDna] preloaded ${n} DNA from prior run (project_assets)`);
+      return n;
+    } catch (e) { console.warn('[CharacterDna] preload failed (non-blocking):', e instanceof Error ? e.message : e); return 0; }
+  }
+
   // Parsed script data (when user provides a full script)
   private parsedScript: ParsedScript | null = null;
 
@@ -2205,8 +2227,18 @@ ${raw.slice(0, 2000)}
         if (httpChars.length === 0) return;
         const dnaMap = await extractCharacterDnaBatch(httpChars);
         if (dnaMap.size > 0) {
-          this.characterDnaMap = dnaMap;
+          for (const [k, v] of dnaMap) this.characterDnaMap.set(k, v); // 合并不替换(与预载共存)
           console.log(`[CharacterDna] extracted DNA for ${dnaMap.size}/${httpChars.length} characters`);
+          // v12.2.1 持久化 DNA → project_assets(type='character-dna'),供 rerun/重启预载 + 早镜补注入
+          if (this.projectId) {
+            try {
+              const { upsertAsset } = await import('@/lib/repos/asset-repo');
+              const { normalizeCharacterName } = await import('@/lib/character-dna');
+              for (const [name, dna] of dnaMap) {
+                await upsertAsset({ projectId: this.projectId, type: 'character-dna', name: normalizeCharacterName(name) || name, data: { name, dna } });
+              }
+            } catch (e) { console.warn('[CharacterDna] persist failed (non-blocking):', e instanceof Error ? e.message : e); }
+          }
           // v2.23 P0.3: per-character DNA 透传给 SSE — 让 create-stream 能落 character asset 上,
           // UI 节点可显示 "DNA 8/8 字段" + 缺失维度高亮
           const perCharacter = Array.from(dnaMap.entries()).map(([name, dna]) => {
@@ -2577,6 +2609,19 @@ ${shots.map((s, i) => {
     // 同 location 多个 shot 一定拿同一张 sref 复用, 风格不漂移。
     const { SceneAnchorRegistry, pickConsistencyRefs } = await import('@/lib/consistency-policy');
     const sceneAnchors = new SceneAnchorRegistry();
+    // v12.2.1 先从 DB 预载持久化的一致性记忆(DNA + 场景锚),rerun/重启复用,早镜不漏注入
+    await this.preloadCharacterDnaFromDb();
+    if (this.projectId) {
+      try {
+        const { listAssetsByType } = await import('@/lib/repos/asset-repo');
+        const rows = await listAssetsByType(this.projectId, 'scene-anchor');
+        for (const r of rows) {
+          const data = typeof (r as any).data === 'string' ? JSON.parse((r as any).data) : (r as any).data;
+          if (data?.entries) sceneAnchors.seed(data.entries);
+        }
+        if (sceneAnchors.size() > 0) console.log(`[SceneAnchor] seeded ${sceneAnchors.size()} anchors from prior run`);
+      } catch { /* 无锚或解析失败 → 忽略,本次重新登记 */ }
+    }
     if (scenes) {
       for (const s of scenes) {
         if (!s.imageUrl || s.imageUrl.startsWith('data:')) continue;
@@ -2586,6 +2631,13 @@ ${shots.map((s, i) => {
           sceneAnchors.register(s.location, { url: s.imageUrl, description: s.description });
         }
       }
+    }
+    // v12.2.1 持久化场景锚 → project_assets(type='scene-anchor'),供 rerun/重启 seed
+    if (this.projectId && sceneAnchors.size() > 0) {
+      try {
+        const { upsertAsset } = await import('@/lib/repos/asset-repo');
+        await upsertAsset({ projectId: this.projectId, type: 'scene-anchor', name: 'scene-anchors', data: { entries: sceneAnchors.toEntries() } });
+      } catch (e) { console.warn('[SceneAnchor] persist failed (non-blocking):', e instanceof Error ? e.message : e); }
     }
 
     // ═══ 并发渲染分镜图（2路并发 + 每张3分钟超时）═══
