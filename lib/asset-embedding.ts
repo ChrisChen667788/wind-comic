@@ -103,6 +103,42 @@ export function embedModel(): string {
   return process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small';
 }
 
+/** 图像嵌入模型(BYO,漂移检测用);未配 → 无图像 embedding 能力。 */
+export function imageEmbedModel(): string | null {
+  return process.env.IMAGE_EMBED_MODEL || null;
+}
+
+/** 是否具备 BYO 图像嵌入能力(配了 IMAGE_EMBED_MODEL + 有 key + 非 MOCK)。 */
+export function hasImageEmbeddingKey(): boolean {
+  return !!imageEmbedModel() && hasEmbeddingKey();
+}
+
+/**
+ * BYO 图像嵌入(漂移检测用)。需显式配 `IMAGE_EMBED_MODEL`(多模态嵌入端点,OpenAI 兼容);
+ * 未配 / 无 key / MOCK / 失败 / 非 http(s) → null(诚实降级:调用方退回 LLM 评分)。
+ * 端点可独立配 `IMAGE_EMBED_BASE_URL`。
+ */
+export async function embedImage(imageUrl: string): Promise<EmbeddingResult | null> {
+  const model = imageEmbedModel();
+  if (!model || !hasEmbeddingKey()) return null;
+  if (!imageUrl || !/^https?:\/\//.test(imageUrl)) return null;
+  try {
+    const OpenAI = (await import('openai')).default;
+    const client = new OpenAI({
+      apiKey: API_CONFIG.openai.apiKey,
+      baseURL: process.env.IMAGE_EMBED_BASE_URL || process.env.OPENAI_EMBED_BASE_URL || API_CONFIG.openai.baseURL,
+    });
+    // 多模态嵌入端点惯例:input 传图像 URL(具体网关可能要 data-URI / {image} 包装,失败即降级)
+    const resp = await (client as any).embeddings.create({ model, input: imageUrl });
+    const vector = resp?.data?.[0]?.embedding;
+    if (!Array.isArray(vector) || vector.length === 0) return null;
+    return { vector, model, dim: vector.length };
+  } catch (e) {
+    console.warn('[AssetEmbedding] embedImage failed (degrade to LLM score):', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 /** 是否具备 BYO 嵌入能力(有真 key + 非 MOCK)。 */
 export function hasEmbeddingKey(): boolean {
   const k = API_CONFIG.openai.apiKey;
