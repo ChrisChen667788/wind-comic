@@ -61,10 +61,11 @@
 - `upsertCharacterBible` 新建/更新后机会主义 `void embedAsset(id)`(fire-and-forget,失败不阻塞)。
 - **验证**:tsc 0 + vitest 2342(+13:余弦同/正交/反向/异维 0、topK 降序/minScore/无向量剔除、嵌入源拼接/两 DNA 落点/截断、embedText MOCK 零调用/空文本/模型 env)。检索接 UI+管线在 v12.2.3。
 
-### v12.2.3 — 跨集/跨项目复用(检索接 UI + 管线)【M】
-- `/api/global-assets/similar?q=&type=`(调 `findSimilarGlobalAssets`;无 embedding → 退回 `findCharacterBibleByName` + visual_anchors 文本匹配)。
-- `CharacterLockSection`/`MultimodalRefShelf` 加「你库里的相似角色/资产」推荐:建角色时 surface 复用机会(防重复建 + 漂移),一键复用其 DNA/sampleFaces。
-- 管线:`injectDnaIntoPrompt` 对无本地 DNA 的角色,回退取库中相似资产的 `lastDnaBlock`(承接 v12.2.0 的 DNA 落库)。**e2e**:建相似名角色 → 推荐出现 → 复用回填。
+### v12.2.3 — 跨集/跨项目复用(检索接 UI)【M】✅ 已交付(commit 待回填)
+- `/api/global-assets/similar?q=&type=&k=`:向量优先(`embedText` 嵌入 query → `findSimilarGlobalAssets`),无 key/MOCK/向量库空 → 退回 `findSimilarGlobalAssetsByText`(确定性 `textMatchScore`:名归一精确 1 / 子串 0.7 / CJK 2-gram+latin 词覆盖 ≤0.6)。按 user 隔离,返回 {mode,results[{id,name,thumbnail,score,bible}]}。
+- `CharacterLockSection`:精确名(已有 bibleHit)未命中 → 查 similar 路由,展示「🔁 你库里有相似角色」推荐(头像+相似度%+带DNA标),**一键复用形象**(防重复建 + 跨集漂移)。
+- **验证**:tsc 0 + vitest 2348(+6 textMatchScore:精确/子串/词覆盖/无关/优先级单调)+ e2e(种带头像库角色 → 路由近似名命中 → 工坊填近似名出推荐 + 复用按钮 → 清理)。
+- 注:管线 `injectDnaIntoPrompt` 跨库 DNA 回退需 orchestrator userId(同 v12.2.1 约束),留作 B 项;本刀聚焦建角色入口的复用 surface。
 
 ### v12.2.4 — 身份漂移检测(成片级一致性体检,embedding 距离)【M】
 - 全镜渲染后:对每张 storyboard 取视觉 embedding(BYO 托管端点)→ 两两余弦距离 → 标 outlier 镜(漂移最大)→ 喂进现有 `ConsistencyReport` + 最弱镜重生入口(v9.4.2 Vision 重生)。

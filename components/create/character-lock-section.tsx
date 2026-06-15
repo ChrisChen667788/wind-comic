@@ -154,16 +154,23 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
     usedInProjectsCount: number;
   } | null>(null);
   const [bibleDismissed, setBibleDismissed] = useState(false);
+  // v12.2.3 跨集复用:精确名未命中时,展示库里「相似角色」(向量/文本检索)
+  const [similarHits, setSimilarHits] = useState<Array<{
+    id: string; name: string; score: number;
+    bible?: { imageUrl: string; role: LockedCharacter['role']; sampleFaces?: string[]; hasDna?: boolean };
+  }>>([]);
 
   useEffect(() => {
     // 已经有头像或者用户已经 dismiss 过 → 不再 lookup
     if (slot.imageUrl || bibleDismissed) {
       setBibleHit(null);
+      setSimilarHits([]);
       return;
     }
     const trimmed = slot.name.trim();
     if (trimmed.length < 2) {
       setBibleHit(null);
+      setSimilarHits([]);
       return;
     }
     const ctrl = new AbortController();
@@ -172,17 +179,33 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
         const res = await fetch(`/api/characters/bible/${encodeURIComponent(trimmed)}`, {
           signal: ctrl.signal,
         });
-        if (!res.ok) return;
-        const json = await res.json();
+        const json = res.ok ? await res.json() : null;
         if (json && json.found) {
           setBibleHit({ bible: json.bible, usedInProjectsCount: json.usedInProjectsCount });
+          setSimilarHits([]);
+          return;
+        }
+        setBibleHit(null);
+        // v12.2.3 无精确命中 → 找相似(向量优先,无 key 退文本兜底);只取带头像的角色
+        const sim = await fetch(`/api/global-assets/similar?q=${encodeURIComponent(trimmed)}&type=character&k=3`, { signal: ctrl.signal });
+        if (sim.ok) {
+          const sj = await sim.json();
+          const hits = (Array.isArray(sj.results) ? sj.results : []).filter((r: any) => r?.bible?.imageUrl && r.name !== trimmed);
+          setSimilarHits(hits);
         } else {
-          setBibleHit(null);
+          setSimilarHits([]);
         }
       } catch { /* abort/network — silent */ }
     }, 600);
     return () => { clearTimeout(timer); ctrl.abort(); };
   }, [slot.name, slot.imageUrl, bibleDismissed]);
+
+  const reuseSimilar = (hit: { name: string; bible?: { imageUrl: string; role: LockedCharacter['role'] } }) => {
+    if (!hit.bible?.imageUrl) return;
+    onUpdate({ role: hit.bible.role || 'supporting', cw: hit.bible.role === 'lead' ? 125 : 100, imageUrl: hit.bible.imageUrl });
+    setSimilarHits([]);
+    showToast({ title: `已复用库里相似角色「${hit.name}」的形象`, type: 'success' });
+  };
 
   const reuseBible = () => {
     if (!bibleHit) return;
@@ -323,6 +346,34 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
           >
             <X className="w-3 h-3" />
           </button>
+        </div>
+      )}
+
+      {/* v12.2.3: 精确名未命中 → 库里相似角色推荐(防重复建 + 跨集漂移) */}
+      {!bibleHit && !hasImage && similarHits.length > 0 && (
+        <div className="mb-2 px-2 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-[10.5px]" data-testid="similar-character-rec">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sky-200/80 text-[9.5px]">🔁 你库里有相似角色,复用可保跨集一致</span>
+            <button type="button" onClick={() => setSimilarHits([])} className="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-white" aria-label="dismiss similar"><X className="w-3 h-3" /></button>
+          </div>
+          <div className="flex flex-col gap-1">
+            {similarHits.map((hit) => (
+              <div key={hit.id} className="flex items-center gap-2">
+                <img loading="lazy" decoding="async" src={hit.bible!.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sky-100 font-medium truncate">{hit.name}</div>
+                  <div className="text-sky-200/50 text-[9px]">相似度 {Math.round(hit.score * 100)}%{hit.bible!.hasDna ? ' · 带 DNA' : ''}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => reuseSimilar(hit)}
+                  className="px-2 py-0.5 rounded bg-sky-500/25 hover:bg-sky-500/40 text-sky-100 text-[10px] font-medium flex-shrink-0"
+                >
+                  复用形象
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

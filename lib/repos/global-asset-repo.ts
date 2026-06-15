@@ -289,6 +289,28 @@ export async function embedAsset(id: string): Promise<boolean> {
 }
 
 /**
+ * v12.2.3 确定性文本兜底:无 embedding 时按名/描述/anchors 文本相似找该 user 的同类资产。
+ * 永远可跑(零 BYO)。用于 /api/global-assets/similar 在向量不可用时退回。
+ */
+export async function findSimilarGlobalAssetsByText(
+  userId: string,
+  query: string,
+  opts?: { type?: GlobalAssetType; k?: number; minScore?: number; excludeId?: string },
+): Promise<Array<{ asset: GlobalAsset; score: number }>> {
+  if (!query?.trim()) return [];
+  const assets = await listGlobalAssets({ userId, type: opts?.type, limit: 200 });
+  const { textMatchScore } = await import('../asset-embedding');
+  const k = Math.max(1, opts?.k ?? 5);
+  const min = opts?.minScore ?? 0.3;
+  return assets
+    .filter((a) => !opts?.excludeId || a.id !== opts.excludeId)
+    .map((asset) => ({ asset, score: textMatchScore(query, asset) }))
+    .filter((x) => x.score >= min)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k);
+}
+
+/**
  * 按向量相似找该 user 的同类资产(跨集/跨项目复用核心)。
  * 只比同 model 的向量(维度/模型不一致不可比 → 跳过)。无 query → []。纯检索,不改库。
  */

@@ -64,6 +64,40 @@ export function buildEmbedSource(a: {
   return parts.filter(Boolean).join('. ').trim().slice(0, 2000);
 }
 
+/**
+ * v12.2.3 确定性文本相似打分(无 embedding 时的兜底,纯函数,0–1)。
+ * 信号取最大:名归一精确(1)> 名子串(0.7)> query 词在 名+描述+anchors 里的覆盖率(≤0.6)。
+ */
+const normText = (s: string) => (s || '').toLowerCase().replace(/[\s,.，。、:：;；!！?？\-—()（）\[\]【】<>《》「」『』"'""'']/g, '').trim();
+
+export function textMatchScore(
+  query: string,
+  asset: { name?: string; description?: string; visualAnchors?: string[] },
+): number {
+  const q = normText(query);
+  if (!q) return 0;
+  const name = normText(asset.name || '');
+  if (name && name === q) return 1;
+  if (name && q.length >= 2 && (name.includes(q) || q.includes(name))) return 0.7;
+  // 词覆盖率:query 切成 CJK 2-gram + latin 词,在 名+描述+anchors 拼串里命中的比例
+  const hay = normText([asset.name, asset.description, ...(asset.visualAnchors || [])].filter(Boolean).join(''));
+  if (!hay) return 0;
+  const toks = queryTokens(query);
+  if (toks.length === 0) return 0;
+  const hit = toks.filter((t) => hay.includes(t)).length;
+  return Math.min(0.6, (hit / toks.length) * 0.6);
+}
+
+/** query → 匹配单元:CJK 连续段切 2-gram(解决「银发剑客」整段难命中)+ latin 词(≥3,小写)。 */
+function queryTokens(query: string): string[] {
+  const out: string[] = [];
+  for (const run of query.match(/[一-龥]{2,}/g) || []) {
+    for (let i = 0; i < run.length - 1; i++) out.push(run.slice(i, i + 2));
+  }
+  for (const w of query.match(/[a-zA-Z]{3,}/g) || []) out.push(w.toLowerCase());
+  return out;
+}
+
 /** 嵌入模型(env 可换;模型雷达采用后免重启)。 */
 export function embedModel(): string {
   return process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small';
