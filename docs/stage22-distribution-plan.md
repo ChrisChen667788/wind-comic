@@ -41,7 +41,7 @@
 
 ## 三、版本拆解 · 阶段二十二 · 分发/发布闭环(v12.3.x)
 
-### v12.3.0 — 一键成片打包(Ready-to-post bundle,确定性核心)【M】✅ 已交付(commit 待回填)
+### v12.3.0 — 一键成片打包(Ready-to-post bundle,确定性核心)【M】✅ 已交付(commit 104af7d)
 - `lib/publish-package.ts` `buildPublishPackage(spec, pack, media)` 纯函数:把 **distribution 文案 + 成片 + 封面** 组装成「可直发包」(平台规格 + 标题/备选/标签/话题/简介 + 视频(平台成片优先,无则回退原片)+ 封面 + 一键复制文案 + 缺件 warnings + ready)。
 - `GET /api/projects/[id]/publish-package?platform=<id>`:取 DB 资产(distribution / final_video / chosen-cover→cover-candidates)喂进纯函数;附 `exportHint`(一键导该平台 aspect 成片)。
 - **修 SRT 自动接入**:export-platform 加 `resolveProjectSrtPath`,指定平台字幕样式时从 narration 资产(persistent_url=srtUrl)取 SRT 传 `subtitlePath` → **字幕此前从未真烧(path 从不传)的 bug 修复**;响应加 `subtitled`。
