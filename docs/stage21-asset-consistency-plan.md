@@ -55,7 +55,7 @@
 - **场景锚落库**:`SceneAnchorRegistry` 加 `toEntries()`/`seed()`;分镜前从 `project_assets`(type='scene-anchor')seed,登记后持久化 → rerun/重启复用上次场景锚(首张基线优先,不覆盖)。
 - 纯确定性、复用 `upsertAsset`/`listAssetsByType`。**验证**:tsc 0 + vitest 2329(+4 SceneAnchor round-trip/seed 容错/共存)+ journey e2e 通(DB 实证 scene-anchor 落库、新路径零报错)。
 
-### v12.2.2 — 资产向量化(BYO embedding,把死列通电)【M】✅ 已交付(commit 待回填)
+### v12.2.2 — 资产向量化(BYO embedding,把死列通电)【M】✅ 已交付(commit ffc124c)
 - `lib/asset-embedding.ts`:`cosineSimilarity`/`topKByCosine`/`buildEmbedSource`(纯函数)+ `embedText`(BYO,走 OpenAI 兼容网关 `OPENAI_EMBED_MODEL`,无 key/MOCK/失败 → null 诚实降级)。
 - `global-asset-repo`:`embedAsset(id)`(buildEmbedSource → embedText → 写 `embedding` 列 bare number[] + metadata 记 model/dim);`findSimilarGlobalAssets(userId, {vector,model}, opts)`(拉非空 embedding 行 → **按 model+dim 过滤异构** → 内存余弦 topK);`setGlobalAssetEmbedding`。
 - `upsertCharacterBible` 新建/更新后机会主义 `void embedAsset(id)`(fire-and-forget,失败不阻塞)。
