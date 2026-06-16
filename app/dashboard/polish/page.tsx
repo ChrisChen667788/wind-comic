@@ -74,6 +74,7 @@ export default function PolishPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PolishResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null); // v12.3.3: 计费 gate 拒绝时的升级链接
   const [copied, setCopied] = useState(false);
   const [projectScriptName, setProjectScriptName] = useState<string | null>(null);
   // 回写项目(Pro/Basic 都可用)
@@ -132,6 +133,7 @@ export default function PolishPage() {
     if (!canRun) return;
     setLoading(true);
     setError(null);
+    setUpgradeUrl(null);
     setResult(null);
     setViewingHistoryAt(null);
     setHighlightKeyword('');
@@ -153,7 +155,15 @@ export default function PolishPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error || `润色失败 (${res.status})`);
+        // v12.3.3: 计费 gate(402 plan_required)→ 友好提示 + 去 billing,而非误导成 key 问题
+        if (res.status === 402 || data?.error === 'plan_required') {
+          setError(mode === 'pro'
+            ? 'Pro 润色(行业级诊断 · deepseek-v4-pro)需升级到 creator / pro 档'
+            : (data?.message || '本功能需升级档位'));
+          setUpgradeUrl(data?.upgradeUrl || '/dashboard/billing');
+        } else {
+          setError(data?.error || `润色失败 (${res.status})`);
+        }
         return;
       }
       setResult(data);
@@ -321,6 +331,7 @@ export default function PolishPage() {
     setSource('');
     setResult(null);
     setError(null);
+    setUpgradeUrl(null);
     setMode('basic');
     setStyle('');
     setIntensity('moderate');
@@ -449,6 +460,7 @@ export default function PolishPage() {
     if (entry.mode) setMode(entry.mode);
     setViewingHistoryAt(entry.at || null);
     setError(null);
+    setUpgradeUrl(null);
   };
 
   /**
@@ -811,9 +823,16 @@ export default function PolishPage() {
           <div className="flex-1 overflow-y-auto">
             {error ? (
               <div className="h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
-                <AlertCircle className="w-8 h-8 text-red-400/60" />
+                <AlertCircle className={`w-8 h-8 ${upgradeUrl ? 'text-[#E8C547]/70' : 'text-red-400/60'}`} />
                 <p className="text-sm text-red-300">{error}</p>
-                <p className="text-[11px] text-[var(--muted)]">请检查 OPENAI_API_KEY 配置, 或稍后重试</p>
+                {upgradeUrl ? (
+                  <>
+                    <a href={upgradeUrl} className="cinema-btn-primary !text-[12px]">去升级 →</a>
+                    <p className="text-[11px] text-[var(--muted)]">免费 / 入门档可用「快速润色」(基础模式),无需升级</p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-[var(--muted)]">请检查 OPENAI_API_KEY 配置, 或稍后重试</p>
+                )}
               </div>
             ) : loading ? (
               <div className="h-full flex flex-col items-center justify-center gap-3 p-6">
