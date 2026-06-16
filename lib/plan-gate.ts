@@ -47,8 +47,10 @@ export function checkPlan(request: Request, minTier: AnyTier): PlanCheck {
       .get(userId) as { subscription_tier?: string } | undefined;
     current = (row?.subscription_tier as AnyTier) || 'free';
   }
+  // 总开关:PLAN_GATE_DISABLED=1 → 所有计费 gate 放行(上线前/本地测试用;真上线删此 env 即恢复)
+  const disabled = process.env.PLAN_GATE_DISABLED === '1';
   return {
-    ok: tierRank(current) >= tierRank(minTier),
+    ok: disabled || tierRank(current) >= tierRank(minTier),
     current,
     required: minTier,
     userId,

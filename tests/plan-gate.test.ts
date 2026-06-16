@@ -95,3 +95,25 @@ describe('planRejection', () => {
     expect(body.upgradeUrl).toBe('/dashboard/billing');
   });
 });
+
+describe('PLAN_GATE_DISABLED 总开关(上线前/本地测试放行所有 gate)', () => {
+  it('=1 → free 用户也通过 enterprise gate(ok=true,current 仍如实)', () => {
+    const prev = process.env.PLAN_GATE_DISABLED;
+    process.env.PLAN_GATE_DISABLED = '1';
+    try {
+      mockGetUser.mockReturnValue(null); // 未登录 = free
+      const r = checkPlan(mkReq(), 'enterprise');
+      expect(r.ok).toBe(true);          // 放行
+      expect(r.current).toBe('free');   // 不撒谎,如实报当前档
+      expect(r.required).toBe('enterprise');
+    } finally {
+      if (prev === undefined) delete process.env.PLAN_GATE_DISABLED; else process.env.PLAN_GATE_DISABLED = prev;
+    }
+  });
+
+  it('未设(默认)→ 照常拦截(free < pro)', () => {
+    delete process.env.PLAN_GATE_DISABLED;
+    mockGetUser.mockReturnValue(null);
+    expect(checkPlan(mkReq(), 'pro').ok).toBe(false);
+  });
+});
