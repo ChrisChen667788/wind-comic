@@ -17,7 +17,7 @@ import {
 const DEFAULT_PLATFORMS: PlatformId[] = ['douyin', 'xiaohongshu', 'shipinhao'];
 
 // v12.3.1 发布动作结果(per platform)
-type PublishResult = { kind: 'ok' | 'plan' | 'blocked' | 'err'; msg: string; shareUrl?: string };
+type PublishResult = { kind: 'ok' | 'plan' | 'blocked' | 'err'; msg: string; shareUrl?: string; externalUrl?: string };
 
 export function DistributionPanel({ projectId }: { projectId: string }) {
   const [selected, setSelected] = useState<PlatformId[]>(DEFAULT_PLATFORMS);
@@ -27,6 +27,9 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
   const [copiedKey, setCopiedKey] = useState('');
   const [publishing, setPublishing] = useState<PlatformId | null>(null);
   const [pubResults, setPubResults] = useState<Record<string, PublishResult>>({});
+  // v12.3.3 定时发布 + YouTube 真上传
+  const [scheduleAt, setScheduleAt] = useState('');   // datetime-local 字符串(空 = 立即)
+  const [ytReal, setYtReal] = useState(false);        // 勾选 = 真上传到 YouTube(需已配 token)
 
   useEffect(() => {
     let alive = true;
@@ -63,16 +66,23 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
     } catch { /* ignore */ }
   }
 
-  // v12.3.1 发布:打包 + 硬质量门禁 + 计费 gate + 落记录 + 分享链接(诚实标注「打包就绪」,非真上传)
+  // v12.3.1+12.3.3 发布:打包 + 硬质量门禁 + 计费 gate + 落记录 + 分享链接;
+  // 可定时(scheduleAt)/可真上传(YouTube 已配 token → 真传,其余诚实降级为手动)。
   async function publish(platform: PlatformId) {
     setPublishing(platform);
     setPubResults((r) => ({ ...r, [platform]: { kind: 'ok', msg: '发布中…' } }));
     try {
+      const body: any = { platform };
+      if (scheduleAt) {
+        const iso = new Date(scheduleAt).toISOString();
+        if (new Date(iso).getTime() > Date.now()) body.scheduledAt = iso;
+      }
+      if (platform === 'youtube_shorts' && ytReal) { body.upload = true; body.confirmUpload = true; }
       const token = typeof window !== 'undefined' ? localStorage.getItem('qfmj-token') : '';
       const r = await fetch(`/api/projects/${projectId}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ platform }),
+        body: JSON.stringify(body),
       });
       const j = await r.json().catch(() => ({}));
       let res: PublishResult;
@@ -80,6 +90,9 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
       else if (r.status === 422) res = { kind: 'blocked', msg: '质量门禁未通过(block),先修复最弱镜' };
       else if (r.status === 401) res = { kind: 'err', msg: '请先登录' };
       else if (!r.ok) res = { kind: 'err', msg: j?.error || `发布失败 (${r.status})` };
+      else if (j?.status === 'scheduled') res = { kind: 'ok', msg: `已排定定时发布 · ${new Date(j?.scheduled?.scheduledAt).toLocaleString()}` };
+      else if (j?.status === 'published') res = { kind: 'ok', msg: '已真上传到 YouTube(默认私有,去后台改公开)', shareUrl: j?.shareUrl, externalUrl: j?.record?.externalUrl };
+      else if (j?.upload?.status === 'manual') res = { kind: 'ok', msg: `已打包 · ${j.upload.message}`, shareUrl: j?.shareUrl };
       else res = { kind: 'ok', msg: '已打包 + 生成分享链接(可下载素材手动上传)', shareUrl: j?.shareUrl };
       setPubResults((rr) => ({ ...rr, [platform]: res }));
     } catch (e: any) {
@@ -122,6 +135,20 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
           )}
           {pack?.degraded && <span className="cinema-mono text-[10px] text-[var(--secondary)]">LLM 输出已尽力解析 (部分降级)</span>}
         </div>
+        {pack && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--cinema-border)]">
+            <label className="cinema-mono text-[10px] opacity-70 flex items-center gap-1.5">
+              定时发布(可选)
+              <input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)}
+                className="bg-transparent border border-[var(--cinema-border)] rounded px-1.5 py-0.5 text-[11px]" />
+            </label>
+            {scheduleAt && <button onClick={() => setScheduleAt('')} className="cinema-mono text-[10px] opacity-50 hover:opacity-100 underline">清除(改立即)</button>}
+            <label className="cinema-mono text-[10px] opacity-70 flex items-center gap-1.5">
+              <input type="checkbox" checked={ytReal} onChange={(e) => setYtReal(e.target.checked)} />
+              真上传到 YouTube(需已配 token,会公开到你频道)
+            </label>
+          </div>
+        )}
         {err && <p className="cinema-mono text-[11px] mt-2 text-[var(--secondary)]">{err}</p>}
       </div>
 
@@ -176,6 +203,7 @@ function PlatformCard({ p, copiedKey, onCopy, onPublish, publishing, result }: {
           <span className={`cinema-mono text-[10px] flex items-center gap-1 ${result.kind === 'ok' ? 'text-[var(--cinema-green)]' : result.kind === 'plan' ? 'text-[var(--cinema-amber)]' : 'text-[var(--secondary)]'}`}>
             {result.msg}
             {result.shareUrl && <a href={result.shareUrl} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-0.5"><LinkSimple size={10} /> 分享页</a>}
+            {result.externalUrl && <a href={result.externalUrl} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-0.5"><LinkSimple size={10} /> 平台链接</a>}
           </span>
         )}
       </div>

@@ -688,6 +688,26 @@ CREATE TABLE IF NOT EXISTS publish_records (
 CREATE INDEX IF NOT EXISTS idx_publish_records_project ON publish_records(project_id, created_at);
 `);
 
+// v12.3.3 (阶段二十二): 定时发布 —— 到点由 worker tick 认领并经适配器发布。
+// status: pending(待发)| running(认领中)| done(已处理:真传成功或降级出包)| failed | canceled。
+db.exec(`
+CREATE TABLE IF NOT EXISTS scheduled_publishes (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  scheduled_at TEXT NOT NULL,                     -- ISO,到点触发
+  status TEXT NOT NULL DEFAULT 'pending',         -- pending | running | done | failed | canceled
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  publish_record_id TEXT,                         -- 触发后产生的 publish_records.id
+  created_by TEXT,                                -- 发起用户 id
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scheduled_publishes_due ON scheduled_publishes(status, scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_scheduled_publishes_project ON scheduled_publishes(project_id, created_at);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,

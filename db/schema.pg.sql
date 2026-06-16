@@ -477,3 +477,20 @@ CREATE TABLE IF NOT EXISTS publish_records (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_publish_records_project ON publish_records(project_id, created_at);
+
+-- v12.3.3 (阶段二十二): 定时发布
+CREATE TABLE IF NOT EXISTS scheduled_publishes (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  scheduled_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  publish_record_id TEXT,
+  created_by TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scheduled_publishes_due ON scheduled_publishes(status, scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_scheduled_publishes_project ON scheduled_publishes(project_id, created_at);
