@@ -67,6 +67,8 @@ import { deriveProsody } from '@/lib/tts-prosody';
 import { getLatestQualityScore, buildWriterFeedbackHint } from '@/lib/quality-scores';
 // v12.4.0(阶段二十三):主管线视频/图像成本落库 —— 此前从不记,cost-attribution 视频/图像类目永远 0。
 import { recordCostLog, estimateVideoCostCny, estimateImageCostCny, videoRateForProvider } from '@/lib/repos/cost-log-repo';
+// v12.6.1(#2):目标语种检测 —— 锁台词/旁白/TTS/口型语种,visualPrompt 仍英文。
+import { detectLanguage, ttsLangCode, lipsyncLangCode, type TargetLanguage } from '@/lib/language-detect';
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -506,6 +508,15 @@ export class HybridOrchestrator {
   setUserId(id: string) {
     if (id) this.userId = id;
   }
+
+  // v12.6.1(#2):目标语种 —— 从原始创意自动判,锁台词/旁白/TTS/口型语种;visualPrompt 仍英文。
+  private _targetLanguage: TargetLanguage | null = null;
+  private targetLanguage(): TargetLanguage {
+    if (!this._targetLanguage) this._targetLanguage = detectLanguage(this.originalIdea || '');
+    return this._targetLanguage;
+  }
+  /** 允许调用方显式覆盖语种(用户「要求」优先于自动检测)。 */
+  setTargetLanguage(lang: TargetLanguage) { this._targetLanguage = lang; }
 
   /**
    * v2.13.5: 把 Writer 产出的 script 注入 orchestrator,让 Character/Scene 设计器
@@ -1637,6 +1648,7 @@ export class HybridOrchestrator {
       const writerPromptOptionsWithIdea = {
         ...writerPromptOptions,
         idea: this.originalIdea || (plan as any).synopsis || '',
+        language: this.targetLanguage(), // v12.6.1: 锁台词/旁白/场景描述语种
       };
       const prompt = getMcKeeWriterPrompt(plan.genre, plan.style, writerPromptOptionsWithIdea);
 
@@ -3973,7 +3985,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
                 speed: prosody.speed,
                 pitch: prosody.pitch,
                 volume: prosody.vol,
-                language: 'zh-CN',
+                language: ttsLangCode(this.targetLanguage()), // v12.6.1: 按目标语种(zh-CN/en-US)
                 label: `shot-${t.shotNumber}`,
               },
               async () => {
@@ -4051,7 +4063,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
                 console.log(`[LipSync] shot ${v.shotNumber} skipped — audio is non-http (likely local TTS)`);
                 continue;
               }
-              const r = await lipsync.syncMouthToAudio(videoUrl, v.audioUrl, { language: 'zh' });
+              const r = await lipsync.syncMouthToAudio(videoUrl, v.audioUrl, { language: lipsyncLangCode(this.targetLanguage()) });
               if (r.applied && r.videoUrl && r.videoUrl.startsWith('http')) {
                 videoEntry.videoUrl = r.videoUrl;
                 appliedCount++;

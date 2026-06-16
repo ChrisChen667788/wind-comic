@@ -11,6 +11,7 @@
 import { buildDirectorCinemaPromptBlock } from './director-enhance';
 import { buildProducerReviewPromptBlock } from './producer-enhance';
 import { buildWriterCinemaPromptBlock, validateWriterCinematography, buildBeatSheetBlock } from './writer-enhance';
+import { buildLanguageDirective } from './language-detect';
 // v2.20 P0.2: drama-tropes 在 Writer prompt 里注入短剧强约束
 import { buildDramaTropeBlock } from './drama-tropes';
 // v2.23 P0.4: 对话覆盖度硬规则 — 强制正反打
@@ -151,6 +152,8 @@ export function getMcKeeWriterPrompt(genre: string, style: string, options?: {
    * 不传则只按 genre 判断.
    */
   idea?: string;
+  /** v12.6.1: 目标语种 — 锁台词/旁白/场景描述语种(visualPrompt 仍英文)。不传按内容默认中文。 */
+  language?: 'zh' | 'en';
 }): string {
   const isAdapt = options?.isScriptAdaptation || false;
   // 动态计算镜头数范围：基于 Director 建议值
@@ -200,7 +203,10 @@ ${options?.characterAppearances ? '\n### 角色外貌参考（必须在 visualPr
   // 多角色对话场景缺反打是 "AI 感" 最大来源, 不只是短剧问题.
   const dialogueCoverageBlock = buildDialogueCoverageBlock();
 
+  const langDirective = buildLanguageDirective(options?.language ?? 'zh');
+
   return `你是一位同时精通罗伯特·麦基叙事理论和短视频编剧的顶级AI编剧。
+${langDirective}
 ${adaptNote}${dramaTropeBlock}${dialogueCoverageBlock}
 
 ## 核心创作法则

@@ -124,7 +124,9 @@ export async function synthesizeNarrationTrack(
 const defaultSynth: SynthFn = async ({ text, voiceId }) => {
   await import('./tts-providers/builtins'); // 确保内置 provider 注册 (side-effect)
   const { dispatchTTSGenerate } = await import('./tts-providers/registry');
-  const r = await dispatchTTSGenerate({ text, voiceId, language: 'zh-CN' });
+  // v12.6.1(#2):按旁白文本自检语种(中文→zh-CN / 英文→en-US),不再硬编码 zh-CN
+  const { detectLanguage, ttsLangCode } = await import('./language-detect');
+  const r = await dispatchTTSGenerate({ text, voiceId, language: ttsLangCode(detectLanguage(text)) });
   if (!r.result) {
     const reason = r.tried.map((t) => t.error).join(' | ').slice(0, 80);
     throw new Error(`TTS 无可用引擎: ${reason || '未配置 provider (需 MINIMAX_API_KEY)'}`);
