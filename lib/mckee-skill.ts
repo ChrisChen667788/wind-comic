@@ -10,7 +10,7 @@
 
 import { buildDirectorCinemaPromptBlock } from './director-enhance';
 import { buildProducerReviewPromptBlock } from './producer-enhance';
-import { buildWriterCinemaPromptBlock, validateWriterCinematography } from './writer-enhance';
+import { buildWriterCinemaPromptBlock, validateWriterCinematography, buildBeatSheetBlock } from './writer-enhance';
 // v2.20 P0.2: drama-tropes 在 Writer prompt 里注入短剧强约束
 import { buildDramaTropeBlock } from './drama-tropes';
 // v2.23 P0.4: 对话覆盖度硬规则 — 强制正反打
@@ -337,6 +337,14 @@ ${adaptNote}${dramaTropeBlock}${dialogueCoverageBlock}
       "cameraWork": "镜头语言（如: '慢推特写→快速拉远→俯拍全景'）",
       "soundDesign": "声音设计（如: '背景: 暴雨+远雷, 前景: 急促呼吸, 转场: 一声清脆的瓷器碎裂'）",
       "duration": 8,
+      "beats": [
+        { "ts": "0-2s", "startSec": 0, "endSec": 2, "action": "【起始态】主体+动词进行时+物理细节（禁止静态描写）", "camera": "景别, 角度, 运镜", "dialogue": null, "audio": "音效/配乐提示" },
+        { "ts": "2-4s", "startSec": 2, "endSec": 4, "action": "【触发动作】最强动词+因果连接(猛然/sending)", "camera": "景别, 角度, 运镜（与上一beat有变化）", "dialogue": "台词（落在此时间码才填,可空,≤15字）", "audio": "SFX 或音乐变化" },
+        { "ts": "4-8s", "startSec": 4, "endSec": 8, "action": "【物理/情绪反应】因果结果+物理细节", "camera": "景别, 角度, static 或 micro-move", "dialogue": null, "audio": "SFX" }
+      ],
+      "beatFunction": "hook | setup | conflict | escalate | reverse | release | cliffhanger（第1镜必须 hook,末镜必须 cliffhanger）",
+      "globalLighting": "跨镜一致的主光描述（英文,不随 beat 变化）",
+      "negativePrompt": "负面约束（如: 过度抖动, 模糊, 多余人物, 背景人流）",
       "shotSize": "ECU | CU | MCU | MS | MLS | LS | ELS | wide | insert（景别，与 emotionTemperature 强度匹配）",
       "lens": "16mm | 24mm | 35mm | 50mm | 85mm | 135mm | 200mm（焦段，|temp|>=6 必须 85mm+）",
       "cameraAngle": "eye-level | low-angle | high-angle | birds-eye | worms-eye | dutch",
@@ -369,7 +377,8 @@ ${adaptNote}${dramaTropeBlock}${dialogueCoverageBlock}
 13. **每个shot的visualPrompt必须在 60-120 个英文单词之间**
 14. **dialogue不超过25字**，但必须体现角色性格DNA
 15. **action描写必须至少20字**，包含具体的肢体动作、表情、与环境互动
-${buildWriterCinemaPromptBlock()}`;
+${buildWriterCinemaPromptBlock()}
+${buildBeatSheetBlock()}`;
 }
 
 // ═══════════════════════════════════════════

@@ -30,6 +30,11 @@ import { X, FileText, Copy, Download, Check, MagicWand as Wand2 } from '@phospho
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import Link from 'next/link';
 
+interface MicroBeat {
+  ts: string; startSec?: number; endSec?: number;
+  action: string; camera?: string; dialogue?: string; audio?: string;
+}
+
 interface ScriptShot {
   shotNumber: number;
   sceneDescription?: string;
@@ -41,6 +46,8 @@ interface ScriptShot {
   storyBeat?: string;
   beat?: string;
   visualPrompt?: string;
+  beats?: MicroBeat[];        // v12.6.0 逐秒时间码 beat
+  beatFunction?: string;
   subtext?: string;
   emotionTemperature?: number;
   cameraWork?: string;
@@ -98,6 +105,7 @@ function scriptToText(name: string, data: ScriptData): string {
     if (cam) lines.push(`[镜头] ${cam}`);
     if (s.lightingIntent) lines.push(`[光影] ${s.lightingIntent}`);
     if (s.subtext) lines.push(`[潜台词] ${s.subtext}`);
+    if (s.beats?.length) { lines.push(`[逐秒分镜]`); for (const b of s.beats) lines.push(`  ${b.ts} ${b.action}${b.camera ? ` 〔${b.camera}〕` : ''}${b.dialogue ? ` 💬${b.dialogue}` : ''}`); }
     if (s.visualPrompt) lines.push(`[视觉 Prompt] ${s.visualPrompt}`);
     if (s.duration) lines.push(`[时长] ${s.duration}s`);
   });
@@ -292,12 +300,41 @@ function ShotBlock({ shot }: { shot: ScriptShot }) {
             {shot.storyBeat || shot.beat}
           </span>
         ) : null}
+        {shot.beatFunction ? (
+          <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 text-[10px] font-mono uppercase">
+            {shot.beatFunction}
+          </span>
+        ) : null}
         {shot.duration ? (
           <span className="ml-auto text-[11px] text-[var(--muted)] font-mono">
             {shot.duration}s
           </span>
         ) : null}
       </div>
+
+      {/* v12.6.0 逐秒时间码 beat sheet —— 精确到第几秒的剧情+镜头(替代单段描写) */}
+      {shot.beats && shot.beats.length > 0 ? (
+        <div className="mb-3 rounded-lg border border-[#E8C547]/25 bg-black/30 p-3">
+          <p className="text-[10px] text-[#E8C547] tracking-wider uppercase mb-2">⏱ 逐秒分镜 Beat Sheet</p>
+          <div className="flex flex-col gap-2">
+            {shot.beats.map((b, i) => (
+              <div key={i} className="flex gap-2.5">
+                <span className="shrink-0 mt-0.5 px-1.5 py-0.5 h-fit rounded bg-[#E8C547]/15 text-[#E8C547] text-[10px] font-mono font-bold">
+                  {b.ts}
+                </span>
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-[12px] text-white/90 leading-snug">{b.action}</span>
+                  <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-[var(--muted)] font-mono">
+                    {b.camera ? <span>🎥 {b.camera}</span> : null}
+                    {b.dialogue ? <span className="text-[#E8C547]/80 not-italic">💬 {b.dialogue}</span> : null}
+                    {b.audio ? <span>🔊 {b.audio}</span> : null}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* 场景 */}
       {shot.sceneDescription ? (

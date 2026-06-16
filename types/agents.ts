@@ -82,6 +82,28 @@ export interface Scene {
 }
 
 // 剧本
+// v12.6.0 逐秒时间码 micro-beat —— 把单镜拆成 2-4 个有明确时序的动作段,
+// 替代「单段静态描写」,显著改善视频引擎的动作连贯性(参考 OnlyShot/Seedance2/Veo3 范式)。
+export type BeatFunction =
+  | 'hook' | 'setup' | 'conflict' | 'escalate' | 'reverse' | 'release' | 'cliffhanger';
+
+export interface MicroBeat {
+  /** 时间码区间,如 "0-2s"(展示用) */
+  ts: string;
+  /** 起始秒(机器可读,校验时长用) */
+  startSec: number;
+  /** 结束秒 */
+  endSec: number;
+  /** 画面动作 —— 必须是可被视频引擎执行的动词链,禁止静态描写 */
+  action: string;
+  /** 景别+角度+运镜,如 "CU, low-angle, push-in"(与 action 分离声明) */
+  camera: string;
+  /** 台词(可空,≤15 字) */
+  dialogue?: string;
+  /** 音效/配乐提示 */
+  audio?: string;
+}
+
 export interface ScriptShot {
   shotNumber: number;
   sceneDescription: string;
@@ -111,6 +133,17 @@ export interface ScriptShot {
   diegeticSound?: string;
   scoreMood?: string;
   rhythmicSync?: string;
+  // ── v12.6.0 逐秒 beat sheet(全部可选 → 向后兼容旧项目) ──
+  /** 逐秒 micro-beat 序列(2-4 条,每条 2-5s;时长之和 = duration) */
+  beats?: MicroBeat[];
+  /** 镜头叙事功能 */
+  beatFunction?: BeatFunction;
+  /** 跨镜一致的主光描述(不随 beat 变化) */
+  globalLighting?: string;
+  /** 负面约束(送引擎时追加到尾) */
+  negativePrompt?: string;
+  /** 引擎偏好(影响 beats 合成策略) */
+  targetEngine?: 'veo31' | 'kling3' | 'hailuo23' | 'seedance2';
 }
 
 export interface Script {

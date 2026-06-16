@@ -206,6 +206,102 @@ export function applyCinemaToVisualPrompt(shot: any): string {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// v12.6.0 逐秒 beat sheet → 引擎 prompt 合成
+//
+// Writer 现在为每个 shot 产出 beats[](2-4 个带时间码的动作段)。这里把 beats
+// 合成成喂给视频引擎的最终 prompt。各引擎对「时序」的解析能力不同:
+//   - kling3   : 保留 "Beat 0-2s:" 时间码前缀(Kling 时间轴可对齐)
+//   - seedance2: 严格 3s 窗口 "0-3s:" 前缀
+//   - veo31/hailuo23: 剥时间码,用 then/suddenly/as 散文时序词串联
+// 相机运动单独声明(不混进 action,避免引擎把运镜词当画面内容)。
+// ─────────────────────────────────────────────────────────────────
+
+type BeatLike = { ts: string; startSec: number; endSec: number; action: string; camera: string; dialogue?: string; audio?: string };
+type ShotWithBeats = Partial<WriterShotCinema> & {
+  visualPrompt?: string; beats?: BeatLike[];
+  targetEngine?: 'veo31' | 'kling3' | 'hailuo23' | 'seedance2';
+  globalLighting?: string; negativePrompt?: string;
+};
+
+export function synthesizeBeatsToEnginePrompt(shot: ShotWithBeats): string {
+  const beats = shot.beats;
+  if (!beats || beats.length === 0) return shot.visualPrompt ?? '';
+  const engine = shot.targetEngine ?? 'kling3';
+
+  // 1) action 串联(按引擎差异)
+  let actionStr: string;
+  if (engine === 'kling3') {
+    actionStr = beats.map((b) => `Beat ${b.ts}: ${b.action}${b.dialogue ? ` — ${b.dialogue}` : ''}`).join(' / ');
+  } else if (engine === 'seedance2') {
+    actionStr = beats.map((b) => `${b.ts}: ${b.action}`).join('. ');
+  } else {
+    const connectors = ['', ' Then ', ' Suddenly ', ' As this happens, '];
+    actionStr = beats.map((b, i) => `${i > 0 ? connectors[Math.min(i, connectors.length - 1)] : ''}${b.action}`).join('');
+  }
+
+  // 2) 相机声明(主运镜 + 后续变化)
+  const primaryCamera = beats[0]?.camera ?? '';
+  const cameraShifts = beats.slice(1).filter((b, i) => b.camera && b.camera !== beats[i].camera).map((b) => b.camera);
+  const cameraStr = cameraShifts.length > 0 ? `${primaryCamera}, then ${cameraShifts.join(', ')}` : primaryCamera;
+
+  // 3) Veo3 模板前缀(复用现有)
+  const veoPrefix = renderVeoProsePrefix(shot as WriterShotCinema);
+
+  // 4) 环境/光影 + 5) 音频 cue + 6) 拼合
+  const envStr = [shot.globalLighting, shot.lightingIntent].filter(Boolean).join(', ');
+  const audioStr = beats.filter((b) => b.audio).map((b) => b.audio).join('; ');
+  const parts = [
+    veoPrefix,
+    actionStr,
+    cameraStr ? `Camera: ${cameraStr}` : '',
+    envStr,
+    audioStr ? `Audio: ${audioStr}` : '',
+    shot.negativePrompt ? `Avoid: ${shot.negativePrompt}` : '',
+  ].filter(Boolean);
+  return parts.join('. ');
+}
+
+/** 向后兼容:有 beats 用合成结果,否则回退已有 visualPrompt。所有下游取镜头 prompt 走这里。 */
+export function getEffectiveVisualPrompt(shot: ShotWithBeats): string {
+  if (shot.beats && shot.beats.length > 0) return synthesizeBeatsToEnginePrompt(shot);
+  return shot.visualPrompt ?? '';
+}
+
+/**
+ * v12.6.0 逐秒 beat sheet 铁律块 —— 注入 getMcKeeWriterPrompt 末尾。
+ * 让 Writer 把每个 shot 的「单段静态描写」改为「2-4 个带时间码的动作 beat」,
+ * 这是改善视频引擎动作时序、连贯性的关键(实测:静态描写型产出运动差)。
+ */
+export function buildBeatSheetBlock(): string {
+  return `
+
+## ═══ 逐秒分镜铁律:每个 shot 必须输出 beats 数组(时间码 beat sheet)═══
+
+把镜头从「一段静态画面描写」升级为「2-4 个 micro-beat 的状态机推进」。每个 beat 对应
+2-5 秒、一个**具体物理动作**,beats 各段时长之和 = 该镜 duration。
+
+**标准四段式拆解**(按需取 2-4 段):
+1. beat[0] 起始态:主体+环境+情绪,动词用进行时(禁止 "stands calmly/看风景" 这类静态)
+2. beat[1] 触发动作:最强动词 + 因果连接(猛然/骤然/suddenly + sending/causing)
+3. beat[2] 物理反应:因果结果 + 物理细节(慢动作/碎裂/水花)
+4. beat[3] 收尾/过渡(可选):结束态或衔接下一镜
+
+**硬规则**:
+- 相机运动写进 beat.camera 字段(景别,角度,运镜),**禁止混进 action**。
+  ❌ action:"镜头推进,她走向门口"  ✅ action:"她向门口迈三步,脚步沉重" + camera:"MS, eye-level, dolly-in"
+- 相邻 beat 的 camera 必须有景别或运镜**变化**(避免一镜到底的呆板)。
+- 单镜 beats 不超过 4 条;动作超过 4 段必须拆成独立镜头(否则引擎 temporal collapse)。
+- **第 1 镜 beat[0] 强制钩子**:beatFunction="hook"、景别 CU/ECU、emotionTemperature ≤ -5 或 ≥ +7,
+  画面是直接冲突/强情感,**禁止走路/起床/看风景开场**。
+- 有参考图(I2V)时,beat.action 只写「变化量(the delta)」,不重复参考图里的静态信息(服装/背景/光)。
+- 末镜(cliffhanger)duration 3-5s,最后一个 beat 以悬念台词或动作收尾,不可陈述句结束。
+
+**beatFunction 全集**:hook | setup | conflict | escalate | reverse | release | cliffhanger。
+**镜头内 dialogue 仍写在 shot.dialogue;beat.dialogue 仅在该台词落在具体时间码上时填。**
+════════════════════════════════════════`;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Writer 输出校验 — 软警告,不阻塞
 // ─────────────────────────────────────────────────────────────────
 

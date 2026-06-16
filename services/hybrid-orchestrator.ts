@@ -53,6 +53,7 @@ import {
   buildMultiReferenceBundle,
   flattenBundleToUrls,
   applyCinemaToVisualPrompt,
+  getEffectiveVisualPrompt,
   buildMusicVisualAnchor,
 } from '@/lib/writer-enhance';
 import { StoryTemplate } from '@/lib/story-templates';
@@ -3183,8 +3184,13 @@ ${shots.map((s, i) => {
       // v2.8: 如果 Writer 输出了 cinema 字段,先用 Veo 3 prose prefix 锁镜头语言
       // 让每个 shot 的 prompt 第一句就是 "slow push in on 85mm, MCU, low-angle:"
       // 视频模型对首句 camera token 注意力最高,平镜头→有质感的转变就靠这个
+      // v12.6.0: Writer 输出了逐秒 beats → 合成「带时序的动作 prompt」优先(动作连贯性最好,
+      // 替代单段静态描写)。无 beats 则回退到既有 cinema prefix / visualPrompt 逻辑(向后兼容)。
+      const beatsPrompt = shot?.beats && shot.beats.length > 0 ? getEffectiveVisualPrompt(shot) : '';
       const cinemaPrefix = shot ? applyCinemaToVisualPrompt(shot) : '';
-      if (cinemaPrefix && cinemaPrefix !== (shot?.visualPrompt || '')) {
+      if (beatsPrompt) {
+        enhancedPrompt = beatsPrompt;
+      } else if (cinemaPrefix && cinemaPrefix !== (shot?.visualPrompt || '')) {
         // applyCinemaToVisualPrompt 返回的是带 prefix 的完整 visualPrompt
         enhancedPrompt = cinemaPrefix;
       } else if (shot?.visualPrompt) {
