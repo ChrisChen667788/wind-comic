@@ -47,7 +47,7 @@
 - **修 SRT 自动接入**:export-platform 加 `resolveProjectSrtPath`,指定平台字幕样式时从 narration 资产(persistent_url=srtUrl)取 SRT 传 `subtitlePath` → **字幕此前从未真烧(path 从不传)的 bug 修复**;响应加 `subtitled`。
 - **验证**:tsc 0 + vitest 2373(+5:齐件 ready / 无平台成片回退 + warning / 缺件不报错 / tags 截上限+标题超限告警 / B站 16:9)+ playwright(publish-package 契约 + 平台校验)。前端发布面板留 v12.3.1 同发布动作一起接。
 
-### v12.3.1 — 发布闸门 + 发布记录 + 发布面板【M】✅ 已交付(commit 待回填)
+### v12.3.1 — 发布闸门 + 发布记录 + 发布面板【M】✅ 已交付(commit fddbcf9)
 - `POST /api/projects/[id]/publish`:闸门顺序 **登录(401)→ 属主/可编辑(403)→ 计费 gate creator+(402)→ 质量门禁硬拦 `evaluateQualityGate` block→422**(把 advisory 变硬拦)→ 组装可直发包 + 生成/复用 share token + 落 `publish_records`(status='packaged',真上传留 v12.3.3)。GET 列记录。
 - `publish_records` 表(SQLite+PG,入 PROJECT_CHILD_TABLES 级联删)+ `publish-record-repo`(recordPublish/listPublishRecords)。
 - 发布面板:`DistributionPanel` 每平台卡片加「发布/打包」按钮 → POST /publish,诚实标注「已打包+分享链接(可下载素材手动上传)」,402→去升级 / 422→质量门禁未过 / 401→登录。
