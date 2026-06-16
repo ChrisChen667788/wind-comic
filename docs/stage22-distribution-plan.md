@@ -53,7 +53,7 @@
 - 发布面板:`DistributionPanel` 每平台卡片加「发布/打包」按钮 → POST /publish,诚实标注「已打包+分享链接(可下载素材手动上传)」,402→去升级 / 422→质量门禁未过 / 401→登录。
 - **验证**:tsc 0 + vitest 2376(+3 repo)+ playwright(发布闸门 401→402(free)→200(creator)+ 记录可见,自动 setTier+清理)。
 
-### v12.3.2 — 封面定版 + 标题烧入(可直发包完整度)【S】✅ 已交付(commit 待回填)
+### v12.3.2 — 封面定版 + 标题烧入(可直发包完整度)【S】✅ 已交付(commit 216aee7)
 - `lib/cover-title-burn.ts`(纯):`buildCoverDrawtext`(字号随图高 4.5% / 水平居中 / 安全区顶部 y 用 `h` 表达式 / 半透明底框+描边)+ `coverFontCandidates`(env→macOS→Linux CJK 字体)+ `escapeDrawtextPath`。`services/cover-title-service.ts`:`burnCoverTitle`(ffmpeg drawtext;远端图先下载;**无 CJK 字体/无标题 → 保留原图 burned:false 诚实降级**,中文不烧成方块)。
 - `POST /api/projects/[id]/covers/choose`(登录+属主):选候选/imageUrl → 烧标题 → 落 `chosen-cover` 资产;**publish-package 已优先用 chosen-cover**(v12.3.0 接口),定版封面自动进可直发包。
 - **验证**:tsc 0 + vitest 2380(+4 纯逻辑)+ **真烧入实测**(「霓虹追缉·雨夜信号」CJK 正确渲染入安全区,非方块)。
