@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CreationWorkspace } from '@/components/creation-workspace';
-import { useProjectWorkspaceStore } from '@/lib/store';
+import { useProjectWorkspaceStore, useActiveGenerationStore } from '@/lib/store';
 import { AgentRole, type Project } from '@/types/agents';
 import { MagicWand as Wand2, Lightning as Zap, Sparkle as Sparkles, Lightbulb, FilmSlate, Play, Pencil } from '@phosphor-icons/react';
 import { validateIdea, sanitizeInput } from '@/lib/validation';
@@ -66,6 +66,13 @@ function useStylePreviews() {
 const durationOptions = ['3s', '5s', '8s']; // 调整为适配当前API能力的时长选项
 // v10.6.0 竖屏优先:9:16 置首 = 新项目默认竖屏(2026 短剧主战场);横屏仍一键可选
 const aspectOptions = ['9:16', '16:9', '1:1', '2.35:1'];
+
+// v12.5.0(#4):SSE 里程碑事件 → 全局指示条阶段中文名
+const SSE_PHASE: Record<string, string> = {
+  plan: '导演规划', script: '编写剧本', characters: '设计角色', scenes: '构建场景',
+  storyboardPlans: '分镜规划', storyboards: '渲染分镜', videoClip: '生成视频', videos: '生成视频',
+  pacingAudit: '节奏审计', editResult: '剪辑合成', review: '导演审核', complete: '完成',
+};
 
 const exampleIdeas = [
   { title: '赛博朋克侦探', content: '2077年的新东京，一位赛博侦探接到神秘委托，调查连环失踪案，却发现背后隐藏着惊天阴谋', icon: Zap },
@@ -240,6 +247,8 @@ export default function DashboardCreatePage() {
     setEdges(initialEdges);
     setIsProducing(true);
     setWorkspaceProject(project);
+    // v12.5.0(#4):登记全局「进行中任务」→ 切模块/刷新后仍可见 + 一键返回,不再「丢任务」
+    useActiveGenerationStore.getState().start({ projectId, idea: sanitizedIdea });
 
     addChatMessage(AgentRole.WRITER, {
       id: `msg-sys-${Date.now()}`, projectId, agentRole: AgentRole.WRITER, role: 'assistant',
@@ -302,6 +311,7 @@ export default function DashboardCreatePage() {
       showToast({ title: error instanceof Error ? error.message : '创作失败', type: 'error' });
     } finally {
       setIsProducing(false);
+      useActiveGenerationStore.getState().finish(); // v12.5.0(#4):任务结束,清全局指示
     }
   };
 
@@ -310,6 +320,10 @@ export default function DashboardCreatePage() {
     const { type, data } = event;
     const ts = new Date().toISOString();
     const s = useProjectWorkspaceStore.getState();
+
+    // v12.5.0(#4):里程碑事件 → 更新全局指示条阶段名(切模块也能看到进度)
+    const phase = SSE_PHASE[type];
+    if (phase) useActiveGenerationStore.getState().setPhase(phase);
 
     switch (type) {
       case 'agents':

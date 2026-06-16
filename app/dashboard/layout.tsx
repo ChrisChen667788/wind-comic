@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 import { Sidebar } from '@/components/sidebar';
 import { ApiQuotaBanner } from '@/components/dashboard/api-quota-banner';
 import { NotificationBell } from '@/components/collab/notification-bell';
+import { ActiveGenerationIndicator } from '@/components/active-generation-indicator';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -55,6 +56,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </main>
+      {/* v12.5.0(#4):工坊任务进行中 → 全局浮动指示条(任一模块可见、一键返回) */}
+      <ActiveGenerationIndicator />
     </div>
   );
 }

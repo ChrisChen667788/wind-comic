@@ -174,3 +174,64 @@ export const useProjectWorkspaceStore = create<ProjectWorkspaceStore>((set) => (
     isProducing: false,
   }),
 }));
+
+// ════════════════════════════════════════════════════════════════════
+// v12.5.0(#4 修复):工坊「进行中任务」全局追踪 —— 独立于 workspace store,
+// 不会被其他页面(项目列表/素材库等)覆盖 currentProject 而「丢失」。
+// 持久化到 localStorage → 切模块 / 刷新后全局指示条仍能显示并一键返回工坊。
+// ════════════════════════════════════════════════════════════════════
+const ACTIVE_GEN_KEY = 'qfmj-active-generation';
+
+export interface ActiveGeneration {
+  projectId: string;
+  idea: string;
+  phase: string;      // 当前阶段中文名(剧本/角色/分镜/出片…)
+  startedAt: number;
+}
+
+interface ActiveGenerationStore {
+  current: ActiveGeneration | null;
+  start: (g: { projectId: string; idea: string }) => void;
+  setPhase: (phase: string) => void;
+  finish: () => void;
+  hydrate: () => void;   // 从 localStorage 恢复(指示条挂载时调一次)
+}
+
+function persistActiveGen(v: ActiveGeneration | null) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (v) localStorage.setItem(ACTIVE_GEN_KEY, JSON.stringify(v));
+    else localStorage.removeItem(ACTIVE_GEN_KEY);
+  } catch { /* ignore */ }
+}
+
+export const useActiveGenerationStore = create<ActiveGenerationStore>((set, get) => ({
+  current: null,
+  start: ({ projectId, idea }) => {
+    const v: ActiveGeneration = { projectId, idea, phase: '构思中', startedAt: Date.now() };
+    persistActiveGen(v);
+    set({ current: v });
+  },
+  setPhase: (phase) => {
+    const cur = get().current;
+    if (!cur) return;
+    const v = { ...cur, phase };
+    persistActiveGen(v);
+    set({ current: v });
+  },
+  finish: () => {
+    persistActiveGen(null);
+    set({ current: null });
+  },
+  hydrate: () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(ACTIVE_GEN_KEY);
+      if (!raw) return;
+      const v = JSON.parse(raw) as ActiveGeneration;
+      // 超过 30 分钟的视为陈旧(进程多半已结束),不再恢复,避免永久悬挂
+      if (v && Date.now() - (v.startedAt || 0) < 30 * 60 * 1000) set({ current: v });
+      else persistActiveGen(null);
+    } catch { /* ignore */ }
+  },
+}));
