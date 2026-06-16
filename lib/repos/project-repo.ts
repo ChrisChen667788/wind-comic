@@ -113,6 +113,7 @@ const PROJECT_CHILD_TABLES = [
   'project_review_status', 'project_track_edits', 'project_share_tokens',
   'project_collaborators', 'pipeline_reruns', 'pipeline_jobs',
   'project_locked_characters', // v12.2.5 锁脸角色归一表
+  'publish_records',           // v12.3.1 发布记录
 ];
 
 /**

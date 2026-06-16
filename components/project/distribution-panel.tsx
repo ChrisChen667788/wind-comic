@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Megaphone, Copy, Check, DownloadSimple, CircleNotch as Loader2, Sparkle } from '@phosphor-icons/react';
+import { Megaphone, Copy, Check, DownloadSimple, CircleNotch as Loader2, Sparkle, PaperPlaneTilt, LinkSimple } from '@phosphor-icons/react';
 import {
   PLATFORM_SPECS, distributionPackToText,
   type PlatformId, type DistributionPack, type PlatformPack,
@@ -16,12 +16,17 @@ import {
 
 const DEFAULT_PLATFORMS: PlatformId[] = ['douyin', 'xiaohongshu', 'shipinhao'];
 
+// v12.3.1 发布动作结果(per platform)
+type PublishResult = { kind: 'ok' | 'plan' | 'blocked' | 'err'; msg: string; shareUrl?: string };
+
 export function DistributionPanel({ projectId }: { projectId: string }) {
   const [selected, setSelected] = useState<PlatformId[]>(DEFAULT_PLATFORMS);
   const [pack, setPack] = useState<DistributionPack | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
+  const [publishing, setPublishing] = useState<PlatformId | null>(null);
+  const [pubResults, setPubResults] = useState<Record<string, PublishResult>>({});
 
   useEffect(() => {
     let alive = true;
@@ -56,6 +61,30 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(''), 1500);
     } catch { /* ignore */ }
+  }
+
+  // v12.3.1 发布:打包 + 硬质量门禁 + 计费 gate + 落记录 + 分享链接(诚实标注「打包就绪」,非真上传)
+  async function publish(platform: PlatformId) {
+    setPublishing(platform);
+    setPubResults((r) => ({ ...r, [platform]: { kind: 'ok', msg: '发布中…' } }));
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('qfmj-token') : '';
+      const r = await fetch(`/api/projects/${projectId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ platform }),
+      });
+      const j = await r.json().catch(() => ({}));
+      let res: PublishResult;
+      if (r.status === 402) res = { kind: 'plan', msg: '发布需 creator 档及以上,去升级' };
+      else if (r.status === 422) res = { kind: 'blocked', msg: '质量门禁未通过(block),先修复最弱镜' };
+      else if (r.status === 401) res = { kind: 'err', msg: '请先登录' };
+      else if (!r.ok) res = { kind: 'err', msg: j?.error || `发布失败 (${r.status})` };
+      else res = { kind: 'ok', msg: '已打包 + 生成分享链接(可下载素材手动上传)', shareUrl: j?.shareUrl };
+      setPubResults((rr) => ({ ...rr, [platform]: res }));
+    } catch (e: any) {
+      setPubResults((rr) => ({ ...rr, [platform]: { kind: 'err', msg: e?.message || '网络错误' } }));
+    } finally { setPublishing(null); }
   }
 
   function exportTxt() {
@@ -99,7 +128,10 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
       {/* 每平台卡片 */}
       {pack && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {pack.platforms.map((p) => <PlatformCard key={p.platform} p={p} copiedKey={copiedKey} onCopy={copy} />)}
+          {pack.platforms.map((p) => (
+            <PlatformCard key={p.platform} p={p} copiedKey={copiedKey} onCopy={copy}
+              onPublish={() => publish(p.platform)} publishing={publishing === p.platform} result={pubResults[p.platform]} />
+          ))}
         </div>
       )}
 
@@ -112,7 +144,10 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
   );
 }
 
-function PlatformCard({ p, copiedKey, onCopy }: { p: PlatformPack; copiedKey: string; onCopy: (t: string, k: string) => void }) {
+function PlatformCard({ p, copiedKey, onCopy, onPublish, publishing, result }: {
+  p: PlatformPack; copiedKey: string; onCopy: (t: string, k: string) => void;
+  onPublish: () => void; publishing: boolean; result?: PublishResult;
+}) {
   const Row = ({ k, label, value }: { k: string; label: string; value: string }) => (
     <div className="flex items-start gap-2 py-1.5 border-b border-[var(--cinema-border)] last:border-0">
       <span className="cinema-mono text-[9px] opacity-50 w-10 shrink-0 pt-0.5">{label}</span>
@@ -131,6 +166,19 @@ function PlatformCard({ p, copiedKey, onCopy }: { p: PlatformPack; copiedKey: st
       {p.hook && <Row k={`${p.platform}-hook`} label="钩子" value={p.hook} />}
       {p.description && <Row k={`${p.platform}-desc`} label="简介" value={p.description} />}
       {p.tips && <Row k={`${p.platform}-tips`} label="建议" value={p.tips} />}
+      {/* v12.3.1 发布动作:打包 + 硬门禁 + 分享链接(诚实标注非真上传) */}
+      <div className="mt-3 pt-2 border-t border-[var(--cinema-border)] flex items-center gap-2">
+        <button onClick={onPublish} disabled={publishing} data-testid={`publish-${p.platform}`}
+          className="cinema-btn-primary !text-[11px] disabled:opacity-50">
+          {publishing ? <Loader2 size={12} className="animate-spin" /> : <PaperPlaneTilt size={12} />} 发布 / 打包
+        </button>
+        {result && (
+          <span className={`cinema-mono text-[10px] flex items-center gap-1 ${result.kind === 'ok' ? 'text-[var(--cinema-green)]' : result.kind === 'plan' ? 'text-[var(--cinema-amber)]' : 'text-[var(--secondary)]'}`}>
+            {result.msg}
+            {result.shareUrl && <a href={result.shareUrl} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-0.5"><LinkSimple size={10} /> 分享页</a>}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

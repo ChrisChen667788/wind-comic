@@ -671,6 +671,23 @@ CREATE INDEX IF NOT EXISTS idx_plc_project ON project_locked_characters(project_
 CREATE INDEX IF NOT EXISTS idx_plc_character_name ON project_locked_characters(character_name);
 `);
 
+// v12.3.1 (阶段二十二): 发布记录 —— 一次「发布」动作落一行(packaged/published/scheduled),
+// 记平台 + 分享链接 + 真发布时间。dashboard 读它显示发布状态。
+db.exec(`
+CREATE TABLE IF NOT EXISTS publish_records (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'packaged',       -- packaged | published | scheduled | failed
+  share_url TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL DEFAULT '',
+  external_url TEXT,                             -- 真发布后的平台链接(v12.3.3)
+  published_at TEXT,                             -- 真发布成功才写
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_publish_records_project ON publish_records(project_id, created_at);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,

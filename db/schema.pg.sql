@@ -463,3 +463,17 @@ CREATE TABLE IF NOT EXISTS project_locked_characters (
 );
 CREATE INDEX IF NOT EXISTS idx_plc_project ON project_locked_characters(project_id);
 CREATE INDEX IF NOT EXISTS idx_plc_character_name ON project_locked_characters(character_name);
+
+-- v12.3.1 (阶段二十二): 发布记录
+CREATE TABLE IF NOT EXISTS publish_records (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'packaged',
+  share_url TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL DEFAULT '',
+  external_url TEXT,
+  published_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_publish_records_project ON publish_records(project_id, created_at);
