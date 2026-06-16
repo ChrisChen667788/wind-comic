@@ -15,6 +15,7 @@ const MANUAL_STEPS: Record<string, string[]> = {
   shipinhao: ['微信 →「视频号助手」(channels.weixin.qq.com)', '上传成片 → 填标题/话题 → 设封面 → 发表'],
   xiaohongshu: ['小红书 App 或「创作服务平台」(creator.xiaohongshu.com)', '发布视频笔记 → 标题≤20字 + 多标签(包内已备)→ 设封面 → 发布'],
   bilibili: ['B站「创作中心」(member.bilibili.com)', '投稿 → 上传成片 → 填标题/分区/标签 → 设封面 → 投稿'],
+  tiktok: ['TikTok App 或 tiktok.com 网页上传', 'Upload → 粘贴英文标题/话题(包内已备)→ 设封面 → Post', '注:TikTok 有 Content Posting API,但需 OAuth 授权,我不代填 → 暂走手动'],
 };
 
 const DEFAULT_STEPS = ['下载包内成片 + 封面', '到该平台创作者后台上传 → 粘贴包内标题/话题/简介', '发布'];

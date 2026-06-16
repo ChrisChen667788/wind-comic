@@ -9,7 +9,7 @@
  * 单测: tests/v9-1-distribution.test.ts.
  */
 
-export type PlatformId = 'douyin' | 'kuaishou' | 'shipinhao' | 'xiaohongshu' | 'youtube_shorts' | 'bilibili';
+export type PlatformId = 'douyin' | 'kuaishou' | 'shipinhao' | 'xiaohongshu' | 'youtube_shorts' | 'bilibili' | 'tiktok';
 
 export interface PlatformSpec {
   id: PlatformId;
@@ -33,6 +33,7 @@ export const PLATFORM_SPECS: PlatformSpec[] = [
   { id: 'xiaohongshu', label: '小红书', titleMaxLen: 20, tagCount: 8, descMaxLen: 300, aspect: '9:16', toneHint: '种草笔记体, emoji 点缀, 多标签, 第一人称安利' },
   { id: 'youtube_shorts', label: 'YouTube Shorts', titleMaxLen: 100, tagCount: 5, descMaxLen: 300, aspect: '9:16', toneHint: 'English hook-first, curiosity gap, #Shorts hashtags' },
   { id: 'bilibili', label: 'B站', titleMaxLen: 80, tagCount: 6, descMaxLen: 250, aspect: '16:9', toneHint: 'ACG/二次元友好, 梗+悬念, 分区标签, 三连引导' },
+  { id: 'tiktok', label: 'TikTok', titleMaxLen: 100, tagCount: 5, descMaxLen: 300, aspect: '9:16', toneHint: 'English hook-first, fast-paced, trending #hashtags, CTA to follow' },
 ];
 
 const SPEC_BY_ID = new Map(PLATFORM_SPECS.map((s) => [s.id, s]));

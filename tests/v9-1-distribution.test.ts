@@ -9,10 +9,11 @@ import {
 } from '@/lib/distribution';
 
 describe('v9.1 · platform specs', () => {
-  it('6 个平台, id 唯一, 规格合理', () => {
-    expect(PLATFORM_SPECS).toHaveLength(6);
-    expect(new Set(PLATFORM_SPECS.map((s) => s.id)).size).toBe(6);
+  it('7 个平台(含 v12.3.4 tiktok), id 唯一, 规格合理', () => {
+    expect(PLATFORM_SPECS).toHaveLength(7);
+    expect(new Set(PLATFORM_SPECS.map((s) => s.id)).size).toBe(7);
     expect(PLATFORM_SPECS.every((s) => s.titleMaxLen > 0 && s.tagCount > 0)).toBe(true);
+    expect(getPlatformSpec('tiktok')?.aspect).toBe('9:16');
   });
   it('getPlatformSpec / isPlatformId', () => {
     expect(getPlatformSpec('douyin')?.label).toBe('抖音');

@@ -14,6 +14,7 @@ import fs from 'fs';
 import { getUserFromRequest } from '../../../auth/lib';
 import { db } from '@/lib/db';
 import { exportForPlatform } from '@/services/video-export-service';
+import { pickRemoteVideoUrl, downloadToTempFile } from '@/lib/remote-media';
 import type { ExportAspect, FitMode } from '@/lib/video-export';
 import type { SubtitlePlatform } from '@/lib/subtitle-burn';
 
@@ -71,7 +72,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // 找 final_video 资产
   const finalRow = db
-    .prepare(`SELECT data, media_urls FROM project_assets WHERE project_id = ? AND type = 'final_video' ORDER BY version DESC LIMIT 1`)
+    .prepare(`SELECT data, media_urls, persistent_url FROM project_assets WHERE project_id = ? AND type = 'final_video' ORDER BY version DESC LIMIT 1`)
     .get(id) as any;
   if (!finalRow) {
     return NextResponse.json({ error: '该项目还没有成片, 无法导出' }, { status: 400 });
@@ -79,9 +80,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let mediaUrls: string[] = [];
   try { mediaUrls = JSON.parse(finalRow.media_urls || '[]'); } catch { /* ignore */ }
-  const inputPath = extractLocalPath(mediaUrls);
+
+  // 优先本地源;v12.3.4: 本地没有但有远端/云 URL(persistent_url 或 media_urls 里的 http(s))→ 先下载到临时文件再 encode
+  let inputPath = extractLocalPath(mediaUrls);
+  let tempInput: string | null = null;
   if (!inputPath) {
-    return NextResponse.json({ error: '成片源文件不在本地 (可能是占位/外链), 无法平台导出' }, { status: 400 });
+    const remote = pickRemoteVideoUrl([...mediaUrls, finalRow.persistent_url]);
+    if (remote) {
+      try { inputPath = tempInput = await downloadToTempFile(remote, { ext: '.mp4' }); }
+      catch (e) {
+        return NextResponse.json(
+          { error: e instanceof Error ? `云成片下载失败: ${e.message.slice(0, 160)}` : '云成片下载失败' },
+          { status: 502 },
+        );
+      }
+    }
+  }
+  if (!inputPath) {
+    return NextResponse.json({ error: '成片源文件不在本地且无可下载的远端 URL (可能是占位), 无法平台导出' }, { status: 400 });
   }
 
   // v12.3.0: 自动接入 SRT —— 指定了平台字幕样式就从 narration 资产取 SRT 路径烧入(此前从不传 → 字幕从未真烧)
@@ -96,11 +112,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       height: result.height,
       url: `/api/serve-file?path=${encodeURIComponent(result.outputPath)}`,
       subtitled: !!subtitlePath, // v12.3.0: 是否真烧了字幕(平台样式 + 找到 SRT)
+      fromRemote: !!tempInput,   // v12.3.4: 源是云/远端成片(已下载到临时文件再导)
     });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message.slice(0, 200) : 'export failed' },
       { status: 500 },
     );
+  } finally {
+    if (tempInput) { try { fs.unlinkSync(tempInput); } catch { /* 临时文件清理失败不致命 */ } }
   }
 }

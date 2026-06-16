@@ -8,7 +8,7 @@
  * 纯函数, 单测: tests/v3-5-subtitle-burn.test.ts.
  */
 
-export type SubtitlePlatform = 'douyin' | 'kuaishou' | 'xiaohongshu' | 'youtube' | 'default';
+export type SubtitlePlatform = 'douyin' | 'kuaishou' | 'xiaohongshu' | 'youtube' | 'tiktok' | 'default';
 
 export interface SubtitleStyle {
   /** 字体名 (系统需装, 否则 ffmpeg 回退默认). */
@@ -51,6 +51,11 @@ const PRESETS: Record<SubtitlePlatform, SubtitleStyle> = {
   youtube: {
     fontName: 'Arial', fontSize: 44, primaryColour: '&H00FFFFFF',
     outlineColour: '&H00000000', outline: 3, shadow: 1, marginV: 60, alignment: 2, bold: 0,
+  },
+  // TikTok: 竖屏大白字粗描边, 上抬避开右侧操作栏/底部话题, 与抖音同源略瘦
+  tiktok: {
+    fontName: 'Arial', fontSize: 52, primaryColour: '&H00FFFFFF',
+    outlineColour: '&H00000000', outline: 4, shadow: 1, marginV: 180, alignment: 2, bold: -1,
   },
   default: {
     fontName: 'PingFang SC', fontSize: 50, primaryColour: '&H00FFFFFF',

@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const platform = new URL(request.url).searchParams.get('platform') || '';
   if (!isPlatformId(platform)) {
-    return NextResponse.json({ error: `platform 必须是 ${'douyin/kuaishou/shipinhao/xiaohongshu/youtube_shorts/bilibili'}` }, { status: 400 });
+    return NextResponse.json({ error: `platform 必须是 ${'douyin/kuaishou/shipinhao/xiaohongshu/youtube_shorts/bilibili/tiktok'}` }, { status: 400 });
   }
   const spec = getPlatformSpec(platform)!;
 
