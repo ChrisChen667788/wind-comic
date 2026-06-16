@@ -237,6 +237,7 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
         userId = demo.id;
         console.log(`[DB] Created default user: ${userId}`);
       }
+      orchestrator.setUserId(userId); // v12.4.0: 注入计费用户,主管线视频/图像成本得以落库
 
       const existing = await getProject(projectId);
       // v2.12 Phase 1: 把 lockedCharacters[] 持久化到 projects.locked_characters

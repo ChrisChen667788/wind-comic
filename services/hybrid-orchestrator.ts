@@ -64,6 +64,8 @@ import os from 'os';
 import { extractLastFrame, extractMiddleFrame } from '@/lib/last-frame-extractor';
 import { deriveProsody } from '@/lib/tts-prosody';
 import { getLatestQualityScore, buildWriterFeedbackHint } from '@/lib/quality-scores';
+// v12.4.0(阶段二十三):主管线视频/图像成本落库 —— 此前从不记,cost-attribution 视频/图像类目永远 0。
+import { recordCostLog, estimateVideoCostCny, estimateImageCostCny, videoRateForProvider } from '@/lib/repos/cost-log-repo';
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -496,6 +498,12 @@ export class HybridOrchestrator {
   setProjectId(id: string) {
     if (!id) return;
     this.projectId = id;
+  }
+
+  // v12.4.0(阶段二十三):注入计费用户,让主管线视频/图像成本能落库(cost_log.user_id 是 FK,缺则跳过)。
+  private userId: string = '';
+  setUserId(id: string) {
+    if (id) this.userId = id;
   }
 
   /**
@@ -952,7 +960,7 @@ export class HybridOrchestrator {
     // primary    → 先试 plugin, 失败才落老主路径.
     // 老主路径整段塞进 doLegacyGenerateImage 闭包, 不动一行业务逻辑.
     const { withImagePlugin } = await import('@/lib/plugin-chain-router');
-    return withImagePlugin(
+    const url = await withImagePlugin(
       {
         prompt,
         aspectRatio: opts?.aspectRatio as any,
@@ -964,6 +972,11 @@ export class HybridOrchestrator {
       },
       () => this.doLegacyGenerateImage(prompt, opts),
     );
+    // v12.4.0:图像成本落库(每张真生成的图记一笔;mock 模式零成本不记)。fire-and-forget,记账失败不阻断。
+    if (url && /^(https?:|\/api\/serve-file)/.test(url) && process.env.MOCK_ENGINES !== '1') {
+      void recordCostLog({ userId: this.userId, projectId: this.projectId, engine: 'image', costCny: estimateImageCostCny(), metadata: { label: opts?.label } });
+    }
+    return url;
   }
 
   /**
@@ -3250,6 +3263,7 @@ ${shots.map((s, i) => {
       //   shadow  → legacyVideoGen 出结果给业务, plugin 异步采样比对 telemetry
       // 老引擎块原样塞进闭包, 闭包内 shadow 同名 videoUrl, 一行业务逻辑没动.
       const { withVideoPlugin } = await import('@/lib/plugin-chain-router');
+      let usedVideoEngine = ''; // v12.4.0: 记下真正出片的引擎,供成本归类(legacy 路径才知道;plugin 路径留空)
       const legacyVideoGen = async (): Promise<string> => {
       let videoUrl: string = '';
 
@@ -3346,6 +3360,7 @@ ${shots.map((s, i) => {
             if (videoUrl && isValidVideoUrl(videoUrl)) {
               console.log(`[P2-Route] Shot ${board.shotNumber} generated via ${engine}${hasCharRef && engine === 'minimax' ? '(S2V-01)' : ''}`);
               generated = true;
+              usedVideoEngine = engine; // v12.4.0: 成本归类用
             } else {
               throw createError('INVALID_RESPONSE', `${engine} 返回的视频 URL 无效`, {
                 stage: 'video', retryable: true, details: { engine, shotNumber: board.shotNumber, returned: videoUrl },
@@ -3412,6 +3427,17 @@ ${shots.map((s, i) => {
         },
         legacyVideoGen,
       );
+
+      // v12.4.0:视频成本落库(每个真出片的镜头记一笔;mock 模式零成本不记)。fire-and-forget。
+      if (videoUrl && isValidVideoUrl(videoUrl) && process.env.MOCK_ENGINES !== '1') {
+        void recordCostLog({
+          userId: this.userId, projectId: this.projectId,
+          engine: `video-${usedVideoEngine || 'engine'}`,
+          durationSec: 8,
+          costCny: estimateVideoCostCny(8, videoRateForProvider(usedVideoEngine)),
+          metadata: { shotNumber: board.shotNumber },
+        });
+      }
 
       const clip = { shotNumber: board.shotNumber, videoUrl, duration: 8, status: 'completed' as const };
 

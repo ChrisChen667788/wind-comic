@@ -58,3 +58,28 @@ export function estimateLipsyncCostCny(provided?: number, durationSec?: number):
   const sec = Number(durationSec) || 0;
   return round2(Math.max(0.1, sec * 0.15));
 }
+
+// v12.4.0(阶段二十三):主管线视频/图像成本此前从不落库 → cost-attribution 两大类目永远 0、
+// 预算护栏对主创作链零拦截。下面两个估算器堵这个洞;费率保守(宁高勿低,上线前对账单校准)。
+
+/** 视频引擎 → ¥/s 保守费率(Veo 0.6 / Kling Master 0.2 / Minimax 0.1 / Vidu 0.3),未知 0.3 兜底。 */
+const VIDEO_RATE_CNY_PER_SEC: Record<string, number> = { veo: 0.6, kling: 0.2, minimax: 0.1, vidu: 0.3 };
+export function videoRateForProvider(providerId?: string): number {
+  if (!providerId) return 0.3;
+  const id = providerId.toLowerCase();
+  for (const k of Object.keys(VIDEO_RATE_CNY_PER_SEC)) if (id.includes(k)) return VIDEO_RATE_CNY_PER_SEC[k];
+  return 0.3;
+}
+
+/** 视频成本估算(¥):durationSec × ¥/s 费率(缺时长按 5s、缺费率按 ¥0.3/s 保守兜底)。 */
+export function estimateVideoCostCny(durationSec?: number, ratePerSec?: number): number {
+  const sec = Number(durationSec) || 5;
+  const rate = typeof ratePerSec === 'number' && ratePerSec > 0 ? ratePerSec : 0.3;
+  return round2(sec * rate);
+}
+
+/** 图像成本估算(¥):引擎给了用引擎值,否则保守每张 ¥0.3。 */
+export function estimateImageCostCny(provided?: number): number {
+  if (typeof provided === 'number' && provided > 0) return round2(provided);
+  return 0.3;
+}
