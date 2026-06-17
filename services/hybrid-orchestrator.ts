@@ -71,6 +71,8 @@ import { recordCostLog, estimateVideoCostCny, estimateImageCostCny, videoRateFor
 import { detectLanguage, ttsLangCode, lipsyncLangCode, type TargetLanguage } from '@/lib/language-detect';
 // v12.7.0:editor TTS 走注册表(vectorengine-tts 50 > minimax-tts 100),vectorengine 进主路径。
 import { dispatchTTSGenerate, ttsEngineConfigured } from '@/lib/tts-providers/registry';
+// v12.8.0:provider 软熔断 —— 视频引擎池饱和/auth/配额失败 → 冷却跳过,跨镜不重复踩坑。
+import { isProviderHealthy, markProviderDownIfFatal } from '@/lib/provider-health-cache';
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -3325,6 +3327,11 @@ ${shots.map((s, i) => {
 
         for (const engine of engineOrder) {
           if (generated) break;
+          // v12.8.0: 软熔断 —— 该引擎刚因 auth/配额/池饱和被标冷却,本镜直接跳过,别再打它(跨镜不重复踩坑)
+          if (!isProviderHealthy(engine)) {
+            console.warn(`[P2-Route] Shot ${board.shotNumber} skip ${engine} (cooling down)`);
+            continue;
+          }
           const engineLabel = engine === 'veo' ? 'Veo 3.1' : engine === 'kling' ? '可灵 AI' : (hasCharRef ? 'Minimax(I2V+角色)' : hasFirstFrame ? 'Minimax I2V-01' : 'Minimax Hailuo-2.3');
           this.emit('agentTalk', {
             role: AgentRole.VIDEO_PRODUCER,
@@ -3389,6 +3396,8 @@ ${shots.map((s, i) => {
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
             console.error(`[P2-Route] Shot ${board.shotNumber} ${engine} failed:`, errMsg.slice(0, 200));
+            // v12.8.0: 池饱和 / 配额 / auth / 限流 → 给该引擎上冷却,后续镜头跳过它直走下一个(此前每镜都重打)
+            markProviderDownIfFatal(engine, errMsg);
             // ── 把真实错误文本 surface 到用户,不要只说"失败" ──
             // 关键信号: 上游池饱和 / 余额不足 / 配额耗尽 / 超时 — 这些用户需要看到,才知道不是 bug 而是上游问题
             let userHint = '';

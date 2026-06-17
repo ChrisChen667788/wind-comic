@@ -54,9 +54,13 @@
 - 新增 `withLLMPlugin`/`withLipSyncPlugin`(复用 `runWithPlugin`)+ `PluginEventKind` 加 `llm`/`lipsync`;callLLM 外层包 withLLMPlugin;口型渲染走 withLipSyncPlugin→dispatchLipSyncGenerate。
 - **验证**:`PLUGIN_CHAIN_MODE=shadow` 跑含口型+LLM 流程 → `plugin_chain_events` 出现 `kind=llm`/`kind=lipsync`;50 条后 cutoverReady 正确。
 
-### v12.7.0 · provider 软熔断【P2 · M】
-- 新 `lib/provider-health-cache.ts`(`Map<id,{status,until}>` + `markProviderDown(id,ttl)`/`isProviderHealthy(id)` 同步);`api-usage-tracker` quota alert 写入时对 auth_failed/exhausted 熔断 5min;四 registry `selectProviders` 在 `available()` 后追加 `isProviderHealthy` 过滤;探针 auth_error/out_of_credits 触发熔断。
-- **验证**:mock provider 连续 401 → 第 2 次起从 selectProviders 消失(TTL 内),5min 或 `?fresh=1` 探针通过后恢复。
+### v12.8.0 · provider 软熔断【P2 · M】✅(版本号顺延,原 v12.7.0)
+- 新 `lib/provider-health-cache.ts`:`markProviderDown(id,ttl)` / `isProviderHealthy(id)`(同步,TTL 过期自动恢复,TTL 夹 ≥60s 防震荡)/ `markProviderDownIfFatal(id,errMsg)`(auth/401·403→5min、配额/余额/池饱和→5min、限流/429→1min、超时/未知→不熔断)/ `markProviderHealthy` / `listUnhealthy`。
+- image/video/tts 三 registry `selectProviders` 在 `available()` 后加 `isProviderHealthy(p.id)` 过滤;三 dispatch catch 调 `markProviderDownIfFatal`。
+- **orchestrator 视频引擎循环**(真实痛点:pool 饱和反复 503):try 前 `isProviderHealthy(engine)` 跳过冷却中引擎;catch 里 `markProviderDownIfFatal(engine,errMsg)` → **后续镜头不再重打已知 down 的引擎**,直走下一个。
+- **验证**:tsc 0 + vitest 2439(+5:TTL 冷却+自动恢复 / ≥60s 夹取 / 致命错误判定 / 显式恢复+listUnhealthy)。
+
+> 阶段二十三剩 G4(LLM plugin-chain `withLLMPlugin`)/ G5(lipsync `withLipSyncPlugin`)—— 主要是可观测性(shadow 采样/telemetry),P1 但非紧急。
 
 ---
 

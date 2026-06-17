@@ -11,6 +11,7 @@ import type {
   TTSGenerateResult,
   TTSSelectInput,
 } from './types';
+import { isProviderHealthy, markProviderDownIfFatal } from '../provider-health-cache';
 
 const providers = new Map<string, TTSProvider>();
 
@@ -55,6 +56,7 @@ export function ttsEngineConfigured(): boolean {
 export function selectProviders(input: TTSSelectInput): TTSProvider[] {
   let chain = listTTSProviders().filter((p) => {
     if (!p.available()) return false;
+    if (!isProviderHealthy(p.id)) return false; // v12.8.0: 软熔断 —— 冷却中的 provider 跳过
     if (input.requiresEmotion && !p.supportsEmotion) return false;
     if (input.requiresCloning && !p.supportsCloning) return false;
     if (input.requiresStreaming && !p.supportsStreaming) return false;
@@ -106,7 +108,9 @@ export async function dispatchTTSGenerate(
       }
       return { result: r, tried };
     } catch (e) {
-      tried.push({ id: p.id, error: e instanceof Error ? e.message : String(e) });
+      const _msg = e instanceof Error ? e.message : String(e);
+      markProviderDownIfFatal(p.id, _msg); // v12.8.0: auth/配额/饱和 → 熔断冷却
+      tried.push({ id: p.id, error: _msg });
     }
   }
   return { result: null, tried };

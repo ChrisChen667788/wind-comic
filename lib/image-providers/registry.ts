@@ -13,6 +13,7 @@
  */
 
 import type { ImageProvider, SelectInput, ImageGenerateInput, ImageGenerateResult } from './types';
+import { isProviderHealthy, markProviderDownIfFatal } from '../provider-health-cache';
 
 const providers = new Map<string, ImageProvider>();
 
@@ -55,6 +56,7 @@ export function selectProviders(input: SelectInput): ImageProvider[] {
   const filtered = all.filter((p) => {
     if (input.exclude?.has(p.id)) return false;
     if (!p.available()) return false;
+    if (!isProviderHealthy(p.id)) return false; // v12.8.0: 软熔断 —— 冷却中的 provider 跳过
     if (input.refCount > p.maxRefImages) return false;
     return true;
   });
@@ -87,7 +89,9 @@ export async function dispatchImageGenerate(
       }
       tried.push({ id: p.id, error: 'provider returned empty/invalid imageUrl' });
     } catch (e) {
-      tried.push({ id: p.id, error: e instanceof Error ? e.message : String(e) });
+      const _msg = e instanceof Error ? e.message : String(e);
+      markProviderDownIfFatal(p.id, _msg); // v12.8.0: auth/配额/饱和 → 熔断冷却
+      tried.push({ id: p.id, error: _msg });
     }
   }
   return { result: null, tried };

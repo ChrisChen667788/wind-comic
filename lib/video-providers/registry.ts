@@ -11,6 +11,7 @@ import type {
   VideoGenerateResult,
   VideoSelectInput,
 } from './types';
+import { isProviderHealthy, markProviderDownIfFatal } from '../provider-health-cache';
 
 const providers = new Map<string, VideoProvider>();
 
@@ -60,6 +61,7 @@ export function selectProviders(input: VideoSelectInput): VideoProvider[] {
 
   let chain = listVideoProviders().filter((p) => {
     if (!p.available()) return false;
+    if (!isProviderHealthy(p.id)) return false; // v12.8.0: 软熔断 —— 冷却中的 provider 跳过
     if (wantI2V && !p.supportsImage2Video) return false;
     if (wantT2V && !p.supportsText2Video) return false;
     if (wantFLF && !p.supportsLastFrame) return false;
@@ -118,7 +120,9 @@ export async function dispatchVideoGenerate(
       }
       return { result: r, tried };
     } catch (e) {
-      tried.push({ id: p.id, error: e instanceof Error ? e.message : String(e) });
+      const _msg = e instanceof Error ? e.message : String(e);
+      markProviderDownIfFatal(p.id, _msg); // v12.8.0: auth/配额/饱和 → 熔断冷却
+      tried.push({ id: p.id, error: _msg });
     }
   }
   return { result: null, tried };
