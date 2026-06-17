@@ -87,9 +87,11 @@ export async function GET(request: NextRequest) {
   const veBase = process.env.VECTORENGINE_BASE_URL || process.env.KELING_BASE_URL || 'https://api.vectorengine.ai';
   const veKey = process.env.VECTORENGINE_API_KEY || process.env.KELING_API_KEY || process.env.VEO_API_KEY;
 
-  // v7.0: 三条 LLM 线 —— 通用(主网关) / 创意(DeepSeek) / MiniMax 全局兜底
+  // v7.0: 三条 LLM 线 —— 通用(主网关) / 创意(编剧/导演) / MiniMax 全局兜底
+  // ⚠️ 探针的 base/key 解析必须与 lib/config.ts 的 creativeBaseURL/creativeApiKey 同序,
+  // 否则探针用错 key 会误报 auth_error(实际生成是好的)。两处都是 CREATIVE_* 优先。
   const creativeBase = process.env.CREATIVE_BASE_URL || process.env.DEEPSEEK_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.deepseek.com/v1';
-  const creativeKey = process.env.DEEPSEEK_API_KEY || process.env.CREATIVE_API_KEY || process.env.OPENAI_API_KEY;
+  const creativeKey = process.env.CREATIVE_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
   const fbBase = process.env.LLM_FALLBACK_BASE_URL || 'https://api.minimaxi.com/v1';
   const fbKey = process.env.LLM_FALLBACK_API_KEY || process.env.MINIMAX_API_KEY;
 
