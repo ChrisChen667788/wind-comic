@@ -13,6 +13,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import path from 'path';
 import fs from 'fs';
+import { audioUrlLoadKind } from '@/lib/audio-url';
 import os from 'os';
 import https from 'https';
 import http from 'http';
@@ -469,14 +470,24 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   if (voiceoverClips && voiceoverClips.length > 0) {
     onProgress?.(46, '下载配音片段...');
     for (const vo of voiceoverClips) {
-      if (vo.audioUrl && vo.audioUrl.startsWith('http')) {
-        const voPath = path.join(tmpDir, `voiceover-${vo.shotNumber}.mp3`);
-        try {
-          await downloadFile(vo.audioUrl, voPath);
+      if (!vo.audioUrl) continue;
+      const voPath = path.join(tmpDir, `voiceover-${vo.shotNumber}.mp3`);
+      try {
+        // v12.x(#4 修复):TTS 返回的不是 http URL —— vectorengine-tts 返 data:audio、
+        // minimax 返 /api/serve-file?path= —— 此前只认 startsWith('http') → 配音全被丢 → 成片没人声。
+        const kind = audioUrlLoadKind(vo.audioUrl);
+        if (kind === 'data') {
+          const b64 = vo.audioUrl.split(',')[1] || '';
+          fs.writeFileSync(voPath, Buffer.from(b64, 'base64'));
           localVoiceovers.set(vo.shotNumber, voPath);
-        } catch (e) {
-          console.error(`[Composer] Failed to download voiceover for shot ${vo.shotNumber}:`, e);
+        } else if (kind === 'download') {
+          await downloadFile(vo.audioUrl, voPath); // 已支持 http + /api/serve-file
+          localVoiceovers.set(vo.shotNumber, voPath);
+        } else {
+          console.warn(`[Composer] 跳过未知形态的配音 URL (shot ${vo.shotNumber}): ${vo.audioUrl.slice(0, 40)}`);
         }
+      } catch (e) {
+        console.error(`[Composer] Failed to load voiceover for shot ${vo.shotNumber}:`, e);
       }
     }
     if (localVoiceovers.size > 0) {
