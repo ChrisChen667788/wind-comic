@@ -24,7 +24,8 @@ import {
   type ActPhase, type ShotSize, type CameraSpeed, type UpscaleFactor,
 } from '@/lib/short-video';
 
-const PHASE_COLOR: Record<ActPhase, string> = { hook: '#E8943A', body: '#E8C547', climax: '#C8432A' };
+// v12.x 重设计:三幕节奏色从金橙黄(廉价/AI味)改为克制的 蓝 / 中灰 / 暗红(参考 Frame.io/Runway)。
+const PHASE_COLOR: Record<ActPhase, string> = { hook: '#3B82F6', body: '#52525B', climax: '#B91C1C' };
 const PHASE_TAG: Record<ActPhase, string> = { hook: 'HOOK', body: 'BODY', climax: 'CLIMAX' };
 const SHOT_SIZES: ShotSize[] = ['ELS', 'WS', 'LS', 'MS', 'CU'];
 
@@ -147,11 +148,11 @@ export default function ShortVideoStudioPage() {
       <header className="cinema-card-hi !p-4 mb-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-9 h-9 rounded-lg grid place-items-center" style={{ background: 'linear-gradient(135deg,#E8943A,#C8432A)' }}>
-              <Zap size={18} className="text-black" />
+            <div className="w-9 h-9 rounded-md grid place-items-center bg-zinc-800 border border-zinc-700">
+              <Zap size={17} weight="fill" className="text-blue-400" />
             </div>
             <div>
-              <div className="cinema-headline !text-lg leading-none">极速分镜台 <span className="cinema-mono text-[var(--cinema-amber)]">15s</span></div>
+              <div className="cinema-headline !text-lg leading-none">极速分镜台 <span className="cinema-mono text-blue-400">15s</span></div>
               <div className="cinema-eyebrow !mt-0.5">CINESPARK · 三幕极速短视频</div>
             </div>
           </div>
@@ -172,7 +173,7 @@ export default function ShortVideoStudioPage() {
             <div className="flex gap-1">
               {SHORT_DURATIONS.map((d) => (
                 <button key={d} onClick={() => setDurationS(d)}
-                  className={`cinema-mono text-xs px-2.5 py-1.5 rounded-md border transition ${durationS === d ? 'border-[var(--cinema-amber)] text-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)] hover:border-[var(--cinema-border-hi)]'}`}>
+                  className={`cinema-mono text-xs px-2.5 py-1.5 rounded-md border transition ${durationS === d ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)] hover:border-[var(--cinema-border-hi)]'}`}>
                   {d}s
                 </button>
               ))}
@@ -187,17 +188,17 @@ export default function ShortVideoStudioPage() {
             const Icon = t.id === 'suspense' ? Flame : t.id === 'blockbuster' ? Film : Sparkles;
             return (
               <button key={t.id} onClick={() => setRhythmId(t.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left transition ${active ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] hover:border-[var(--cinema-border-hi)]'}`}>
-                <Icon size={15} className={active ? 'text-[var(--cinema-amber)]' : 'text-[var(--cinema-text-3)]'} />
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left transition ${active ? 'border-blue-500 bg-blue-500/10' : 'border-[var(--cinema-border)] hover:border-[var(--cinema-border-hi)]'}`}>
+                <Icon size={15} className={active ? 'text-blue-400' : 'text-[var(--cinema-text-3)]'} />
                 <span className="leading-tight">
-                  <span className="block text-xs font-semibold">{t.label}</span>
+                  <span className="block text-xs font-medium">{t.label}</span>
                   <span className="block cinema-mono text-[10px] opacity-60">{t.desc}</span>
                 </span>
               </button>
             );
           })}
           <input className="cinema-input !py-1.5 !text-xs w-40" placeholder="画风(可选)" value={style} onChange={(e) => setStyle(e.target.value)} />
-          <button onClick={generate} disabled={loading} className="cinema-btn-primary ml-auto !px-5 disabled:opacity-50">
+          <button onClick={generate} disabled={loading} className="ml-auto inline-flex items-center justify-center gap-2 bg-white text-zinc-900 hover:bg-zinc-100 font-medium text-sm rounded-sm px-5 py-2 transition disabled:opacity-50">
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />}
             {loading ? '生成分镜中…' : '生成分镜计划'}
           </button>
@@ -214,7 +215,7 @@ export default function ShortVideoStudioPage() {
             <div key={phase} className="mb-3">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="w-2 h-2 rounded-full" style={{ background: PHASE_COLOR[phase] }} />
-                <span className="text-[11px] font-semibold">{gi + 1}. {ACT_LABEL_ZH[phase]}</span>
+                <span className="text-[11px] font-medium">{gi + 1}. {ACT_LABEL_ZH[phase]}</span>
               </div>
               <div className="flex flex-col gap-1">
                 {cameraMovesByPhase(phase).map((m) => {
@@ -224,7 +225,7 @@ export default function ShortVideoStudioPage() {
                       onClick={() => { const tgt = plan?.shots.find((s) => s.phase === phase); if (tgt) patchShot(tgt.index, { cameraMoveId: m.id }); }}
                       disabled={!plan}
                       title={plan ? `应用到 ${PHASE_TAG[phase]} 镜` : '先生成分镜计划'}
-                      className={`text-left px-2 py-1 rounded-md border text-[11px] transition disabled:opacity-40 ${usedBy ? 'border-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] hover:border-[var(--cinema-border-hi)]'}`}>
+                      className={`text-left px-2 py-1 rounded-md border text-[11px] transition disabled:opacity-40 ${usedBy ? 'border-blue-500 bg-blue-500/10' : 'border-[var(--cinema-border)] hover:border-[var(--cinema-border-hi)]'}`}>
                       <span className="block leading-tight">{m.labelZh}</span>
                       <span className="block cinema-mono text-[9px] opacity-50">{m.label}</span>
                     </button>
@@ -248,7 +249,7 @@ export default function ShortVideoStudioPage() {
           )}
           {loading && (
             <div className="cinema-card grid place-items-center py-20">
-              <Loader2 size={28} className="animate-spin text-[var(--cinema-amber)]" />
+              <Loader2 size={28} className="animate-spin text-blue-400" />
             </div>
           )}
 
@@ -258,12 +259,12 @@ export default function ShortVideoStudioPage() {
               <div className="cinema-card !p-3 mb-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="cinema-eyebrow">{plan.durationS}s 时间轴分镜</span>
-                  <span className="cinema-mono text-[11px] text-[var(--cinema-amber)]">{plan.title}</span>
+                  <span className="cinema-mono text-[11px] text-blue-400">{plan.title}</span>
                 </div>
-                <div className="flex gap-0.5 h-9 rounded-md overflow-hidden">
+                <div className="flex gap-px h-7 rounded-sm overflow-hidden">
                   {plan.acts.map((a) => (
                     <div key={a.phase} className="grid place-items-center" style={{ width: `${a.pct}%`, background: PHASE_COLOR[a.phase] }}>
-                      <span className="text-[10px] font-bold text-black/80">{PHASE_TAG[a.phase]} · {a.startS}–{a.endS}s</span>
+                      <span className="text-[9px] font-mono uppercase tracking-widest text-white/90">{PHASE_TAG[a.phase]} · {a.startS}–{a.endS}s</span>
                     </div>
                   ))}
                 </div>
@@ -278,8 +279,8 @@ export default function ShortVideoStudioPage() {
                       <div className="grid grid-cols-[44px_1fr] gap-3">
                         {/* 镜号 + 幕色 */}
                         <div className="flex flex-col items-center gap-1">
-                          <span className="cinema-mono text-lg font-bold">{String(s.index).padStart(2, '0')}</span>
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-black" style={{ background: PHASE_COLOR[s.phase] }}>{PHASE_TAG[s.phase]}</span>
+                          <span className="cinema-mono text-lg font-medium">{String(s.index).padStart(2, '0')}</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm text-white/90" style={{ background: PHASE_COLOR[s.phase] }}>{PHASE_TAG[s.phase]}</span>
                           <span className="cinema-mono text-[9px] opacity-60">{s.timeStartS}–{s.timeEndS}s</span>
                         </div>
 
@@ -289,7 +290,7 @@ export default function ShortVideoStudioPage() {
                             <div className="flex gap-0.5">
                               {SHOT_SIZES.map((sz) => (
                                 <button key={sz} onClick={() => patchShot(s.index, { shotSize: sz })}
-                                  className={`cinema-mono text-[10px] px-1.5 py-0.5 rounded border transition ${s.shotSize === sz ? 'border-[var(--cinema-amber)] text-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)] hover:border-[var(--cinema-border-hi)]'}`}
+                                  className={`cinema-mono text-[10px] px-1.5 py-0.5 rounded border transition ${s.shotSize === sz ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)] hover:border-[var(--cinema-border-hi)]'}`}
                                   title={SHOT_SIZE_LABEL_ZH[sz]}>{sz}</button>
                               ))}
                             </div>
@@ -297,17 +298,20 @@ export default function ShortVideoStudioPage() {
                               className="cinema-input !py-1 !text-[11px] !w-auto">
                               {cameraMovesByPhase(s.phase).map((m) => <option key={m.id} value={m.id}>{m.labelZh} · {m.label}</option>)}
                             </select>
-                            <span className="cinema-chip-amber !text-[10px]">Motion {s.motion}</span>
+                            <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 border border-blue-500/25 rounded-sm px-1.5 py-0.5">Motion {s.motion}</span>
                             <span className="cinema-chip !text-[10px]">Camera: {s.cameraType}</span>
                           </div>
 
                           {/* 行 2:画面内容 */}
                           <p className="text-xs text-[var(--text)] mb-2 leading-relaxed">{s.frameContent}</p>
 
-                          {/* 行 3:AI prompt + 操作 */}
+                          {/* 行 3:AI prompt(默认折叠,展开可上下滑)+ 预览图 */}
                           <div className="flex gap-2">
-                            <code className="flex-1 block cinema-mono text-[10px] leading-relaxed text-[var(--cinema-green)] bg-[var(--cinema-surface)] rounded-md p-2 max-h-20 overflow-auto custom-scrollbar">{s.aiPrompt}</code>
-                            {pv?.url && <img loading="lazy" decoding="async" src={pv.url} alt="" className="w-16 h-28 object-cover rounded-md border border-[var(--cinema-border)]" />}
+                            <details className="flex-1 min-w-0">
+                              <summary className="cursor-pointer select-none text-[9px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 py-0.5">展开 AI Prompt</summary>
+                              <code className="mt-1.5 block cinema-mono text-[10px] leading-relaxed text-zinc-400 bg-[var(--cinema-surface)] rounded-sm p-2 max-h-40 overflow-auto custom-scrollbar">{s.aiPrompt}</code>
+                            </details>
+                            {pv?.url && <img loading="lazy" decoding="async" src={pv.url} alt="" className="w-16 h-28 object-cover rounded-sm border border-zinc-700" />}
                           </div>
                           <div className="flex items-center gap-2 mt-2">
                             <button onClick={() => previewShot(s)} disabled={pv?.loading} className="cinema-btn-ghost !text-[11px] !py-1">
@@ -336,14 +340,14 @@ export default function ShortVideoStudioPage() {
             <div className="flex flex-col gap-4">
               {/* 运动控制 */}
               <div>
-                <div className="text-[11px] font-semibold mb-1.5">运动控制</div>
-                <label className="cinema-mono text-[10px] opacity-60 flex justify-between">Motion Intensity <span className="text-[var(--cinema-amber)]">{plan.params.motionIntensity}%</span></label>
+                <div className="text-[11px] font-medium mb-1.5">运动控制</div>
+                <label className="cinema-mono text-[10px] opacity-60 flex justify-between">Motion Intensity <span className="text-blue-400">{plan.params.motionIntensity}%</span></label>
                 <input type="range" min={0} max={100} value={plan.params.motionIntensity}
-                  onChange={(e) => patchParams({ motionIntensity: Number(e.target.value) })} className="w-full accent-[var(--cinema-amber)]" />
+                  onChange={(e) => patchParams({ motionIntensity: Number(e.target.value) })} className="w-full accent-blue-500" />
                 <div className="flex gap-1 mt-1.5">
                   {(['slow', 'normal', 'fast'] as CameraSpeed[]).map((sp) => (
                     <button key={sp} onClick={() => patchParams({ cameraSpeed: sp })}
-                      className={`flex-1 text-[10px] py-1 rounded border transition ${plan.params.cameraSpeed === sp ? 'border-[var(--cinema-amber)] text-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>
+                      className={`flex-1 text-[10px] py-1 rounded border transition ${plan.params.cameraSpeed === sp ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>
                       {sp === 'slow' ? '慢' : sp === 'normal' ? '正常' : '快'}
                     </button>
                   ))}
@@ -352,7 +356,7 @@ export default function ShortVideoStudioPage() {
 
               {/* 视觉增强 */}
               <div>
-                <div className="text-[11px] font-semibold mb-1.5">视觉增强</div>
+                <div className="text-[11px] font-medium mb-1.5">视觉增强</div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="cinema-mono text-[10px] opacity-60">插帧 Interpolation</span>
                   <button onClick={() => patchParams({ interpolation: !plan.params.interpolation })}
@@ -365,7 +369,7 @@ export default function ShortVideoStudioPage() {
                   <div className="flex gap-1">
                     {([1, 2, 4] as UpscaleFactor[]).map((u) => (
                       <button key={u} onClick={() => patchParams({ upscale: u })}
-                        className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${plan.params.upscale === u ? 'border-[var(--cinema-amber)] text-[var(--cinema-amber)] bg-[var(--cinema-amber-glow)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>{u}x</button>
+                        className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${plan.params.upscale === u ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>{u}x</button>
                     ))}
                   </div>
                 </div>
@@ -373,7 +377,7 @@ export default function ShortVideoStudioPage() {
 
               {/* 输出设置 */}
               <div>
-                <div className="text-[11px] font-semibold mb-1.5">输出设置</div>
+                <div className="text-[11px] font-medium mb-1.5">输出设置</div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <select value={plan.params.resolution} onChange={(e) => patchParams({ resolution: e.target.value })} className="cinema-input !py-1 !text-[11px]">
                     {['1080P', '4K', '8K'].map((r) => <option key={r} value={r}>{r}</option>)}
@@ -387,24 +391,29 @@ export default function ShortVideoStudioPage() {
                 </div>
               </div>
 
-              {/* 节奏分布环 */}
+              {/* 节奏分布 — 细条 + 数值行(替掉环形图,更专业) */}
               <div>
-                <div className="text-[11px] font-semibold mb-1.5">节奏分布</div>
-                <div className="flex items-center gap-3">
-                  <RhythmDonut acts={plan.acts} />
-                  <div className="flex flex-col gap-1">
-                    {plan.acts.map((a) => (
-                      <div key={a.phase} className="flex items-center gap-1.5 cinema-mono text-[10px]">
-                        <span className="w-2 h-2 rounded-sm" style={{ background: PHASE_COLOR[a.phase] }} />
-                        {PHASE_TAG[a.phase]} {a.pct}%
-                      </div>
-                    ))}
-                  </div>
+                <div className="text-[11px] font-medium mb-2 text-zinc-400">节奏分布</div>
+                <div className="flex h-1.5 rounded-sm overflow-hidden mb-2">
+                  {plan.acts.map((a) => (
+                    <div key={a.phase} style={{ width: `${a.pct}%`, background: PHASE_COLOR[a.phase] }} />
+                  ))}
+                </div>
+                <div className="flex flex-col gap-1">
+                  {plan.acts.map((a) => (
+                    <div key={a.phase} className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-widest text-zinc-500">
+                        <span className="w-1.5 h-1.5 rounded-sm" style={{ background: PHASE_COLOR[a.phase] }} />
+                        {PHASE_TAG[a.phase]}
+                      </span>
+                      <span className="font-mono text-[11px] text-zinc-300">{a.pct}%</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <button onClick={sendToCreate} className="cinema-btn-primary w-full justify-center !py-2.5">
-                <Sparkles size={15} /> 用此方案去创作 <span className="cinema-cta-island"><ArrowRight size={13} /></span>
+              <button onClick={sendToCreate} className="w-full inline-flex items-center justify-center gap-2 bg-white text-zinc-900 hover:bg-zinc-100 font-medium text-sm rounded-sm py-2.5 transition">
+                <Sparkles size={15} /> 用此方案去创作 <ArrowRight size={14} />
               </button>
               <div className="flex gap-1.5">
                 <button onClick={exportMarkdown} className="cinema-btn-ghost flex-1 justify-center !text-[11px]"><Download size={12} /> 导出分镜表</button>
@@ -425,23 +434,5 @@ export default function ShortVideoStudioPage() {
         </div>
       )}
     </div>
-  );
-}
-
-/** 三幕节奏环形图 (SVG, 自包含) */
-function RhythmDonut({ acts }: { acts: ShortVideoPlan['acts'] }) {
-  const r = 22, c = 2 * Math.PI * r;
-  let acc = 0;
-  return (
-    <svg width="56" height="56" viewBox="0 0 56 56" className="-rotate-90">
-      <circle cx="28" cy="28" r={r} fill="none" stroke="var(--cinema-border)" strokeWidth="7" />
-      {acts.map((a) => {
-        const len = (a.pct / 100) * c;
-        const seg = <circle key={a.phase} cx="28" cy="28" r={r} fill="none" stroke={PHASE_COLOR[a.phase]} strokeWidth="7"
-          strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-acc} />;
-        acc += len;
-        return seg;
-      })}
-    </svg>
   );
 }
