@@ -69,6 +69,8 @@ import { getLatestQualityScore, buildWriterFeedbackHint } from '@/lib/quality-sc
 import { recordCostLog, estimateVideoCostCny, estimateImageCostCny, videoRateForProvider } from '@/lib/repos/cost-log-repo';
 // v12.6.1(#2):目标语种检测 —— 锁台词/旁白/TTS/口型语种,visualPrompt 仍英文。
 import { detectLanguage, ttsLangCode, lipsyncLangCode, type TargetLanguage } from '@/lib/language-detect';
+// v12.7.0:editor TTS 走注册表(vectorengine-tts 50 > minimax-tts 100),vectorengine 进主路径。
+import { dispatchTTSGenerate, ttsEngineConfigured } from '@/lib/tts-providers/registry';
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -3944,11 +3946,12 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
     const voiceoverClips: Array<{ shotNumber: number; audioUrl: string }> = [];
     // v2.11 #B1: 收集音频相关的降级信号, 最后带入 final payload 让前端明示"哪些镜头降级了"
     const audioWarnings: string[] = [];
-    if (this.minimaxService) {
+    // v12.7.0: 配音走 TTS 注册表 —— 不再只认 minimax;任一 TTS provider 可用即跑(vectorengine-tts 等也能出声)。
+    if (this.minimaxService || ttsEngineConfigured()) {
       const dialogueShots = timeline.filter(t => t.dialogue && t.dialogue.trim().length > 0);
       if (dialogueShots.length > 0) {
         this.update(AgentRole.EDITOR, { progress: 30, currentTask: `生成 ${dialogueShots.length} 段 AI 配音...` });
-        this.emit('agentTalk', { role: AgentRole.EDITOR, text: `正在为 ${dialogueShots.length} 个有台词的镜头生成 AI 配音（MiniMax TTS）🎙️` });
+        this.emit('agentTalk', { role: AgentRole.EDITOR, text: `正在为 ${dialogueShots.length} 个有台词的镜头生成 AI 配音 🎙️` });
 
         for (let i = 0; i < dialogueShots.length; i++) {
           const t = dialogueShots[i];
@@ -3989,15 +3992,27 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
                 label: `shot-${t.shotNumber}`,
               },
               async () => {
-                // 外层 `if (this.minimaxService)` 已守卫, 闭包内 TS 丢了 narrowing, 用 ! 断言
-                const audioUrl = await this.minimaxService!.generateSpeech(cleanedDialogue, {
+                // v12.7.0: 先走注册表(vectorengine-tts 50 → minimax-tts 100,按 priority);
+                // 注册表全失败再退回直连 minimax(保旧行为为最后兜底);都没有 → 抛错走静音兜底。
+                const d = await dispatchTTSGenerate({
+                  text: cleanedDialogue,
+                  voiceId: _gender === 'female' ? 'female-zh' : 'male-zh',
                   emotion: t.emotion,
-                  gender: _gender,
                   speed: prosody.speed,
                   pitch: prosody.pitch,
-                  vol: prosody.vol,
+                  volume: prosody.vol,
+                  language: ttsLangCode(this.targetLanguage()),
                 });
-                return { audioUrl, duration: 0, subtitle: [], provider: 'minimax-legacy' };
+                if (d.result?.audioUrl) {
+                  return { audioUrl: d.result.audioUrl, duration: d.result.duration ?? 0, subtitle: d.result.subtitle ?? [], provider: d.result.provider ?? 'registry' };
+                }
+                if (this.minimaxService) {
+                  const audioUrl = await this.minimaxService.generateSpeech(cleanedDialogue, {
+                    emotion: t.emotion, gender: _gender, speed: prosody.speed, pitch: prosody.pitch, vol: prosody.vol,
+                  });
+                  return { audioUrl, duration: 0, subtitle: [], provider: 'minimax-legacy' };
+                }
+                throw new Error('TTS 全 provider 失败: ' + d.tried.map((x) => x.error).join(' | ').slice(0, 80));
               },
             );
             const audioUrl = _ttsResult.audioUrl;

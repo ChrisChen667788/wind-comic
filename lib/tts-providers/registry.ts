@@ -45,6 +45,13 @@ export function getTTSProvider(id: string): TTSProvider | undefined {
   return providers.get(id);
 }
 
+/** v12.7.0: 是否至少有一个可用 TTS provider(供 orchestrator 判断要不要走配音路径)。 */
+export function ttsEngineConfigured(): boolean {
+  return [...providers.values()].some((p) => {
+    try { return p.available(); } catch { return false; }
+  });
+}
+
 export function selectProviders(input: TTSSelectInput): TTSProvider[] {
   let chain = listTTSProviders().filter((p) => {
     if (!p.available()) return false;

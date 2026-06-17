@@ -45,9 +45,10 @@
 
 > 阶段二十三剩余:v12.5.x TTS 注册表统一 / v12.6.x LLM+LipSync plugin-chain / v12.7.x 软熔断(版本号因用户插入 #1-#4 已占用 12.5/12.6,顺延)。
 
-### v12.5.0 · TTS 注册表统一【P1 · M】
-- `hybrid-orchestrator` editor TTS 段 `minimaxService.generateSpeech` → `dispatchTTSGenerate`;`withTTSPlugin` fallback 指向注册表;全失败 result=null 走既有 `createSilenceMp3`。
-- **验证**:只配 VECTORENGINE_API_KEY → `plugin_chain_events` 有 `kind=tts, provider=vectorengine-tts`;双 key → vectorengine-tts(50) 先被调。
+### v12.7.0 · TTS 注册表统一【P1 · M】✅(版本号顺延,原 v12.5.0)
+- `hybrid-orchestrator` editor TTS 段 `withTTSPlugin` fallback 从硬编码 `minimaxService.generateSpeech` 改走 `dispatchTTSGenerate`(注册表 priority:vectorengine-tts 50 → minimax-tts 100);注册表全失败再退回直连 minimax(保旧行为),都没有 → 抛错走既有 `createSilenceMp3` 静音兜底。
+- 外层守卫从 `if (this.minimaxService)` 放宽为 `if (this.minimaxService || ttsEngineConfigured())` → **vectorengine-only / 无 minimax 也能出配音**(衔接 #2 英文路径)。
+- **验证**:tsc 0 + vitest 2434(+5:ttsEngineConfigured 可用性/异常 + dispatch 按 priority 选 vectorengine 优先 + 无效 audioUrl 落下一个/全失败 null)。
 
 ### v12.6.0 · LLM + LipSync plugin-chain 接入【P1 · M】
 - 新增 `withLLMPlugin`/`withLipSyncPlugin`(复用 `runWithPlugin`)+ `PluginEventKind` 加 `llm`/`lipsync`;callLLM 外层包 withLLMPlugin;口型渲染走 withLipSyncPlugin→dispatchLipSyncGenerate。
