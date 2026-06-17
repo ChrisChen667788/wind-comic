@@ -73,6 +73,8 @@ import { detectLanguage, ttsLangCode, lipsyncLangCode, type TargetLanguage } fro
 import { dispatchTTSGenerate, ttsEngineConfigured } from '@/lib/tts-providers/registry';
 // v12.8.0:provider 软熔断 —— 视频引擎池饱和/auth/配额失败 → 冷却跳过,跨镜不重复踩坑。
 import { isProviderHealthy, markProviderDownIfFatal } from '@/lib/provider-health-cache';
+// v12.8.1:视频引擎兜底链控制流(含软熔断)抽出来可单测。
+import { runVideoEngineChain } from '@/lib/video-engine-chain';
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -3325,99 +3327,67 @@ ${shots.map((s, i) => {
 
         let generated = false;
 
-        for (const engine of engineOrder) {
-          if (generated) break;
-          // v12.8.0: 软熔断 —— 该引擎刚因 auth/配额/池饱和被标冷却,本镜直接跳过,别再打它(跨镜不重复踩坑)
-          if (!isProviderHealthy(engine)) {
-            console.warn(`[P2-Route] Shot ${board.shotNumber} skip ${engine} (cooling down)`);
-            continue;
-          }
-          const engineLabel = engine === 'veo' ? 'Veo 3.1' : engine === 'kling' ? '可灵 AI' : (hasCharRef ? 'Minimax(I2V+角色)' : hasFirstFrame ? 'Minimax I2V-01' : 'Minimax Hailuo-2.3');
-          this.emit('agentTalk', {
-            role: AgentRole.VIDEO_PRODUCER,
-            text: `镜头 ${board.shotNumber}/${storyboards.length} → ${engineLabel}${hasCharRef && engine === 'minimax' ? '（角色锁定）' : ''}${hasFirstFrame ? '（首帧锚定）' : ''}`
-          });
-
-          try {
+        // v12.8.1: 引擎兜底链(含软熔断)走抽出来的纯控制流 runVideoEngineChain —— 可单测坐实「跳过冷却引擎」。
+        //   每个引擎的具体调用(minimax/veo/kling 各自参数)留在 attempt 回调;控制流(跳过/试/校验/熔断/下一个)在 helper。
+        const _engineLabel = (engine: string) => engine === 'veo' ? 'Veo 3.1' : engine === 'kling' ? '可灵 AI' : (hasCharRef ? 'Minimax(I2V+角色)' : hasFirstFrame ? 'Minimax I2V-01' : 'Minimax Hailuo-2.3');
+        const _chain = await runVideoEngineChain(
+          engineOrder,
+          async (engine) => {
             if (engine === 'minimax' && this.minimaxService) {
               // ★ v2.8 (Seedance 2.0 同款): 多主体 + 场景/风格辅助参考图
-              //   - subjectReferences: 该 shot 出场的每个角色一个条目(多主体锁)
-              //   - firstFrameImage: 分镜渲染图(锁构图)
-              //   - referenceImages: 场景图 + 风格锚点图(辅助上下文)
               const subjectRefs = mrBundle.subjectImages.map((url, idx) => ({
-                type: 'character' as const,
-                imageUrl: url,
-                name: mrBundle.characterNames[idx],
+                type: 'character' as const, imageUrl: url, name: mrBundle.characterNames[idx],
               }));
-              videoUrl = await this.minimaxService.generateVideo(firstFrameUrl, enhancedPrompt, {
+              return await this.minimaxService.generateVideo(firstFrameUrl, enhancedPrompt, {
                 subjectReferenceUrl: hasCharRef ? characterRefUrl : undefined,
                 subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
                 referenceImages: mrBundle.referenceImages.length > 0 ? mrBundle.referenceImages : undefined,
               });
             } else if (engine === 'veo' && this.veoService) {
               // ★ v2.8: Veo 3.1 multi-reference — 把整个 bundle 拍平给 ingredient-to-video
-              const veoRefs = flattenBundleToUrls(mrBundle, 4)
-                .filter((u) => u !== firstFrameUrl); // 首帧不重复算
-              videoUrl = await this.veoService.generateVideo(
-                firstFrameUrl, enhancedPrompt,
-                {
-                  duration: 8,
-                  referenceImages: veoRefs.length > 0 ? veoRefs : undefined,
-                  onProgress: (progress, status) => {
-                    this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status });
-                  }
-                }
-              );
+              const veoRefs = flattenBundleToUrls(mrBundle, 4).filter((u) => u !== firstFrameUrl);
+              return await this.veoService.generateVideo(firstFrameUrl, enhancedPrompt, {
+                duration: 8,
+                referenceImages: veoRefs.length > 0 ? veoRefs : undefined,
+                onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
+              });
             } else if (engine === 'kling' && this.klingService) {
-              videoUrl = await this.klingService.generateVideo(
-                firstFrameUrl, enhancedPrompt,
-                {
-                  duration: 5,
-                  onProgress: (progress, status) => {
-                    this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status });
-                  }
-                }
-              );
-            } else {
-              throw createError('ENGINE_UNAVAILABLE', `${engine} 引擎未配置`, {
-                stage: 'video', retryable: false, details: { engine, shotNumber: board.shotNumber },
+              return await this.klingService.generateVideo(firstFrameUrl, enhancedPrompt, {
+                duration: 5,
+                onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
               });
             }
-
-            if (videoUrl && isValidVideoUrl(videoUrl)) {
-              console.log(`[P2-Route] Shot ${board.shotNumber} generated via ${engine}${hasCharRef && engine === 'minimax' ? '(S2V-01)' : ''}`);
-              generated = true;
-              usedVideoEngine = engine; // v12.4.0: 成本归类用
-            } else {
-              throw createError('INVALID_RESPONSE', `${engine} 返回的视频 URL 无效`, {
-                stage: 'video', retryable: true, details: { engine, shotNumber: board.shotNumber, returned: videoUrl },
-              });
-            }
-          } catch (e) {
-            const errMsg = e instanceof Error ? e.message : String(e);
-            console.error(`[P2-Route] Shot ${board.shotNumber} ${engine} failed:`, errMsg.slice(0, 200));
-            // v12.8.0: 池饱和 / 配额 / auth / 限流 → 给该引擎上冷却,后续镜头跳过它直走下一个(此前每镜都重打)
-            markProviderDownIfFatal(engine, errMsg);
-            // ── 把真实错误文本 surface 到用户,不要只说"失败" ──
-            // 关键信号: 上游池饱和 / 余额不足 / 配额耗尽 / 超时 — 这些用户需要看到,才知道不是 bug 而是上游问题
-            let userHint = '';
-            if (/pre_consume_token_quota_failed|上游.*饱和|分组.*饱和/i.test(errMsg)) {
-              userHint = '上游视频池饱和(非 bug,稍后重试)';
-            } else if (/余额不足|insufficient.*balance|quota.*exceeded/i.test(errMsg)) {
-              userHint = '余额不足';
-            } else if (/timeout|ETIMEDOUT|AbortError/i.test(errMsg)) {
-              userHint = '超时';
-            } else if (/rate.?limit|429/i.test(errMsg)) {
-              userHint = '限流';
-            } else {
-              // 未识别错误: 把原始文本前 80 字直接贴出来
-              userHint = errMsg.replace(/\s+/g, ' ').slice(0, 80);
-            }
-            this.emit('agentTalk', {
-              role: AgentRole.VIDEO_PRODUCER,
-              text: `⚠️ ${engineLabel} 失败 (${userHint})，尝试下一个引擎...`,
+            throw createError('ENGINE_UNAVAILABLE', `${engine} 引擎未配置`, {
+              stage: 'video', retryable: false, details: { engine, shotNumber: board.shotNumber },
             });
-          }
+          },
+          {
+            isHealthy: isProviderHealthy,
+            markFatal: markProviderDownIfFatal, // 池饱和/配额/auth/限流 → 冷却,后续镜头跳过
+            isValidUrl: isValidVideoUrl,
+            onSkip: (engine) => console.warn(`[P2-Route] Shot ${board.shotNumber} skip ${engine} (cooling down)`),
+            onAttempt: (engine) => this.emit('agentTalk', {
+              role: AgentRole.VIDEO_PRODUCER,
+              text: `镜头 ${board.shotNumber}/${storyboards.length} → ${_engineLabel(engine)}${hasCharRef && engine === 'minimax' ? '（角色锁定）' : ''}${hasFirstFrame ? '（首帧锚定）' : ''}`,
+            }),
+            onFail: (engine, errMsg) => {
+              console.error(`[P2-Route] Shot ${board.shotNumber} ${engine} failed:`, errMsg.slice(0, 200));
+              // ── 把真实错误文本 surface 到用户,不要只说"失败" ──
+              let userHint = '';
+              if (/pre_consume_token_quota_failed|上游.*饱和|分组.*饱和/i.test(errMsg)) userHint = '上游视频池饱和(非 bug,稍后重试)';
+              else if (/余额不足|insufficient.*balance|quota.*exceeded/i.test(errMsg)) userHint = '余额不足';
+              else if (/timeout|ETIMEDOUT|AbortError/i.test(errMsg)) userHint = '超时';
+              else if (/rate.?limit|429/i.test(errMsg)) userHint = '限流';
+              else userHint = errMsg.replace(/\s+/g, ' ').slice(0, 80);
+              this.emit('agentTalk', { role: AgentRole.VIDEO_PRODUCER, text: `⚠️ ${_engineLabel(engine)} 失败 (${userHint})，尝试下一个引擎...` });
+            },
+          },
+        );
+        videoUrl = _chain.videoUrl;
+        if (_chain.engine) {
+          generated = true;
+          usedVideoEngine = _chain.engine; // v12.4.0: 成本归类用
+          console.log(`[P2-Route] Shot ${board.shotNumber} generated via ${_chain.engine}${hasCharRef && _chain.engine === 'minimax' ? '(S2V-01)' : ''}`);
         }
 
         if (!generated) {
