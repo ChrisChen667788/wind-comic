@@ -143,9 +143,9 @@ async function generateOneDraft(opts: {
       jsonMode: true,
       // 草稿 = 短剧 4-8 镜, 输出 ~2-3000 token; 6000 留足头部余量防截断 (截断→JSON 解析失败→重试翻倍)。
       maxTokens: 6000,
-      // 精简提示后 flash 单稿 happy path ~12-20s; 45s/尝试 给 "flash 过载重试 + MiniMax 兜底" 留余量,
-      // 主+兜底各 45s 最坏 90s, 并行 2-3 稿仍 < route maxDuration 240。
-      timeoutMs: 45_000,
+      // v12.x: 创意快档可能配 Claude(sonnet/haiku,经 qingyuntop 比 deepseek-flash 慢)→ 45s 太紧,
+      // 实测 3 稿并行常 2/3 超时。放宽到 90s/尝试(主+兜底最坏 180s,3 稿并行仍 < route maxDuration 240)。
+      timeoutMs: 90_000,
     });
     if (!res.ok || !res.content) {
       lastErr = res.error || 'LLM 返回空';

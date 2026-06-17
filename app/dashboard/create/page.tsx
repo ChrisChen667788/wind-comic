@@ -245,6 +245,8 @@ export default function DashboardCreatePage() {
     setAssets([]);
     setNodes(buildInitialNodes([]));
     setEdges(initialEdges);
+    // v12.x(#3 修复):清掉上一轮的制片人评分 / 评审历史 / agent 气泡,新任务不再残留旧分数
+    useProjectWorkspaceStore.getState().clearAgentOutputs();
     setIsProducing(true);
     setWorkspaceProject(project);
     // v12.5.0(#4):登记全局「进行中任务」→ 切模块/刷新后仍可见 + 一键返回,不再「丢任务」

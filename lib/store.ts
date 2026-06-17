@@ -96,6 +96,10 @@ interface ProjectWorkspaceStore {
   isProducing: boolean;
   setIsProducing: (v: boolean) => void;
 
+  // v12.x(#3 修复):开新一轮创作时清掉上一轮的 agent 产出(制片人评分/评审历史/agent 气泡),
+  // 否则新任务会残留上一轮的制片人分数。不动 currentProject(由新一轮重新 set)。
+  clearAgentOutputs: () => void;
+
   // 重置
   resetWorkspace: () => void;
 }
@@ -161,6 +165,8 @@ export const useProjectWorkspaceStore = create<ProjectWorkspaceStore>((set) => (
 
   isProducing: false,
   setIsProducing: (v) => set({ isProducing: v }),
+
+  clearAgentOutputs: () => set({ directorReview: null, reviewHistory: [], chatMessages: {} }),
 
   resetWorkspace: () => set({
     currentProject: null,
