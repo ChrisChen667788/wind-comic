@@ -180,10 +180,10 @@ function DraftCard({ draft, index, onPick }: { draft: ScriptDraft; index: number
             <span>· {draft.styleUsed}</span>
           </div>
 
-          {/* 前 2 个 shot 预览 */}
+          {/* v12.x(#2):逐镜预览 —— 全量展示 + 内部上下滑动(不再只露 2 镜) */}
           {draft.script.shots && draft.script.shots.length > 0 && (
-            <ul className="space-y-1.5 mt-2">
-              {draft.script.shots.slice(0, 2).map((sh, j) => (
+            <ul className="space-y-1.5 mt-2 max-h-56 overflow-y-auto pr-1 cinema-scroll">
+              {draft.script.shots.map((sh, j) => (
                 <li
                   key={j}
                   className="text-[11.5px] text-[var(--cinema-text-2)] leading-relaxed border-l-2 border-[var(--cinema-amber)]/40 pl-2"
@@ -193,11 +193,6 @@ function DraftCard({ draft, index, onPick }: { draft: ScriptDraft; index: number
                   {sh.dialogue ? <span className="opacity-70"> · "{sh.dialogue.slice(0, 30)}"</span> : null}
                 </li>
               ))}
-              {draft.script.shots.length > 2 && (
-                <li className="text-[10px] opacity-50 cinema-mono pl-2">
-                  + 还有 {draft.script.shots.length - 2} 个镜头
-                </li>
-              )}
             </ul>
           )}
 
