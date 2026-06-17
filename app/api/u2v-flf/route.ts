@@ -62,6 +62,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'prompt 太长(上限 500 字)' }, { status: 400 });
   }
 
+  // v12.4.1: 预算硬上限护栏 —— FLF 视频端点接入(生成前拦,超限不发生费用)。
+  {
+    const { assertBudget } = await import('@/lib/budget-enforce');
+    const b = await assertBudget({ userId, pendingCostCny: Math.max(1.8, duration * 0.3) });
+    if (!b.allow) return NextResponse.json({ error: b.guard.message, code: 'budget_exceeded', guard: b.guard }, { status: 402 });
+  }
+
   // v2.16 P0.1: 计费 gate — FLF 默认 5s 免费; 用户挑 10s FLF (走 Kling 重) 走 creator+
   const requiredTier = requiredTierForVideoDuration(duration);
   if (requiredTier !== 'free') {

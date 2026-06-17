@@ -39,9 +39,11 @@
 - video/image 成功后调 `recordCostLog`(engine=`video-<engine>`/`image`,`estimateVideoCostCny`+`videoRateForProvider`/`estimateImageCostCny` 同 `estimateTtsCostCny` 模式);orchestrator 加 `setUserId`(create-pipeline 注入计费用户);mock 模式零成本不记;fire-and-forget 不阻断。
 - **验证**:create-stream 后 cost_log 见 `video-*`/`image` 行。`assertBudget` 接主管线拆到 **v12.4.1**(用户本轮插入分镜/语种/demo 清理三事,优先处理)。
 
-### v12.4.1 · assertBudget 接主管线【P0 · S】(待)
-- create-stream / u2v / u2v-flf 路由顶部各加 `await assertBudget({ userId, pendingCostCny })`(粗估与 preview-shot 对齐),超限 402。
-- **验证**:`budget_hard_cap_cny=0.01` → create-stream 402。
+### v12.4.1 · assertBudget 接主管线【P0 · S】✅
+- create-stream(LLM 扩写**之前**首个 gate)/ u2v / u2v-flf 路由各加 `await assertBudget({ userId, pendingCostCny })`(整片粗估 ¥6 / 单视频 max(1.8, duration×0.3)),超限 402 `code='budget_exceeded'`;无预算上限用户永远放行(no-op)。
+- **验证**:tsc 0 + vitest 2429 不回归;`budget_hard_cap_cny` 低于当月花费 → 主管线 402。
+
+> 阶段二十三剩余:v12.5.x TTS 注册表统一 / v12.6.x LLM+LipSync plugin-chain / v12.7.x 软熔断(版本号因用户插入 #1-#4 已占用 12.5/12.6,顺延)。
 
 ### v12.5.0 · TTS 注册表统一【P1 · M】
 - `hybrid-orchestrator` editor TTS 段 `minimaxService.generateSpeech` → `dispatchTTSGenerate`;`withTTSPlugin` fallback 指向注册表;全失败 result=null 走既有 `createSilenceMp3`。

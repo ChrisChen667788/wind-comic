@@ -127,6 +127,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'prompt 太长(上限 500 字)' }, { status: 400 });
   }
 
+  // v12.4.1: 预算硬上限护栏 —— 接入主管线视频端点(放在生成前,超限不发生费用)。
+  {
+    const { assertBudget } = await import('@/lib/budget-enforce');
+    const b = await assertBudget({ userId, pendingCostCny: Math.max(1.8, duration * 0.3) });
+    if (!b.allow) return NextResponse.json({ error: b.guard.message, code: 'budget_exceeded', guard: b.guard }, { status: 402 });
+  }
+
   // v2.16 P0.1: 计费 gate — 阻止免费用户消费 Kling/Vidu 高单价 API。
   // 5/6s → free / 10s → creator / 15s → pro (Vidu ¥0.3/秒, 100 次烧 ¥2700+)。
   const requiredTier = requiredTierForVideoDuration(duration);

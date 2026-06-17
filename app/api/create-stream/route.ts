@@ -16,6 +16,21 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ error: '请提供故事创意' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
+  // v12.4.1: 预算硬上限护栏 —— 主创作链路接入(此前只 preview-shot 接,主管线零拦截)。
+  // 放在任何 LLM 调用(下面 normalizeIdea 扩写)之前 → 超限前不发生任何费用(成本红线)。
+  // 仅对已登录用户生效;无预算上限的用户 assertBudget 永远放行,实际是 no-op。
+  {
+    const { getUserFromRequest } = await import('@/app/api/auth/lib');
+    const uid = getUserFromRequest(request)?.sub;
+    if (uid) {
+      const { assertBudget } = await import('@/lib/budget-enforce');
+      const b = await assertBudget({ userId: uid, pendingCostCny: 6 }); // 整片粗估 ~¥6
+      if (!b.allow) {
+        return new Response(JSON.stringify({ error: b.guard.message, code: 'budget_exceeded', guard: b.guard }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+  }
+
   // v2.18: idea 预处理 — 规则清洗 + (信息不足时) LLM 扩写
   // 这一步在安全闸门之前, 让闸门看到的是已清洗 + 已扩写的版本 (规则更准, 扩写不引入有害词)
   // v10.4.0: MOCK_ENGINES=1 全封闭(hermetic)— 跳过 LLM 扩写,只走规则清洗(零外部调用、确定性)
