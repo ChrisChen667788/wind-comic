@@ -375,11 +375,15 @@ export class MinimaxService {
     const hasFirstFrame = isHttpImg(options?.firstFrameImage);
 
     // 构建 subject_reference 数组:
-    //   1) 如果传了 options.subjectReferences,优先使用(支持多主体)
+    //   1) 如果传了 options.subjectReferences,优先使用
     //   2) 否则退回单角色模式,用 characterRefUrl
+    // v12.9.0 一致性优化(官方实测):S2V-01「尚未为多主体优化」(not yet optimized for
+    // multi-subject scenarios),传 2 个 subject 会让两个角色身份都不稳。默认只锁**首个(主)角色**
+    // —— 锁好一个 > 两个都飘。需要时 MINIMAX_S2V_MAX_SUBJECTS=2 试多主体。
+    const maxSubjects = Math.max(1, Number(process.env.MINIMAX_S2V_MAX_SUBJECTS) || 1);
     const subjectList = (options?.subjectReferences || [])
       .filter((s) => isHttpImg(s?.imageUrl))
-      .slice(0, 3); // S2V-01 最多支持 3 个主体
+      .slice(0, maxSubjects);
 
     const subjectReferenceArray = subjectList.length > 0
       ? subjectList.map((s) => ({
@@ -394,10 +398,17 @@ export class MinimaxService {
       throw new Error('Minimax S2V: 至少需要一张有效的角色参考图');
     }
 
+    // v12.9.0:S2V 模式末尾固定一句「身份/服装锚点」—— 官方建议用 consistent/unchanged 明确告诉模型
+    // 跨帧不要变形人脸/发型/服装(prompt_optimizer 关了才会被字面执行)。
+    const S2V_IDENTITY_ANCHOR = ' Keep the character’s facial features, hairstyle, and outfit strictly consistent and unchanged throughout.';
+    const anchoredPrompt = prompt.includes('strictly consistent') ? prompt : `${prompt.trimEnd()}${S2V_IDENTITY_ANCHOR}`;
+
     const body: Record<string, any> = {
       model: 'S2V-01',
-      prompt: prompt,
-      prompt_optimizer: true,
+      prompt: anchoredPrompt,
+      // v12.9.0 一致性优化(官方实测):prompt_optimizer=true 会「改写」prompt,把锁材质/服装的
+      // 锚点句改掉 → 跨镜服装/外观漂移(头号一致性杀手)。结构化 prompt 必须关。可 env 覆盖。
+      prompt_optimizer: process.env.MINIMAX_PROMPT_OPTIMIZER === '1',
       subject_reference: subjectReferenceArray,
     };
 
