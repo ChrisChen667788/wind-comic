@@ -3817,7 +3817,9 @@ ${shots.map((s, i) => {
       const shot = script.shots?.find(s => s.shotNumber === v.shotNumber) || script.shots?.[i];
       const act = (shot as any)?.act || (i < totalShots * 0.25 ? 1 : i < totalShots * 0.75 ? 2 : 3);
       const emotion = shot?.emotion || '';
-      const baseDuration = v.duration || (shot as any)?.duration || 8;
+      // v12.13.0:设计时长优先(让现有项目「重新成片」也按 shot.duration 裁切,不必整片重生);
+      // 旧片段存的 v.duration=8 不再压过设计的 3-5s。
+      const baseDuration = (shot as any)?.duration || v.duration || 8;
       const emotionTemperature = (shot as any)?.emotionTemperature ?? 0;
 
       // 基础转场策略（会被高光检测引擎覆盖）
