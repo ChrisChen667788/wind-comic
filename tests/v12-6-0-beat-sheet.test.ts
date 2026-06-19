@@ -45,6 +45,48 @@ describe('v12.6.0 · synthesizeBeatsToEnginePrompt', () => {
   });
 });
 
+describe('v12.11.0 · 黄金模板字段进引擎 prompt', () => {
+  const richBeats = [
+    { ts: '0-3s', startSec: 0, endSec: 3, action: '双方随机对打', camera: 'MS, eye-level, handheld', mood: '冷峻压迫', characters: ['主角', '对手'], scene: '锈蚀铁笼' },
+    { ts: '3-6s', startSec: 3, endSec: 6, action: '主角假动作晃开', camera: 'CU, low-angle, whip-pan', microExpression: '眼神微眯·假动作预判', speedRamp: '0.2x slow-mo on feint', mood: '蓄势' },
+  ];
+
+  it('微表情内联进对应 beat 动作', () => {
+    const out = synthesizeBeatsToEnginePrompt({ beats: richBeats, targetEngine: 'kling3' });
+    expect(out).toContain('(眼神微眯·假动作预判)');
+  });
+
+  it('慢镜插针 → Timing: 带时间码', () => {
+    const out = synthesizeBeatsToEnginePrompt({ beats: richBeats, targetEngine: 'veo31' });
+    expect(out).toContain('Timing:');
+    expect(out).toContain('3-6s 0.2x slow-mo on feint');
+  });
+
+  it('氛围逐 beat 去重 → Mood: a → b', () => {
+    const out = synthesizeBeatsToEnginePrompt({ beats: richBeats, targetEngine: 'seedance2' });
+    expect(out).toContain('Mood: 冷峻压迫 → 蓄势');
+  });
+
+  it('mustShow(镜头级) → Must show: 清单', () => {
+    const out = synthesizeBeatsToEnginePrompt({ beats: richBeats, mustShow: ['短刃停在喉结前1cm', '水渍溅起'] });
+    expect(out).toContain('Must show: 短刃停在喉结前1cm, 水渍溅起');
+  });
+
+  it('无新字段时不产出空 Mood/Timing/Must show(向后兼容)', () => {
+    const out = synthesizeBeatsToEnginePrompt({ beats, targetEngine: 'kling3' });
+    expect(out).not.toContain('Mood:');
+    expect(out).not.toContain('Timing:');
+    expect(out).not.toContain('Must show:');
+  });
+
+  it('buildBeatSheetBlock 含黄金模板字段指引', () => {
+    const b = buildBeatSheetBlock();
+    expect(b).toContain('microExpression');
+    expect(b).toContain('mustShow');
+    expect(b).toContain('transition');
+  });
+});
+
 describe('v12.6.0 · getEffectiveVisualPrompt 向后兼容', () => {
   it('有 beats → 合成结果', () => {
     const out = getEffectiveVisualPrompt({ beats, targetEngine: 'kling3' });

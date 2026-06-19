@@ -85,12 +85,29 @@ function StoryboardNodeComponent({ data }: NodeProps) {
                       <div key={bi} className="flex gap-1.5 text-[10px] leading-snug">
                         <span className="shrink-0 font-mono text-cyan-400/90 tabular-nums">{b.ts}</span>
                         <span className="text-gray-300 min-w-0">
+                          {/* v12.11.0:谁/在哪 前缀 */}
+                          {Array.isArray(b.characters) && b.characters.length ? <span className="text-emerald-300/80">👤{b.characters.join('/')} </span> : null}
+                          {b.scene ? <span className="text-cyan-200/70">🏞{b.scene} </span> : null}
                           {b.action}
                           {b.camera ? <span className="text-gray-500"> · 🎥{b.camera}</span> : null}
+                          {/* v12.11.0:微表情 / 慢镜 / 氛围 */}
+                          {b.microExpression ? <span className="text-violet-300/80"> · 😶{b.microExpression}</span> : null}
+                          {b.speedRamp ? <span className="text-amber-300/80"> · ⏱{b.speedRamp}</span> : null}
+                          {b.mood ? <span className="text-rose-300/70"> · {b.mood}</span> : null}
                           {b.dialogue ? <span className="text-cyan-300/80"> · 💬{b.dialogue}</span> : null}
                         </span>
                       </div>
                     ))}
+                    {/* v12.11.0:镜头级 Must-Show 目标物 */}
+                    {(() => {
+                      const ms = scriptShots.find((s) => s.shotNumber === sb.shotNumber)?.mustShow;
+                      return Array.isArray(ms) && ms.length ? (
+                        <div className="flex gap-1.5 text-[10px] leading-snug pt-0.5">
+                          <span className="shrink-0 text-yellow-400/90">必现</span>
+                          <span className="text-yellow-200/70 min-w-0">{ms.join(' · ')}</span>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 ) : null}
 

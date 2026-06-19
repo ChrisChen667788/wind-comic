@@ -102,6 +102,17 @@ export interface MicroBeat {
   dialogue?: string;
   /** 音效/配乐提示 */
   audio?: string;
+  // ── v12.11.0 黄金模板对齐(逐秒标清「谁/在哪/什么氛围/什么表情/什么速度」;全部可选 → 向后兼容)──
+  /** 本 beat 出场角色(引用资产名/@元素 id),供多参挂载锁一致性 + UI 展示 */
+  characters?: string[];
+  /** 本 beat 所在场景(引用资产名/@元素 id) */
+  scene?: string;
+  /** 逐 beat 氛围/情绪基调(如「冷峻压迫」「温柔含笑」) */
+  mood?: string;
+  /** 微表情(某角色某刻表情,如「眼神微眯·假动作预判」) */
+  microExpression?: string;
+  /** 速度/慢镜(如 "0.2x slow-mo on impact" / "1x";对应插针/甩拍稳帧) */
+  speedRamp?: string;
 }
 
 export interface ScriptShot {
@@ -144,6 +155,12 @@ export interface ScriptShot {
   negativePrompt?: string;
   /** 引擎偏好(影响 beats 合成策略) */
   targetEngine?: 'veo31' | 'kling3' | 'hailuo23' | 'seedance2';
+  // ── v12.11.0 黄金模板对齐(镜头级;可选) ──
+  /** Must-Show 目标物:本镜必须出现的关键元素(送引擎作硬性「必须出现」清单) */
+  mustShow?: string[];
+  /** 与上一镜的衔接:'cut'=硬切换场,'continuous'=同场景平滑衔接(StoryMem cut 字段)。
+   *  为 'continuous' 时才可安全做「上一镜真末帧」链式 I2V(承接 v12.9.1 #3 暂缓项的前置条件)。 */
+  transition?: 'cut' | 'continuous';
 }
 
 export interface Script {

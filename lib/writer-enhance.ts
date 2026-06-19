@@ -216,11 +216,17 @@ export function applyCinemaToVisualPrompt(shot: any): string {
 // 相机运动单独声明(不混进 action,避免引擎把运镜词当画面内容)。
 // ─────────────────────────────────────────────────────────────────
 
-type BeatLike = { ts: string; startSec: number; endSec: number; action: string; camera: string; dialogue?: string; audio?: string };
+type BeatLike = {
+  ts: string; startSec: number; endSec: number; action: string; camera: string;
+  dialogue?: string; audio?: string;
+  // v12.11.0 黄金模板字段(可选)
+  characters?: string[]; scene?: string; mood?: string; microExpression?: string; speedRamp?: string;
+};
 type ShotWithBeats = Partial<WriterShotCinema> & {
   visualPrompt?: string; beats?: BeatLike[];
   targetEngine?: 'veo31' | 'kling3' | 'hailuo23' | 'seedance2';
   globalLighting?: string; negativePrompt?: string;
+  mustShow?: string[];
 };
 
 export function synthesizeBeatsToEnginePrompt(shot: ShotWithBeats): string {
@@ -228,15 +234,18 @@ export function synthesizeBeatsToEnginePrompt(shot: ShotWithBeats): string {
   if (!beats || beats.length === 0) return shot.visualPrompt ?? '';
   const engine = shot.targetEngine ?? 'kling3';
 
+  // v12.11.0:微表情内联进该 beat 动作(落在具体时间码上的表情,引擎才能演)
+  const beatText = (b: BeatLike) => (b.microExpression ? `${b.action} (${b.microExpression})` : b.action);
+
   // 1) action 串联(按引擎差异)
   let actionStr: string;
   if (engine === 'kling3') {
-    actionStr = beats.map((b) => `Beat ${b.ts}: ${b.action}${b.dialogue ? ` — ${b.dialogue}` : ''}`).join(' / ');
+    actionStr = beats.map((b) => `Beat ${b.ts}: ${beatText(b)}${b.dialogue ? ` — ${b.dialogue}` : ''}`).join(' / ');
   } else if (engine === 'seedance2') {
-    actionStr = beats.map((b) => `${b.ts}: ${b.action}`).join('. ');
+    actionStr = beats.map((b) => `${b.ts}: ${beatText(b)}`).join('. ');
   } else {
     const connectors = ['', ' Then ', ' Suddenly ', ' As this happens, '];
-    actionStr = beats.map((b, i) => `${i > 0 ? connectors[Math.min(i, connectors.length - 1)] : ''}${b.action}`).join('');
+    actionStr = beats.map((b, i) => `${i > 0 ? connectors[Math.min(i, connectors.length - 1)] : ''}${beatText(b)}`).join('');
   }
 
   // 2) 相机声明(主运镜 + 后续变化)
@@ -250,12 +259,19 @@ export function synthesizeBeatsToEnginePrompt(shot: ShotWithBeats): string {
   // 4) 环境/光影 + 5) 音频 cue + 6) 拼合
   const envStr = [shot.globalLighting, shot.lightingIntent].filter(Boolean).join(', ');
   const audioStr = beats.filter((b) => b.audio).map((b) => b.audio).join('; ');
+  // v12.11.0:氛围(逐 beat 去重)/ 慢镜插针 / Must-Show 目标物
+  const moodStr = [...new Set(beats.map((b) => b.mood).filter(Boolean))].join(' → ');
+  const speedStr = beats.filter((b) => b.speedRamp).map((b) => `${b.ts} ${b.speedRamp}`).join('; ');
+  const mustShowStr = shot.mustShow && shot.mustShow.length ? shot.mustShow.join(', ') : '';
   const parts = [
     veoPrefix,
     actionStr,
     cameraStr ? `Camera: ${cameraStr}` : '',
+    moodStr ? `Mood: ${moodStr}` : '',
     envStr,
     audioStr ? `Audio: ${audioStr}` : '',
+    speedStr ? `Timing: ${speedStr}` : '',
+    mustShowStr ? `Must show: ${mustShowStr}` : '',
     shot.negativePrompt ? `Avoid: ${shot.negativePrompt}` : '',
   ].filter(Boolean);
   return parts.join('. ');
@@ -298,6 +314,31 @@ export function buildBeatSheetBlock(): string {
 
 **beatFunction 全集**:hook | setup | conflict | escalate | reverse | release | cliffhanger。
 **镜头内 dialogue 仍写在 shot.dialogue;beat.dialogue 仅在该台词落在具体时间码上时填。**
+
+## ═══ 黄金模板对齐(v12.11.0):逐 beat 标清「谁/在哪/什么氛围/什么表情/什么速度」═══
+
+对标工业级分镜模板(OnlyShot 8段SOP / Seedance 2.0 逐秒时间轴 / 即梦挂载元素),
+**每个 beat 在 action/camera/dialogue/audio 之外,按需再填这几项(都可选,但越全引擎演得越准)**:
+
+\`\`\`json
+{
+  "characters": ["陆晚晚"],            // 本 beat 出场角色(用资产里的角色名,不要新造名字)→ 锁脸/锁服装的多参挂载靠它
+  "scene": "锈蚀铁笼格斗台",            // 本 beat 所在场景(用资产里的场景名)
+  "mood": "冷峻压迫",                  // 这一拍的氛围/情绪基调(2-6 字)
+  "microExpression": "眼神微眯·假动作预判", // 微表情:某角色某刻的脸部细节(让引擎演出情绪,而非空洞动作)
+  "speedRamp": "0.2x slow-mo on impact"  // 速度/慢镜:动作峰值/受击帧做慢镜;无特殊则留空(默认 1x)
+}
+\`\`\`
+
+**镜头级再补两项(写在 shot 上,不在 beat 上)**:
+- \`mustShow\`: string[] —— 本镜**必须出现**的关键目标物/动作(如 ["短刃停在喉结前1cm","橡胶垫水渍溅起"]),送引擎作硬性清单,防漏拍。
+- \`transition\`: "cut" | "continuous" —— 与上一镜的衔接。**同一场景的连续动作**填 "continuous"(可链式衔接首尾帧),**换场/换时间**填 "cut"。默认 "cut"。
+
+**填写纪律**:
+- characters/scene **必须引用已有资产名**(角色表/场景表里的名字),不要凭空造名 —— 这是多参挂载锁一致性的键。
+- microExpression 只在「情绪转折/关键反应」的 beat 填,不要每拍都填(滥用=噪声)。
+- speedRamp 只在「动作峰值/受击/insert 特写」填;慢镜 beat 的 startSec/endSec 仍按真实银幕秒数算(0.2x 不改时长字段)。
+- mood 串起来就是本镜的情绪曲线,应与 emotionTemperature 一致。
 ════════════════════════════════════════`;
 }
 
