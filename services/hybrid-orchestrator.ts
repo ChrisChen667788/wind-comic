@@ -3217,8 +3217,12 @@ ${shots.map((s, i) => {
         enhancedPrompt = sceneDescription;
       }
 
+      // v12.9.1(#2):记下「角色外观描述」片段。S2V-01 已从 subject_reference 提取身份,
+      // prompt 再重复外观会与参考图冲突 → 跨镜漂移(官方实测)。下面给 minimax S2V 用「去外观」版。
+      let charDescSegment = '';
       if (charDescriptions.length > 0) {
-        enhancedPrompt += `. Character: ${charDescriptions.join('; ')}`;
+        charDescSegment = `. Character: ${charDescriptions.join('; ')}`;
+        enhancedPrompt += charDescSegment;
       }
       if (scriptAction) {
         enhancedPrompt += `. Action: ${scriptAction}`;
@@ -3275,6 +3279,11 @@ ${shots.map((s, i) => {
       if (enhancedPrompt.length > 1500) {
         enhancedPrompt = enhancedPrompt.slice(0, 1500);
       }
+      // v12.9.1(#2):S2V 专用「去外观」prompt —— 移除「. Character: ...」片段(身份由参考图给,
+      // 重复描述会与参考图冲突致漂移)。Hailuo 兜底无参考图仍用完整 enhancedPrompt。
+      const minimaxS2vPrompt = (charDescSegment && enhancedPrompt.includes(charDescSegment))
+        ? enhancedPrompt.split(charDescSegment).join('')
+        : enhancedPrompt;
 
       // 远程视频 API 只能使用公网可达的 http(s) URL 作为参考图
       const hasCharRef = characterRefUrl && characterRefUrl.startsWith('http');
@@ -3342,6 +3351,7 @@ ${shots.map((s, i) => {
                 subjectReferenceUrl: hasCharRef ? characterRefUrl : undefined,
                 subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
                 referenceImages: mrBundle.referenceImages.length > 0 ? mrBundle.referenceImages : undefined,
+                s2vPrompt: minimaxS2vPrompt, // v12.9.1(#2):S2V 走去外观版,Hailuo 兜底仍用完整 enhancedPrompt
               });
             } else if (engine === 'veo' && this.veoService) {
               // ★ v2.8: Veo 3.1 multi-reference — 把整个 bundle 拍平给 ingredient-to-video

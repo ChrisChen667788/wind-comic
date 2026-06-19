@@ -143,6 +143,9 @@ export class MinimaxService {
     subjectReferences?: Array<{ type?: string; imageUrl: string; name?: string }>;
     /** v2.8: 辅助参考图(场景/风格),经过 S2V-01 的 reference_images 字段 */
     referenceImages?: string[];
+    /** v12.9.1(#2):S2V 专用 prompt(去掉角色外观描述,身份由 subject_reference 给)。
+     *  仅 S2V 路径用;Hailuo 兜底无参考图仍用完整 prompt。不传则两者都用 prompt。 */
+    s2vPrompt?: string;
     /** 内部重试用,勿传 */
     _retryCount?: number;
     /** v7.0.2: 内部用 — 已尝试过 Fast 兜底, 防重入 */
@@ -161,7 +164,7 @@ export class MinimaxService {
     if (hasMultiSubject || options?.subjectReferenceUrl) {
       try {
         return await this.generateVideoS2V(
-          prompt,
+          options?.s2vPrompt || prompt, // v12.9.1(#2):S2V 用去外观版 prompt(身份由 subject_reference 给)
           options?.subjectReferenceUrl || '',
           {
             firstFrameImage: imageUrl,
