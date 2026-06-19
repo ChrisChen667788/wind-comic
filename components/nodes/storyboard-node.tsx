@@ -15,6 +15,12 @@ const CAMERA_ICONS: Record<string, string> = {
 function StoryboardNodeComponent({ data }: NodeProps) {
   const d = data as unknown as PipelineNodeData;
   const storyboards = d.assets?.filter(a => a.type === 'storyboard') || [];
+  // v12.10.0(#2):逐秒 beat 来自剧本 shot(Writer 已产出),按 shotNumber 关联到分镜卡,
+  // 让分镜「精确到第几秒是什么内容」可见。
+  const scriptShots: any[] = (d.assets?.find(a => a.type === 'script')?.data as any)?.shots || [];
+  const beatsByShot = new Map<number, any[]>(
+    scriptShots.filter(s => Array.isArray(s?.beats) && s.beats.length).map(s => [s.shotNumber, s.beats]),
+  );
 
   return (
     <NodeShell status={d.status} color="cyan" className="min-w-[360px] max-w-[460px]" agentRole={d.agentRole}>
@@ -71,6 +77,22 @@ function StoryboardNodeComponent({ data }: NodeProps) {
                 <div className="text-[11px] text-gray-300 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">
                   {sb.data?.description || sb.name}
                 </div>
+
+                {/* v12.10.0(#2):逐秒 beat sheet —— 精确到第几秒是什么内容 */}
+                {beatsByShot.get(sb.shotNumber as number)?.length ? (
+                  <div className="mt-2 space-y-1 border-l-2 border-cyan-500/30 pl-2">
+                    {beatsByShot.get(sb.shotNumber as number)!.map((b: any, bi: number) => (
+                      <div key={bi} className="flex gap-1.5 text-[10px] leading-snug">
+                        <span className="shrink-0 font-mono text-cyan-400/90 tabular-nums">{b.ts}</span>
+                        <span className="text-gray-300 min-w-0">
+                          {b.action}
+                          {b.camera ? <span className="text-gray-500"> · 🎥{b.camera}</span> : null}
+                          {b.dialogue ? <span className="text-cyan-300/80"> · 💬{b.dialogue}</span> : null}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
 
                 {/* Transition note */}
                 {planData.transitionNote && (
