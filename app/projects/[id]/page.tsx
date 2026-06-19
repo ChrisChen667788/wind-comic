@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SafeAreaOverlay } from '@/components/ui/safe-area-overlay';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand } from '@phosphor-icons/react';
+import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand, ArrowsOut as Maximize, ArrowsIn as Minimize } from '@phosphor-icons/react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { DistributionPanel } from '@/components/project/distribution-panel';
 import { CoverCandidatesPanel } from '@/components/project/cover-candidates-panel';
@@ -71,6 +71,21 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('script');
   const [playingIndex, setPlayingIndex] = useState<number>(-1);
+  // 完整播放:点击全屏。全屏套在「外层容器」上(而非 <video>),这样切下一镜
+  // <video> 重挂载时全屏不掉,整段连播都在全屏里。
+  const playerWrapRef = useRef<HTMLDivElement | null>(null);
+  const [isPlayerFs, setIsPlayerFs] = useState(false);
+  useEffect(() => {
+    const onFsChange = () => setIsPlayerFs(document.fullscreenElement === playerWrapRef.current);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+  const togglePlayerFullscreen = () => {
+    const el = playerWrapRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else el.requestFullscreen?.().catch(() => {});
+  };
   // v12.1.1 成片音频体检
   const [audioCheck, setAudioCheck] = useState<{ audible: boolean; label: string; hasAudioStream: boolean | null; healed: boolean } | null>(null);
   useEffect(() => {
@@ -907,7 +922,7 @@ export default function ProjectDetailPage() {
               )}
               <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden mb-4">
                 {videos.length > 0 ? (
-                  <div className="relative">
+                  <div ref={playerWrapRef} className={`relative ${isPlayerFs ? 'w-screen h-screen bg-black grid place-items-center' : ''}`}>
                     {videos[Math.max(0, playingIndex)]?.mediaUrls?.[0] ? (
                       (() => {
                         const url = videos[Math.max(0, playingIndex)].mediaUrls[0];
@@ -917,14 +932,16 @@ export default function ProjectDetailPage() {
                             src={url}
                             autoPlay
                             playsInline
-                            className={`w-full ${mainFrameClass}`}
+                            controls
+                            onDoubleClick={(e) => { e.preventDefault(); togglePlayerFullscreen(); }}
+                            className={isPlayerFs ? 'max-h-screen max-w-full object-contain' : `w-full ${mainFrameClass}`}
                             onEnded={() => {
                               if (playingIndex < videos.length - 1) setPlayingIndex(playingIndex + 1);
                             }}
                           />
                         ) : (
-                          <div className="relative">
-                            <img loading="lazy" decoding="async" src={url} alt="playing" className={`w-full ${mainFrameClass} object-cover`} />
+                          <div className={isPlayerFs ? 'relative grid place-items-center' : 'relative'}>
+                            <img loading="lazy" decoding="async" src={url} alt="playing" className={isPlayerFs ? 'max-h-screen max-w-full object-contain' : `w-full ${mainFrameClass} object-cover`} />
                             <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px]">
                               分镜图（视频生成失败）
                             </div>
@@ -937,6 +954,16 @@ export default function ProjectDetailPage() {
                     <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/70 text-xs text-white">
                       镜头 {playingIndex >= 0 ? videos[playingIndex]?.shotNumber : '-'} / {videos.length}
                     </div>
+                    {/* 点击全屏(套外层容器 → 连播不掉全屏);双击画面亦可 */}
+                    <button
+                      type="button"
+                      onClick={togglePlayerFullscreen}
+                      title={isPlayerFs ? '退出全屏' : '全屏观看'}
+                      aria-label={isPlayerFs ? '退出全屏' : '全屏观看'}
+                      className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 border border-white/15 text-white/90 text-xs transition-colors">
+                      {isPlayerFs ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                      <span>{isPlayerFs ? '退出全屏' : '全屏'}</span>
+                    </button>
                   </div>
                 ) : (
                   <div className={`w-full ${mainFrameClass} grid place-items-center text-gray-500`}>暂无视频</div>
