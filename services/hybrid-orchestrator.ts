@@ -56,6 +56,8 @@ import {
   getEffectiveVisualPrompt,
   buildMusicVisualAnchor,
 } from '@/lib/writer-enhance';
+// v12.12.0(Phase 2):@元素注册表 + 跨引擎多参适配 + 同场景续接守卫
+import { buildElementsRegistry, mountForShot, scenesLikelySame, type ElementsRegistry, type ShotMount } from '@/lib/elements-registry';
 import { StoryTemplate } from '@/lib/story-templates';
 import { createError, normalizeError, PipelineError } from '@/lib/pipeline-error';
 import { execFile } from 'child_process';
@@ -3069,6 +3071,20 @@ ${shots.map((s, i) => {
       `• 引擎优先级: ${this.veoService ? 'Veo 3.1(主)' : ''}${this.veoService && this.minimaxService ? ' → ' : ''}${this.minimaxService ? 'Minimax S2V-01(兜底)' : ''}${this.klingService ? ' → 可灵' : ''}`
     });
 
+    // v12.12.0(Phase 2):@元素注册表 —— 把角色/场景投影成统一命名的元素库(@人物{}/@场景{}),
+    // 供跨引擎多参适配(Seedance @Image / Kling elements / Veo reference_images,见 lib/elements-registry.ts)
+    // + 每镜挂载声明 + 同场景续接守卫。纯函数,不碰网络。
+    const elementsRegistry: ElementsRegistry = buildElementsRegistry({
+      characters: (characters || []).map((c: any) => {
+        const nm = c.character || c.name;
+        return { name: nm, appearance: this.characterAppearanceMap[nm] || c.appearance || c.description, imageUrl: charUrlMap.get(nm) };
+      }),
+      scenes: (scenes || []).map((s: any) => {
+        const nm = s.name || s.location;
+        return { location: nm, description: s.description, imageUrl: sceneUrlMap.get(nm) };
+      }),
+    });
+
     // ═══ 并发视频生成（限制同时 2 路，避免 API 限流）═══
     const CONCURRENCY = 2;
     const generateSingleVideo = async (board: Storyboard, i: number): Promise<VideoClip> => {
@@ -3092,10 +3108,11 @@ ${shots.map((s, i) => {
 
       // ── 精确匹配：该镜头对应哪个场景 → 找到对应场景参考图 ──
       let sceneRefUrl = '';
+      let matchedSceneName = '';
       const sceneDesc = shot?.sceneDescription || board.prompt;
       for (const [sceneName, url] of sceneUrlMap.entries()) {
         if (sceneDesc.includes(sceneName) || sceneName.includes(sceneDesc.slice(0, 10))) {
-          sceneRefUrl = url; break;
+          sceneRefUrl = url; matchedSceneName = sceneName; break;
         }
       }
       if (!sceneRefUrl && scenes?.length) {
@@ -3271,9 +3288,32 @@ ${shots.map((s, i) => {
         enhancedPrompt += `. ${cameraFragment}`;
       }
 
+      // v12.12.0(Phase 2):本镜 @元素挂载(角色/场景按名解析自注册表)—— 跨引擎适配的统一入口 + 调试可见。
+      const shotMount: ShotMount = mountForShot(elementsRegistry, { characters: shotCharacters, scene: matchedSceneName || undefined });
+      const mountedIds = [
+        ...shotMount.characters.map((c) => c.id),
+        ...(shotMount.scene ? [shotMount.scene.id] : []),
+        ...shotMount.props.map((p) => p.id),
+      ];
+      if (mountedIds.length) {
+        console.log(`[Elements] Shot ${board.shotNumber} mount: ${mountedIds.join(', ')}`);
+        this.emit('consistencyStatus', { shotNumber: curShotNum, type: 'elementsMounted', mounted: mountedIds });
+      }
+
       // ── 首帧选择策略：分镜渲染图 > 场景图 ──
       const storyboardImage = board.imageUrl && !board.imageUrl.startsWith('data:') && (board.imageUrl.startsWith('http') || board.imageUrl.startsWith('/api/serve-file')) ? board.imageUrl : '';
-      const firstFrameUrl = mrBundle.firstFrameUrl || storyboardImage || sceneRefUrl;
+      // v12.12.0(Phase 2 · 承接真末帧链,解锁 v12.9.1 #3):当 Writer 标本镜与上一镜「同场景连续动作」
+      // (shot.transition==='continuous')、上一镜真末帧已抽好、且场景描述一致(scenesLikelySame 防误标串帧)
+      // → 用「上一镜真末帧」作 I2V 首帧实现无缝衔接;否则沿用静态分镜图(安全基线,跨场景/硬切不串背景)。
+      const prevShot = script?.shots?.find((s: any) => s.shotNumber === (curShotNum - 1)) || (i > 0 ? script?.shots?.[i - 1] : undefined);
+      const prevFrameHttp = !!prevShotLastFrame && (prevShotLastFrame.startsWith('http') || prevShotLastFrame.startsWith('/api/serve-file'));
+      const continuousChain = shot?.transition === 'continuous' && prevFrameHttp
+        && scenesLikelySame(shot?.sceneDescription, prevShot?.sceneDescription);
+      const firstFrameUrl = continuousChain ? prevShotLastFrame! : (mrBundle.firstFrameUrl || storyboardImage || sceneRefUrl);
+      if (continuousChain) {
+        console.log(`[Continuity] Shot ${board.shotNumber}: continuous chain → 首帧用上一镜真末帧(无缝衔接)`);
+        this.emit('consistencyStatus', { shotNumber: curShotNum, type: 'lastFrameChained', fromShot: curShotNum - 1, frameUrl: prevShotLastFrame });
+      }
 
       // 截断 prompt（视频 API 通常限制 1500 字符以内）
       if (enhancedPrompt.length > 1500) {

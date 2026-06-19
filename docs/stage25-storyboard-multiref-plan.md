@@ -55,9 +55,20 @@
   新增 `Mood:`(逐 beat 去重)/`Timing:`(慢镜带时间码)/`Must show:` 子句。
 - **展示**:分镜师卡片逐 beat 显示 👤角色 / 🏞场景 / 😶微表情 / ⏱慢镜 / 氛围,镜头级「必现」行。
 
-## 4. Phase 2 — @元素多参挂载(下一步,ROI 最高)
+## 4. Phase 2 — @元素多参挂载(✅ 核心已交付 v12.12.0)
 
 落地「角色/场景/道具统一命名 → 映射参考图 → 按引擎适配喂入」:
+
+**v12.12.0 已交付**:
+- **`lib/elements-registry.ts`**(纯函数,16 单测):`buildElementsRegistry`(project assets → `@人物{}/@场景{}/@道具{}` 注册表)、`elementId/parseElementId`、`mountForShot`(按名解析+去重+排序)、跨引擎适配器 `toSeedanceSlots`(image_urls 角色→场景→道具 + `@Image1..` mentions)/`toKlingElements`(elements frontal+多角度 refs + 场景 image_urls)/`toVeoReferenceImages`(≤3 角色→场景→道具)/`annotateSeedancePrompt`。
+- **承接真末帧链(解锁 v12.9.1 #3)**:orchestrator 在 `shot.transition==='continuous'` + 上一镜真末帧已抽好 + `scenesLikelySame` 同场景守卫(防误标跨场景串帧)三条件齐备时,**用上一镜真末帧作 I2V 首帧**(无缝衔接),否则沿用静态分镜图(安全基线)。发 `consistencyStatus: lastFrameChained` 事件。
+- **registry 接线**:orchestrator 每次渲染建注册表,逐镜 `mountForShot` 解析挂载 → `[Elements]` 日志 + `consistencyStatus: elementsMounted` 事件。
+
+**Phase 2.1(跟进,需扩契约)**:`VideoGenerateInput`(lib/video-providers/types.ts)目前每 subject 只收 1 url;
+要把 Kling 多角度 `reference_image_urls` / Seedance `@Image` prompt 真正喂进 dispatch,需扩 subjectReferences 为
+`{frontalUrl, refUrls[]}` 形状 + 各 provider service 适配。适配器层(toKlingElements/toSeedanceSlots)已就绪,只差喂入。
+
+### 原始设计(完整版,供 P2.1 参考)
 
 1. **元素注册表**(项目级):`elements_registry`(已有 project_assets 角色/场景可直接投影),
    每元素 `{id:@人物{陆晚晚}, type, traits, assets:[{role:frontal/side/3_4/primary, url}]}`。
@@ -79,8 +90,9 @@
 ## 6. 落地顺序(ROI)
 
 1. ✅ **P1**(v12.11.0):beat 黄金字段 —— 低风险、立即改善引擎演出精度。
-2. **P2**:@元素挂载 + 跨引擎适配 + 承接链(解锁真末帧)—— 一致性最大增益。
+2. ✅ **P2**(v12.12.0):@元素注册表 + 跨引擎适配器 + 承接真末帧链(解锁 v12.9.1 #3)—— 一致性最大增益。
 3. **P3**:双版本 + CONTINUITY 主表 —— 交付完整度。
 
 ---
-**状态**:Phase 1 已交付(v12.11.0,tsc 0 + 测试绿)。Phase 2/3 待排期。
+**状态**:Phase 1(v12.11.0)+ Phase 2 核心(v12.12.0)已交付,tsc 0 + 测试绿。
+Phase 2.1(扩契约喂 Kling 多角度/Seedance @Image dispatch)、Phase 3(双版本+CONTINUITY 主表)待排期。
