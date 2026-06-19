@@ -14,6 +14,7 @@ import ffmpegPath from 'ffmpeg-static';
 import path from 'path';
 import fs from 'fs';
 import { audioUrlLoadKind } from '@/lib/audio-url';
+import { impactSfxNode } from '@/lib/impact-sfx'; // v12.13.1 打击音效程序化合成
 import os from 'os';
 import https from 'https';
 import http from 'http';
@@ -82,6 +83,10 @@ export interface ComposeOptions {
   voiceoverVolume?: number;    // 配音音量 0~1，默认 0.9
   editStyle?: string;          // v12.0.4 一句指令调剪辑风格(快节奏燃向/慢叙抒情...)
   actionMode?: boolean;        // v12.13.0 动作片节奏:高光不整段慢放、硬切替淡入、保快节奏
+  // v12.13.1 打击音效层:冲击点(镜号 + 镜内秒 + 强度)→ 程序化合成闷响打击音并末端混入
+  impactCues?: Array<{ shotNumber: number; atSec: number; intensity: number }>;
+  // v12.13.1 选择性 impact 慢镜:这些镜号的「短冲击镜」给一记强调慢镜(其余动作镜仍 1x)
+  impactShots?: number[];
   onProgress?: (percent: number, stage: string) => void;
 }
 
@@ -113,9 +118,10 @@ export interface HighlightAnalysis {
   };
 }
 
-export function detectHighlights(clips: ComposerClip[], opts: { actionMode?: boolean } = {}): HighlightAnalysis[] {
+export function detectHighlights(clips: ComposerClip[], opts: { actionMode?: boolean; impactShots?: number[] } = {}): HighlightAnalysis[] {
   if (clips.length === 0) return [];
   const actionMode = !!opts.actionMode;
+  const impactShots = new Set(opts.impactShots || []);
 
   const analyses: HighlightAnalysis[] = clips.map((clip, i) => {
     let score = 0;
@@ -175,12 +181,14 @@ export function detectHighlights(clips: ComposerClip[], opts: { actionMode?: boo
     let transitionDuration = 0.5;
 
     if (isHighlight && actionMode) {
-      // v12.13.0(打斗劲爆度):动作片高光=冲击瞬间,要「快、脆、硬」——
-      // 禁止整段慢放(那会泄气,还把 8s 源放成 11s 拖垮节奏),改硬切 + 极短转场。
-      // 选择性 impact 慢镜应只落在受击帧(由 beat.speedRamp 在生成层做),不在剪辑层整镜降速。
-      speedMultiplier = 1.0;
+      // v12.13.0/.1(打斗劲爆度):动作片高光=冲击瞬间,要「快、脆、硬」——默认禁止整段慢放
+      // (那会泄气,还把 8s 源放成 11s 拖垮节奏),改硬切 + 极短转场。
       transition = 'cut';
       transitionDuration = 0.08;
+      // v12.13.1 选择性 impact 慢镜:仅「短冲击镜」(≤2s 且含冲击点)给一记强调慢镜,
+      // 既保冲击力又不拖整段(长镜仍 1x)。
+      const isShortImpact = impactShots.has(clip.shotNumber) && (clip.duration ?? 8) <= 2.0;
+      speedMultiplier = isShortImpact ? 0.55 : 1.0;
     } else if (isHighlight) {
       // 非动作高光:稍微降速（慢动作强调），转场更激烈
       if (score >= 70) {
@@ -389,7 +397,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   }
 
   // ═══ 高光检测 ═══
-  const highlights = detectHighlights(clips, { actionMode });
+  const highlights = detectHighlights(clips, { actionMode, impactShots: options.impactShots });
   const highlightShots = highlights.filter(h => h.isHighlight).map(h => h.shotNumber);
   if (highlightShots.length > 0) {
     console.log(`[Composer] Highlights detected: shots ${highlightShots.join(', ')}`);
@@ -885,13 +893,58 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       filters.push(`[aconcat]anull[outa]`);
     }
 
+    // ─── v12.13.1 打击音效层(拳拳到肉)──────────────────────────────────────────
+    // 仅动作模式 + 有冲击点时:程序化合成闷响打击音(零素材),末端独立 amix(normalize=0)
+    // 叠到 [outa] 上 —— 不动既有 BGM/配音平衡。任一步异常即跳过,绝不连累成片。
+    // IMPACT_SFX_DISABLE=1 关闭。
+    let audioOut = '[outa]';
+    let sfxCount = 0;
+    if (actionMode && options.impactCues?.length && process.env.IMPACT_SFX_DISABLE !== '1') {
+      try {
+        const startMs2: Map<number, number> = new Map();
+        let cum2 = 0;
+        for (let k = 0; k < n; k++) {
+          const sn = validClips[k]?.shotNumber;
+          if (typeof sn === 'number') startMs2.set(sn, Math.round(cum2));
+          cum2 += (durations[k] || 0) * 1000;
+        }
+        const sfxLabels: string[] = [];
+        for (const cue of options.impactCues) {
+          const base = startMs2.get(cue.shotNumber);
+          if (base === undefined) continue;
+          const ci = validClips.findIndex((c) => c?.shotNumber === cue.shotNumber);
+          const clipDur = ci >= 0 ? (durations[ci] || 0) : 0;
+          const within = Math.max(0, Math.min(cue.atSec, Math.max(0, clipDur - 0.1)));
+          const lbl = `sfx${sfxLabels.length}`;
+          filters.push(impactSfxNode(base + within * 1000, cue.intensity, lbl));
+          sfxLabels.push(`[${lbl}]`);
+          if (sfxLabels.length >= 24) break; // 上限,防 filtergraph 过大
+        }
+        if (sfxLabels.length > 0) {
+          let bed = sfxLabels[0];
+          if (sfxLabels.length > 1) {
+            filters.push(`${sfxLabels.join('')}amix=inputs=${sfxLabels.length}:normalize=0:duration=longest[sfxbed]`);
+            bed = '[sfxbed]';
+          }
+          // 末端独立叠加:normalize=0 → [outa] 原音量不变,打击音叠在上面
+          filters.push(`[outa]${bed}amix=inputs=2:duration=first:normalize=0:dropout_transition=0[outfinal]`);
+          audioOut = '[outfinal]';
+          sfxCount = sfxLabels.length;
+          console.log(`[Composer] v12.13.1 打击音效:${sfxCount} 记冲击音叠入`);
+        }
+      } catch (e) {
+        console.warn('[Composer] 打击音效失败(非阻塞,跳过):', e instanceof Error ? e.message : e);
+        audioOut = '[outa]';
+      }
+    }
+
     const totalDuration = cumulativeDuration;
 
     cmd
       .complexFilter(filters)
       .outputOptions([
         '-map', '[vout]',
-        '-map', '[outa]',
+        '-map', audioOut,
         '-c:v', 'libx264',
         '-preset', 'fast',
         '-crf', '23',

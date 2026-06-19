@@ -3877,6 +3877,12 @@ ${shots.map((s, i) => {
 
     // ═══ 第2步：高光时刻检测 ═══
     this.update(AgentRole.EDITOR, { progress: 20, currentTask: '智能检测高光时刻...' });
+    // v12.13.1(打斗劲爆度第二波):动作片找「冲击点」(beat 标 speedRamp 或含冲击动词)→
+    // 打击音效 + 选择性 impact 慢镜。非动作片为空,完全不影响。
+    const { findImpactCues, impactShotSet } = await import('@/lib/impact-sfx');
+    const impactCues = actionMode ? findImpactCues((script?.shots || []) as any) : [];
+    const impactShotsArr = [...impactShotSet(impactCues)];
+    if (impactCues.length) console.log(`[Editor] v12.13.1 冲击点 ${impactCues.length} 记(镜 ${impactShotsArr.join(',')})`);
     const { detectHighlights } = await import('./video-composer');
     const highlightAnalysis = detectHighlights(timeline.map(t => ({
       shotNumber: t.shotNumber || 0,
@@ -3885,7 +3891,7 @@ ${shots.map((s, i) => {
       transition: t.transition,
       emotionTemperature: t.emotionTemperature,
       tensionLevel: t.tensionLevel,
-    })), { actionMode });
+    })), { actionMode, impactShots: impactShotsArr });
 
     const highlightShots = highlightAnalysis.filter(h => h.isHighlight);
     if (highlightShots.length > 0) {
@@ -4163,6 +4169,10 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           ? `，在第${highlightShots.map(h => h.shotNumber).join('、')}镜头处需要情感高潮`
           : '';
         let musicPrompt = `${genre}风格配乐，情绪基调：${dominantEmotion}${highlightNote}，时长约${totalDuration}秒，适合短片叙事`;
+        // v12.13.1(打斗劲爆度第二波):动作片要高能驱动配乐 —— 强劲鼓点/打击乐撑节奏,而非柔和氛围。
+        if (actionMode) {
+          musicPrompt += `. 高能动作配乐:强劲快节奏打击乐(太鼓/战鼓/工业鼓点)、紧张弦乐 staccato、强动态对比、BPM 140-160,突出冲击与肾上腺素;driving percussion, hard-hitting, aggressive, no soft ambient pads`;
+        }
 
         // ═══ v2.8: 视觉锚点增强 — 把画面的光影/温度曲线/调色板翻译给音乐模型 ═══
         // 解决"画面和配乐脱节"的痛点:Minimax 音乐不收图,但画面情感信号可以
@@ -4325,6 +4335,8 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           voiceoverVolume: 0.9,
           editStyle: this.editStyleInstruction || undefined, // v12.0.4 一句指令调风格
           actionMode, // v12.13.0 动作片:快切+硬切+不整段慢放,片段按设计时长裁切
+          impactCues, // v12.13.1 打击音效:冲击点 → 程序化合成闷响打击音
+          impactShots: impactShotsArr, // v12.13.1 选择性 impact 慢镜:短冲击镜给强调慢镜
           onProgress: (pct, stage) => {
             const mappedPct = 65 + Math.round(pct * 0.30);
             this.update(AgentRole.EDITOR, { progress: mappedPct, currentTask: stage });
