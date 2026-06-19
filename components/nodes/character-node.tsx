@@ -6,6 +6,7 @@ import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
 import { Users, CircleNotch as Loader2, CheckCircle as CheckCircle2, ArrowsClockwise as RefreshCw, Clock, Dna, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { ZoomableImage } from '@/components/ui/image-lightbox';
+import { useProjectWorkspaceStore } from '@/lib/store';
 
 function CharacterNodeComponent({ data }: NodeProps) {
   const d = data as unknown as PipelineNodeData;
@@ -14,6 +15,25 @@ function CharacterNodeComponent({ data }: NodeProps) {
   const [dnaBusy, setDnaBusy] = useState<string | null>(null);
   const [dnaLocal, setDnaLocal] = useState<Record<string, any>>({});
   const [dnaError, setDnaError] = useState<string | null>(null);
+  // v12.10.0(#1):单张角色图重生 state
+  const [regenBusy, setRegenBusy] = useState<string | null>(null);
+  const [regenError, setRegenError] = useState<string | null>(null);
+
+  const regenImage = async (charName: string, assetId: string, projectId: string) => {
+    if (regenBusy) return;
+    setRegenBusy(charName); setRegenError(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/regenerate-asset-image`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'character', name: charName }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.imageUrl) { setRegenError(body?.error || `失败 ${res.status}`); return; }
+      useProjectWorkspaceStore.getState().updateAsset(assetId, { mediaUrls: [body.imageUrl] });
+    } catch (e) {
+      setRegenError(e instanceof Error ? e.message : '请求失败');
+    } finally { setRegenBusy(null); }
+  };
 
   const reExtractDna = async (charName: string, projectId: string) => {
     if (dnaBusy) return;
@@ -115,8 +135,12 @@ function CharacterNodeComponent({ data }: NodeProps) {
                   </div>
                   <div className="text-[10px] text-gray-400 line-clamp-2 mt-0.5">{c.data?.description || ''}</div>
                 </div>
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-white/10 flex-shrink-0">
-                  <RefreshCw className="w-3 h-3 text-gray-400" />
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (projectId) regenImage(c.name, c.id, projectId); }}
+                  disabled={regenBusy !== null || !projectId}
+                  title="重新生成这张角色图(只换这一张)"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-white/10 flex-shrink-0 disabled:opacity-30">
+                  {regenBusy === c.name ? <Loader2 className="w-3 h-3 text-amber-400 animate-spin" /> : <RefreshCw className="w-3 h-3 text-gray-400" />}
                 </button>
               </div>
               {c.mediaUrls?.length > 0 && (
@@ -151,6 +175,12 @@ function CharacterNodeComponent({ data }: NodeProps) {
       {dnaError && (
         <div className="mt-2 text-[10px] text-red-300/80 bg-red-900/20 border border-red-500/20 rounded px-2 py-1">
           DNA 重抽失败: {dnaError}
+        </div>
+      )}
+      {/* v12.10.0(#1):单图重生错误 */}
+      {regenError && (
+        <div className="mt-2 text-[10px] text-red-300/80 bg-red-900/20 border border-red-500/20 rounded px-2 py-1">
+          重生失败: {regenError}
         </div>
       )}
 
