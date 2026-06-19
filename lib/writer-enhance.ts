@@ -339,6 +339,18 @@ export function buildBeatSheetBlock(): string {
 - microExpression 只在「情绪转折/关键反应」的 beat 填,不要每拍都填(滥用=噪声)。
 - speedRamp 只在「动作峰值/受击/insert 特写」填;慢镜 beat 的 startSec/endSec 仍按真实银幕秒数算(0.2x 不改时长字段)。
 - mood 串起来就是本镜的情绪曲线,应与 emotionTemperature 一致。
+
+### 动作/打斗段的节奏铁律(劲爆度关键)
+
+打斗/追逐/对决要「快、脆、硬」—— **节奏是劲爆度的头号变量**:
+- **动作镜 duration 设计成 1.5–3s**(不要 5–8s)。一次「出拳/受击/格挡」就是一个独立短镜,
+  连续动作拆成 3–5 个短镜快切,而非塞进一个长镜(长镜=慢动作 MV,泄气)。
+- **冲击瞬间(受击/砸中/刃入)才上 \`speedRamp\`**(如 "0.25x slow-mo on impact, 6 frames"),
+  且只占该 beat 末段;其余保持 1x。**禁止整镜慢放**(那会让打斗变拖沓)。
+- 动作镜 \`camera\` 用强运镜(whip-pan / snap-zoom / handheld follow / dutch),景别在 CU↔MS 间快速跳变。
+- 同场景连续动作必须标 \`transition:"continuous"\`(否则衔接断裂、也用不上真末帧续接);换招/换位才 "cut"。
+- 每个动作镜的 \`mustShow\` 写清「这一拳/这一脚打中了哪里 + 受击反馈」(护甲凹陷/重心偏移/水渍溅起),
+  让引擎必须演出「打到了」的物理反馈 —— 这是「拳拳到肉」的来源。
 ════════════════════════════════════════`;
 }
 

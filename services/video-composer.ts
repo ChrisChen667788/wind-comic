@@ -81,6 +81,7 @@ export interface ComposeOptions {
   musicVolume?: number;        // 配乐音量 0~1，默认 0.3
   voiceoverVolume?: number;    // 配音音量 0~1，默认 0.9
   editStyle?: string;          // v12.0.4 一句指令调剪辑风格(快节奏燃向/慢叙抒情...)
+  actionMode?: boolean;        // v12.13.0 动作片节奏:高光不整段慢放、硬切替淡入、保快节奏
   onProgress?: (percent: number, stage: string) => void;
 }
 
@@ -112,8 +113,9 @@ export interface HighlightAnalysis {
   };
 }
 
-export function detectHighlights(clips: ComposerClip[]): HighlightAnalysis[] {
+export function detectHighlights(clips: ComposerClip[], opts: { actionMode?: boolean } = {}): HighlightAnalysis[] {
   if (clips.length === 0) return [];
+  const actionMode = !!opts.actionMode;
 
   const analyses: HighlightAnalysis[] = clips.map((clip, i) => {
     let score = 0;
@@ -172,8 +174,15 @@ export function detectHighlights(clips: ComposerClip[]): HighlightAnalysis[] {
     let transition = clip.transition;
     let transitionDuration = 0.5;
 
-    if (isHighlight) {
-      // 高光镜头：稍微降速（慢动作强调），转场更激烈
+    if (isHighlight && actionMode) {
+      // v12.13.0(打斗劲爆度):动作片高光=冲击瞬间,要「快、脆、硬」——
+      // 禁止整段慢放(那会泄气,还把 8s 源放成 11s 拖垮节奏),改硬切 + 极短转场。
+      // 选择性 impact 慢镜应只落在受击帧(由 beat.speedRamp 在生成层做),不在剪辑层整镜降速。
+      speedMultiplier = 1.0;
+      transition = 'cut';
+      transitionDuration = 0.08;
+    } else if (isHighlight) {
+      // 非动作高光:稍微降速（慢动作强调），转场更激烈
       if (score >= 70) {
         speedMultiplier = 0.7; // 强高光：30% 慢动作
         transition = 'fade';
@@ -182,10 +191,15 @@ export function detectHighlights(clips: ComposerClip[]): HighlightAnalysis[] {
         speedMultiplier = 0.85; // 一般高光：15% 慢动作
         transitionDuration = 0.4;
       }
+    } else if (actionMode && position >= 0.2) {
+      // v12.13.0:动作片非高光段(开场后)也保持快节奏 —— 硬切 + 略加速,绝不淡入拖沓
+      speedMultiplier = score < 25 ? 1.1 : 1.0;
+      transition = 'cut';
+      transitionDuration = 0.1;
     } else if (position < 0.2) {
       // 开场：标准或略慢
       speedMultiplier = 1.0;
-      transitionDuration = 0.8;
+      transitionDuration = actionMode ? 0.3 : 0.8;
     } else if (score < 15 && position > 0.3 && position < 0.55) {
       // 低张力过渡段：适当加速
       speedMultiplier = 1.15;
@@ -368,14 +382,14 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     onProgress,
   } = options;
 
-  const { voiceoverClips, voiceoverVolume = 0.9 } = options;
+  const { voiceoverClips, voiceoverVolume = 0.9, actionMode = false } = options;
 
   if (clips.length === 0) {
     throw new Error('No clips provided');
   }
 
   // ═══ 高光检测 ═══
-  const highlights = detectHighlights(clips);
+  const highlights = detectHighlights(clips, { actionMode });
   const highlightShots = highlights.filter(h => h.isHighlight).map(h => h.shotNumber);
   if (highlightShots.length > 0) {
     console.log(`[Composer] Highlights detected: shots ${highlightShots.join(', ')}`);
@@ -446,6 +460,16 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     } catch {
       durations.push(8);
     }
+  }
+
+  // v12.13.0(打斗劲爆度修复 · 核心):用「设计时长」(ComposerClip.duration)裁切源片。
+  // 病根:视频引擎出片固定 8s/5s,之前 composer 用 ffprobe 源时长整段拼,无视分镜设计的 3-5s,
+  // 把本应快切的打斗泡成慢镜(实测 6 镜 58s,ASL≈9.7s)。这里把每镜「目标时长」seed 成设计时长
+  // (不超过源、最少 1.5s);情绪节奏/卡点只会在此基础上更短;真正裁切由下方 per-clip `trim` 滤镜落地。
+  const sourceDurations = [...durations];
+  for (let i = 0; i < durations.length; i++) {
+    const designed = validClips[i]?.duration;
+    if (designed && designed > 0) durations[i] = Math.max(1.5, Math.min(designed, sourceDurations[i]));
   }
 
   onProgress?.(40, '构建合成滤镜...');
@@ -626,10 +650,12 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         audioInputCount++;
       }
 
-      // 构建视频滤镜：统一分辨率 + 变速 + 淡入淡出
+      // 构建视频滤镜：裁切到设计时长 + 统一分辨率 + 变速 + 淡入淡出
       const speed = validClips[0]?.speedMultiplier || 1.0;
       const isHL = validClips[0]?.isHighlight || false;
-      let videoFilter = `[0:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1`;
+      // v12.13.0:单镜也按设计时长裁切(designed 未给则 = 源时长,无裁切)
+      const trimTo0 = Math.min(durations[0], sourceDurations[0]);
+      let videoFilter = `[0:v]trim=0:${trimTo0.toFixed(2)},setpts=PTS-STARTPTS,scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1`;
       if (speed !== 1.0 && speed > 0) {
         const pts = 1.0 / speed;
         videoFilter += `,setpts=${pts.toFixed(3)}*PTS`;
@@ -711,7 +737,9 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     for (let i = 0; i < n; i++) {
       const speed = validClips[i]?.speedMultiplier || 1.0;
       const isHighlightClip = validClips[i]?.isHighlight || false;
-      let videoFilter = `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1`;
+      // v12.13.0:按设计时长真裁切源片(trim=0:T + 重置时间戳)—— 杜绝 8s 源整段流出,快切节奏落地。
+      const trimTo = Math.min(durations[i], sourceDurations[i]);
+      let videoFilter = `[${i}:v]trim=0:${trimTo.toFixed(2)},setpts=PTS-STARTPTS,scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1`;
 
       // 高光变速：setpts 调整视频播放速度（<1 = 加速, >1 = 减速）
       if (speed !== 1.0 && speed > 0) {

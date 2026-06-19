@@ -3488,7 +3488,11 @@ ${shots.map((s, i) => {
         });
       }
 
-      const clip = { shotNumber: board.shotNumber, videoUrl, duration: 8, status: 'completed' as const };
+      // v12.13.0(打斗劲爆度):片段带「设计时长」(shot.duration,封顶源片 8s,最少 2s)。
+      // 之前恒 8s → 剪辑层把 3s 设计的爆发镜整段拼成 8s 慢镜;现在让设计时长一路传到 composer 裁切。
+      const designedDur = (shot as any)?.duration;
+      const clipDuration = designedDur && designedDur > 0 ? Math.max(2, Math.min(designedDur, 8)) : 8;
+      const clip = { shotNumber: board.shotNumber, videoUrl, duration: clipDuration, status: 'completed' as const };
 
       // v2.9 P1 Keyframes: 异步抽末帧存进 shotLastFrames,下一 shot 开始时会读它作参考图
       // fire-and-forget —— 抽帧耗时 ~0.5s,不阻塞主推理流,失败也不影响本 shot 结果
@@ -3799,6 +3803,13 @@ ${shots.map((s, i) => {
     await sleep(500);
     const totalShots = videos.length;
 
+    // v12.13.0(打斗劲爆度):动作模式判定 —— 动作/打斗片要「快切、硬切、不整段慢放」。
+    // 由题材 + 一句指令 + 全镜情绪关键词综合判定;命中则剪辑层切快节奏策略。
+    const actionMode = /动作|打斗|格斗|武侠|战斗|追逐|枪战|对决|厮杀|action|fight|combat|battle/i.test(
+      `${this.genre} ${this.editStyleInstruction} ${(script?.shots || []).map((s: any) => `${s.emotion || ''} ${s.sceneDescription || ''}`).join(' ')}`
+    );
+    if (actionMode) console.log('[Editor] v12.13.0 动作模式:快切+硬切+不整段慢放');
+
     // ═══ 第1步：构建时间线 + 高光元数据 ═══
     this.update(AgentRole.EDITOR, { progress: 10, currentTask: '构建高光分析时间线...' });
     const timeline = videos.map((v, i) => {
@@ -3835,6 +3846,12 @@ ${shots.map((s, i) => {
         transition = i % 2 === 0 ? 'cross-dissolve' : 'cut';
       }
 
+      // v12.13.0:动作片中段一律硬切(淡入/淡黑软化冲击),保留首尾 fade 与高潮 flash-cut
+      if (actionMode && i !== 0 && i !== totalShots - 1 && (transition === 'cross-dissolve' || transition === 'dip-to-black')) {
+        transition = 'cut';
+        if (effect === 'soft-focus' || effect === 'vignette') effect = 'shake';
+      }
+
       // 从 storyboard planData 获取张力等级
       const tensionLevel = (shot as any)?.tensionLevel ?? (
         i === 0 ? 3 : i === totalShots - 1 ? 4 : act === 3 ? 9 : 5
@@ -3866,7 +3883,7 @@ ${shots.map((s, i) => {
       transition: t.transition,
       emotionTemperature: t.emotionTemperature,
       tensionLevel: t.tensionLevel,
-    })));
+    })), { actionMode });
 
     const highlightShots = highlightAnalysis.filter(h => h.isHighlight);
     if (highlightShots.length > 0) {
@@ -4305,6 +4322,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           musicVolume: voiceoverClips.length > 0 ? 0.2 : 0.3, // 有配音时降低配乐音量
           voiceoverVolume: 0.9,
           editStyle: this.editStyleInstruction || undefined, // v12.0.4 一句指令调风格
+          actionMode, // v12.13.0 动作片:快切+硬切+不整段慢放,片段按设计时长裁切
           onProgress: (pct, stage) => {
             const mappedPct = 65 + Math.round(pct * 0.30);
             this.update(AgentRole.EDITOR, { progress: mappedPct, currentTask: stage });
