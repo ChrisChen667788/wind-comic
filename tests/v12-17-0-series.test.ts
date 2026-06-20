@@ -2,7 +2,7 @@
  * v12.17.0(阶段二十六 多集生成)— 系列剧规划纯逻辑。
  */
 import { describe, it, expect } from 'vitest';
-import { seriesEpisodeTitle, validateSeriesInput, buildSeriesPlan, deriveSeriesId } from '@/lib/series';
+import { seriesEpisodeTitle, validateSeriesInput, buildSeriesPlan, deriveSeriesId, selectGeneratableEpisodes } from '@/lib/series';
 
 describe('v12.17.0 · seriesEpisodeTitle', () => {
   it('带/不带本集名', () => {
@@ -51,5 +51,18 @@ describe('v12.17.0 · buildSeriesPlan', () => {
 describe('v12.17.0 · deriveSeriesId', () => {
   it('从锚点项目 id 稳定派生', () => {
     expect(deriveSeriesId('proj-123')).toBe('series-proj-123');
+  });
+});
+
+describe('v12.18.0 · selectGeneratableEpisodes(批量生成挑集)', () => {
+  const eps = [
+    { id: 'a', status: 'draft' }, { id: 'b', status: 'active' },
+    { id: 'c', status: 'completed' }, { id: 'd', status: 'draft' },
+  ];
+  it('默认只取 draft(跳过生成中/已完成)', () => {
+    expect(selectGeneratableEpisodes(eps).map((e) => e.id)).toEqual(['a', 'd']);
+  });
+  it('force=true 重生除「生成中」外的所有集', () => {
+    expect(selectGeneratableEpisodes(eps, { force: true }).map((e) => e.id)).toEqual(['a', 'c', 'd']);
   });
 });

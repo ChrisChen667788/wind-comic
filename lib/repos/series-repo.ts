@@ -59,6 +59,34 @@ export async function listSeriesEpisodes(seriesId: string, userId: string): Prom
   return rows as EpisodeRow[];
 }
 
+export interface EpisodeFullRow extends EpisodeRow {
+  description: string | null;
+  style_id: string | null;
+  primary_character_ref: string | null;
+  locked_characters: string | null;
+}
+
+/** 列出某系列全部剧集(含生成所需的 premise + 继承一致性字段),按集号升序,限本人。 */
+export async function listSeriesEpisodesFull(seriesId: string, userId: string): Promise<EpisodeFullRow[]> {
+  const driver = getDbDriver();
+  const rows = await driver.query(
+    `SELECT id, title, status, series_id, episode_number, aspect, description, style_id, primary_character_ref, locked_characters
+       FROM projects WHERE series_id = ? AND user_id = ?
+       ORDER BY episode_number ASC`,
+    [seriesId, userId],
+  );
+  return rows as EpisodeFullRow[];
+}
+
+/** 设置某剧集状态(批量生成进度:draft→active→completed)。 */
+export async function setEpisodeStatus(projectId: string, status: string): Promise<void> {
+  const driver = getDbDriver();
+  await driver.run(
+    `UPDATE projects SET status = ?, updated_at = ? WHERE id = ?`,
+    [status, new Date().toISOString(), projectId],
+  );
+}
+
 /** 系列已有的最大集号(用于追加新集时续号);无则 0。 */
 export async function maxEpisodeNumber(seriesId: string, userId: string): Promise<number> {
   const driver = getDbDriver();
