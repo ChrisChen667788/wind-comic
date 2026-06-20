@@ -1,0 +1,75 @@
+/**
+ * 多集生成(阶段二十六)—— 系列剧落库(DbDriver,SQLite/PG 双驱)。
+ * 剧集 = projects 行 + series_id/episode_number(v12.17.0 加列)。
+ */
+import { getDbDriver } from '@/lib/db-driver';
+import type { EpisodeShellSpec } from '@/lib/series';
+
+export interface EpisodeRow {
+  id: string;
+  title: string;
+  status: string;
+  series_id: string | null;
+  episode_number: number | null;
+  aspect: string | null;
+}
+
+/** 插入一集剧集 shell(draft 状态,继承锚点一致性资产 + series_id/episode_number)。 */
+export async function insertEpisodeProject(input: {
+  id: string;
+  userId: string;
+  spec: EpisodeShellSpec;
+}): Promise<void> {
+  const driver = getDbDriver();
+  const ts = new Date().toISOString();
+  const s = input.spec;
+  await driver.run(
+    `INSERT INTO projects
+       (id, user_id, title, description, cover_urls, status, aspect, style_id, primary_character_ref, locked_characters, series_id, episode_number, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      input.id, input.userId, s.title, s.description || null,
+      JSON.stringify([]), 'draft',
+      s.aspect, s.styleId, s.primaryCharacterRef,
+      s.lockedCharacters || JSON.stringify([]),
+      s.seriesId, s.episodeNumber, ts, ts,
+    ],
+  );
+}
+
+/** 把一个已有项目接成系列的锚点集(ep1):写 series_id + episode_number(缺省 1)。 */
+export async function linkAnchorEpisode(projectId: string, seriesId: string, userId: string): Promise<boolean> {
+  const driver = getDbDriver();
+  const r = await driver.run(
+    `UPDATE projects SET series_id = ?, episode_number = COALESCE(episode_number, 1), updated_at = ? WHERE id = ? AND user_id = ?`,
+    [seriesId, new Date().toISOString(), projectId, userId],
+  );
+  return ((r as any)?.changes ?? 0) > 0;
+}
+
+/** 列出某系列全部剧集(按集号升序),限本人。 */
+export async function listSeriesEpisodes(seriesId: string, userId: string): Promise<EpisodeRow[]> {
+  const driver = getDbDriver();
+  const rows = await driver.query(
+    `SELECT id, title, status, series_id, episode_number, aspect
+       FROM projects WHERE series_id = ? AND user_id = ?
+       ORDER BY episode_number ASC`,
+    [seriesId, userId],
+  );
+  return rows as EpisodeRow[];
+}
+
+/** 系列已有的最大集号(用于追加新集时续号);无则 0。 */
+export async function maxEpisodeNumber(seriesId: string, userId: string): Promise<number> {
+  const driver = getDbDriver();
+  const rows = await driver.query(
+    `SELECT episode_number FROM projects WHERE series_id = ? AND user_id = ?`,
+    [seriesId, userId],
+  );
+  let max = 0;
+  for (const r of rows as any[]) {
+    const n = Number(r.episode_number) || 0;
+    if (n > max) max = n;
+  }
+  return max;
+}
