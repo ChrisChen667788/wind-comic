@@ -36,6 +36,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, started: 0, message: '没有待生成的剧集(都已生成或正在生成)' });
   }
 
+  // v12.23.0(评审):预算护栏 —— 整片生成很重,批量更要拦,否则 force 反复重生会无上限超支。
+  // 每集粗估 ¥6(图+视频+音),与单集管线同源预算控制。
+  const { assertBudget } = await import('@/lib/budget-enforce');
+  const b = await assertBudget({ userId, pendingCostCny: targets.length * 6 });
+  if (!b.allow) return NextResponse.json({ error: b.guard.message, code: 'budget_exceeded', guard: b.guard }, { status: 402 });
+
   // 每集 → CreatePipelineInput(premise 作创意 + 继承锚点一致性资产)
   const inputFor = (ep: typeof targets[number]) => ({
     idea: (ep.description || ep.title || '').slice(0, 2000),
@@ -56,12 +62,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (process.env.PIPELINE_QUEUE === '1') {
     const { enqueuePipelineJob } = await import('@/lib/repos/pipeline-job-repo');
     const { ensurePipelineWorker } = await import('@/lib/pipeline-worker');
+    let queued = 0;
     for (const ep of targets) {
-      await enqueuePipelineJob({ type: 'create', projectId: ep.id, userId, payload: inputFor(ep) });
+      try {
+        await enqueuePipelineJob({ type: 'create', projectId: ep.id, userId, payload: inputFor(ep) });
+        queued++;
+      } catch (e) {
+        // v12.23.0(评审):入队失败立即回退 draft,否则该集永远卡 active(无 job 可被 worker/孤儿扫描救)
+        console.error(`[Series ${id}] 第 ${ep.episode_number} 集入队失败,回退 draft:`, e instanceof Error ? e.message : e);
+        await setEpisodeStatus(ep.id, 'draft').catch(() => {});
+      }
     }
     ensurePipelineWorker();
     return NextResponse.json({
-      ok: true, started: targets.length, mode: 'queue',
+      ok: true, started: queued, mode: 'queue',
       episodes: targets.map((t) => ({ id: t.id, episodeNumber: t.episode_number, title: t.title })),
     });
   }

@@ -209,11 +209,24 @@ export async function recoverOrphanJobs(staleMs: number = ORPHAN_STALE_MS): Prom
   const drv = getDbDriver();
   const t = nowIso();
   const cutoff24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  // v12.23.0(评审):先抓将被过期的 create 任务的 project_id,过期后把这些项目 status 回写 failed,
+  // 否则这些项目(尤其多集剧集)永远卡 active(job 已 failed、孤儿扫描不再处理、面板轮询不停)。
+  const toExpire = await drv.query(
+    `SELECT project_id FROM pipeline_jobs WHERE state IN ('queued','running') AND created_at < ? AND type = 'create'`,
+    [cutoff24h],
+  );
   const exp = await drv.run(
     `UPDATE pipeline_jobs SET state = 'failed', last_error = '过期未执行(超 24h)', updated_at = ?
      WHERE state IN ('queued','running') AND created_at < ?`,
     [t, cutoff24h],
   );
+  for (const r of (toExpire as any[])) {
+    if (!r?.project_id) continue;
+    try {
+      const { updateProjectById } = await import('./project-repo');
+      await updateProjectById(r.project_id, { status: 'failed' });
+    } catch { /* 非阻塞 */ }
+  }
   // v11.0.3: 顺带清超 24h 任务的进度事件(回放窗口已过,防表无限增长)
   await drv.run(
     `DELETE FROM pipeline_job_events WHERE job_id IN (SELECT id FROM pipeline_jobs WHERE created_at < ?)`,

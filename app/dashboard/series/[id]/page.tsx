@@ -42,12 +42,13 @@ export default function SeriesPanel() {
 
   useEffect(() => { load(); }, [load]);
 
-  // 有「生成中」就轮询
+  // 有「生成中」就轮询。v12.23.0:依赖布尔 hasActive(非 episodes 引用),避免每次 load 后重建 interval。
+  const hasActive = episodes.some((e) => e.status === 'active');
   useEffect(() => {
-    if (!episodes.some((e) => e.status === 'active')) return;
+    if (!hasActive) return;
     const t = setInterval(load, 5000);
     return () => clearInterval(t);
-  }, [episodes, load]);
+  }, [hasActive, load]);
 
   const batchGenerate = async (force = false) => {
     if (busy) return;
@@ -58,7 +59,12 @@ export default function SeriesPanel() {
       });
       const body = await res.json();
       if (!res.ok) { setMsg(body?.error || `失败 ${res.status}`); return; }
-      setMsg(body.started > 0 ? `已开始批量生成 ${body.started} 集(并发 ${body.concurrency},逐集进行中…)` : (body.message || '没有待生成的剧集'));
+      // v12.23.0:队列模式无 concurrency 字段,按 mode 分支文案(不再显示「并发 undefined」)
+      setMsg(body.started > 0
+        ? (body.mode === 'queue'
+            ? `已入队批量生成 ${body.started} 集(持久队列,逐集进行中…)`
+            : `已开始批量生成 ${body.started} 集(并发 ${body.concurrency},逐集进行中…)`)
+        : (body.message || '没有待生成的剧集'));
       await load();
     } catch (e) { setMsg(e instanceof Error ? e.message : '请求失败'); }
     finally { setBusy(false); }
@@ -119,7 +125,7 @@ export default function SeriesPanel() {
             const st = STATUS[ep.status] || STATUS.draft;
             return (
               <div key={ep.id} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                <span className="text-cyan-400 font-bold text-sm w-12 shrink-0">第{ep.episode_number}集</span>
+                <span className="text-cyan-400 font-bold text-sm w-12 shrink-0">第{ep.episode_number ?? '?'}集</span>
                 <span className="flex-1 text-sm text-white truncate">{ep.title}</span>
                 {ep.aspect && <span className="text-[10px] text-gray-500 font-mono">{ep.aspect}</span>}
                 <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border ${st.cls}`}>

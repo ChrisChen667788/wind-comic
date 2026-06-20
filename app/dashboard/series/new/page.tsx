@@ -77,7 +77,7 @@ export default function NewSeriesWizard() {
         }),
       });
       const body = await res.json();
-      if (!res.ok || !body.seriesId) { setErr(body?.error || `创建失败 ${res.status}`); return; }
+      if (!res.ok || !body.seriesId) { setErr(body?.error || `创建失败 ${res.status}`); setCreating(false); return; } // v12.23.0:错误路径复位,防按钮卡死
       if (autoGen) {
         await fetch(`/api/series/${encodeURIComponent(body.seriesId)}/generate`, { method: 'POST', headers: authHeaders(), body: '{}' }).catch(() => {});
       }

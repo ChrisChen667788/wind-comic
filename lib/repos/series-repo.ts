@@ -40,8 +40,10 @@ export async function insertEpisodeProject(input: {
 /** 把一个已有项目接成系列的锚点集(ep1):写 series_id + episode_number(缺省 1)。 */
 export async function linkAnchorEpisode(projectId: string, seriesId: string, userId: string): Promise<boolean> {
   const driver = getDbDriver();
+  // v12.23.0(评审):锚点强制为第 1 集(直接赋 1,不用 COALESCE);否则若锚点曾属别的系列、
+  // 已有集号(如 3),会保留 3 → 本系列集号错乱。
   const r = await driver.run(
-    `UPDATE projects SET series_id = ?, episode_number = COALESCE(episode_number, 1), updated_at = ? WHERE id = ? AND user_id = ?`,
+    `UPDATE projects SET series_id = ?, episode_number = 1, updated_at = ? WHERE id = ? AND user_id = ?`,
     [seriesId, new Date().toISOString(), projectId, userId],
   );
   return ((r as any)?.changes ?? 0) > 0;
