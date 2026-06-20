@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 // v8.3 P1: lucide → Phosphor (ultra-thin Light weight, Taste Skill 推荐, 摆脱 AI 默认观感)
 import {
   SquaresFour, Kanban, Sparkle, BookOpen, User,
-  SignOut, CaretLeft, CaretRight, Package, PenNib, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning, ChartLineUp, Stack, Queue,
+  SignOut, CaretLeft, CaretRight, Package, PenNib, MagicWand, FilmReel, CreditCard, Scroll, Palette, UsersThree, Pulse, Lightning, ChartLineUp, Stack, Queue, FilmSlate,
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 
@@ -18,6 +18,8 @@ const navItems = [
   { href: '/dashboard/short-video', label: '极速分镜台', icon: Lightning },
   // v6.2.1: 长篇小说/剧本 → 自动分集 + 叙事模式 → 逐集送入创作
   { href: '/dashboard/story-intake', label: '长篇拆解', icon: Scroll },
+  // 阶段二十六: 系列剧 — 跨集一致 + 一键批量出片
+  { href: '/dashboard/series', label: '我的系列', icon: FilmSlate },
   // v2.11: 独立剧本润色工具 — 不走完整 Agent 管线, 纯文本润色
   { href: '/dashboard/polish', label: '剧本润色', icon: MagicWand },
   // v2.12 Sprint C.1: 单图变视频(I2V)独立工具

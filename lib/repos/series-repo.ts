@@ -87,6 +87,36 @@ export async function setEpisodeStatus(projectId: string, status: string): Promi
   );
 }
 
+export interface SeriesSummary {
+  seriesId: string;
+  episodeCount: number;
+  doneCount: number;
+  sampleTitle: string;
+  updatedAt: string;
+}
+
+/** 列出本人名下所有系列(按最近更新),带集数/已完成数/样例标题(供「我的系列」入口)。 */
+export async function listUserSeries(userId: string): Promise<SeriesSummary[]> {
+  const driver = getDbDriver();
+  const rows = await driver.query(
+    `SELECT series_id AS seriesId, COUNT(*) AS episodeCount,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS doneCount,
+            MIN(title) AS sampleTitle, MAX(updated_at) AS updatedAt
+       FROM projects
+      WHERE series_id IS NOT NULL AND user_id = ?
+      GROUP BY series_id
+      ORDER BY MAX(updated_at) DESC`,
+    [userId],
+  );
+  return (rows as any[]).map((r) => ({
+    seriesId: String(r.seriesId),
+    episodeCount: Number(r.episodeCount) || 0,
+    doneCount: Number(r.doneCount) || 0,
+    sampleTitle: r.sampleTitle || '',
+    updatedAt: r.updatedAt || '',
+  }));
+}
+
 /** 系列已有的最大集号(用于追加新集时续号);无则 0。 */
 export async function maxEpisodeNumber(seriesId: string, userId: string): Promise<number> {
   const driver = getDbDriver();

@@ -11,13 +11,21 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../auth/lib';
 import { buildSeriesPlan, validateSeriesInput, deriveSeriesId, type EpisodeOutline, type SeriesAnchor } from '@/lib/series';
-import { insertEpisodeProject, linkAnchorEpisode } from '@/lib/repos/series-repo';
+import { insertEpisodeProject, linkAnchorEpisode, listUserSeries } from '@/lib/repos/series-repo';
 import { buildSeasonBatch } from '@/lib/season-batch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function parse(raw: string | null | undefined): any { try { return raw ? JSON.parse(raw) : null; } catch { return null; } }
+
+/** GET /api/series —— 列出本人所有系列(「我的系列」入口用)。 */
+export async function GET(request: Request) {
+  const payload = getUserFromRequest(request);
+  if (!payload?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const series = await listUserSeries(payload.sub);
+  return NextResponse.json({ ok: true, series });
+}
 
 export async function POST(request: Request) {
   const payload = getUserFromRequest(request);
@@ -26,7 +34,20 @@ export async function POST(request: Request) {
 
   let body: any = {}; try { body = await request.json(); } catch {}
   const seriesTitle = (typeof body?.seriesTitle === 'string' ? body.seriesTitle : '').trim() || '我的系列剧';
-  const episodes: EpisodeOutline[] = Array.isArray(body?.episodes) ? body.episodes : [];
+  let episodes: EpisodeOutline[] = Array.isArray(body?.episodes) ? body.episodes : [];
+
+  // v12.21.0 AI 自动拆集:没给 episodes 但给了 premise + episodeCount → 创意 LLM 拆成各集梗概
+  let autoSplit = false;
+  if (episodes.length === 0 && typeof body?.premise === 'string' && body.premise.trim() && Number(body?.episodeCount) > 0) {
+    try {
+      const { splitSeriesIntoEpisodes } = await import('@/lib/series-ai');
+      episodes = await splitSeriesIntoEpisodes(body.premise.trim(), Number(body.episodeCount));
+      autoSplit = true;
+    } catch (e) {
+      return NextResponse.json({ error: (e instanceof Error ? e.message : String(e)).slice(0, 200) }, { status: 502 });
+    }
+  }
+
   const v = validateSeriesInput(episodes);
   if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
 
@@ -69,6 +90,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     seriesId,
+    autoSplit, // v12.21.0:本次各集梗概是否 AI 自动拆出
     anchorProjectId: anchorProjectId || null,
     episodes: created,
     inherits: anchorProjectId ? { styleId: anchor.styleId, primaryCharacterRef: anchor.primaryCharacterRef, aspect: anchor.aspect } : null,
