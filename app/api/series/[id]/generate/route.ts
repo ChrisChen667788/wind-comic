@@ -36,29 +36,45 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, started: 0, message: '没有待生成的剧集(都已生成或正在生成)' });
   }
 
-  const concurrency = Math.max(1, Number(process.env.SERIES_CONCURRENCY) || 1);
+  // 每集 → CreatePipelineInput(premise 作创意 + 继承锚点一致性资产)
+  const inputFor = (ep: typeof targets[number]) => ({
+    idea: (ep.description || ep.title || '').slice(0, 2000),
+    projectId: ep.id,
+    aspect: ep.aspect || '16:9',
+    style: ep.style_id || undefined,
+    primaryCharacterRef: ep.primary_character_ref || undefined,
+    lockedCharacters: parseArr(ep.locked_characters),
+    enableGates: false,
+  });
+
   // 先标 active —— 前端轮询立即看到「生成中」,并防重复触发
   for (const ep of targets) await setEpisodeStatus(ep.id, 'active');
 
-  // 后台批量跑(不 await;持久 server 下存活)。每集独立 try,失败回退 draft 可重试。
+  // ── v12.19.0 持久任务队列(抗重启)──────────────────────────────────────────
+  // PIPELINE_QUEUE=1:每集入 pipeline_jobs(与单集创作同一队列 + worker),进程重启由
+  // recoverOrphanJobs 把在途 running 重入队续跑;失败按 attempts 重试。pipeline 收尾自标 completed。
+  if (process.env.PIPELINE_QUEUE === '1') {
+    const { enqueuePipelineJob } = await import('@/lib/repos/pipeline-job-repo');
+    const { ensurePipelineWorker } = await import('@/lib/pipeline-worker');
+    for (const ep of targets) {
+      await enqueuePipelineJob({ type: 'create', projectId: ep.id, userId, payload: inputFor(ep) });
+    }
+    ensurePipelineWorker();
+    return NextResponse.json({
+      ok: true, started: targets.length, mode: 'queue',
+      episodes: targets.map((t) => ({ id: t.id, episodeNumber: t.episode_number, title: t.title })),
+    });
+  }
+
+  // ── 兜底:进程内 runPool(无队列;fire-and-forget,重启会丢在途)──────────────
+  const concurrency = Math.max(1, Number(process.env.SERIES_CONCURRENCY) || 1);
   void (async () => {
     const { runCreatePipeline } = await import('@/lib/create-pipeline');
     const report = await runPool(
       targets,
       async (ep) => {
         try {
-          await runCreatePipeline(
-            {
-              idea: (ep.description || ep.title || '').slice(0, 2000),
-              projectId: ep.id,
-              aspect: ep.aspect || '16:9',
-              style: ep.style_id || undefined,
-              primaryCharacterRef: ep.primary_character_ref || undefined,
-              lockedCharacters: parseArr(ep.locked_characters),
-              enableGates: false,
-            },
-            () => {}, // 批量非交互:吞掉进度事件
-          );
+          await runCreatePipeline(inputFor(ep), () => {}); // 批量非交互:吞掉进度事件
           await setEpisodeStatus(ep.id, 'completed');
           return true;
         } catch (e) {
@@ -77,9 +93,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   })().catch((e) => console.error(`[Series ${id}] 批量生成顶层异常:`, e));
 
   return NextResponse.json({
-    ok: true,
-    started: targets.length,
-    concurrency,
+    ok: true, started: targets.length, mode: 'inline', concurrency,
     episodes: targets.map((t) => ({ id: t.id, episodeNumber: t.episode_number, title: t.title })),
   });
 }
