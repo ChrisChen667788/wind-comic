@@ -57,7 +57,7 @@ import {
   buildMusicVisualAnchor,
 } from '@/lib/writer-enhance';
 // v12.12.0(Phase 2):@元素注册表 + 跨引擎多参适配 + 同场景续接守卫
-import { buildElementsRegistry, mountForShot, scenesLikelySame, type ElementsRegistry, type ShotMount } from '@/lib/elements-registry';
+import { buildElementsRegistry, mountForShot, scenesLikelySame, subjectReferencesFromMount, type ElementsRegistry, type ShotMount } from '@/lib/elements-registry';
 import { normalizeVideoAspect } from '@/lib/video-aspect'; // v12.14.0 横竖屏:把项目比例传给视频引擎
 import { StoryTemplate } from '@/lib/story-templates';
 import { createError, normalizeError, PipelineError } from '@/lib/pipeline-error';
@@ -3410,9 +3410,14 @@ ${shots.map((s, i) => {
                 onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
               });
             } else if (engine === 'kling' && this.klingService) {
+              // v12.15.0(Phase 2.1):给 Kling 喂角色(registry mount)+ 场景/风格参考图。
+              // 之前 Kling 路径只有 first_frame、无任何角色/场景参考。Elements 多参实际生效需 KLING_ELEMENTS=1。
+              const klingRefs = flattenBundleToUrls(mrBundle, 4).filter((u) => u !== firstFrameUrl);
               return await this.klingService.generateVideo(firstFrameUrl, enhancedPrompt, {
                 duration: 5,
                 aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
+                subjectReferences: subjectReferencesFromMount(shotMount), // v12.15.0 Phase 2.1
+                referenceImages: klingRefs.length > 0 ? klingRefs : undefined,
                 onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
               });
             }

@@ -35,6 +35,10 @@ export class KlingService {
       resolution?: string;
       aspectRatio?: string; // v12.14.0 横竖屏:'16:9'|'9:16'|'1:1'
       mode?: 'standard' | 'professional';
+      // v12.15.0(Phase 2.1):多参 Elements —— 角色(frontal + 多角度 refs)+ 场景/风格参考图。
+      // 仅 KLING_ELEMENTS=1 启用(默认关,零回归;需 kling-v1-6 Elements 套餐)。
+      subjectReferences?: Array<{ imageUrl: string; name?: string; refImageUrls?: string[] }>;
+      referenceImages?: string[];
       onProgress?: ProgressCallback;
     }
   ): Promise<string> {
@@ -60,6 +64,24 @@ export class KlingService {
 
       if (hasRealImage) {
         body.image = imageUrl;
+      }
+
+      // v12.15.0(Phase 2.1):多参 Elements —— 给 Kling 喂角色(frontal+多角度)+ 场景参考图。
+      // 现状 Kling 路径只有 first_frame,没有任何角色/场景参考;开启后一致性更强。
+      // 默认关(KLING_ELEMENTS=1 开):需 kling-v1-6 Elements 套餐,且本套餐 API 未在此环境验证,
+      // 故 opt-in,失败由 orchestrator 跳到下一引擎(Kling 是末位兜底,影响可控)。
+      const subj = (options?.subjectReferences || []).filter((s) => s?.imageUrl?.startsWith('http'));
+      const sceneRefs = (options?.referenceImages || []).filter((u) => u && u.startsWith('http'));
+      if (process.env.KLING_ELEMENTS === '1' && (subj.length > 0 || sceneRefs.length > 0)) {
+        body.model_name = process.env.KELING_ELEMENTS_MODEL || 'kling-v1-6';
+        if (subj.length > 0) {
+          body.elements = subj.slice(0, 4).map((s) => ({
+            frontal_image_url: s.imageUrl,
+            reference_image_urls: (s.refImageUrls || []).filter((u) => u && u.startsWith('http')).slice(0, 3),
+          }));
+        }
+        if (sceneRefs.length > 0) body.image_urls = sceneRefs.slice(0, 4);
+        console.log(`[Kling] Elements 模式(${body.model_name}):${subj.length} 角色 + ${sceneRefs.length} 场景/风格参考`);
       }
 
       // Kling API: POST /v1/videos/image2video or /v1/videos/text2video

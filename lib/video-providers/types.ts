@@ -45,8 +45,10 @@ export interface VideoGenerateInput {
   /**
    * Minimax S2V 多主体: 每个主要角色一个 imageUrl, 保角色一致性.
    * 需要 provider supportsSubjectReference=true.
+   * v12.15.0(Phase 2.1): refImageUrls 为该主体的「多角度」附加参考图(正面之外的侧/3-4 视图),
+   * 供 Kling Elements(frontal_image_url + reference_image_urls)用;不支持的引擎忽略它。
    */
-  subjectReferences?: Array<{ imageUrl: string; name?: string }>;
+  subjectReferences?: Array<{ imageUrl: string; name?: string; refImageUrls?: string[] }>;
 
   /** 通用参考图 (场景/风格), Veo / Sora multi-reference 通道. */
   referenceImages?: string[];

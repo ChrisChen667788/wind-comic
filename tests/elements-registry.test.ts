@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   elementId, parseElementId, buildElementsRegistry, resolveElement, mountForShot,
   toSeedanceSlots, toKlingElements, toVeoReferenceImages, annotateSeedancePrompt, scenesLikelySame,
+  subjectReferencesFromMount,
 } from '@/lib/elements-registry';
 
 const H = (n: string) => `https://cdn.test/${n}.png`;
@@ -77,6 +78,11 @@ describe('v12.12.0 · 跨引擎适配', () => {
   it('Veo:reference_images ≤max,角色→场景→道具', () => {
     expect(toVeoReferenceImages(mount, 3)).toEqual([H('lw_front'), H('lz_front'), H('cage')]);
     expect(toVeoReferenceImages(mount, 2)).toEqual([H('lw_front'), H('lz_front')]);
+  });
+  it('subjectReferencesFromMount:frontal 作 imageUrl、其余角度作 refImageUrls(Phase 2.1)', () => {
+    const subs = subjectReferencesFromMount(mount);
+    expect(subs[0]).toEqual({ imageUrl: H('lw_front'), name: '陆晚晚', refImageUrls: [H('lw_side')] });
+    expect(subs[1]).toEqual({ imageUrl: H('lz_front'), name: '林泽', refImageUrls: [] }); // 单图角色无多角度
   });
   it('annotateSeedancePrompt 并入 @Image 说明', () => {
     const out = annotateSeedancePrompt('女主出拳', mount);

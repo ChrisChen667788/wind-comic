@@ -191,6 +191,19 @@ export function toKlingElements(mount: ShotMount): {
 }
 
 /**
+ * 统一 VideoGenerateInput.subjectReferences[] —— 每角色 frontal 作 imageUrl、其余角度作 refImageUrls。
+ * Minimax S2V 只用 imageUrl;Kling Elements 用 frontal + refImageUrls(多角度)。
+ */
+export function subjectReferencesFromMount(mount: ShotMount): Array<{ imageUrl: string; name: string; refImageUrls: string[] }> {
+  const out: Array<{ imageUrl: string; name: string; refImageUrls: string[] }> = [];
+  for (const c of mount.characters) {
+    const f = frontal(c);
+    if (f) out.push({ imageUrl: f, name: c.name, refImageUrls: nonFrontal(c) });
+  }
+  return out;
+}
+
+/**
  * Veo 3.1 Ingredients 适配:reference_images[](≤max,默认 3;角色→场景→道具),无 @标记。
  */
 export function toVeoReferenceImages(mount: ShotMount, max = 3): string[] {
