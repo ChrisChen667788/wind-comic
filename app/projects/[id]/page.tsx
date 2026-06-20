@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { SafeAreaOverlay } from '@/components/ui/safe-area-overlay';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -85,6 +85,21 @@ export default function ProjectDetailPage() {
     if (!el) return;
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else el.requestFullscreen?.().catch(() => {});
+  };
+  // v12.13.2:按「视频/图片真实比例」显示 —— 裸 <video> 默认 object-fit:fill 会把不同比例的源
+  // 拉伸进固定框(竖屏框塞横屏片=变形)。从加载到的真实尺寸探测比例,预览+全屏都按真实比例 + object-contain。
+  const [playerRatio, setPlayerRatio] = useState<number | null>(null);
+  // 切镜重新探测(不同镜可能比例不同),onLoadedMetadata/onLoad 会立刻回填
+  useEffect(() => { setPlayerRatio(null); }, [playingIndex]);
+  // 给定是否全屏,返回主播放媒体的 className/style:真实比例已知则按其显示,否则回退项目设定比例。
+  const mediaPresentation = (isFs: boolean): { className: string; style?: CSSProperties } => {
+    if (isFs) return { className: 'max-h-screen max-w-full object-contain' };
+    if (playerRatio) {
+      return playerRatio < 1
+        ? { className: 'object-contain bg-black mx-auto block h-auto', style: { aspectRatio: String(playerRatio), maxHeight: '72vh', width: 'auto' } } // 竖屏:限高居中
+        : { className: 'w-full object-contain bg-black block', style: { aspectRatio: String(playerRatio) } };                                          // 横屏/方:撑满宽
+    }
+    return { className: `w-full object-contain bg-black ${mainFrameClass}` }; // 回退:项目比例框,但 object-contain 不变形
   };
   // v12.1.1 成片音频体检
   const [audioCheck, setAudioCheck] = useState<{ audible: boolean; label: string; hasAudioStream: boolean | null; healed: boolean } | null>(null);
@@ -926,6 +941,7 @@ export default function ProjectDetailPage() {
                     {videos[Math.max(0, playingIndex)]?.mediaUrls?.[0] ? (
                       (() => {
                         const url = videos[Math.max(0, playingIndex)].mediaUrls[0];
+                        const mp = mediaPresentation(isPlayerFs);
                         return isVideoUrl(url) ? (
                           <video
                             key={playingIndex}
@@ -933,15 +949,19 @@ export default function ProjectDetailPage() {
                             autoPlay
                             playsInline
                             controls
+                            onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setPlayerRatio(v.videoWidth / v.videoHeight); }}
                             onDoubleClick={(e) => { e.preventDefault(); togglePlayerFullscreen(); }}
-                            className={isPlayerFs ? 'max-h-screen max-w-full object-contain' : `w-full ${mainFrameClass}`}
+                            className={mp.className}
+                            style={mp.style}
                             onEnded={() => {
                               if (playingIndex < videos.length - 1) setPlayingIndex(playingIndex + 1);
                             }}
                           />
                         ) : (
                           <div className={isPlayerFs ? 'relative grid place-items-center' : 'relative'}>
-                            <img loading="lazy" decoding="async" src={url} alt="playing" className={isPlayerFs ? 'max-h-screen max-w-full object-contain' : `w-full ${mainFrameClass} object-cover`} />
+                            <img loading="lazy" decoding="async" src={url} alt="playing"
+                              onLoad={(e) => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setPlayerRatio(im.naturalWidth / im.naturalHeight); }}
+                              className={mp.className} style={mp.style} />
                             <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px]">
                               分镜图（视频生成失败）
                             </div>

@@ -31,6 +31,8 @@ export function ClipWithAudio({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // v12.13.2:按视频真实比例显示(裸 <video> 默认拉伸进固定框 = 变形)。探测到比例则用 aspectRatio + object-contain。
+  const [ratio, setRatio] = useState<number | null>(null);
   // v12.1.2 带声试听开关(默认开)+ 裸片原生音轨探测 + 自动播放被拦标记
   const [audible, setAudible] = useState(true);
   const [hasNativeAudio, setHasNativeAudio] = useState(false);
@@ -113,7 +115,14 @@ export function ClipWithAudio({
   return (
     <div className="relative">
       {/* video.muted 纯声明式:有叠层恒静音;无叠层跟 audible(layout effect 兜底同值) */}
-      <video ref={videoRef} src={videoUrl} controls playsInline crossOrigin="anonymous" muted={audioUrl ? true : !audible} className={className} />
+      {/* v12.13.2:object-contain 不变形 + 探测到真实比例则按其显示(inline aspectRatio 覆盖外层固定框) */}
+      <video
+        ref={videoRef} src={videoUrl} controls playsInline crossOrigin="anonymous"
+        muted={audioUrl ? true : !audible}
+        onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setRatio(v.videoWidth / v.videoHeight); }}
+        className={`${className || ''} object-contain bg-black`}
+        style={ratio ? { aspectRatio: String(ratio) } : undefined}
+      />
       {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" crossOrigin="anonymous" />}
       {overlay}
       {/* 三态就绪度徽章 —— 反映 live 静音态,不在已静音时假称「带配音/有声」 */}
