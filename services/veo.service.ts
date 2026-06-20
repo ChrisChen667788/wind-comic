@@ -1,4 +1,5 @@
 import { API_CONFIG } from '@/lib/config';
+import { veoSizeFromAspect } from '@/lib/video-aspect'; // v12.14.0 横竖屏
 
 /** 带超时的 fetch */
 function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 30_000): Promise<Response> {
@@ -70,6 +71,7 @@ export class VeoService {
     options?: {
       duration?: number;
       resolution?: string;
+      aspectRatio?: string; // v12.14.0 横竖屏:'16:9'|'9:16'|'1:1'
       style?: string;
       referenceImages?: string[];
       onProgress?: ProgressCallback;
@@ -140,6 +142,7 @@ export class VeoService {
     options?: {
       duration?: number;
       resolution?: string;
+      aspectRatio?: string; // v12.14.0 横竖屏
       onProgress?: ProgressCallback;
     }
   ): Promise<string> {
@@ -151,7 +154,7 @@ export class VeoService {
   private async createTaskUnified(
     prompt: string,
     imageUrl: string,
-    options?: { duration?: number; resolution?: string; referenceImages?: string[] }
+    options?: { duration?: number; resolution?: string; aspectRatio?: string; referenceImages?: string[] }
   ): Promise<string> {
     const body: Record<string, any> = {
       model: this.model,
@@ -163,11 +166,15 @@ export class VeoService {
       body.duration = Math.min(options.duration, 10);
     }
 
-    // sora-2 在 unified 通道也要求 size (1280x720 / 720x1280 / 1024x1024)
-    // 不显式设置会被网关回 "size is required for sora-2"
+    // v12.14.0 横竖屏:把项目比例传给引擎,否则默认出 16:9(竖屏短剧也变横屏)。
+    // size 由比例映射(竖屏 720x1280);同时带通用 aspect_ratio 字段,网关取它认识的那个。
     if (this.model.toLowerCase().startsWith('sora')) {
-      body.size = options?.resolution || '1280x720';
+      // sora-2 在 unified 通道也要求 size,不显式设置会被网关回 "size is required for sora-2"
+      body.size = options?.resolution || veoSizeFromAspect(options?.aspectRatio);
+    } else if (options?.resolution) {
+      body.size = options.resolution;
     }
+    if (options?.aspectRatio) body.aspect_ratio = options.aspectRatio;
 
     // 使用场景图/分镜图作为 first_frame_image（锁第一帧构图）
     const primaryImage = imageUrl && !imageUrl.startsWith('data:') && imageUrl.startsWith('http') ? imageUrl : '';
@@ -227,13 +234,14 @@ export class VeoService {
   private async createTaskOpenAI(
     prompt: string,
     imageUrl: string,
-    options?: { duration?: number }
+    options?: { duration?: number; aspectRatio?: string }
   ): Promise<string> {
     const body: Record<string, any> = {
       model: this.model,
       prompt: prompt,
       seconds: String(options?.duration || 8),
-      size: '1280x720',
+      // v12.14.0 横竖屏:size 跟项目比例(竖屏 720x1280),不再写死 16:9
+      size: veoSizeFromAspect(options?.aspectRatio),
     };
 
     const response = await fetchWithTimeout(`${this.baseURL}/v1/videos`, {

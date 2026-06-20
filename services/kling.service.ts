@@ -33,6 +33,7 @@ export class KlingService {
     options?: {
       duration?: number;
       resolution?: string;
+      aspectRatio?: string; // v12.14.0 横竖屏:'16:9'|'9:16'|'1:1'
       mode?: 'standard' | 'professional';
       onProgress?: ProgressCallback;
     }
@@ -53,6 +54,9 @@ export class KlingService {
         mode: options?.mode || 'standard',
         duration: String(Math.min(options?.duration || 5, 10)),
       };
+
+      // v12.14.0 横竖屏:Kling 支持 aspect_ratio('16:9'|'9:16'|'1:1');竖屏短剧必须传,否则默认 16:9
+      if (options?.aspectRatio) body.aspect_ratio = options.aspectRatio;
 
       if (hasRealImage) {
         body.image = imageUrl;

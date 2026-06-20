@@ -58,6 +58,7 @@ import {
 } from '@/lib/writer-enhance';
 // v12.12.0(Phase 2):@元素注册表 + 跨引擎多参适配 + 同场景续接守卫
 import { buildElementsRegistry, mountForShot, scenesLikelySame, type ElementsRegistry, type ShotMount } from '@/lib/elements-registry';
+import { normalizeVideoAspect } from '@/lib/video-aspect'; // v12.14.0 横竖屏:把项目比例传给视频引擎
 import { StoryTemplate } from '@/lib/story-templates';
 import { createError, normalizeError, PipelineError } from '@/lib/pipeline-error';
 import { execFile } from 'child_process';
@@ -471,6 +472,11 @@ export class HybridOrchestrator {
     }
     this.aspect = a;
     console.log(`[Hybrid] aspect ratio set to ${a}`);
+  }
+
+  /** v12.14.0 横竖屏:项目比例 → 视频引擎支持的 '16:9'|'9:16'|'1:1'(其它就近归 16:9)。所有视频引擎调用都带它。 */
+  private videoAspect(): '16:9' | '9:16' | '1:1' {
+    return normalizeVideoAspect(this.aspect);
   }
 
   /**
@@ -3388,6 +3394,7 @@ ${shots.map((s, i) => {
                 type: 'character' as const, imageUrl: url, name: mrBundle.characterNames[idx],
               }));
               return await this.minimaxService.generateVideo(firstFrameUrl, enhancedPrompt, {
+                aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
                 subjectReferenceUrl: hasCharRef ? characterRefUrl : undefined,
                 subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
                 referenceImages: mrBundle.referenceImages.length > 0 ? mrBundle.referenceImages : undefined,
@@ -3398,12 +3405,14 @@ ${shots.map((s, i) => {
               const veoRefs = flattenBundleToUrls(mrBundle, 4).filter((u) => u !== firstFrameUrl);
               return await this.veoService.generateVideo(firstFrameUrl, enhancedPrompt, {
                 duration: 8,
+                aspectRatio: this.videoAspect(), // v12.14.0 横竖屏(竖屏 720x1280,不再默认 16:9)
                 referenceImages: veoRefs.length > 0 ? veoRefs : undefined,
                 onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
               });
             } else if (engine === 'kling' && this.klingService) {
               return await this.klingService.generateVideo(firstFrameUrl, enhancedPrompt, {
                 duration: 5,
+                aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
                 onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
               });
             }
@@ -3471,6 +3480,7 @@ ${shots.map((s, i) => {
             ? mrBundle.subjectImages.map((url, idx) => ({ imageUrl: url, name: mrBundle.characterNames[idx] }))
             : undefined,
           referenceImages: mrBundle.referenceImages?.length ? mrBundle.referenceImages : undefined,
+          aspectRatio: this.videoAspect(), // v12.14.0 横竖屏:plugin-chain provider 也按项目比例出片
           durationSec: 8,
           label: `shot-${board.shotNumber}`,
         },
@@ -3617,15 +3627,15 @@ ${shots.map((s, i) => {
             const passAEngines: Array<{ name: string; gen: () => Promise<string> }> = [];
             if (this.veoService) passAEngines.push({
               name: 'Veo',
-              gen: () => this.veoService!.generateVideo(retryFirstFrame, simplePrompt, { duration: 5 }),
+              gen: () => this.veoService!.generateVideo(retryFirstFrame, simplePrompt, { duration: 5, aspectRatio: this.videoAspect() }),
             });
             if (this.minimaxService?.isVideoAvailable()) passAEngines.push({
               name: 'Minimax',
-              gen: () => this.minimaxService!.generateVideo(retryFirstFrame, simplePrompt, {}),
+              gen: () => this.minimaxService!.generateVideo(retryFirstFrame, simplePrompt, { aspectRatio: this.videoAspect() }),
             });
             if (this.klingService) passAEngines.push({
               name: 'Kling',
-              gen: () => this.klingService!.generateVideo(retryFirstFrame, simplePrompt, { duration: 5 }),
+              gen: () => this.klingService!.generateVideo(retryFirstFrame, simplePrompt, { duration: 5, aspectRatio: this.videoAspect() }),
             });
 
             for (const engine of passAEngines) {
@@ -3666,11 +3676,11 @@ ${shots.map((s, i) => {
             const passBEngines: Array<{ name: string; gen: () => Promise<string> }> = [];
             if (this.veoService) passBEngines.push({
               name: 'Veo-T2V',
-              gen: () => this.veoService!.generateVideoFromText(t2vPrompt, { duration: 5 }),
+              gen: () => this.veoService!.generateVideoFromText(t2vPrompt, { duration: 5, aspectRatio: this.videoAspect() }),
             });
             if (this.minimaxService?.isVideoAvailable()) passBEngines.push({
               name: 'Minimax-T2V',
-              gen: () => this.minimaxService!.generateVideo('', t2vPrompt, {}), // 空首帧 → Hailuo-2.3 纯文生
+              gen: () => this.minimaxService!.generateVideo('', t2vPrompt, { aspectRatio: this.videoAspect() }), // 空首帧 → Hailuo-2.3 纯文生
             });
             // v2.12: Hailuo-2.3-Fast 是 Minimax 的低质快速版,日额度独立于标准 Hailuo-2.3。
             // 排在 Kling 之前 —— Fast 通常仍比 Kling 跑得动且与 Hailuo-2.3 共账户管理,
@@ -3682,7 +3692,7 @@ ${shots.map((s, i) => {
             });
             if (this.klingService) passBEngines.push({
               name: 'Kling-T2V',
-              gen: () => this.klingService!.generateVideo('', t2vPrompt, { duration: 5 }),
+              gen: () => this.klingService!.generateVideo('', t2vPrompt, { duration: 5, aspectRatio: this.videoAspect() }),
             });
 
             for (const engine of passBEngines) {
@@ -4656,7 +4666,7 @@ ${characterBibleBlock}${producerContext}
       if (shot) {
         try {
           const prompt = getStoryboardVisualPrompt(`${shot.sceneDescription}, ${item.suggestion}`, this.styleKeywords);
-          const imageUrl = await this.generateImage(prompt, { aspectRatio: '16:9', label: `Shot ${item.shotNumber} v2` });
+          const imageUrl = await this.generateImage(prompt, { aspectRatio: this.aspect || '16:9', label: `Shot ${item.shotNumber} v2` });
           const idx = updated.storyboards.findIndex(s => s.shotNumber === item.shotNumber);
           if (idx >= 0) updated.storyboards[idx] = { ...updated.storyboards[idx], imageUrl, prompt };
         } catch (e) {
@@ -4692,11 +4702,12 @@ ${characterBibleBlock}${producerContext}
       try {
         let videoUrl: string = '';
         if (this.veoService) {
-          videoUrl = await this.veoService.generateVideo(board.imageUrl, board.prompt, { duration: 8 });
+          videoUrl = await this.veoService.generateVideo(board.imageUrl, board.prompt, { duration: 8, aspectRatio: this.videoAspect() });
         } else if (this.minimaxService) {
           // v2.14 P0.1: 把所有 lockedCharacters 转成 S2V multi-subject, 不再只用 primaryCharacterRef 单图
           const subjectRefs = this.getLockedSubjectReferences();
           videoUrl = await this.minimaxService.generateVideo(board.imageUrl, board.prompt, {
+            aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
             subjectReferenceUrl: this.primaryCharacterRef || undefined,
             subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
           });
@@ -4730,12 +4741,13 @@ ${characterBibleBlock}${producerContext}
     // v2.14 P0.1: 单镜重生也吃 lockedCharacters → S2V multi-subject
     const subjectRefs = this.getLockedSubjectReferences();
     const minimaxOpts = {
+      aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
       subjectReferenceUrl: this.primaryCharacterRef || undefined,
       subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
     };
     if (useVeo) {
       try {
-        videoUrl = await this.veoService!.generateVideo(storyboard.imageUrl, storyboard.prompt, { duration: options?.duration || 8 });
+        videoUrl = await this.veoService!.generateVideo(storyboard.imageUrl, storyboard.prompt, { duration: options?.duration || 8, aspectRatio: this.videoAspect() });
       } catch (e) {
         console.error(`[Regenerate] Veo failed for shot ${shotNumber}:`, e);
         // Fallback to Minimax
@@ -4800,7 +4812,7 @@ ${characterBibleBlock}${producerContext}
       regenerate: async (boostedCw, extraRefs) => {
         const reinforcedPrompt = `${input.originalPrompt}, IDENTICAL face structure to reference, same character identity${input.characterName ? `, ${input.characterName}` : ''}`;
         return await this.generateImage(reinforcedPrompt, {
-          aspectRatio: '16:9',
+          aspectRatio: this.aspect || '16:9',
           label: `Shot ${input.shotNumber} (batch-cameo-retry cw${boostedCw})`,
           cref: input.crefUrl,
           cw: boostedCw,

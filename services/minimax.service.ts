@@ -134,6 +134,8 @@ export class MinimaxService {
    */
   async generateVideo(imageUrl: string, prompt: string, options?: {
     duration?: number;
+    /** v12.14.0 横竖屏:'16:9'|'9:16'|'1:1'。I2V 跟首帧比例;T2V(无首帧)兜底用它 */
+    aspectRatio?: string;
     /** 角色参考图URL —— 如果提供，自动升级为 S2V-01 角色一致性模式 */
     subjectReferenceUrl?: string;
     /**
@@ -206,6 +208,10 @@ export class MinimaxService {
       // 只有真实图片 URL 才传 first_frame_image
       if (hasRealImage) {
         body.first_frame_image = imageUrl;
+      } else if (options?.aspectRatio) {
+        // v12.14.0 横竖屏:I2V 跟首帧比例;纯 T2V(Hailuo 无首帧)默认 16:9,
+        // 竖屏项目兜底带上 aspect_ratio(网关/模型支持则生效,不支持则忽略,不影响成败)。
+        body.aspect_ratio = options.aspectRatio;
       }
 
       console.log(`[Minimax] Generating video (${model}): ${hasRealImage ? 'image-to-video' : 'text-to-video'}`);

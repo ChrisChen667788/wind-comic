@@ -75,6 +75,7 @@ registerVideoProvider({
     const url = await svc.generateVideo(input.firstFrameUrl || '', input.prompt, {
       duration: input.durationSec,
       resolution: input.resolution,
+      aspectRatio: input.aspectRatio, // v12.14.0 横竖屏
       style: input.style,
       referenceImages: input.referenceImages,
       onProgress: input.onProgress,
@@ -123,6 +124,7 @@ registerVideoProvider({
     const url = await svc.generateVideo(input.firstFrameUrl || '', input.prompt, {
       duration: input.durationSec,
       resolution: input.resolution,
+      aspectRatio: input.aspectRatio, // v12.14.0 横竖屏
       mode: input.mode || 'standard',
       onProgress: input.onProgress,
     });
@@ -154,6 +156,7 @@ registerVideoProvider({
     if (!svc) throw new Error('Minimax service unavailable');
     const url = await svc.generateVideo(input.firstFrameUrl || '', input.prompt, {
       duration: input.durationSec,
+      aspectRatio: input.aspectRatio, // v12.14.0 横竖屏
       subjectReferences: input.subjectReferences,
       referenceImages: input.referenceImages,
     });
