@@ -83,11 +83,11 @@ export function deriveSeriesId(anchorProjectId: string): string {
 }
 
 /**
- * 批量生成时挑出「待生成」的剧集:默认只取 'draft'(未开始),跳过 'active'(生成中)/'completed'(已出)。
- * force=true 时重生除「生成中」外的所有集(已出的也重来)。纯函数,便于单测。
+ * 批量生成时挑出「待生成」的剧集:默认取 'draft'(未开始)+ 'failed'(终态失败,可重试),
+ * 跳过 'active'(生成中)/'completed'(已出)。force=true 时重生除「生成中」外的所有集。纯函数,便于单测。
  */
 export function selectGeneratableEpisodes<T extends { status?: string }>(episodes: T[], opts: { force?: boolean } = {}): T[] {
   return (episodes || []).filter((e) =>
-    opts.force ? e.status !== 'active' : e.status === 'draft',
+    opts.force ? e.status !== 'active' : (e.status === 'draft' || e.status === 'failed'),
   );
 }

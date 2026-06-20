@@ -16,6 +16,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   draft: { label: '待生成', cls: 'text-gray-400 bg-white/5 border-white/10' },
   active: { label: '生成中', cls: 'text-amber-300 bg-amber-500/10 border-amber-500/30' },
   completed: { label: '已完成', cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30' },
+  failed: { label: '失败·可重试', cls: 'text-red-300 bg-red-500/10 border-red-500/30' },
 };
 
 export default function SeriesPanel() {
@@ -63,9 +64,10 @@ export default function SeriesPanel() {
     finally { setBusy(false); }
   };
 
-  const pending = episodes.filter((e) => e.status === 'draft').length;
+  const pending = episodes.filter((e) => e.status === 'draft' || e.status === 'failed').length; // 待生成 + 失败可重试
   const generating = episodes.filter((e) => e.status === 'active').length;
   const done = episodes.filter((e) => e.status === 'completed').length;
+  const failed = episodes.filter((e) => e.status === 'failed').length;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -85,6 +87,7 @@ export default function SeriesPanel() {
         <span>共 {episodes.length} 集</span>
         <span className="text-emerald-400">已完成 {done}</span>
         <span className="text-amber-300">生成中 {generating}</span>
+        {failed > 0 && <span className="text-red-300">失败 {failed}</span>}
         <span>待生成 {pending}</span>
       </div>
 

@@ -38,6 +38,19 @@ const g = globalThis as unknown as { __qfmjPipelineWorker?: { timer: ReturnType<
 
 let active = 0;
 
+// v12.21.0:终态失败回写 —— create 类任务耗尽重试仍失败 → 把项目标 'failed'
+// (否则多集批量里失败的集会永远停在 'active';单集创作同样受益)。仅 state='failed' 才回写。
+async function markProjectFailedIfTerminal(job: { type: string; projectId: string }, state: string): Promise<void> {
+  if (state !== 'failed' || job.type !== 'create' || !job.projectId) return;
+  try {
+    const { updateProjectById } = await import('./repos/project-repo');
+    await updateProjectById(job.projectId, { status: 'failed' });
+    console.log(`[PipelineWorker] project ${job.projectId} → status=failed(终态失败)`);
+  } catch (e) {
+    console.warn('[PipelineWorker] 回写 failed 状态失败:', e);
+  }
+}
+
 // v11.0.1: 周期孤儿扫描间隔 —— 心跳超时(90s)的 running 重新入队。
 // 多副本安全(行级互斥);单机快速重启后本进程的孤儿也由此路径在 ~90s 内复活。
 const ORPHAN_SWEEP_MS = 30_000;
@@ -83,6 +96,7 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
     await appendChain; // 进度全部落库后再标完成
     if (fatalError) {
       const state = await failJob(job.id, fatalError);
+      await markProjectFailedIfTerminal(job, state);
       console.error(`[PipelineWorker] ${state === 'queued' ? 'retrying' : 'FAILED'} ${job.id} (pipeline error): ${fatalError.slice(0, 120)}`);
     } else {
       await completeJob(job.id);
@@ -91,6 +105,7 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     const state = await failJob(job.id, msg);
+    await markProjectFailedIfTerminal(job, state);
     emitPipeline(job.id, 'error', { message: `流水线执行失败:${msg.slice(0, 200)}`, retrying: state === 'queued' });
     console.error(`[PipelineWorker] ${state === 'queued' ? 'retrying' : 'FAILED'} ${job.id}:`, msg);
   } finally {

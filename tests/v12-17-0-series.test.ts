@@ -54,15 +54,16 @@ describe('v12.17.0 · deriveSeriesId', () => {
   });
 });
 
-describe('v12.18.0 · selectGeneratableEpisodes(批量生成挑集)', () => {
+describe('v12.18.0/v12.21.0 · selectGeneratableEpisodes(批量生成挑集)', () => {
   const eps = [
     { id: 'a', status: 'draft' }, { id: 'b', status: 'active' },
     { id: 'c', status: 'completed' }, { id: 'd', status: 'draft' },
+    { id: 'e', status: 'failed' },
   ];
-  it('默认只取 draft(跳过生成中/已完成)', () => {
-    expect(selectGeneratableEpisodes(eps).map((e) => e.id)).toEqual(['a', 'd']);
+  it('默认取 draft + failed(可重试),跳过生成中/已完成', () => {
+    expect(selectGeneratableEpisodes(eps).map((e) => e.id)).toEqual(['a', 'd', 'e']);
   });
   it('force=true 重生除「生成中」外的所有集', () => {
-    expect(selectGeneratableEpisodes(eps, { force: true }).map((e) => e.id)).toEqual(['a', 'c', 'd']);
+    expect(selectGeneratableEpisodes(eps, { force: true }).map((e) => e.id)).toEqual(['a', 'c', 'd', 'e']);
   });
 });
