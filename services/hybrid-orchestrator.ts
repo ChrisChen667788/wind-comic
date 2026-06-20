@@ -3890,6 +3890,21 @@ ${shots.map((s, i) => {
       };
     });
 
+    // v12.16.0(Phase 3):CONTINUITY 主表 —— 出片前校验跨镜一致性(同场景光照漂移/画幅帧率不统一/风格包缺失)。
+    const { buildContinuitySheet, validateContinuity } = await import('@/lib/continuity-sheet');
+    const continuitySheet = buildContinuitySheet({
+      shots: (script?.shots || []) as any,
+      stylePack: this.styleKeywords,
+      aspectRatio: this.aspect,
+      fps: 24,
+    });
+    const continuityCheck = validateContinuity(continuitySheet);
+    if (!continuityCheck.passed) {
+      console.warn('[Continuity] 主表校验隐患:', continuityCheck.issues.join(' | '));
+      this.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 连续性主表发现 ${continuityCheck.issues.length} 处隐患:${continuityCheck.issues.slice(0, 2).join(';')}` });
+    }
+    this.emit('continuitySheet', { rows: continuitySheet, check: continuityCheck });
+
     // ═══ 第2步：高光时刻检测 ═══
     this.update(AgentRole.EDITOR, { progress: 20, currentTask: '智能检测高光时刻...' });
     // v12.13.1(打斗劲爆度第二波):动作片找「冲击点」(beat 标 speedRamp 或含冲击动词)→

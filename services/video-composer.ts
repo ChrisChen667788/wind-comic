@@ -304,6 +304,46 @@ function getVideoDuration(filePath: string): Promise<number> {
 }
 
 /**
+ * v12.16.0(Phase 3 双版本):把成片重构图成另一比例(不重生,省 2x)。
+ * 输入可为 http(s) URL / /api/serve-file / 本地路径;输出本地 mp4 路径。音轨原样拷贝。
+ */
+export async function reframeVideo(
+  inputUrlOrPath: string,
+  targetAspect: string,
+  mode: import('@/lib/video-reframe').ReframeMode = 'blur-pad',
+  outputDir?: string,
+): Promise<{ outputPath: string; w: number; h: number }> {
+  const { buildReframeFilterComplex } = await import('@/lib/video-reframe');
+  const tmpDir = outputDir || fs.mkdtempSync(path.join(os.tmpdir(), 'reframe-'));
+  fs.mkdirSync(tmpDir, { recursive: true });
+  // 取本地源
+  let localInput = inputUrlOrPath;
+  if (inputUrlOrPath.startsWith('http') || inputUrlOrPath.startsWith('/api/serve-file')) {
+    localInput = path.join(tmpDir, 'src.mp4');
+    await downloadFile(inputUrlOrPath, localInput);
+  } else if (!fs.existsSync(inputUrlOrPath)) {
+    throw new Error(`reframeVideo: 源不存在: ${inputUrlOrPath.slice(0, 80)}`);
+  }
+  const { filter, w, h } = buildReframeFilterComplex(targetAspect, mode);
+  const outputPath = path.join(tmpDir, `reframed-${w}x${h}.mp4`);
+  return new Promise((resolve, reject) => {
+    ffmpeg(localInput)
+      .complexFilter(filter)
+      .outputOptions([
+        '-map', '[vout]',
+        '-map', '0:a?',          // 有音轨就拷贝,没有也不报错
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+        '-c:a', 'copy',
+        '-movflags', '+faststart',
+      ])
+      .output(outputPath)
+      .on('end', () => resolve({ outputPath, w, h }))
+      .on('error', reject)
+      .run();
+  });
+}
+
+/**
  * v2.12 Sprint B.1 — j-cut/l-cut 音轨偏移决策
  *
  * 设计:
