@@ -28,6 +28,7 @@ export default function NewSeriesWizard() {
   const [splitting, setSplitting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [err, setErr] = useState('');
+  const [warn, setWarn] = useState(''); // v12.24.0:拆集不足等软提示
 
   const authHeaders = useCallback((): Record<string, string> => {
     const t = getToken();
@@ -48,12 +49,17 @@ export default function NewSeriesWizard() {
 
   const aiSplit = async () => {
     if (splitting || !premise.trim()) return;
-    setSplitting(true); setErr('');
+    setSplitting(true); setErr(''); setWarn('');
     try {
       const res = await fetch('/api/series/split', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ premise: premise.trim(), episodeCount }) });
       const body = await res.json();
       if (!res.ok || !Array.isArray(body.episodes)) { setErr(body?.error || `拆集失败 ${res.status}`); return; }
-      setEpisodes(body.episodes.map((e: any) => ({ title: e.title || '', premise: e.premise || '' })));
+      const eps = body.episodes.map((e: any) => ({ title: e.title || '', premise: e.premise || '' }));
+      setEpisodes(eps);
+      // v12.24.0:拆集不足提示 —— LLM 偶尔少拆,提醒用户「加一集」补足或重拆
+      if (eps.length < episodeCount) {
+        setWarn(`AI 只拆出 ${eps.length} 集(目标 ${episodeCount} 集)。可下方「加一集」手动补足,或精简设定后重拆。`);
+      }
     } catch (e) { setErr(e instanceof Error ? e.message : '请求失败'); }
     finally { setSplitting(false); }
   };
@@ -155,6 +161,7 @@ export default function NewSeriesWizard() {
         </div>
       )}
 
+      {warn && <div className="mb-3 text-[13px] text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-2">⚠️ {warn}</div>}
       {err && <div className="mb-4 text-[13px] text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{err}</div>}
 
       <label className="flex items-center gap-2 text-xs text-gray-400 mb-4">

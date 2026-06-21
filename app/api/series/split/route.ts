@@ -29,7 +29,8 @@ export async function POST(request: Request) {
 
   try {
     const episodes = await splitSeriesIntoEpisodes(premise, count);
-    return NextResponse.json({ ok: true, episodes });
+    // v12.24.0:回传请求集数,前端据此提示「拆集不足」(LLM 偶尔少拆)
+    return NextResponse.json({ ok: true, episodes, requested: count, shortfall: Math.max(0, count - episodes.length) });
   } catch (e) {
     return NextResponse.json({ error: (e instanceof Error ? e.message : String(e)).slice(0, 200) }, { status: 502 });
   }
