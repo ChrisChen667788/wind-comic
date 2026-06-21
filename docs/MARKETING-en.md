@@ -99,7 +99,7 @@ The LLM is provider-agnostic — `docs/llm-providers.md` documents how to swap t
 
 Tech: Next.js 16 + TypeScript strict + SQLite + Web Audio API + Yjs. 1150 vitest tests passing. MIT.
 
-Honest competitor comparison: README's vs-competitors table is kept current (verified 2026-06-16: Seedance 2.0 + HappyHorse-1.0 now top-2 on the Artificial Analysis arena, Veo 3.1 #3 with native dialogue audio, Kling 3.0 holds four top-10 slots; Runway Gen-4.5 dropped out of the top 10 but keeps the strongest control surface; Sora 2 sunsetting in 2026, removed). `docs/COMPETITIVE-GAP-2026-05.md` is a dated self-audit.
+Honest competitor comparison: README's vs-competitors table is kept current (verified 2026-06-22: on the blind Artificial Analysis / llm-stats arena, Kling v3 leads text-to-video at 2031, with LTX-2 Fast #2 and Seedance 2.0 #3; xAI's Grok Imagine 1.5 has taken #1 on image-to-video over Veo 3.1 / Kling / Seedance; Veo 3.1 remains the quality & physics king with 4K + native dialogue audio; Runway Gen-4.5 keeps the strongest control surface; HappyHorse-1.0 (Alibaba Taotian) faded after its April anonymous #1, and Sora 2 is shutting down — app offline 2026-04-26, API ending 2026-09-24 — both removed). `docs/COMPETITIVE-GAP-2026-05.md` is a dated self-audit.
 
 GitHub: https://github.com/ChrisChen667788/wind-comic
 
