@@ -344,6 +344,56 @@ export async function reframeVideo(
 }
 
 /**
+ * v12.25.0(整季导出):把多集成片拼成一条「整季合集」。每集归一到目标画幅(scale+pad)+ 24fps,
+ * 音轨重采样到 44.1k 立体声,filter_complex `concat` 串接(重编码,容忍各集编码参数差异)。
+ * 输入可为 http/serve-file/本地路径。前提:各集成片均含音轨(composer 产物恒有)。
+ */
+export async function concatVideos(
+  urls: string[],
+  targetAspect: string,
+  outputDir?: string,
+): Promise<{ outputPath: string; count: number }> {
+  if (!urls || urls.length === 0) throw new Error('concatVideos: 无输入');
+  const { dimsForAspect } = await import('@/lib/video-reframe');
+  const { w, h } = dimsForAspect(targetAspect);
+  const tmpDir = outputDir || fs.mkdtempSync(path.join(os.tmpdir(), 'season-'));
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  const locals: string[] = [];
+  for (let i = 0; i < urls.length; i++) {
+    const u = urls[i];
+    if (!u) continue;
+    if (u.startsWith('http') || u.startsWith('/api/serve-file')) {
+      const p = path.join(tmpDir, `ep-${i}.mp4`);
+      try { await downloadFile(u, p); locals.push(p); } catch (e) { console.warn(`[concatVideos] 下载第 ${i} 集失败,跳过:`, e instanceof Error ? e.message : e); }
+    } else if (fs.existsSync(u)) {
+      locals.push(u);
+    }
+  }
+  if (locals.length === 0) throw new Error('concatVideos: 无可用片段');
+
+  const outputPath = path.join(tmpDir, 'season.mp4');
+  return new Promise((resolve, reject) => {
+    let cmd = ffmpeg();
+    for (const p of locals) cmd = cmd.input(p);
+    const filters: string[] = [];
+    const labels: string[] = [];
+    for (let i = 0; i < locals.length; i++) {
+      filters.push(`[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1[v${i}]`);
+      filters.push(`[${i}:a]aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+      labels.push(`[v${i}][a${i}]`);
+    }
+    filters.push(`${labels.join('')}concat=n=${locals.length}:v=1:a=1[vout][aout]`);
+    cmd.complexFilter(filters)
+      .outputOptions(['-map', '[vout]', '-map', '[aout]', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart'])
+      .output(outputPath)
+      .on('end', () => resolve({ outputPath, count: locals.length }))
+      .on('error', reject)
+      .run();
+  });
+}
+
+/**
  * v2.12 Sprint B.1 — j-cut/l-cut 音轨偏移决策
  *
  * 设计:

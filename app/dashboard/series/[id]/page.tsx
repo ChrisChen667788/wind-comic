@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getToken } from '@/lib/auth';
-import { FilmStrip as Film, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Play, ArrowLeft } from '@phosphor-icons/react';
+import { FilmStrip as Film, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Play, ArrowLeft, Image as ImageIcon, DownloadSimple } from '@phosphor-icons/react';
 
 interface Episode { id: string; title: string; status: string; episode_number: number | null; aspect: string | null }
 
@@ -26,6 +26,11 @@ export default function SeriesPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
+  // v12.25.0 季级产物
+  const [seasonCover, setSeasonCover] = useState<string | null>(null);
+  const [seasonVideo, setSeasonVideo] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
 
   const authHeaders = useCallback((): Record<string, string> => {
     const t = getToken();
@@ -36,7 +41,11 @@ export default function SeriesPanel() {
     try {
       const res = await fetch(`/api/series/${encodeURIComponent(seriesId)}`, { headers: authHeaders() });
       const body = await res.json();
-      if (res.ok && Array.isArray(body.episodes)) setEpisodes(body.episodes);
+      if (res.ok && Array.isArray(body.episodes)) {
+        setEpisodes(body.episodes);
+        setSeasonCover(body.seasonCover ?? null);
+        setSeasonVideo(body.seasonVideo ?? null);
+      }
     } catch { /* 静默 */ } finally { setLoading(false); }
   }, [seriesId, authHeaders]);
 
@@ -68,6 +77,32 @@ export default function SeriesPanel() {
       await load();
     } catch (e) { setMsg(e instanceof Error ? e.message : '请求失败'); }
     finally { setBusy(false); }
+  };
+
+  // v12.25.0:导出整季合集
+  const exportSeason = async () => {
+    if (exporting) return;
+    setExporting(true); setMsg('');
+    try {
+      const res = await fetch(`/api/series/${encodeURIComponent(seriesId)}/export`, { method: 'POST', headers: authHeaders(), body: '{}' });
+      const body = await res.json();
+      if (!res.ok) { setMsg(body?.error || `导出失败 ${res.status}`); return; }
+      setSeasonVideo(body.videoUrl); setMsg(`整季合集已生成(${body.count} 集)`);
+    } catch (e) { setMsg(e instanceof Error ? e.message : '请求失败'); }
+    finally { setExporting(false); }
+  };
+
+  // v12.25.0:生成季封面
+  const genCover = async () => {
+    if (coverBusy) return;
+    setCoverBusy(true); setMsg('');
+    try {
+      const res = await fetch(`/api/series/${encodeURIComponent(seriesId)}/cover`, { method: 'POST', headers: authHeaders(), body: '{}' });
+      const body = await res.json();
+      if (!res.ok) { setMsg(body?.error || `封面生成失败 ${res.status}`); return; }
+      setSeasonCover(body.coverUrl); setMsg('季封面已生成');
+    } catch (e) { setMsg(e instanceof Error ? e.message : '请求失败'); }
+    finally { setCoverBusy(false); }
   };
 
   const pending = episodes.filter((e) => e.status === 'draft' || e.status === 'failed').length; // 待生成 + 失败可重试
@@ -114,6 +149,35 @@ export default function SeriesPanel() {
       </div>
 
       {msg && <div className="mb-4 text-[13px] text-cyan-200/90 bg-cyan-500/10 border border-cyan-500/20 rounded-lg px-3 py-2">{msg}</div>}
+
+      {/* v12.25.0 季级产物:封面 + 整季合集 */}
+      <div className="flex items-start gap-4 mb-6 bg-white/5 border border-white/10 rounded-xl p-4">
+        <div className="w-20 shrink-0 rounded-lg overflow-hidden bg-black/30 aspect-[3/4] grid place-items-center">
+          {seasonCover ? <img src={seasonCover} alt="季封面" className="w-full h-full object-cover" /> : <ImageIcon className="w-6 h-6 text-gray-600" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-white mb-2">季级产物</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={genCover} disabled={coverBusy}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/15 text-gray-200 text-xs hover:text-white disabled:opacity-40">
+              {coverBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+              {seasonCover ? '重生季封面' : '生成季封面'}
+            </button>
+            <button onClick={exportSeason} disabled={exporting || done === 0}
+              title={done === 0 ? '先生成至少一集' : ''}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/15 text-gray-200 text-xs hover:text-white disabled:opacity-40">
+              {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DownloadSimple className="w-3.5 h-3.5" />}
+              {seasonVideo ? '重导整季合集' : '导出整季合集'}
+            </button>
+            {seasonVideo && (
+              <a href={seasonVideo} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-cyan-300 hover:text-cyan-200">
+                <Play className="w-3.5 h-3.5" /> 看整季合集
+              </a>
+            )}
+          </div>
+          <p className="text-[10px] text-gray-500 mt-2">合集 = 已完成各集成片按集号拼接(归一画幅 + 重编码)。</p>
+        </div>
+      </div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-500 text-sm"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />加载中…</div>
