@@ -26,6 +26,16 @@
   <b>English</b> · <a href="README.zh-CN.md">简体中文</a> · <a href="docs/MARKETING-en.md">🔥 Pitch</a> · <a href="docs/llm-providers.md">🔌 BYO LLM</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/ChrisChen667788/wind-comic/raw/main/assets/promo/wind-comic-promo-en.mp4">
+    <img src="assets/promo/wind-comic-promo.gif" alt="Wind Comic — 39-second promo (click to watch with voiceover &amp; sound)" width="100%" />
+  </a>
+</p>
+<p align="center">
+  ▶ <a href="https://github.com/ChrisChen667788/wind-comic/raw/main/assets/promo/wind-comic-promo-en.mp4"><b>Watch the full 39-second promo — with voiceover &amp; sound</b></a><br/>
+  <sub>Real cinematic footage woven with motion-graphics · 8 distinct art styles · English narration · scored by the platform's own MiniMax music engine.</sub>
+</p>
+
 ---
 
 ## ✨ Why Wind Comic?
