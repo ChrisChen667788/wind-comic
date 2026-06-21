@@ -141,11 +141,13 @@ export async function upsertAsset(input: CreateAssetInput): Promise<'created' | 
   const sel = input.shotNumber != null
     ? { type: input.type, shotNumber: input.shotNumber }
     : { type: input.type, name: input.name };
-  const patch: { data?: unknown; mediaUrls?: string[]; bumpVersion?: boolean } = {
+  const patch: { data?: unknown; mediaUrls?: string[]; persistentUrl?: string | null; bumpVersion?: boolean } = {
     data: input.data ?? {},
     bumpVersion: true,
   };
   if (input.mediaUrls && input.mediaUrls.length > 0) patch.mediaUrls = input.mediaUrls;
+  // v12.26.0(评审):透传 persistentUrl(原 upsert 更新路径漏传 → 重导/重生不更新持久 URL)
+  if (input.persistentUrl !== undefined) patch.persistentUrl = input.persistentUrl;
   const changes = await updateAssetBySelector(input.projectId, sel, patch);
   if (changes > 0) return 'updated';
   await createAsset(input);

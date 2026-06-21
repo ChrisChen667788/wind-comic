@@ -45,8 +45,10 @@ export default function SeriesPanel() {
         setEpisodes(body.episodes);
         setSeasonCover(body.seasonCover ?? null);
         setSeasonVideo(body.seasonVideo ?? null);
+      } else if (!res.ok) {
+        setMsg(body?.error || `加载失败 ${res.status},请刷新重试`); // v12.26.0:加载失败不再静默
       }
-    } catch { /* 静默 */ } finally { setLoading(false); }
+    } catch { setMsg('加载失败,请检查网络后刷新'); } finally { setLoading(false); }
   }, [seriesId, authHeaders]);
 
   useEffect(() => { load(); }, [load]);
@@ -82,7 +84,7 @@ export default function SeriesPanel() {
   // v12.25.0:导出整季合集
   const exportSeason = async () => {
     if (exporting) return;
-    setExporting(true); setMsg('');
+    setExporting(true); setMsg('整季合集生成中(下载各集 + 拼接重编码,最长约 5 分钟,请勿关闭页面)…');
     try {
       const res = await fetch(`/api/series/${encodeURIComponent(seriesId)}/export`, { method: 'POST', headers: authHeaders(), body: '{}' });
       const body = await res.json();
@@ -95,7 +97,7 @@ export default function SeriesPanel() {
   // v12.25.0:生成季封面
   const genCover = async () => {
     if (coverBusy) return;
-    setCoverBusy(true); setMsg('');
+    setCoverBusy(true); setMsg('季封面生成中…');
     try {
       const res = await fetch(`/api/series/${encodeURIComponent(seriesId)}/cover`, { method: 'POST', headers: authHeaders(), body: '{}' });
       const body = await res.json();

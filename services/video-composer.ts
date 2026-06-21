@@ -372,6 +372,19 @@ export async function concatVideos(
   }
   if (locals.length === 0) throw new Error('concatVideos: 无可用片段');
 
+  // v12.26.0(评审):逐片探测音轨/时长 —— 某集成片无音轨时,`[i:a]` 会让整条 concat 崩。
+  // 无音轨的片用 anullsrc 补一路静音(按视频时长 atrim),保证 concat a=1 始终有效。
+  const meta: Array<{ hasAudio: boolean; dur: number }> = [];
+  for (const p of locals) {
+    let hasAudio = false; let dur = 0;
+    try {
+      const md: any = await new Promise((res, rej) => ffmpeg.ffprobe(p, (e, m) => (e ? rej(e) : res(m))));
+      hasAudio = Array.isArray(md?.streams) && md.streams.some((s: any) => s.codec_type === 'audio');
+      dur = Number(md?.format?.duration) || 0;
+    } catch { /* 探测失败按无音轨 + 兜底时长处理 */ }
+    meta.push({ hasAudio, dur });
+  }
+
   const outputPath = path.join(tmpDir, 'season.mp4');
   return new Promise((resolve, reject) => {
     let cmd = ffmpeg();
@@ -380,7 +393,12 @@ export async function concatVideos(
     const labels: string[] = [];
     for (let i = 0; i < locals.length; i++) {
       filters.push(`[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1[v${i}]`);
-      filters.push(`[${i}:a]aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+      if (meta[i].hasAudio) {
+        filters.push(`[${i}:a]aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
+      } else {
+        const d = (meta[i].dur > 0 ? meta[i].dur : 8).toFixed(2);
+        filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${d}[a${i}]`); // 无音轨 → 静音占位
+      }
       labels.push(`[v${i}][a${i}]`);
     }
     filters.push(`${labels.join('')}concat=n=${locals.length}:v=1:a=1[vout][aout]`);
