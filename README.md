@@ -397,6 +397,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 - `KELING_API_KEY` — Kling Master 4K + first-last-frame fusion + lip-sync
 - `VIDU_API_KEY` — Vidu Q3 (long-form 16s clips)
 - `VEO_API_KEY` — Veo 3.1-fast video fallback
+- `GROK_API_KEY` — xAI Grok Imagine 1.5 (T2V/I2V, native audio; BYO — 2026-06 image-to-video #1; auto-preferred when set)
 - `SYNCSO_API_KEY` / `HAILUO_API_KEY` — alternative lip-sync providers
 
 ---

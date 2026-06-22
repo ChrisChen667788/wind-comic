@@ -317,6 +317,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 - `KELING_API_KEY` — Kling Master 4K + 首尾帧融合 + 嘴型对齐
 - `VIDU_API_KEY` — Vidu Q3 (16s 长片)
 - `VEO_API_KEY` — Veo 3.1-fast 视频备选
+- `GROK_API_KEY` — xAI Grok Imagine 1.5(文生/图生视频,原生音频;BYO —— 2026-06 图生视频榜首,配了即顶为主选)
 - `SYNCSO_API_KEY` / `HAILUO_API_KEY` — 嘴型对齐备选 provider
 
 ---

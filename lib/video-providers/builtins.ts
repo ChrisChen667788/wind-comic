@@ -51,6 +51,15 @@ async function getVidu() {
   return viduSvc;
 }
 
+let grokSvc: any = null;
+async function getGrok() {
+  if (grokSvc) return grokSvc;
+  const m = await import('@/services/grok-imagine.service');
+  if (!(m as any).hasGrokImagine?.()) return null;
+  grokSvc = new (m as any).GrokImagineService();
+  return grokSvc;
+}
+
 // ─── Provider 1: Veo ──────────────────────────────────────────────────────
 // 优先级 60 — 实测在我们的网关上 Veo 整池稳定性 > Kling > Minimax > Vidu.
 // 不支持 FLF (Kling 独有) / 不支持 S2V (Minimax 独有).
@@ -190,4 +199,37 @@ registerVideoProvider({
   },
 });
 
-console.log('[VideoProviders] 4 built-ins registered (veo / kling / minimax-video / vidu)');
+// ─── Provider 5: Grok Imagine 1.5 (xAI) ──────────────────────────────────
+// 优先级 55 — 2026-06 起图生视频盲投榜首(原生音频 + 极速 + 低价)。BYO:
+// GROK_API_KEY 配了才 available() → 顶到 Veo(60)前作主选;失败由 registry 自动跳下一引擎。
+// 诚实:本环境无 key 未真验,请求体/轮询解析有单测;成片自带原生音频(取用留给 P1)。
+registerVideoProvider({
+  id: 'grok-imagine',
+  name: 'xAI Grok Imagine 1.5 (T2V + I2V, native audio)',
+  priority: 55,
+  supportsImage2Video: true,
+  supportsText2Video: true,
+  supportsLastFrame: false,
+  supportsSubjectReference: false,
+  maxDurationSec: 15,
+  available: () => {
+    try {
+      const m = require('@/services/grok-imagine.service');
+      return m.hasGrokImagine?.() ?? false;
+    } catch { return false; }
+  },
+  async generate(input: VideoGenerateInput) {
+    const svc = await getGrok();
+    if (!svc) throw new Error('Grok Imagine service unavailable');
+    const url = await svc.generateVideo(input.firstFrameUrl || '', input.prompt, {
+      duration: input.durationSec,
+      aspectRatio: input.aspectRatio,
+      referenceImages: input.referenceImages,
+      onProgress: input.onProgress,
+    });
+    if (!url) throw new Error('Grok Imagine returned empty url');
+    return { videoUrl: url, provider: 'grok-imagine' };
+  },
+});
+
+console.log('[VideoProviders] 5 built-ins registered (grok-imagine / veo / kling / minimax-video / vidu)');
