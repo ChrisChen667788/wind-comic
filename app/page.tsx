@@ -144,16 +144,15 @@ export default function Home() {
           {/* v10.5.2 定位改版:制作台是主角,生成层 = BYO 当下最强引擎。
               ⭐ 常驻刷新位:每次 GitHub 同步联网核实并更新下列引擎阵容
               (与 README「vs. competitors」表 / MARKETING-zh|en / modelscope-profile 同步刷)。
-              当前阵容联网核验于 2026-06-16:Artificial Analysis arena 前二易主为
-              Seedance 2.0(字节)+ HappyHorse-1.0(阿里,API 已商用,配 FAL_KEY 可 BYO),
-              Veo 3.1 第三(唯一原生对白音轨)/ Kling 3.0 仍 top10 四席;
-              Runway Gen-4.5 跌出 top10(控制面仍最强)→ hero chips 换上 HappyHorse-1.0。 */}
+              当前阵容联网核验于 2026-06-22:文生视频 Kling v3 榜首、图生视频 Grok Imagine 1.5 榜首,
+              Seedance 2.0 第三、Veo 3.1 画质/物理王者、LTX-2 开源权重最强(可自托管);
+              五家均已接入引擎链、BYO Key 即用(HappyHorse-1.0 退榜、Sora 2 停服,已移出)。 */}
           <div className="mt-9 flex flex-col items-center gap-2.5">
             <span className="text-[10px] tracking-[0.25em] uppercase text-white/60" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
               {t.home.heroEngines}
             </span>
             <div className="flex flex-wrap justify-center gap-2">
-              {['Seedance 2.0', 'HappyHorse-1.0', 'Veo 3.1', 'Kling 3.0'].map((e) => (
+              {['Grok Imagine 1.5', 'Kling 3.0', 'Seedance 2.0', 'Veo 3.1', 'LTX-2'].map((e) => (
                 <span
                   key={e}
                   className="px-3 py-1 rounded-full border border-white/15 bg-white/5 backdrop-blur-md text-[11px] text-white/80"

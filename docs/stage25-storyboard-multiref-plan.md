@@ -94,5 +94,5 @@
 3. **P3**:双版本 + CONTINUITY 主表 —— 交付完整度。
 
 ---
-**状态**:Phase 1(v12.11.0)+ Phase 2 核心(v12.12.0)已交付,tsc 0 + 测试绿。
-Phase 2.1(扩契约喂 Kling 多角度/Seedance @Image dispatch)、Phase 3(双版本+CONTINUITY 主表)待排期。
+**状态**(2026-06-22 更新):Phase 1(v12.11.0)+ Phase 2 核心(v12.12.0)+ **Phase 2.1(v12.15.0 多参 Elements 喂 Kling)** + **Phase 3(v12.16.0 双版本重构图 + CONTINUITY 主表)** 均已交付,tsc 0 + 测试绿。
+阶段二十七延伸:Seedance @Image dispatch 随 **Seedance 2.0 接活(v12.28.0)** 真正落地;并新增 **原生音画一体(v12.29.0,`NATIVE_AV`)**。多参分镜路线已全部收口。

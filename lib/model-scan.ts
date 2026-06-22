@@ -103,6 +103,10 @@ export const UNSCANNABLE_NOTES: Array<{ module: string; label: string; why: stri
   { module: 'image-fal-flux', label: '图像 · fal / FLUX Kontext', why: '模型在请求路径里,无 /models 列举接口 — 升级走代码默认值' },
   { module: 'image-comfyui', label: '图像 · 本地 ComfyUI', why: '本地工作流,模型由 workflow 文件决定' },
   { module: 'lipsync-direct', label: '口型 · Sync.so / Hailuo 直连', why: '无列举接口;Kling 口型经 vectorengine 网关已覆盖' },
+  // v12.29.0:前沿引擎前沿对齐后纳入雷达视野(均 BYO,无 /models 列举,升级走代码默认值/req_key)。
+  { module: 'video-grok', label: '视频 · xAI Grok Imagine 1.5(BYO)', why: '模型在请求体(GROK_VIDEO_MODEL),无 /models 列举 — 升级走代码默认值' },
+  { module: 'video-seedance', label: '视频 · ByteDance Seedance 2.0(火山 CV,BYO)', why: 'req_key 制(jimeng_vgfm_*),非版本号清单 — 升级改 REQ_KEY_MAP' },
+  { module: 'video-ltx', label: '视频 · LTX-2.3(Lightricks 开源/自托管,BYO)', why: '模型在 fal 路径(LTX_MODEL),无 /models 列举 — 升级走代码默认值' },
 ];
 
 // ─── 扫描执行 ────────────────────────────────────────────────────────────────
