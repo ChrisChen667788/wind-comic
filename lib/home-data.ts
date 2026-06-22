@@ -16,14 +16,14 @@ import {
 
 export const heroStats = [
   { value: '8', label: '协作智能体' },      // Director/Writer/Character/Scene/Storyboard/VideoProducer/Editor/Producer
-  { value: '7', label: '视频引擎' },         // seedance2/kling3/viduq3/veo31lite/minimax/vidu/kling (+ Sora cameo)
+  { value: '7', label: '视频引擎' },         // grok-imagine / seedance2 / veo3.1 / ltx-2 / kling3 / minimax-hailuo / vidu(BYO,前沿即插即用)
   { value: '3', label: '一致性守护' },       // Cameo 锁脸 / Keyframes 衔接 / Writer-Editor 闭环
 ];
 
 export const featureHighlights = [
   {
     title: 'Cameo 主角锁脸',
-    desc: '上传一张人脸, Sora 2 Cameo 全片保持同一个人, 跨镜不漂移',
+    desc: '上传一张人脸, S2V 主体锁定 + Cameo 全片保持同一个人, 跨镜不漂移',
     image: IMG_LENS_BOX,
   },
   {

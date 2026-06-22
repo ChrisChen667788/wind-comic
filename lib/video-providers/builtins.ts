@@ -60,12 +60,30 @@ async function getGrok() {
   return grokSvc;
 }
 
+let seedanceSvc: any = null;
+async function getSeedance() {
+  if (seedanceSvc) return seedanceSvc;
+  const m = await import('@/services/seedance.service');
+  if (!(m as any).hasSeedance?.()) return null;
+  seedanceSvc = new (m as any).SeedanceService();
+  return seedanceSvc;
+}
+
+let ltxSvc: any = null;
+async function getLtx() {
+  if (ltxSvc) return ltxSvc;
+  const m = await import('@/services/ltx.service');
+  if (!(m as any).hasLtx?.()) return null;
+  ltxSvc = new (m as any).LtxService();
+  return ltxSvc;
+}
+
 // ─── Provider 1: Veo ──────────────────────────────────────────────────────
 // 优先级 60 — 实测在我们的网关上 Veo 整池稳定性 > Kling > Minimax > Vidu.
 // 不支持 FLF (Kling 独有) / 不支持 S2V (Minimax 独有).
 registerVideoProvider({
   id: 'veo',
-  name: 'Google Veo 3.1 / Sora-2 (via qingyuntop)',
+  name: 'Google Veo 3.1 (via qingyuntop)',
   priority: 60,
   supportsImage2Video: true,
   supportsText2Video: true,
@@ -232,4 +250,68 @@ registerVideoProvider({
   },
 });
 
-console.log('[VideoProviders] 5 built-ins registered (grok-imagine / veo / kling / minimax-video / vidu)');
+// ─── Provider 6: ByteDance Seedance 2.0 (火山引擎 CV) ─────────────────────
+// 优先级 58 — 2026-06 文生视频盲投第三、原生多镜 + 音画一体;多图参考(角色图最前)即主体锁定。
+// BYO:JIMENG_AK/JIMENG_SK 配了才 available();失败由 registry 跳下一引擎。
+// 诚实:nativeAudio 暂不开(主管线仍 TTS+对唇形,避免双音轨;原生音画取用留 P1)。
+registerVideoProvider({
+  id: 'seedance',
+  name: 'ByteDance Seedance 2.0 (multi-ref + native A/V)',
+  priority: 58,
+  supportsImage2Video: true,
+  supportsText2Video: true,
+  supportsLastFrame: false,
+  supportsSubjectReference: true,   // 多图参考(角色图最前)= 主体锁定
+  maxDurationSec: 15,
+  available: () => {
+    try {
+      const m = require('@/services/seedance.service');
+      return m.hasSeedance?.() ?? false;
+    } catch { return false; }
+  },
+  async generate(input: VideoGenerateInput) {
+    const svc = await getSeedance();
+    if (!svc) throw new Error('Seedance service unavailable');
+    const m = await import('@/services/seedance.service');
+    const opts = (m as any).buildSeedanceOptionsFromInput(input);
+    const r = await svc.generateVideo(opts);
+    if (!r || r.status !== 'success' || !r.videoUrl) {
+      throw new Error(`Seedance failed: ${r?.error || 'no url'}`);
+    }
+    input.onProgress?.(1, 'seedance: done');
+    return { videoUrl: r.videoUrl, provider: 'seedance', upstreamId: r.taskId };
+  },
+});
+
+// ─── Provider 7: LTX-2.3 (Lightricks, 开源/可自托管) ──────────────────────
+// 优先级 62 — 2026-06 文生视频盲投次席、开源权重最强;补「全链自托管」拼图(LTX_BASE_URL 可指自托管)。
+// BYO:LTX_API_KEY(或 FAL_KEY)配了才 available();失败由 registry 跳下一引擎。成片自带原生音频(取用留 P1)。
+registerVideoProvider({
+  id: 'ltx',
+  name: 'LTX-2.3 (Lightricks open-weight, self-hostable)',
+  priority: 62,
+  supportsImage2Video: true,
+  supportsText2Video: true,
+  supportsLastFrame: false,
+  supportsSubjectReference: false,
+  maxDurationSec: 20,
+  available: () => {
+    try {
+      const m = require('@/services/ltx.service');
+      return m.hasLtx?.() ?? false;
+    } catch { return false; }
+  },
+  async generate(input: VideoGenerateInput) {
+    const svc = await getLtx();
+    if (!svc) throw new Error('LTX service unavailable');
+    const url = await svc.generateVideo(input.firstFrameUrl || '', input.prompt, {
+      duration: input.durationSec,
+      aspectRatio: input.aspectRatio,
+      onProgress: input.onProgress,
+    });
+    if (!url) throw new Error('LTX returned empty url');
+    return { videoUrl: url, provider: 'ltx' };
+  },
+});
+
+console.log('[VideoProviders] 7 built-ins registered (grok-imagine / seedance / veo / ltx / kling / minimax-video / vidu)');

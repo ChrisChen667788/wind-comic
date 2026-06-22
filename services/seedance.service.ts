@@ -26,6 +26,7 @@
  */
 
 import { signRequest, getJimengCredentials, hasJimengCredentials } from './jimeng-signer';
+import type { VideoGenerateInput } from '@/lib/video-providers/types';
 
 // ──────────────────────────────────────────────────────────
 // 类型定义
@@ -492,3 +493,43 @@ function sleep(ms: number): Promise<void> {
 // 导出常量供测试 / 上层引用
 export const SEEDANCE_REQ_KEYS = REQ_KEY_MAP;
 export const SEEDANCE_RESOLUTION_SIZE = RESOLUTION_SIZE;
+
+// ──────────────────────────────────────────────────────────
+// 阶段二十七 P0b — 统一 VideoProvider 契约 → Seedance 选项映射(纯函数,可单测)
+// ──────────────────────────────────────────────────────────
+
+const SEEDANCE_ALLOWED_DURATIONS: SeedanceDuration[] = [4, 5, 8, 10, 15];
+const SEEDANCE_ALLOWED_ASPECTS: SeedanceAspectRatio[] = ['16:9', '9:16', '1:1', '4:3', '3:4'];
+
+/** durationSec → 最近的合法 Seedance 时长档(4/5/8/10/15)。 */
+export function nearestSeedanceDuration(sec?: number): SeedanceDuration {
+  if (sec == null) return 5;
+  return SEEDANCE_ALLOWED_DURATIONS.reduce(
+    (best, d) => (Math.abs(d - sec) < Math.abs(best - sec) ? d : best),
+    SEEDANCE_ALLOWED_DURATIONS[0],
+  );
+}
+
+/**
+ * 把统一 `VideoGenerateInput` 映射成 `SeedanceGenerateOptions`。
+ * 参考图优先级(对齐 stage25 槽位约定):角色(subjectReferences frontal)→ 首帧 → 通用参考(场景/风格);
+ * 去重、限 9 张。`nativeAudio` 暂不开(主管线仍 TTS+对唇形,避免双音轨;原生音画取用见 P1)。
+ */
+export function buildSeedanceOptionsFromInput(input: VideoGenerateInput): SeedanceGenerateOptions {
+  const isHttp = (u?: string) => !!u && /^https?:\/\//.test(u);
+  const ordered: string[] = (input.subjectReferences || []).map((s) => s.imageUrl).filter(isHttp);
+  if (isHttp(input.firstFrameUrl)) ordered.push(input.firstFrameUrl!);
+  for (const u of input.referenceImages || []) if (isHttp(u)) ordered.push(u);
+  const refs = [...new Set(ordered)].slice(0, 9);
+
+  const opts: SeedanceGenerateOptions = {
+    prompt: input.prompt,
+    duration: nearestSeedanceDuration(input.durationSec),
+    resolution: '720p',
+  };
+  if (input.aspectRatio && (SEEDANCE_ALLOWED_ASPECTS as string[]).includes(input.aspectRatio)) {
+    opts.aspectRatio = input.aspectRatio as SeedanceAspectRatio;
+  }
+  if (refs.length) opts.referenceImages = refs;
+  return opts;
+}

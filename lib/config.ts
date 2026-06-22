@@ -55,7 +55,7 @@ export const API_CONFIG = {
     get model() { return process.env.VEO_MODEL || 'veo3.1-pro'; },
     format: process.env.VEO_API_FORMAT || 'unified', // 'unified' | 'openai'
     get fallbackModels() {
-      return (process.env.VEO_FALLBACK_MODELS || 'veo3.1,sora-2-pro')
+      return (process.env.VEO_FALLBACK_MODELS || 'veo3.1') /* sora-2 退役:API 2026-09-24 停服 */
         .split(',').map(s => s.trim()).filter(Boolean);
     },
     pricing: 0.25  // ¥/秒（估算）

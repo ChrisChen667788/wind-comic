@@ -50,7 +50,7 @@ export interface VideoGenerateInput {
    */
   subjectReferences?: Array<{ imageUrl: string; name?: string; refImageUrls?: string[] }>;
 
-  /** 通用参考图 (场景/风格), Veo / Sora multi-reference 通道. */
+  /** 通用参考图 (场景/风格), Veo ingredients / Seedance @Image / LTX 等 multi-reference 通道. */
   referenceImages?: string[];
 
   /** 调试用 label, 进调用日志方便定位. */

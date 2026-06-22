@@ -318,6 +318,8 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 - `VIDU_API_KEY` — Vidu Q3 (16s 长片)
 - `VEO_API_KEY` — Veo 3.1-fast 视频备选
 - `GROK_API_KEY` — xAI Grok Imagine 1.5(文生/图生视频,原生音频;BYO —— 2026-06 图生视频榜首,配了即顶为主选)
+- `JIMENG_AK` / `JIMENG_SK` — ByteDance Seedance 2.0(火山引擎 CV;多图参考 + 原生音画;2026-06 文生视频第三;BYO)
+- `LTX_API_KEY`(或 `FAL_KEY`)— LTX-2.3(Lightricks 开源权重,文生视频次席;可经 `LTX_BASE_URL` **自托管**;BYO)
 - `SYNCSO_API_KEY` / `HAILUO_API_KEY` — 嘴型对齐备选 provider
 
 ---

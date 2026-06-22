@@ -355,7 +355,7 @@ Every model call is provider-pluggable (priority chain + automatic fallback). Cr
 |---|---|---|
 | **Creative LLM** (writer / director) | `deepseek-v4-pro` (`OPENAI_CREATIVE_MODEL`) + `deepseek-v4-flash` fast tier for drafts/polish | `MiniMax-M2.7` (`LLM_FALLBACK_MODEL`) · optional self-hosted **XVERSE-Ent** (A5.7B / A4.2B) |
 | **General LLM** (planning / validation / Vision-Audit) | `claude-sonnet-4-6` (`OPENAI_MODEL`) | `MiniMax-M2.7` |
-| **Video** | `veo3.1-pro` (`VEO_MODEL`) | `veo3.1` · `sora-2-pro` · Kling → **MiniMax Hailuo** |
+| **Video** | `veo3.1-pro` (`VEO_MODEL`) | `veo3.1` · Kling → **MiniMax Hailuo** (Sora-2 retired — API EOL 2026-09-24) |
 | **Image** | `flux.1-kontext-pro` (`IMAGE_MODEL`) | Midjourney (`mj_imagine`) · fal FLUX Kontext · local ComfyUI → **MiniMax image** |
 | **TTS / voiceover** | `gpt-4o-mini-tts` (`VE_TTS_MODEL`) | MiniMax T2A (`speech-02-hd`) |
 | **Music / BGM** | MiniMax music | (Suno when gateway channel available) |
@@ -398,6 +398,8 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 - `VIDU_API_KEY` — Vidu Q3 (long-form 16s clips)
 - `VEO_API_KEY` — Veo 3.1-fast video fallback
 - `GROK_API_KEY` — xAI Grok Imagine 1.5 (T2V/I2V, native audio; BYO — 2026-06 image-to-video #1; auto-preferred when set)
+- `JIMENG_AK` / `JIMENG_SK` — ByteDance Seedance 2.0 (火山引擎 CV; multi-ref + native A/V; 2026-06 text-to-video #3; BYO)
+- `LTX_API_KEY` (or `FAL_KEY`) — LTX-2.3 (Lightricks open-weight #2 text-to-video; **self-hostable** via `LTX_BASE_URL`; BYO)
 - `SYNCSO_API_KEY` / `HAILUO_API_KEY` — alternative lip-sync providers
 
 ---
