@@ -166,7 +166,7 @@ describe('v10.6.2 · auditHooks 组装 + LLM assist 降级', () => {
   });
 });
 
-describe('v10.6.2 · 验收:18 个故事模板各跑出三指标', () => {
+describe('v10.6.2 · 验收:20 个故事模板各跑出三指标', () => {
   // 模板没有现成 shots(LLM 展开),用模板自带文案确定性合成代表性脚本:
   // 首镜 = exampleIdea + 首个 keyElement,中段铺关键元素,末镜 = 结构提示收尾段。
   const probeScript = (t: (typeof storyTemplates)[number]): Script => {
@@ -185,7 +185,7 @@ describe('v10.6.2 · 验收:18 个故事模板各跑出三指标', () => {
   };
 
   it('每个模板:开场/集尾 0-10、卡点对齐率 0-1,三指标全有限值', () => {
-    expect(storyTemplates.length).toBe(18);
+    expect(storyTemplates.length).toBe(20); // v12.31.0(P3):+2 促销模板(产品宣传片 / 品牌预告)
     const rows: Array<Record<string, string | number>> = [];
     for (const t of storyTemplates) {
       const script = probeScript(t);

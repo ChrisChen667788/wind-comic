@@ -1,3 +1,6 @@
+// v12.31.0(P3):宣传片/预告片促销模板(在文件末尾 spread 进 storyTemplates;promo-template 只 import 本文件的类型,无运行时环依赖)。
+import { PROMO_TEMPLATES } from './promo-template';
+
 export interface StoryTemplate {
   id: string;
   name: string;           // Chinese name
@@ -320,6 +323,7 @@ export const storyTemplates: StoryTemplate[] = [
     recommendedAspect: '16:9',
     recommendedCamera: 'whip-pan',
   },
+  ...PROMO_TEMPLATES, // v12.31.0(P3):宣传片/预告片模板,复用现有管线生成
 ];
 
 export function getTemplateById(id: string): StoryTemplate | undefined {
