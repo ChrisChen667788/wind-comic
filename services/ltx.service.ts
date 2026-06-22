@@ -47,6 +47,7 @@ export interface LtxGenerateOptions {
   duration?: number;
   aspectRatio?: string;
   resolution?: string;        // '1080p' | '4k' | ...(fal LTX 取值)
+  nativeAudio?: boolean;      // v12.29.0(P1):请求自带音频(LTX-2 音画一体)
   onProgress?: (pct: number, msg?: string) => void;
 }
 
@@ -62,6 +63,7 @@ export function buildLtxRequestBody(
   if (opts.aspectRatio && LTX_ALLOWED_ASPECTS.has(opts.aspectRatio)) body.aspect_ratio = opts.aspectRatio;
   body.resolution = opts.resolution || '1080p';
   body.duration = Math.max(1, Math.min(20, Math.round(opts.duration ?? 5)));
+  if (opts.nativeAudio) body.generate_audio = true; // v12.29.0(P1)音画一体
   return body;
 }
 

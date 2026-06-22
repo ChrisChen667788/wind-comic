@@ -522,8 +522,15 @@ export function buildSeedanceOptionsFromInput(input: VideoGenerateInput): Seedan
   for (const u of input.referenceImages || []) if (isHttp(u)) ordered.push(u);
   const refs = [...new Set(ordered)].slice(0, 9);
 
+  // v12.29.0(P1):原生音画 —— 开 nativeAudio 走 av req_key,并把要念的台词拼进 prompt
+  //（spokenDialogue 只到原生引擎,不进主 visualPrompt → 非原生引擎不会渲染 CJK)。
+  let prompt = input.prompt;
+  if (input.nativeAudio && input.spokenDialogue) {
+    prompt = `${prompt}. Spoken line (voice this aloud): "${input.spokenDialogue}"`;
+  }
+
   const opts: SeedanceGenerateOptions = {
-    prompt: input.prompt,
+    prompt,
     duration: nearestSeedanceDuration(input.durationSec),
     resolution: '720p',
   };
@@ -531,5 +538,6 @@ export function buildSeedanceOptionsFromInput(input: VideoGenerateInput): Seedan
     opts.aspectRatio = input.aspectRatio as SeedanceAspectRatio;
   }
   if (refs.length) opts.referenceImages = refs;
+  if (input.nativeAudio) opts.nativeAudio = true;
   return opts;
 }

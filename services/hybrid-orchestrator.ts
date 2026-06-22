@@ -74,6 +74,8 @@ import { recordCostLog, estimateVideoCostCny, estimateImageCostCny, videoRateFor
 import { detectLanguage, ttsLangCode, lipsyncLangCode, type TargetLanguage } from '@/lib/language-detect';
 // v12.7.0:editor TTS 走注册表(vectorengine-tts 50 > minimax-tts 100),vectorengine 进主路径。
 import { dispatchTTSGenerate, ttsEngineConfigured } from '@/lib/tts-providers/registry';
+// v12.29.0(P1):原生音画一体 —— NATIVE_AV=1 时,真由原生音频引擎出片的有台词镜跳 TTS,用成片自带音轨。
+import { nativeAudioEnabled, isNativeAudioProvider, nativeAudioShotNumbers, partitionDialogueShots } from '@/lib/native-av';
 // v12.8.0:provider 软熔断 —— 视频引擎池饱和/auth/配额失败 → 冷却跳过,跨镜不重复踩坑。
 import { isProviderHealthy, markProviderDownIfFatal } from '@/lib/provider-health-cache';
 // v12.8.1:视频引擎兜底链控制流(含软熔断)抽出来可单测。
@@ -3477,6 +3479,10 @@ ${shots.map((s, i) => {
       return videoUrl;
       }; // ── end legacyVideoGen ──
 
+      // v12.29.0(P1):native 模式 → 向引擎请求自带音频 + 把台词作 spokenDialogue(仅原生引擎可见,
+      // 不进 visualPrompt → 非原生引擎不会把 CJK 渲染成画面文字)。是否真拿到原生音频取决于真出片引擎。
+      const wantNativeAudio = nativeAudioEnabled() && !!scriptDialogue;
+      let ranVideoProvider = '';
       const videoUrl: string = await withVideoPlugin(
         {
           prompt: enhancedPrompt,
@@ -3487,10 +3493,20 @@ ${shots.map((s, i) => {
           referenceImages: mrBundle.referenceImages?.length ? mrBundle.referenceImages : undefined,
           aspectRatio: this.videoAspect(), // v12.14.0 横竖屏:plugin-chain provider 也按项目比例出片
           durationSec: 8,
+          nativeAudio: wantNativeAudio || undefined,
+          spokenDialogue: wantNativeAudio ? scriptDialogue : undefined,
           label: `shot-${board.shotNumber}`,
         },
         legacyVideoGen,
+        (p) => { if (p) ranVideoProvider = p; }, // plugin 路径真出片 provider
       );
+      // plugin 命中拿 dispatch provider;否则用 legacy 路径的 usedVideoEngine(veo/minimax/kling)。
+      ranVideoProvider = ranVideoProvider || usedVideoEngine;
+      // 本镜成片是否带原生音频:开关 on + 有台词 + 真由原生音频引擎出片(veo/kling/grok/seedance/ltx)。
+      const clipNativeAudio = wantNativeAudio && isNativeAudioProvider(ranVideoProvider);
+      if (clipNativeAudio) {
+        this.emit('consistencyStatus', { shotNumber: board.shotNumber, type: 'nativeAudio', provider: ranVideoProvider });
+      }
 
       // v12.4.0:视频成本落库(每个真出片的镜头记一笔;mock 模式零成本不记)。fire-and-forget。
       if (videoUrl && isValidVideoUrl(videoUrl) && process.env.MOCK_ENGINES !== '1') {
@@ -3507,7 +3523,7 @@ ${shots.map((s, i) => {
       // 之前恒 8s → 剪辑层把 3s 设计的爆发镜整段拼成 8s 慢镜;现在让设计时长一路传到 composer 裁切。
       const designedDur = (shot as any)?.duration;
       const clipDuration = designedDur && designedDur > 0 ? Math.max(2, Math.min(designedDur, 8)) : 8;
-      const clip = { shotNumber: board.shotNumber, videoUrl, duration: clipDuration, status: 'completed' as const };
+      const clip = { shotNumber: board.shotNumber, videoUrl, duration: clipDuration, status: 'completed' as const, nativeAudio: clipNativeAudio };
 
       // v2.9 P1 Keyframes: 异步抽末帧存进 shotLastFrames,下一 shot 开始时会读它作参考图
       // fire-and-forget —— 抽帧耗时 ~0.5s,不阻塞主推理流,失败也不影响本 shot 结果
@@ -4027,12 +4043,19 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
     const totalDuration = timeline.reduce((sum, t) => sum + t.duration, 0);
 
     // ═══ 第3步：AI 配音生成（MiniMax TTS）═══
+    // v12.29.0(P1):runEditor 级别算「原生音频镜」集合,供 TTS 跳过 + composer 取真音轨共用。
+    const nativeShotsSet = new Set(nativeAudioShotNumbers(videos));
     const voiceoverClips: Array<{ shotNumber: number; audioUrl: string }> = [];
     // v2.11 #B1: 收集音频相关的降级信号, 最后带入 final payload 让前端明示"哪些镜头降级了"
     const audioWarnings: string[] = [];
     // v12.7.0: 配音走 TTS 注册表 —— 不再只认 minimax;任一 TTS provider 可用即跑(vectorengine-tts 等也能出声)。
     if (this.minimaxService || ttsEngineConfigured()) {
-      const dialogueShots = timeline.filter(t => t.dialogue && t.dialogue.trim().length > 0);
+      // v12.29.0(P1):原生音频镜跳 TTS(成片自带音轨,composer 取真音轨);其余仍走 TTS(零回归)。
+      const allDialogueShots = timeline.filter(t => t.dialogue && t.dialogue.trim().length > 0);
+      const { tts: dialogueShots, native: nativeDialogueShots } = partitionDialogueShots(allDialogueShots, nativeShotsSet);
+      if (nativeDialogueShots.length > 0) {
+        this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🎧 ${nativeDialogueShots.length} 个镜头用引擎原生音频(跳过 TTS,音画一体)` });
+      }
       if (dialogueShots.length > 0) {
         this.update(AgentRole.EDITOR, { progress: 30, currentTask: `生成 ${dialogueShots.length} 段 AI 配音...` });
         this.emit('agentTalk', { role: AgentRole.EDITOR, text: `正在为 ${dialogueShots.length} 个有台词的镜头生成 AI 配音 🎙️` });
@@ -4360,6 +4383,8 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           clips: composerClips,
           musicUrl: musicUrl || undefined,
           voiceoverClips: voiceoverClips.length > 0 ? voiceoverClips : undefined,
+          nativeAudioShots: nativeShotsSet.size > 0 ? [...nativeShotsSet] : undefined, // v12.29.0(P1):这些镜用成片真音轨
+
           transitionDuration: 0.5,
           musicVolume: voiceoverClips.length > 0 ? 0.2 : 0.3, // 有配音时降低配乐音量
           voiceoverVolume: 0.9,

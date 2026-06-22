@@ -56,6 +56,17 @@ export interface VideoGenerateInput {
   /** 调试用 label, 进调用日志方便定位. */
   label?: string;
 
+  /**
+   * v12.29.0(P1 原生音画一体):请求引擎**自带音频**(对白+音效),供后续跳过 TTS/对唇形.
+   * 仅 supportsNativeAudio 的 provider honor;其余忽略(非原生引擎不受影响).
+   */
+  nativeAudio?: boolean;
+  /**
+   * v12.29.0:要被「念出来」的台词原文 —— 仅原生音频 provider 读取(拼进自身 prompt 让其发声),
+   * **不进主 visualPrompt**(非原生引擎看不到 → 不会把 CJK 渲染成画面文字).
+   */
+  spokenDialogue?: string;
+
   /** 进度回调 (provider 内 poll loop 调). */
   onProgress?: ProgressCallback;
 }
@@ -95,6 +106,11 @@ export interface VideoProvider {
   supportsSubjectReference: boolean;
   /** 最大输出时长 (秒). request durationSec 超过会被 filter 掉. */
   maxDurationSec: number;
+  /**
+   * v12.29.0(P1):成片是否**自带原生音频**(对白+音效一体生成).
+   * true → native 模式下该 provider 出的镜可跳 TTS,composer 取成片真音轨. 可选,默认 falsy.
+   */
+  supportsNativeAudio?: boolean;
 
   /**
    * 同步检查: provider 当前是否能跑 (env 配齐 / SDK 可加载等).

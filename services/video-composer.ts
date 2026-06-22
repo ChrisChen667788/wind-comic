@@ -87,6 +87,9 @@ export interface ComposeOptions {
   impactCues?: Array<{ shotNumber: number; atSec: number; intensity: number }>;
   // v12.13.1 选择性 impact 慢镜:这些镜号的「短冲击镜」给一记强调慢镜(其余动作镜仍 1x)
   impactShots?: number[];
+  // v12.29.0(P1 原生音画一体):这些镜号用**成片自带音轨**(原生音频引擎出片),不铺静音。
+  // 默认空 → 行为与旧版逐字节一致(全镜静音轨 + voiceover 叠加)。ffprobe 兜底:真没音轨仍补静音。
+  nativeAudioShots?: number[];
   onProgress?: (percent: number, stage: string) => void;
 }
 
@@ -498,7 +501,8 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     onProgress,
   } = options;
 
-  const { voiceoverClips, voiceoverVolume = 0.9, actionMode = false } = options;
+  const { voiceoverClips, voiceoverVolume = 0.9, actionMode = false, nativeAudioShots = [] } = options;
+  const nativeShotSet = new Set(nativeAudioShots); // v12.29.0(P1):这些镜用成片真音轨
 
   if (clips.length === 0) {
     throw new Error('No clips provided');
@@ -586,6 +590,20 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   for (let i = 0; i < durations.length; i++) {
     const designed = validClips[i]?.duration;
     if (designed && designed > 0) durations[i] = Math.max(1.5, Math.min(designed, sourceDurations[i]));
+  }
+
+  // v12.29.0(P1 原生音画一体):原生音频镜逐片 ffprobe,在 Promise 外算好(sync 滤镜段不能 await)。
+  // 仅 nativeAudioShots 非空才探测 → 默认空 = 零探测、零回归。
+  const clipHasNativeAudio: boolean[] = new Array(localClips.length).fill(false);
+  if (nativeShotSet.size > 0) {
+    for (let i = 0; i < localClips.length; i++) {
+      if (!nativeShotSet.has(validClips[i]?.shotNumber as number)) continue;
+      try {
+        const md: any = await new Promise((res, rej) => ffmpeg.ffprobe(localClips[i], (e, m) => (e ? rej(e) : res(m))));
+        clipHasNativeAudio[i] = Array.isArray(md?.streams) && md.streams.some((s: any) => s.codec_type === 'audio');
+      } catch { clipHasNativeAudio[i] = false; }
+      if (!clipHasNativeAudio[i]) console.warn(`[Composer] 镜 ${validClips[i]?.shotNumber} 标记原生音频但成片无音轨 → 兜底静音`);
+    }
   }
 
   onProgress?.(40, '构建合成滤镜...');
@@ -910,9 +928,16 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
 
     // 音频处理：生成的视频通常没有音频流，统一生成静音替代
     // 使用 anullsrc 为每个视频片段生成匹配时长的静音音频
+    // v12.29.0(P1 原生音画一体):nativeAudioShots 且真有音轨的镜用「成片自带音轨」,其余补静音。
+    // clipHasNativeAudio[] 已在 Promise 外 ffprobe 算好(默认空集合 → 全 false → 与旧版逐字节一致)。
     for (let i = 0; i < n; i++) {
       const dur = durations[i] || 8;
-      filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${dur.toFixed(2)}[a${i}]`);
+      if (clipHasNativeAudio[i]) {
+        // 取该片真音轨,裁到目标时长 + 归一 44100/stereo,与静音段格式一致供 concat
+        filters.push(`[${i}:a]atrim=0:${dur.toFixed(2)},aresample=44100,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS[a${i}]`);
+      } else {
+        filters.push(`anullsrc=r=44100:cl=stereo,atrim=0:${dur.toFixed(2)}[a${i}]`);
+      }
     }
 
     // 音频 concat

@@ -90,6 +90,7 @@ registerVideoProvider({
   supportsLastFrame: false,
   supportsSubjectReference: false,
   maxDurationSec: 10,
+  supportsNativeAudio: true, // v12.29.0(P1):Veo 3.1 原生对白音轨
   available: () => {
     try {
       const m = require('@/services/veo.service');
@@ -123,6 +124,7 @@ registerVideoProvider({
   supportsLastFrame: true,        // ← 独家
   supportsSubjectReference: false,
   maxDurationSec: 10,
+  supportsNativeAudio: true, // v12.29.0(P1):Kling 3.0 Omni 跨镜音画同步
   available: () => {
     try {
       const m = require('@/services/kling.service');
@@ -230,6 +232,7 @@ registerVideoProvider({
   supportsLastFrame: false,
   supportsSubjectReference: false,
   maxDurationSec: 15,
+  supportsNativeAudio: true, // v12.29.0(P1):Grok 成片自带原生音频
   available: () => {
     try {
       const m = require('@/services/grok-imagine.service');
@@ -239,10 +242,15 @@ registerVideoProvider({
   async generate(input: VideoGenerateInput) {
     const svc = await getGrok();
     if (!svc) throw new Error('Grok Imagine service unavailable');
-    const url = await svc.generateVideo(input.firstFrameUrl || '', input.prompt, {
+    // v12.29.0(P1):native 模式把要念的台词拼进 prompt(仅原生引擎可见)
+    const prompt = input.nativeAudio && input.spokenDialogue
+      ? `${input.prompt}. Spoken line (voice this aloud): "${input.spokenDialogue}"`
+      : input.prompt;
+    const url = await svc.generateVideo(input.firstFrameUrl || '', prompt, {
       duration: input.durationSec,
       aspectRatio: input.aspectRatio,
       referenceImages: input.referenceImages,
+      nativeAudio: input.nativeAudio,
       onProgress: input.onProgress,
     });
     if (!url) throw new Error('Grok Imagine returned empty url');
@@ -263,6 +271,7 @@ registerVideoProvider({
   supportsLastFrame: false,
   supportsSubjectReference: true,   // 多图参考(角色图最前)= 主体锁定
   maxDurationSec: 15,
+  supportsNativeAudio: true, // v12.29.0(P1):Seedance 2.0 原生音画一体(av 模式)
   available: () => {
     try {
       const m = require('@/services/seedance.service');
@@ -295,6 +304,7 @@ registerVideoProvider({
   supportsLastFrame: false,
   supportsSubjectReference: false,
   maxDurationSec: 20,
+  supportsNativeAudio: true, // v12.29.0(P1):LTX-2 音画一体
   available: () => {
     try {
       const m = require('@/services/ltx.service');
@@ -304,9 +314,13 @@ registerVideoProvider({
   async generate(input: VideoGenerateInput) {
     const svc = await getLtx();
     if (!svc) throw new Error('LTX service unavailable');
-    const url = await svc.generateVideo(input.firstFrameUrl || '', input.prompt, {
+    const prompt = input.nativeAudio && input.spokenDialogue
+      ? `${input.prompt}. Spoken line (voice this aloud): "${input.spokenDialogue}"`
+      : input.prompt;
+    const url = await svc.generateVideo(input.firstFrameUrl || '', prompt, {
       duration: input.durationSec,
       aspectRatio: input.aspectRatio,
+      nativeAudio: input.nativeAudio,
       onProgress: input.onProgress,
     });
     if (!url) throw new Error('LTX returned empty url');

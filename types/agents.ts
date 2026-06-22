@@ -230,6 +230,8 @@ export interface VideoClip {
   coverImageUrl?: string;   // 关键帧封面图 URL
   duration?: number;
   status?: 'pending' | 'generating' | 'completed' | 'error';
+  /** v12.29.0(P1):本镜成片是否带原生音频(真由原生音频引擎出片)→ 跳 TTS + composer 取真音轨。 */
+  nativeAudio?: boolean;
 }
 
 // 导演计划输出

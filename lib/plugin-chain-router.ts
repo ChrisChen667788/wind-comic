@@ -42,6 +42,7 @@ async function runWithPlugin<T>(
   kind: PluginEventKind,
   tryPlugin: () => Promise<PluginAttempt<T>>,
   fallback: () => Promise<T>,
+  onProvider?: (provider?: string) => void, // v12.29.0(P1):primary 命中时回传真出片 provider id
 ): Promise<T> {
   const mode = getPluginChainMode();
   if (mode === 'off') return fallback();
@@ -51,6 +52,7 @@ async function runWithPlugin<T>(
     try {
       const { value, provider } = await tryPlugin();
       pluginChainStats.recordPrimaryHit();
+      onProvider?.(provider);
       void recordPluginEvent({ kind, mode: 'primary', outcome: 'primary_hit', provider, latencyMs: Date.now() - t0 });
       return value;
     } catch (e) {
@@ -122,8 +124,9 @@ async function tryVideoPlugin(input: VideoGenerateInput): Promise<PluginAttempt<
 export async function withVideoPlugin(
   input: VideoGenerateInput,
   fallback: () => Promise<string>,
+  onProvider?: (provider?: string) => void, // v12.29.0(P1):回传真出片 provider id(供原生音画判定)
 ): Promise<string> {
-  return runWithPlugin('video', () => tryVideoPlugin(input), fallback);
+  return runWithPlugin('video', () => tryVideoPlugin(input), fallback, onProvider);
 }
 
 // ─── TTS ──────────────────────────────────────────────────────────────────

@@ -41,6 +41,7 @@ export interface GrokGenerateOptions {
   aspectRatio?: string;        // '16:9' | '9:16' | '1:1' ...
   resolution?: '720p' | '480p';
   referenceImages?: string[];  // 场景/风格参考(reference_images 通道)
+  nativeAudio?: boolean;       // v12.29.0(P1):请求自带音频(对白+音效)
   onProgress?: (pct: number, msg?: string) => void;
 }
 
@@ -64,6 +65,7 @@ export function buildGrokRequestBody(
   body.duration = dur;
   if (opts.aspectRatio && GROK_ASPECTS.has(opts.aspectRatio)) body.aspect_ratio = opts.aspectRatio;
   body.resolution = opts.resolution || '720p';
+  if (opts.nativeAudio) body.generate_audio = true; // v12.29.0(P1)原生音画
   return body;
 }
 
