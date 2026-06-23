@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.33</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.34</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
