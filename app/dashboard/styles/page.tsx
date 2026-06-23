@@ -75,7 +75,7 @@ export default function StylesPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {list.map((s) => (
             <div key={s.id} className="rounded-2xl border border-[var(--border)] bg-white/[0.03] overflow-hidden group hover:-translate-y-1 hover:border-amber-500/40 transition-all">
-              <div className="relative h-[120px] bg-gradient-to-br from-amber-500/15 to-[#D4A830]/10 overflow-hidden">
+              <div className="relative aspect-[4/3] bg-gradient-to-br from-amber-500/15 to-[#D4A830]/10 overflow-hidden">
                 <img
                   src={s.thumbnail}
                   alt={s.name}

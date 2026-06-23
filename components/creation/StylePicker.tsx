@@ -182,7 +182,7 @@ function StyleCard({ preset, selected, onSelect }: StyleCardProps) {
       onClick={onSelect}
       className={cn(
         'group relative overflow-hidden rounded-lg border-2 transition-all duration-200',
-        'aspect-[4/5] text-left',
+        'aspect-[4/3] text-left',
         selected
           ? 'border-[#E8C547] shadow-lg shadow-[#E8C547]/20 ring-2 ring-[#E8C547]/30'
           : 'border-white/10 hover:border-white/30',
@@ -240,7 +240,7 @@ function StyleCard({ preset, selected, onSelect }: StyleCardProps) {
 
       {/* 选中 √ */}
       {selected && (
-        <div className="absolute right-2 bottom-20 flex h-6 w-6 items-center justify-center rounded-full bg-[#E8C547] text-black shadow-lg">
+        <div className="absolute right-2 bottom-16 flex h-6 w-6 items-center justify-center rounded-full bg-[#E8C547] text-black shadow-lg">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"

@@ -835,7 +835,7 @@ export default function DashboardCreatePage() {
                     }`}
                     style={{ borderRadius: 4 }}
                   >
-                    <div className="h-[96px] relative overflow-hidden">
+                    <div className="aspect-[4/3] relative overflow-hidden">
                       {stylePreviews[preset.id] ? (
                         <img loading="lazy" decoding="async" src={stylePreviews[preset.id]} alt={preset.label} className="absolute inset-0 w-full h-full object-cover" />
                       ) : (
