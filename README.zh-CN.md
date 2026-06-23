@@ -320,6 +320,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 - `GROK_API_KEY` — xAI Grok Imagine 1.5(文生/图生视频,原生音频;BYO —— 2026-06 图生视频榜首,配了即顶为主选)
 - `JIMENG_AK` / `JIMENG_SK` — ByteDance Seedance 2.0(火山引擎 CV;多图参考 + 原生音画;2026-06 文生视频第三;BYO)
 - `LTX_API_KEY`(或 `FAL_KEY`)— LTX-2.3(Lightricks 开源权重,文生视频次席;可经 `LTX_BASE_URL` **自托管**;BYO)
+- `GEN_CONCURRENCY` / `GEN_CONCURRENCY_VIDEO` · `_STORYBOARD` · `_SCENE` — 分阶段生成并发(默认 2,上限 8)。⚠️ 视频并发越高越快,但会弱化关键帧链衔接(第 N 镜取第 N-1 镜真末帧)——需强衔接时维持低并发(1–2)。
 - `SYNCSO_API_KEY` / `HAILUO_API_KEY` — 嘴型对齐备选 provider
 
 ---

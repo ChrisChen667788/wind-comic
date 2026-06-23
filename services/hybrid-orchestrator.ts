@@ -76,6 +76,8 @@ import { detectLanguage, ttsLangCode, lipsyncLangCode, type TargetLanguage } fro
 import { dispatchTTSGenerate, ttsEngineConfigured } from '@/lib/tts-providers/registry';
 // v12.29.0(P1):原生音画一体 —— NATIVE_AV=1 时,真由原生音频引擎出片的有台词镜跳 TTS,用成片自带音轨。
 import { nativeAudioEnabled, isNativeAudioProvider, nativeAudioShotNumbers, partitionDialogueShots } from '@/lib/native-av';
+// v12.32.0:可调生成并发(场景/分镜/视频),默认 2 零回归;视频高并发会弱化关键帧链(见 gen-concurrency 注释)。
+import { resolveConcurrency } from '@/lib/gen-concurrency';
 // v12.8.0:provider 软熔断 —— 视频引擎池饱和/auth/配额失败 → 冷却跳过,跨镜不重复踩坑。
 import { isProviderHealthy, markProviderDownIfFatal } from '@/lib/provider-health-cache';
 // v12.8.1:视频引擎兜底链控制流(含软熔断)抽出来可单测。
@@ -2338,7 +2340,7 @@ ${raw.slice(0, 2000)}
     // ★ Seedance 风格进化: 串行链 (1路) 允许"风格传递链" — 场景 N 引用场景 N-1
     //   但并发 2 路才能保证速度, 所以策略: 第 1 批 2 场景并发(无场景间 ref),
     //   后续批次可以拿到前批的产出做参考。暂保留 2 并发,通过 worker 内累积 refs。
-    const CONCURRENCY = 2;
+    const CONCURRENCY = resolveConcurrency('scene'); // v12.32.0 可调:GEN_CONCURRENCY_SCENE(默认 2)
     const SCENE_TIMEOUT = 180_000; // 单个场景 3 分钟超时
     const results: { sceneId: string; name: string; description: string; imageUrl: string }[] = [];
     let completed = 0;
@@ -2682,8 +2684,8 @@ ${shots.map((s, i) => {
       } catch (e) { console.warn('[SceneAnchor] persist failed (non-blocking):', e instanceof Error ? e.message : e); }
     }
 
-    // ═══ 并发渲染分镜图（2路并发 + 每张3分钟超时）═══
-    const CONCURRENCY = 2;
+    // ═══ 并发渲染分镜图（可调并发 + 每张3分钟超时）═══
+    const CONCURRENCY = resolveConcurrency('storyboard'); // v12.32.0 可调:GEN_CONCURRENCY_STORYBOARD(默认 2)
     const SB_TIMEOUT = 180_000; // 3 分钟
     const orderedResults: (Storyboard | null)[] = new Array(storyboards.length).fill(null);
     let completedCount = 0;
@@ -3093,8 +3095,8 @@ ${shots.map((s, i) => {
       }),
     });
 
-    // ═══ 并发视频生成（限制同时 2 路，避免 API 限流）═══
-    const CONCURRENCY = 2;
+    // ═══ 并发视频生成（可调并发，避免 API 限流；高并发会弱化关键帧链衔接）═══
+    const CONCURRENCY = resolveConcurrency('video'); // v12.32.0 可调:GEN_CONCURRENCY_VIDEO(默认 2)
     const generateSingleVideo = async (board: Storyboard, i: number): Promise<VideoClip> => {
       const shot = script?.shots?.find(s => s.shotNumber === board.shotNumber) || script?.shots?.[i];
       const planData = (board as any).planData || {};

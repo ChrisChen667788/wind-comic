@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.31</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.32</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-2545%2F2545-2ea44f" alt="2545 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-2556%2F2556-2ea44f" alt="2556 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -400,6 +400,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 - `GROK_API_KEY` — xAI Grok Imagine 1.5 (T2V/I2V, native audio; BYO — 2026-06 image-to-video #1; auto-preferred when set)
 - `JIMENG_AK` / `JIMENG_SK` — ByteDance Seedance 2.0 (火山引擎 CV; multi-ref + native A/V; 2026-06 text-to-video #3; BYO)
 - `LTX_API_KEY` (or `FAL_KEY`) — LTX-2.3 (Lightricks open-weight #2 text-to-video; **self-hostable** via `LTX_BASE_URL`; BYO)
+- `GEN_CONCURRENCY` / `GEN_CONCURRENCY_VIDEO` · `_STORYBOARD` · `_SCENE` — per-stage generation concurrency (default 2, max 8). ⚠️ Higher *video* concurrency is faster but weakens keyframe-chain continuity (shot N pulls shot N-1's last frame) — keep low (1–2) when cross-shot 衔接 matters.
 - `SYNCSO_API_KEY` / `HAILUO_API_KEY` — alternative lip-sync providers
 
 ---

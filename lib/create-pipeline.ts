@@ -22,6 +22,7 @@ import { insertQualityScore } from '@/lib/quality-scores';
 import { enrichScenesFromWriterScript } from '@/lib/scene-enrich';
 import { bindElements } from '@/lib/reference-elements';
 import { loadCheckpoints, emptyCheckpoints, checkpointSummary, type PipelineCheckpoints } from '@/lib/pipeline-checkpoints';
+import { StageTimer, summarizeTiming } from '@/lib/stage-timing'; // v12.32.0 阶段耗时归因
 
 // 活跃编排器注册表 — gate 路由 / rerun / regenerate 据此找到运行中的编排器
 // (原在 route 模块;route 仍 re-export 以保持既有 import 路径不变)
@@ -52,7 +53,18 @@ export type PipelineEmit = (type: string, data: unknown) => void;
 
 export async function runCreatePipeline(input: CreatePipelineInput, emit: PipelineEmit, opts?: { resume?: boolean }): Promise<void> {
   const { idea, projectId, videoProvider, style, aspect, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references, replicaScript, editStyle } = input as CreatePipelineInput & Record<string, any>;
-  const send = emit; // 原文 send() 调用零改动
+  // v12.32.0:阶段耗时归因 —— 各阶段边界本就发 send('step',{step}),顺手用它做计时埋点(零额外侵入)。
+  const _stageTimer = new StageTimer();
+  let _curStage: string | null = null;
+  const send: PipelineEmit = (type, data) => {
+    if (type === 'step' && data && typeof (data as { step?: unknown }).step === 'string') {
+      const step = (data as { step: string }).step;
+      if (_curStage) _stageTimer.end(_curStage);
+      _curStage = step;
+      _stageTimer.start(step);
+    }
+    return emit(type, data); // 原文 send() 调用零改动
+  };
 
 
   // 各阶段结果（用 let 以便后续阶段即使前面失败也能继续）
@@ -785,7 +797,13 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       });
     } catch {}
 
-    send('complete', { projectId, plan, script, characters, scenes, storyboards: finalStoryboards, videos: finalVideos, editResult, review });
+    // v12.32.0:阶段耗时归因 —— 收尾汇总,发 stageTiming(用 emit 直发,避免被 send 的 step 计时逻辑误判)。
+    _stageTimer.endAll();
+    const stageTiming = _stageTimer.breakdown();
+    emit('stageTiming', stageTiming);
+    console.log('[StageTiming]', summarizeTiming(stageTiming));
+
+    send('complete', { projectId, plan, script, characters, scenes, storyboards: finalStoryboards, videos: finalVideos, editResult, review, stageTiming });
 
   } catch (error) {
     console.error('[Stream] Fatal error:', error);

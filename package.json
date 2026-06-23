@@ -1,6 +1,6 @@
 {
   "name": "wind-comic",
-  "version": "12.31.0",
+  "version": "12.32.0",
   "description": "Wind Comic — multi-agent AI pipeline that turns a one-line idea into a finished short-form drama: script → cinematic storyboards → video, with built-in character consistency, beat-aligned editing, and an open agent ensemble.",
   "main": "index.js",
   "homepage": "https://github.com/ChrisChen667788/wind-comic",
