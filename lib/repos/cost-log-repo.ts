@@ -45,6 +45,32 @@ export async function recordCostLog(input: CostLogInput): Promise<boolean> {
   }
 }
 
+/** v12.37.0(决策日志):按项目读 cost_log(只读,双驱动)。 */
+export interface CostLogRow {
+  id: string; engine: string; resolution: string;
+  durationSec: number; costCny: number;
+  metadata: Record<string, unknown>; createdAt: string;
+}
+export async function listCostLogByProject(projectId: string): Promise<CostLogRow[]> {
+  if (!projectId) return [];
+  try {
+    const rows = await getDbDriver().query(
+      `SELECT id, engine, resolution, duration_sec, cost_cny, metadata, created_at
+       FROM cost_log WHERE project_id = ? ORDER BY created_at ASC`,
+      [projectId],
+    ) as Array<Record<string, unknown>>;
+    return (rows || []).map((r) => ({
+      id: String(r.id || ''),
+      engine: String(r.engine || ''),
+      resolution: String(r.resolution || ''),
+      durationSec: Number(r.duration_sec) || 0,
+      costCny: Number(r.cost_cny) || 0,
+      metadata: (() => { try { return typeof r.metadata === 'string' ? JSON.parse(r.metadata as string) : ((r.metadata as Record<string, unknown>) || {}); } catch { return {}; } })(),
+      createdAt: String(r.created_at || ''),
+    }));
+  } catch { return []; }
+}
+
 /** TTS 成本估算(¥):有时长按 ~¥0.02/s,否则兜底按字 ~¥0.004/字。 */
 export function estimateTtsCostCny(durationSec?: number, textLen?: number): number {
   const sec = Number(durationSec) || 0;
