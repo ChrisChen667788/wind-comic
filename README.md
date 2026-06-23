@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.37</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.38</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-2571%2F2571-2ea44f" alt="2571 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-2578%2F2578-2ea44f" alt="2578 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
