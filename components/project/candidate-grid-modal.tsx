@@ -43,6 +43,11 @@ export function CandidateGridModal({ projectId, shotNumber, basePrompt, defaultA
   };
 
   const { cols } = gridDimensions(count);
+  // v12.36.0(视觉 QA 修复):候选格宽高比跟随所选画幅,避免 9:16 竖屏候选被 16:9 格裁掉。
+  const ASPECT_CLASS: Record<string, string> = { '16:9': 'aspect-video', '9:16': 'aspect-[9/16]', '1:1': 'aspect-square', '2.35:1': 'aspect-[2.35/1]' };
+  const aspectClass = ASPECT_CLASS[aspectRatio] || 'aspect-video';
+  // 竖屏候选格更高,3 列会顶到很长 → 竖屏时收成 2 列,网格更紧凑(body 仍可滚)。
+  const effectiveCols = aspectRatio === '9:16' ? Math.min(cols, 2) : cols;
 
   const handleGenerate = async () => {
     if (busy) return;
@@ -153,13 +158,13 @@ export function CandidateGridModal({ projectId, shotNumber, basePrompt, defaultA
               点「生成候选」一次出 {count} 个**构图各异**的候选帧,挑最好的那张作首帧。
             </div>
           ) : (
-            <div className="grid gap-2.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            <div className="grid gap-2.5" style={{ gridTemplateColumns: `repeat(${effectiveCols}, minmax(0, 1fr))` }}>
               {cells.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => c.imageUrl && handlePick(c.id)}
                   disabled={!c.imageUrl || busy || !!picking}
-                  className="group relative aspect-video rounded-lg overflow-hidden border border-[var(--cinema-border)] bg-black/40 hover:border-[var(--cinema-amber)] focus:outline-none focus:border-[var(--cinema-amber)] disabled:cursor-default transition-colors"
+                  className={`group relative ${aspectClass} rounded-lg overflow-hidden border border-[var(--cinema-border)] bg-black/40 hover:border-[var(--cinema-amber)] focus:outline-none focus:border-[var(--cinema-amber)] disabled:cursor-default transition-colors`}
                   title={c.variantLabel}
                 >
                   {c.imageUrl ? (
