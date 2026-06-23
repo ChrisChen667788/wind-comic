@@ -15,9 +15,10 @@
  */
 
 import { useState } from 'react';
-import { ArrowsClockwise as RefreshCw, CircleNotch as Loader2, Sparkle as Sparkles, ArrowSquareOut as ExternalLink, Lock, FilmStrip as Film, Pencil } from '@phosphor-icons/react';
+import { ArrowsClockwise as RefreshCw, CircleNotch as Loader2, Sparkle as Sparkles, ArrowSquareOut as ExternalLink, Lock, FilmStrip as Film, Pencil, SquaresFour as Grid } from '@phosphor-icons/react';
 import { ExportResolutionDropdown } from './export-resolution-dropdown';
 import { StoryboardRegenModal } from './storyboard-regen-modal';
+import { CandidateGridModal } from './candidate-grid-modal'; // v12.35.0 九宫格候选帧
 
 interface Video {
   shotNumber: number;
@@ -50,6 +51,7 @@ export function ShotWorkshopTab({
   const [localOverrides, setLocalOverrides] = useState<Record<number, { url: string; quality: string }>>({});
   // v2.23 P0.2: 单镜分镜图重生 — 用户改 prompt 后重渲
   const [regenModalShot, setRegenModalShot] = useState<number | null>(null);
+  const [gridModalShot, setGridModalShot] = useState<number | null>(null); // v12.35.0 九宫格候选帧
   // 分镜图本地 override (regen 成功后立刻替换缩略图)
   const [sbOverrides, setSbOverrides] = useState<Record<number, string>>({});
 
@@ -226,6 +228,16 @@ export function ShotWorkshopTab({
                     <Pencil className="w-3 h-3" />
                     改 prompt 重生
                   </button>
+                  {/* v12.35.0: 九宫格候选帧 — 一镜出 N 构图候选,挑最优作首帧 */}
+                  <button
+                    onClick={() => setGridModalShot(v.shotNumber)}
+                    disabled={busyShot !== null}
+                    title="一镜出 4/6/9 个构图各异的候选帧,挑最优作首帧 seed(走 image 路由)"
+                    className="cinema-btn !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    <Grid className="w-3 h-3" />
+                    九宫格选帧
+                  </button>
                   <button
                     onClick={() => regenAt4K(v.shotNumber)}
                     disabled={isBusy || busyShot !== null}
@@ -266,6 +278,24 @@ export function ShotWorkshopTab({
             setRegenModalShot(null);
           }}
           onCancel={() => setRegenModalShot(null)}
+        />
+      )}
+
+      {/* v12.35.0: 九宫格候选帧 modal */}
+      {gridModalShot !== null && (
+        <CandidateGridModal
+          projectId={projectId}
+          shotNumber={gridModalShot}
+          basePrompt={
+            (videos.find((v) => v.shotNumber === gridModalShot)?.meta as any)?.prompt
+            || (storyboards.find((s) => s.shotNumber === gridModalShot) as any)?.prompt
+            || ''
+          }
+          onPick={(newUrl) => {
+            setSbOverrides((prev) => ({ ...prev, [gridModalShot]: newUrl }));
+            setGridModalShot(null);
+          }}
+          onCancel={() => setGridModalShot(null)}
         />
       )}
 
