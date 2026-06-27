@@ -94,8 +94,11 @@ export default function UsagePage() {
 
   const engines = data?.cost.byEngine || [];
   const maxEngine = Math.max(1, ...engines.map((e) => e.costCny));
-  const daysArr = data?.cost.byDay || [];
-  const maxDay = Math.max(1, ...daysArr.map((d) => d.costCny));
+  // 每日趋势:把稀疏的 byDay(只含有花费的日子)填成窗口内连续每一天(缺失日补 0)。
+  // 否则非连续日期被等宽并列 → 误导;同时柱子定高 bug 一并修(见下方渲染)。
+  const trend = buildDailyTrend(data?.cost.byDay || [], data?.window?.since, data?.window?.days || 0);
+  const maxDay = Math.max(1, ...trend.map((d) => d.costCny));
+  const labelEvery = Math.max(1, Math.ceil(trend.length / 8)); // 标签抽稀,避免 30/90 天挤成一团
 
   return (
     <div className="cinema-page max-w-5xl mx-auto flex flex-col gap-5">
@@ -199,13 +202,19 @@ export default function UsagePage() {
           {/* 每日趋势 */}
           <div className="cinema-card !p-4">
             <div className="cinema-eyebrow mb-3 flex items-center gap-1.5"><ChartLineUp size={13} className="text-[var(--accent)]" /> 每日成本趋势</div>
-            {daysArr.length === 0 && <div className="cinema-mono text-[11px] opacity-50">暂无每日数据。</div>}
-            {daysArr.length > 0 && (
-              <div className="flex items-end gap-1 h-28">
-                {daysArr.map((d) => (
-                  <div key={d.day} className="flex-1 flex flex-col items-center justify-end gap-1 group min-w-0" title={`${d.day} · ${cny(d.costCny)} · ${d.count} 次`}>
-                    <div className="w-full rounded-t bg-[var(--accent)]/70 group-hover:bg-[var(--accent)] transition-colors" style={{ height: `${Math.max(2, (d.costCny / maxDay) * 100)}%` }} />
-                    <span className="cinema-mono text-[7px] opacity-40 truncate w-full text-center">{d.day.slice(5)}</span>
+            {trend.length === 0 && <div className="cinema-mono text-[11px] opacity-50">暂无每日数据。</div>}
+            {trend.length > 0 && (
+              <div className="flex items-stretch gap-px h-28">
+                {trend.map((d, i) => (
+                  <div key={d.day} className="flex-1 flex flex-col items-center gap-1 group min-w-0" title={`${d.day} · ${cny(d.costCny)} · ${d.count} 次`}>
+                    {/* 柱轨:flex-1 给出确定高度,柱子 height:% 才有基准(原 bug:父列无定高 → % 解析为 0) */}
+                    <div className="flex-1 w-full flex items-end min-h-0">
+                      <div className="w-full rounded-t bg-[var(--accent)]/70 group-hover:bg-[var(--accent)] transition-colors"
+                        style={{ height: `${d.costCny > 0 ? Math.max(4, (d.costCny / maxDay) * 100) : 0}%` }} />
+                    </div>
+                    <span className="cinema-mono text-[7px] opacity-40 truncate w-full text-center leading-none h-2.5">
+                      {i % labelEvery === 0 ? d.day.slice(5) : ''}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -224,4 +233,29 @@ function Stat({ label, value, icon }: { label: string; value: string; icon: Reac
       <div className="cinema-mono text-lg mt-0.5 tabular-nums">{value}</div>
     </div>
   );
+}
+
+/**
+ * 把稀疏的 byDay 填成连续每日趋势:从 window.since(或最早记录日)起,
+ * 覆盖整个窗口的每一天,缺失日补 0。UTC 基准对齐 byDay 的 createdAt.slice(0,10)。
+ */
+function buildDailyTrend(
+  byDay: Array<{ day: string; costCny: number; count: number }>,
+  since: string | undefined,
+  windowDays: number,
+): Array<{ day: string; costCny: number; count: number }> {
+  if (!byDay.length) return [];
+  const map = new Map(byDay.map((d) => [d.day, d]));
+  const startYmd = ((since || byDay[0].day) || '').slice(0, 10);
+  const startMs = Date.parse(`${startYmd}T00:00:00Z`);
+  if (Number.isNaN(startMs)) return byDay;
+  const lastMs = Date.parse(`${byDay[byDay.length - 1].day}T00:00:00Z`);
+  const spanDays = Number.isNaN(lastMs) ? byDay.length : Math.round((lastMs - startMs) / 86400000) + 1;
+  const n = Math.min(370, Math.max(windowDays > 0 ? windowDays : spanDays, spanDays));
+  const out: Array<{ day: string; costCny: number; count: number }> = [];
+  for (let i = 0; i < n; i++) {
+    const key = new Date(startMs + i * 86400000).toISOString().slice(0, 10);
+    out.push(map.get(key) || { day: key, costCny: 0, count: 0 });
+  }
+  return out;
 }

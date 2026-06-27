@@ -18,7 +18,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CircleNotch as Loader2, DotsSixVertical as GripVertical, Clock, FloppyDisk as Save, FilmStrip as Film, Chat as MessageSquare, MusicNotes as Music, SpeakerHigh as Volume2, SpeakerSlash as VolumeX, Pencil, ArrowCounterClockwise as RotateCcw, ArrowUUpLeft as Undo2, ArrowUUpRight as Redo2, Magnet } from '@phosphor-icons/react';
+import { CircleNotch as Loader2, DotsSixVertical as GripVertical, Clock, FloppyDisk as Save, FilmStrip as Film, Chat as MessageSquare, MusicNotes as Music, SpeakerHigh as Volume2, SpeakerSlash as VolumeX, Pencil, ArrowCounterClockwise as RotateCcw, ArrowUUpLeft as Undo2, ArrowUUpRight as Redo2, Magnet, Microphone, Play } from '@phosphor-icons/react';
 import { visibleRange, shouldVirtualize } from '@/lib/timeline-virtual';
 import { useYjs } from '@/hooks/use-yjs';
 import { useAudioWaveform, sliceWaveform } from '@/hooks/use-audio-waveform';
@@ -826,9 +826,10 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           <button
             onClick={genNarration}
             disabled={narrating}
-            className="px-2.5 py-1 rounded-md text-[10px] font-medium bg-violet-500/15 text-violet-200 border border-violet-500/30 hover:bg-violet-500/25 transition-all disabled:opacity-50 inline-flex items-center gap-1"
+            className="px-2.5 py-1 rounded text-[10px] font-medium border transition-all hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1"
+            style={{ background: 'color-mix(in srgb, var(--cinema-violet) 14%, transparent)', color: 'var(--cinema-violet)', borderColor: 'color-mix(in srgb, var(--cinema-violet) 32%, transparent)' }}
           >
-            🎙 {narrating ? '生成中…' : (data.tracks.narration && data.tracks.narration.length > 0 ? '重生解说音轨' : '生成解说音轨')}
+            <Microphone size={11} weight="fill" /> {narrating ? '生成中…' : (data.tracks.narration && data.tracks.narration.length > 0 ? '重生解说音轨' : '生成解说音轨')}
           </button>
           <span className="text-[10px] text-[var(--soft)]">由分镜旁白真出 TTS + 落盘 + 串进时间线 (字幕并入 SUBTITLE)</span>
         </div>
@@ -840,21 +841,21 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
           const laneWidth = Math.max(data.totalDuration, narrEnd) * pxPerSec;
           return (
             <div className="mt-1.5">
-              <div className="flex items-center gap-1.5 text-[10px] text-violet-300/80 mb-1 px-1">
-                <span>🎙</span><span>NARRATION · 解说音轨 (只读) · 字幕已并入 SUBTITLE 轨</span>
+              <div className="flex items-center gap-1.5 text-[10px] mb-1 px-1" style={{ color: 'color-mix(in srgb, var(--cinema-violet) 88%, var(--cinema-text-2))' }}>
+                <Microphone size={11} weight="fill" /><span>NARRATION · 解说音轨 (只读) · 字幕已并入 SUBTITLE 轨</span>
               </div>
-              <div className="relative h-9 rounded-md bg-violet-500/[0.04] border border-violet-500/15" style={{ width: laneWidth }}>
+              <div className="relative h-9 rounded-md border" style={{ width: laneWidth, background: 'color-mix(in srgb, var(--cinema-violet) 5%, transparent)', borderColor: 'color-mix(in srgb, var(--cinema-violet) 18%, transparent)' }}>
                 {narr.map((seg) => (
                   <div
                     key={seg.id}
-                    className="absolute top-1 bottom-1 rounded bg-violet-500/20 border border-violet-400/30 px-1.5 flex items-center gap-1 overflow-hidden"
-                    style={{ left: seg.startSec * pxPerSec, width: Math.max(10, seg.durationSec * pxPerSec) }}
+                    className="absolute top-1 bottom-1 rounded px-1.5 flex items-center gap-1 overflow-hidden border"
+                    style={{ left: seg.startSec * pxPerSec, width: Math.max(10, seg.durationSec * pxPerSec), background: 'color-mix(in srgb, var(--cinema-violet) 22%, transparent)', borderColor: 'color-mix(in srgb, var(--cinema-violet) 34%, transparent)' }}
                     title={seg.label}
                   >
                     {seg.audioUrl && (
-                      <a href={seg.audioUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-violet-200 hover:text-white text-[10px]" title="播放 / 下载">▶</a>
+                      <a href={seg.audioUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 hover:brightness-125 inline-flex" style={{ color: 'var(--cinema-violet)' }} title="播放 / 下载"><Play size={10} weight="fill" /></a>
                     )}
-                    <span className="text-[10px] text-violet-100/90 truncate">{seg.label}</span>
+                    <span className="text-[10px] truncate" style={{ color: 'color-mix(in srgb, var(--cinema-violet) 70%, var(--cinema-text))' }}>{seg.label}</span>
                   </div>
                 ))}
               </div>

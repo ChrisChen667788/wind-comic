@@ -182,7 +182,14 @@ export default function ProjectsPage() {
               >
                 {/* Cover */}
                 <div className="cover h-[160px]">
-                  <img loading="lazy" decoding="async" src={cover} alt={p.title} className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={cover} alt={p.title} className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // 历史项目封面 URL 失效(CDN 过期 / 本地资产被清)→ 兜底到内联占位图,避免露碎图标。单次切换防循环。
+                      const img = e.currentTarget;
+                      if (img.dataset.fallback) return;
+                      img.dataset.fallback = '1';
+                      img.src = IMG_PREVIEW_DEFAULT;
+                    }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                   <div className={`absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-sm ${sc.bgColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />

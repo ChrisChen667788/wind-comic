@@ -297,6 +297,18 @@ export default function ProjectDetailPage() {
     { key: 'play', label: '完整播放', icon: Play, count: 0 },
   ];
 
+  // v12.42 工作流主轴:把 18 个平铺 Tab 收成两级 IA(创作 → 精修 → 审校 → 交付)。
+  // activeGroup 纯派生自 activeTab(含程序化 setActiveTab,如导演台跳转),无需额外状态。
+  const TAB_GROUPS: { key: string; label: string; en: string; tabKeys: string[] }[] = [
+    { key: 'create',  label: '创作', en: 'CREATE',  tabKeys: ['director', 'script', 'characters', 'scenes', 'storyboard', 'videos', 'oneclick'] },
+    { key: 'refine',  label: '精修', en: 'REFINE',  tabKeys: ['workshop', 'continuity', 'timeline', 'param-linkage'] },
+    { key: 'review',  label: '审校', en: 'REVIEW',  tabKeys: ['pacing', 'pullsheet', 'vision-audit', 'monitor'] },
+    { key: 'deliver', label: '交付', en: 'DELIVER', tabKeys: ['play', 'comments', 'distribution'] },
+  ];
+  const tabByKey: Record<string, typeof tabs[number]> = Object.fromEntries(tabs.map((t) => [t.key, t]));
+  const activeGroup = TAB_GROUPS.find((g) => g.tabKeys.includes(activeTab))?.key || 'create';
+  const groupTabs = (TAB_GROUPS.find((g) => g.key === activeGroup)?.tabKeys || []).map((k) => tabByKey[k]).filter(Boolean);
+
   return (
     <div className="cinema-page min-h-screen text-white">
       {/* Nav — 影院风:左侧返回 + 项目"场记板"标题 + 右侧综合评分仪表 */}
@@ -420,24 +432,80 @@ export default function ProjectDetailPage() {
           onChange={(nextUrl) => setProject((prev: any) => ({ ...prev, primaryCharacterRef: nextUrl }))}
         />
 
-        {/* Tabs — cinema clipboard 切换条 */}
-        <div className="flex items-center gap-0.5 mb-6 cinema-card overflow-x-auto p-1 w-fit">
-          {tabs.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs whitespace-nowrap transition-colors ${
-                activeTab === t.key
-                  ? 'bg-[var(--cinema-amber)] text-black font-semibold'
-                  : 'text-[var(--cinema-text-2)] hover:text-[var(--cinema-text)] hover:bg-[var(--cinema-surface-2)]'
-              }`}
-              style={{ borderRadius: 3 }}
-            >
-              <t.icon className="w-3 h-3" />
-              <span>{t.label}</span>
-              {t.count > 0 && <span className="cinema-mono text-[9px] opacity-70 tabular-nums">{String(t.count).padStart(2, '0')}</span>}
-            </button>
-          ))}
+        {/* Tabs — v12.42 两级工作流主轴(创作 → 精修 → 审校 → 交付),收敛 18 个平铺 Tab */}
+        <div className="mb-6 flex flex-col gap-2">
+          {/* 主轴:工作流分组 */}
+          <div
+            role="tablist"
+            aria-label="工作流分组"
+            className="flex items-center gap-1 cinema-card p-1 w-fit"
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+              e.preventDefault();
+              const i = TAB_GROUPS.findIndex(g => g.key === activeGroup);
+              const ni = (i + (e.key === 'ArrowRight' ? 1 : TAB_GROUPS.length - 1)) % TAB_GROUPS.length;
+              setActiveTab(TAB_GROUPS[ni].tabKeys[0]);
+            }}
+          >
+            {TAB_GROUPS.map(g => {
+              const on = activeGroup === g.key;
+              return (
+                <button
+                  key={g.key}
+                  role="tab"
+                  aria-selected={on}
+                  tabIndex={on ? 0 : -1}
+                  onClick={() => { if (g.key !== activeGroup) setActiveTab(g.tabKeys[0]); }}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs whitespace-nowrap transition-colors ${
+                    on
+                      ? 'bg-[var(--cinema-amber)] text-black font-semibold'
+                      : 'text-[var(--cinema-text-2)] hover:text-[var(--cinema-text)] hover:bg-[var(--cinema-surface-2)]'
+                  }`}
+                  style={{ borderRadius: 3 }}
+                >
+                  <span>{g.label}</span>
+                  <span className={`cinema-mono text-[8px] tracking-widest ${on ? 'opacity-60' : 'opacity-40'}`}>{g.en}</span>
+                </button>
+              );
+            })}
+          </div>
+          {/* 当前组的环节 */}
+          <div
+            role="tablist"
+            aria-label={`${TAB_GROUPS.find(g => g.key === activeGroup)?.label || ''} 环节`}
+            className="flex items-center gap-0.5 cinema-card overflow-x-auto p-1 w-fit"
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+              e.preventDefault();
+              const keys = groupTabs.map(t => t.key);
+              const i = Math.max(0, keys.indexOf(activeTab));
+              const ni = (i + (e.key === 'ArrowRight' ? 1 : keys.length - 1)) % keys.length;
+              setActiveTab(keys[ni]);
+            }}
+          >
+            {groupTabs.map(t => {
+              const on = activeTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  role="tab"
+                  aria-selected={on}
+                  tabIndex={on ? 0 : -1}
+                  onClick={() => setActiveTab(t.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs whitespace-nowrap transition-colors ${
+                    on
+                      ? 'bg-[var(--cinema-amber)] text-black font-semibold'
+                      : 'text-[var(--cinema-text-2)] hover:text-[var(--cinema-text)] hover:bg-[var(--cinema-surface-2)]'
+                  }`}
+                  style={{ borderRadius: 3 }}
+                >
+                  <t.icon className="w-3 h-3" />
+                  <span>{t.label}</span>
+                  {t.count > 0 && <span className="cinema-mono text-[9px] opacity-70 tabular-nums">{String(t.count).padStart(2, '0')}</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Content */}

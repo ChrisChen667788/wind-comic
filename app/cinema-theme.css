@@ -26,8 +26,10 @@
   --cinema-amber-deep:   #8A6E3F;
   --cinema-amber-glow:   rgba(201, 163, 94, 0.18);
   --cinema-red:          #B85450;
-  --cinema-green:        #5C8C70;
+  --cinema-green:        #74A98A; /* v12.41 a11y: 5C8C70→74A98A 提亮,成功色在深底达 WCAG AA(≥4.5:1) */
   --cinema-blue:         #5A7A8A;
+  --cinema-violet:       #8C7BA6; /* v12.41 解说/音轨等次级语义:低饱和灰紫,融入暗金体系(非 neon 紫孤岛) */
+  --cinema-magenta:      #AE7295; /* v12.41 对齐参考线/次级标记:灰玫红,与 red 同寄存器 */
   --cinema-border:       rgba(245, 241, 234, 0.08);
   --cinema-border-hi:    rgba(245, 241, 234, 0.16);
   --cinema-shadow:       0 1px 0 rgba(245, 241, 234, 0.04) inset, 0 8px 32px rgba(0, 0, 0, 0.55);

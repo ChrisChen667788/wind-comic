@@ -180,12 +180,13 @@ export function ShotWorkshopTab({
                 key={v.shotNumber}
                 className="cinema-card-hi p-3 flex items-center gap-3"
               >
-                <div className="w-20 h-12 bg-black/40 rounded overflow-hidden flex-shrink-0">
+                {/* v12.41 方形中性框 + object-contain:任意画幅(含 9:16 竖屏)整帧显示,不再被裁切变形 */}
+                <div className="w-14 h-14 bg-black/40 rounded overflow-hidden flex-shrink-0 grid place-items-center">
                   {sbImg && /^https?:|^\/api\//i.test(sbImg) ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img loading="lazy" decoding="async" src={sbImg} alt={`shot ${v.shotNumber}`} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={sbImg} alt={`shot ${v.shotNumber}`} className="max-w-full max-h-full object-contain" />
                   ) : (
-                    <div className="w-full h-full grid place-items-center cinema-mono text-[10px] opacity-40">—</div>
+                    <span className="cinema-mono text-[10px] opacity-40">—</span>
                   )}
                 </div>
 

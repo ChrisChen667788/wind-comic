@@ -4,16 +4,19 @@
  * v9.6.5 — 项目级成本归因面板(阶段十六 T3 性能成本)。拉 /api/projects/[id]/cost
  * (cost_log → engine 归类 → lib/cost-attribution),展示:总成本 + 各类目占比(降序条形)
  * + 最贵类目 + 省钱提示。挂在「技术监看」tab(与性能监看同列)。无成本数据 → 空态提示。
+ *
+ * v12.41 设计系统统一:整面板从旁路 Tailwind(rounded-xl/bg-white/硬编码色盘)迁到 cinema-*
+ * 令牌,消灭"风格孤岛";类目色 / 护栏色全部走 cinema 调色板,emoji → Phosphor 图标。
  */
 import { useEffect, useMemo, useState } from 'react';
-import { CurrencyCny } from '@phosphor-icons/react';
+import { CurrencyCny, Lightbulb } from '@phosphor-icons/react';
 import { evaluateCostGuard } from '@/lib/cost-attribution';
 
 const GUARD_CLS: Record<'none' | 'ok' | 'warn' | 'over', string> = {
-  none: 'text-white/40', ok: 'text-emerald-400', warn: 'text-amber-400', over: 'text-rose-400',
+  none: 'text-[var(--cinema-text-3)]', ok: 'text-[var(--cinema-green)]', warn: 'text-[var(--cinema-amber)]', over: 'text-[var(--cinema-red)]',
 };
 const GUARD_BAR: Record<'none' | 'ok' | 'warn' | 'over', string> = {
-  none: 'bg-white/20', ok: 'bg-emerald-400', warn: 'bg-amber-400', over: 'bg-rose-400',
+  none: 'bg-[var(--cinema-border-hi)]', ok: 'bg-[var(--cinema-green)]', warn: 'bg-[var(--cinema-amber)]', over: 'bg-[var(--cinema-red)]',
 };
 
 type CostCategory = 'llm' | 'image' | 'video' | 'tts' | 'lipsync' | 'other';
@@ -25,8 +28,10 @@ interface CostAttribution {
   hints: string[];
 }
 
+// v12.41 类目色 → cinema 调色板(6 个语义令牌,低饱和暗金体系,告别 neon 硬编码)
 const CAT_COLOR: Record<CostCategory, string> = {
-  llm: '#8B8BF5', image: '#4DE0C2', video: '#E86A8C', tts: '#E8C547', lipsync: '#5BA8FF', other: '#9AA0AA',
+  llm: 'var(--cinema-amber)', image: 'var(--cinema-green)', video: 'var(--cinema-magenta)',
+  tts: 'var(--cinema-blue)', lipsync: 'var(--cinema-violet)', other: 'var(--cinema-text-3)',
 };
 
 const CAP_KEY = (id: string) => `qfmj-cost-cap-${id}`;
@@ -60,36 +65,36 @@ export function CostAttributionPanel({ projectId }: { projectId: string }) {
   if (!loaded) return null;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="cinema-card !p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 text-white/80 text-sm font-medium">
-          <CurrencyCny className="w-4 h-4" /> 成本归因 · 这一单花在哪
+        <div className="cinema-eyebrow flex items-center gap-1.5">
+          <CurrencyCny size={13} className="text-[var(--cinema-amber)]" /> 成本归因 · 这一单花在哪
         </div>
         {attr && attr.totalCny > 0 && (
-          <span className="text-[13px] text-white/85 font-semibold tabular-nums">¥{attr.totalCny.toFixed(2)}</span>
+          <span className="cinema-mono text-[13px] tabular-nums">¥{attr.totalCny.toFixed(2)}</span>
         )}
       </div>
 
       {!attr || attr.totalCny === 0 ? (
-        <div className="text-[12px] text-white/40 py-4 text-center">暂无成本数据 —— 生成成片后即可看每阶段花销与省钱建议</div>
+        <div className="cinema-mono text-[12px] text-[var(--cinema-text-3)] py-4 text-center">暂无成本数据 —— 生成成片后即可看每阶段花销与省钱建议</div>
       ) : (
         <>
           {/* v9.7.17 预算护栏 */}
-          <div className="mb-3 rounded-lg bg-white/[0.03] border border-white/5 p-2.5">
+          <div className="mb-3 rounded border border-[var(--cinema-border)] bg-[var(--cinema-surface-2)] p-2.5">
             <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-[11px] text-white/50">预算上限 ¥</span>
+              <span className="cinema-mono text-[11px] text-[var(--cinema-text-3)]">预算上限 ¥</span>
               <input
                 type="number" min="0" inputMode="decimal" value={cap}
                 onChange={(e) => onCapChange(e.target.value)} placeholder="未设"
-                className="w-20 bg-white/[0.05] border border-white/10 rounded px-1.5 py-0.5 text-[11px] text-white/80 text-right outline-none"
+                className="cinema-input !w-20 !py-0.5 !text-[11px] text-right"
               />
             </div>
             {guard.level !== 'none' && (
               <>
-                <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                  <div className={`h-full rounded-full ${GUARD_BAR[guard.level]}`} style={{ width: `${Math.min(100, guard.pctUsed || 0)}%` }} />
+                <div className="h-1.5 rounded bg-[var(--cinema-border)] overflow-hidden">
+                  <div className={`h-full rounded ${GUARD_BAR[guard.level]}`} style={{ width: `${Math.min(100, guard.pctUsed || 0)}%` }} />
                 </div>
-                <div className={`text-[11px] mt-1 ${GUARD_CLS[guard.level]}`}>{guard.message}</div>
+                <div className={`cinema-mono text-[11px] mt-1 ${GUARD_CLS[guard.level]}`}>{guard.message}</div>
               </>
             )}
           </div>
@@ -98,12 +103,12 @@ export function CostAttributionPanel({ projectId }: { projectId: string }) {
           <div className="space-y-2 mb-3">
             {attr.byCategory.map((c) => (
               <div key={c.category} className="flex items-center gap-2.5">
-                <span className="text-[11px] text-white/60 w-20 shrink-0 truncate">{c.label}</span>
-                <div className="flex-1 min-w-0 h-3 rounded-full bg-white/[0.05] overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${Math.max(2, c.pct)}%`, backgroundColor: CAT_COLOR[c.category] }} />
+                <span className="cinema-mono text-[11px] text-[var(--cinema-text-2)] w-20 shrink-0 truncate">{c.label}</span>
+                <div className="flex-1 min-w-0 h-1.5 rounded bg-[var(--cinema-border)] overflow-hidden">
+                  <div className="h-full rounded" style={{ width: `${Math.max(2, c.pct)}%`, backgroundColor: CAT_COLOR[c.category] }} />
                 </div>
-                <span className="text-[11px] text-white/50 w-10 shrink-0 text-right tabular-nums">{c.pct}%</span>
-                <span className="text-[11px] text-white/70 w-14 shrink-0 text-right tabular-nums">¥{c.costCny.toFixed(2)}</span>
+                <span className="cinema-mono text-[11px] text-[var(--cinema-text-3)] w-10 shrink-0 text-right tabular-nums">{c.pct}%</span>
+                <span className="cinema-mono text-[11px] text-[var(--cinema-text-2)] w-14 shrink-0 text-right tabular-nums">¥{c.costCny.toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -111,8 +116,8 @@ export function CostAttributionPanel({ projectId }: { projectId: string }) {
           {/* 省钱提示 */}
           <div className="space-y-1">
             {attr.hints.map((h, i) => (
-              <div key={i} className="text-[11px] text-white/45 flex gap-1.5">
-                <span className="text-amber-300/50">💡</span>{h}
+              <div key={i} className="cinema-mono text-[11px] text-[var(--cinema-text-3)] flex gap-1.5 leading-relaxed">
+                <Lightbulb size={12} weight="fill" className="text-[var(--cinema-amber)] shrink-0 mt-0.5" />{h}
               </div>
             ))}
           </div>
