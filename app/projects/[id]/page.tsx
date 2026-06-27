@@ -5,7 +5,7 @@ import { SafeAreaOverlay } from '@/components/ui/safe-area-overlay';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand, ArrowsOut as Maximize, ArrowsIn as Minimize } from '@phosphor-icons/react';
+import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand, SpeakerHigh, ArrowsOut as Maximize, ArrowsIn as Minimize } from '@phosphor-icons/react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { DistributionPanel } from '@/components/project/distribution-panel';
 import { CoverCandidatesPanel } from '@/components/project/cover-candidates-panel';
@@ -524,40 +524,27 @@ export default function ProjectDetailPage() {
 
           {/* 剧本 */}
           {activeTab === 'script' && script && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {(script.shots || []).map((shot: any, i: number) => (
-                <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 rounded-full bg-[#E8C547]/20 text-[#E8C547] text-[10px] font-medium">镜头 {shot.shotNumber || i + 1}</span>
-                    {shot.act && <span className="text-[10px] text-gray-500">第{shot.act}幕</span>}
-                    {shot.emotion && editingShot !== i && <span className="text-[10px] text-gray-500">{shot.emotion}</span>}
-                    {shot.duration && <span className="text-[10px] text-gray-500">{shot.duration}s</span>}
+                <div key={i} className="cinema-card p-4">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <span className="cinema-mono text-[9px] tracking-widest text-[var(--cinema-amber)]">SHOT {String(shot.shotNumber || i + 1).padStart(2, '0')}</span>
+                    {shot.act && <span className="cinema-mono text-[10px] opacity-50">ACT {shot.act}</span>}
+                    {shot.emotion && editingShot !== i && <span className="cinema-mono text-[10px] opacity-50">{shot.emotion}</span>}
+                    {shot.duration && <TimecodeChip seconds={shot.duration} />}
                     <div className="ml-auto">
                       {editingShot === i ? (
                         <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => saveShot(i)}
-                            disabled={saving}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#E8C547]/20 text-[#E8C547] border border-[#E8C547]/30 text-xs hover:bg-[#E8C547]/30 transition-colors disabled:opacity-50"
-                          >
-                            <Save className="w-3 h-3" />
-                            保存
+                          <button onClick={() => saveShot(i)} disabled={saving} className="cinema-btn-primary !text-xs !py-1 disabled:opacity-50">
+                            <Save className="w-3 h-3" /> 保存
                           </button>
-                          <button
-                            onClick={cancelEditShot}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 border border-white/10 text-xs hover:bg-white/10 transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                            取消
+                          <button onClick={cancelEditShot} className="cinema-btn-ghost !text-xs !py-1">
+                            <X className="w-3 h-3" /> 取消
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => startEditShot(i, shot)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 border border-white/10 text-xs hover:bg-white/10 hover:text-white transition-colors"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          编辑
+                        <button onClick={() => startEditShot(i, shot)} className="cinema-btn-ghost !text-xs !py-1">
+                          <Pencil className="w-3 h-3" /> 编辑
                         </button>
                       )}
                     </div>
@@ -566,38 +553,38 @@ export default function ProjectDetailPage() {
                   {editingShot === i ? (
                     <div className="space-y-2.5 mt-2">
                       <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">场景描述</label>
+                        <label className="cinema-eyebrow !text-[9px] opacity-60 block mb-1">场景描述</label>
                         <textarea
                           value={shotDraft.sceneDescription}
                           onChange={e => setShotDraft(d => ({ ...d, sceneDescription: e.target.value }))}
                           rows={3}
-                          className="w-full bg-black/30 border border-white/15 rounded-lg px-3 py-2 text-sm text-gray-200 resize-none focus:outline-none focus:border-[#E8C547]/50"
+                          className="cinema-input w-full text-sm resize-none"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">对白</label>
+                        <label className="cinema-eyebrow !text-[9px] opacity-60 block mb-1">对白</label>
                         <textarea
                           value={shotDraft.dialogue}
                           onChange={e => setShotDraft(d => ({ ...d, dialogue: e.target.value }))}
                           rows={2}
-                          className="w-full bg-black/30 border border-white/15 rounded-lg px-3 py-2 text-sm text-cyan-300 resize-none focus:outline-none focus:border-[#E8C547]/50"
+                          className="cinema-input w-full text-sm resize-none !text-[var(--cinema-blue)]"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">情绪</label>
+                        <label className="cinema-eyebrow !text-[9px] opacity-60 block mb-1">情绪</label>
                         <input
                           type="text"
                           value={shotDraft.emotion}
                           onChange={e => setShotDraft(d => ({ ...d, emotion: e.target.value }))}
-                          className="w-full bg-black/30 border border-white/15 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-[#E8C547]/50"
+                          className="cinema-input w-full text-sm"
                         />
                       </div>
                     </div>
                   ) : (
                     <>
-                      <p className="text-sm text-gray-300">{shot.sceneDescription}</p>
-                      {shot.dialogue && <p className="text-xs text-cyan-400 mt-1.5 italic">「{shot.dialogue}」</p>}
-                      {shot.beat && <p className="text-[10px] text-gray-500 mt-1">节拍：{shot.beat}</p>}
+                      <p className="cinema-subhead text-sm opacity-90">{shot.sceneDescription}</p>
+                      {shot.dialogue && <p className="text-xs text-[var(--cinema-blue)] mt-1.5 italic">「{shot.dialogue}」</p>}
+                      {shot.beat && <p className="cinema-mono text-[10px] opacity-50 mt-1">节拍 · {shot.beat}</p>}
                     </>
                   )}
                 </div>
@@ -609,47 +596,34 @@ export default function ProjectDetailPage() {
           {activeTab === 'characters' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {characters.map((c: any) => (
-                <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                <div key={c.id} className="cinema-card overflow-hidden">
                   {c.mediaUrls?.[0] && (
                     <img loading="lazy" decoding="async" src={c.mediaUrls[0]} alt={c.name} className="w-full h-[200px] object-cover" />
                   )}
                   <div className="p-4">
-                    <h3 className="font-semibold text-white mb-1">{c.name}</h3>
+                    <h3 className="cinema-headline text-sm mb-1.5">{c.name}</h3>
                     {editingCharacter === c.id ? (
                       <div className="space-y-2 mt-2">
                         <textarea
                           value={characterDraft}
                           onChange={e => setCharacterDraft(e.target.value)}
                           rows={4}
-                          className="w-full bg-black/30 border border-white/15 rounded-lg px-3 py-2 text-xs text-gray-300 resize-none focus:outline-none focus:border-[#E8C547]/50"
+                          className="cinema-input w-full text-xs resize-none"
                         />
                         <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => saveCharacter(c.id)}
-                            disabled={saving}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#E8C547]/20 text-[#E8C547] border border-[#E8C547]/30 text-xs hover:bg-[#E8C547]/30 transition-colors disabled:opacity-50"
-                          >
-                            <Save className="w-3 h-3" />
-                            保存
+                          <button onClick={() => saveCharacter(c.id)} disabled={saving} className="cinema-btn-primary !text-xs !py-1 disabled:opacity-50">
+                            <Save className="w-3 h-3" /> 保存
                           </button>
-                          <button
-                            onClick={cancelEditCharacter}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 border border-white/10 text-xs hover:bg-white/10 transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                            取消
+                          <button onClick={cancelEditCharacter} className="cinema-btn-ghost !text-xs !py-1">
+                            <X className="w-3 h-3" /> 取消
                           </button>
                         </div>
                       </div>
                     ) : (
                       <>
-                        <p className="text-xs text-gray-400">{c.data?.description}</p>
-                        <button
-                          onClick={() => startEditCharacter(c.id, c.data?.description || '')}
-                          className="flex items-center gap-1 mt-3 px-2.5 py-1 rounded-lg bg-white/5 text-gray-400 border border-white/10 text-xs hover:bg-white/10 hover:text-white transition-colors"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          编辑描述
+                        <p className="cinema-subhead text-xs opacity-80 leading-relaxed">{c.data?.description}</p>
+                        <button onClick={() => startEditCharacter(c.id, c.data?.description || '')} className="cinema-btn-ghost !text-xs !py-1 mt-3">
+                          <Pencil className="w-3 h-3" /> 编辑描述
                         </button>
                       </>
                     )}
@@ -663,13 +637,13 @@ export default function ProjectDetailPage() {
           {activeTab === 'scenes' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {scenes.map((s: any) => (
-                <div key={s.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                <div key={s.id} className="cinema-card overflow-hidden">
                   {s.mediaUrls?.[0] && (
                     <img loading="lazy" decoding="async" src={s.mediaUrls[0]} alt={s.name} className="w-full h-[180px] object-cover" />
                   )}
                   <div className="p-4">
-                    <h3 className="font-semibold text-white mb-1">{s.name}</h3>
-                    <p className="text-xs text-gray-400">{s.data?.description}</p>
+                    <h3 className="cinema-headline text-sm mb-1.5">{s.name}</h3>
+                    <p className="cinema-subhead text-xs opacity-80 leading-relaxed">{s.data?.description}</p>
                   </div>
                 </div>
               ))}
@@ -799,7 +773,7 @@ export default function ProjectDetailPage() {
                 <button
                   onClick={() => setShowSafeArea((v) => !v)}
                   aria-pressed={showSafeArea}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] border transition-colors ${showSafeArea ? 'border-[#E8C547] text-[#E8C547] bg-[#E8C547]/10' : 'border-white/15 text-white/70 hover:text-white'}`}
+                  className={`cinema-btn-ghost !text-[11px] !py-1 ${showSafeArea ? '!text-[var(--cinema-amber)] !border-[var(--cinema-amber-deep)]' : ''}`}
                 >
                   字幕安全区 {showSafeArea ? 'ON' : 'OFF'}
                 </button>
@@ -810,7 +784,7 @@ export default function ProjectDetailPage() {
                 const url = v.mediaUrls?.[0];
                 const isVid = url && isVideoUrl(url);
                 return (
-                  <div key={v.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                  <div key={v.id} className="cinema-card overflow-hidden">
                     {url && (
                       isVid ? (
                         <ClipWithAudio
@@ -822,18 +796,18 @@ export default function ProjectDetailPage() {
                       ) : (
                         <div className="relative">
                           <img loading="lazy" decoding="async" src={url} alt={v.name} className={`w-full ${frameClass} object-cover`} />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                             <div className="text-center">
-                              <AlertTriangle className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-                              <p className="text-xs text-white">视频生成失败，显示分镜图</p>
+                              <AlertTriangle className="w-7 h-7 text-[var(--cinema-amber)] mx-auto mb-2" />
+                              <p className="cinema-mono text-[10px] opacity-80">视频生成失败 · 显示分镜图</p>
                             </div>
                           </div>
                         </div>
                       )
                     )}
-                    <div className="px-4 py-2 flex items-center justify-between">
-                      <span className="text-xs text-pink-400 font-medium">镜头 {v.shotNumber}</span>
-                      <span className="text-[10px] text-gray-500">{v.data?.duration || 5}s</span>
+                    <div className="px-3 py-2 flex items-center justify-between">
+                      <span className="cinema-mono text-[10px] tracking-widest text-[var(--cinema-amber)]">SHOT {String(v.shotNumber).padStart(2, '0')}</span>
+                      <TimecodeChip seconds={v.data?.duration || 5} />
                     </div>
                   </div>
                 );
@@ -996,14 +970,14 @@ export default function ProjectDetailPage() {
             <div>
               {audioCheck && (
                 <div className="mb-3 flex items-center gap-2 text-[12px]" data-testid="final-audio-badge">
-                  <span className={`px-2 py-0.5 rounded-md border ${audioCheck.audible ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}`}>
-                    🔊 {audioCheck.label}
+                  <span className={`cinema-chip ${audioCheck.audible ? 'cinema-chip-green' : 'cinema-chip-amber'}`}>
+                    <SpeakerHigh className="w-3 h-3" weight="fill" /> {audioCheck.label}
                   </span>
-                  {audioCheck.healed && <span className="text-[10px] text-white/40">已自愈补音轨</span>}
-                  {!audioCheck.audible && <span className="text-[10px] text-white/45">— 缺配乐/配音?去「镜头工坊」合成配音或重生成片补音</span>}
+                  {audioCheck.healed && <span className="cinema-mono text-[10px] opacity-40">已自愈补音轨</span>}
+                  {!audioCheck.audible && <span className="cinema-mono text-[10px] opacity-45">— 缺配乐/配音?去「镜头工坊」合成配音或重生成片补音</span>}
                 </div>
               )}
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden mb-4">
+              <div className="cinema-card overflow-hidden mb-4">
                 {videos.length > 0 ? (
                   <div ref={playerWrapRef} className={`relative ${isPlayerFs ? 'w-screen h-screen bg-black grid place-items-center' : ''}`}>
                     {videos[Math.max(0, playingIndex)]?.mediaUrls?.[0] ? (
@@ -1030,14 +1004,14 @@ export default function ProjectDetailPage() {
                             <img loading="lazy" decoding="async" src={url} alt="playing"
                               onLoad={(e) => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setPlayerRatio(im.naturalWidth / im.naturalHeight); }}
                               className={mp.className} style={mp.style} />
-                            <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px]">
+                            <div className="absolute top-3 right-3 cinema-chip cinema-chip-amber !text-[10px]">
                               分镜图（视频生成失败）
                             </div>
                           </div>
                         );
                       })()
                     ) : (
-                      <div className={`w-full ${mainFrameClass} bg-black grid place-items-center text-gray-500`}>无视频</div>
+                      <div className={`w-full ${mainFrameClass} bg-black grid place-items-center cinema-mono text-[11px] opacity-40`}>无视频</div>
                     )}
                     <div className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-black/70 text-xs text-white">
                       镜头 {playingIndex >= 0 ? videos[playingIndex]?.shotNumber : '-'} / {videos.length}
@@ -1054,20 +1028,20 @@ export default function ProjectDetailPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className={`w-full ${mainFrameClass} grid place-items-center text-gray-500`}>暂无视频</div>
+                  <div className={`w-full ${mainFrameClass} grid place-items-center cinema-mono text-[11px] opacity-40`}>暂无视频</div>
                 )}
               </div>
 
               {/* 播放控制 */}
               <div className="flex items-center gap-2 mb-4">
-                <button onClick={() => setPlayingIndex(0)} className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#E8C547] to-[#D4A830] text-white text-sm">
-                  <Play className="w-4 h-4 inline mr-1" />从头播放
+                <button onClick={() => setPlayingIndex(0)} className="cinema-btn-primary !text-sm">
+                  <Play className="w-4 h-4" />从头播放
                 </button>
                 <div className="flex gap-1 overflow-x-auto">
                   {videos.map((v: any, i: number) => (
                     <button key={i} onClick={() => setPlayingIndex(i)}
-                      className={`px-3 py-1.5 rounded-lg text-xs transition-all ${playingIndex === i ? 'bg-[#D4A830]/15 text-pink-400 border border-pink-500/30' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}>
-                      #{v.shotNumber}
+                      className={`cinema-mono px-2.5 py-1.5 rounded-[3px] text-xs transition-colors ${playingIndex === i ? 'bg-[var(--cinema-amber)] text-black font-semibold' : 'text-[var(--cinema-text-2)] hover:bg-[var(--cinema-surface-2)]'}`}>
+                      #{String(v.shotNumber).padStart(2, '0')}
                     </button>
                   ))}
                 </div>
@@ -1075,25 +1049,28 @@ export default function ProjectDetailPage() {
 
               {/* 导演审核结果 */}
               {review && (
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                <div className="cinema-card-hi p-5">
                   <div className="flex items-center gap-3 mb-4">
-                    <Star className="w-5 h-5 text-orange-400" />
-                    <span className="text-lg font-bold text-orange-400">{review.overallScore}/100</span>
-                    <span className="text-sm text-gray-400">{review.passed ? '✅ 审核通过' : '⚠️ 需要优化'}</span>
+                    <Star className="w-5 h-5 text-[var(--cinema-amber)]" weight="fill" />
+                    <span className="cinema-headline text-lg text-[var(--cinema-amber)]">{review.overallScore}<span className="cinema-mono text-sm opacity-50"> /100</span></span>
+                    <span className={`cinema-chip ${review.passed ? 'cinema-chip-green' : 'cinema-chip-amber'}`}>
+                      {review.passed ? <CheckCircle2 className="w-3 h-3" weight="fill" /> : <AlertTriangle className="w-3 h-3" />}
+                      {review.passed ? '审核通过' : '需要优化'}
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-300 mb-4">{review.summary}</p>
+                  <p className="cinema-subhead text-sm opacity-90 mb-4">{review.summary}</p>
 
                   {review.dimensions && (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
                       {Object.entries(review.dimensions).map(([key, dim]: [string, any]) => (
-                        <div key={key} className="bg-black/20 rounded-lg p-2.5">
+                        <div key={key} className="rounded-[3px] p-2.5 bg-[var(--cinema-surface-2)] border border-[var(--cinema-border)]">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-gray-400">{
+                            <span className="cinema-mono text-[10px] opacity-60">{
                               { narrative: '叙事', visualConsistency: '画风', pacing: '节奏', characterPerformance: '角色', visualQuality: '视觉', audio: '音频' }[key] || key
                             }</span>
-                            <span className="text-xs font-medium text-white">{dim.score}</span>
+                            <span className="cinema-mono text-xs text-[var(--cinema-amber)] tabular-nums">{dim.score}</span>
                           </div>
-                          <p className="text-[10px] text-gray-500">{dim.comment}</p>
+                          <p className="cinema-mono text-[10px] opacity-50 leading-relaxed">{dim.comment}</p>
                         </div>
                       ))}
                     </div>
@@ -1102,14 +1079,14 @@ export default function ProjectDetailPage() {
                   {review.items?.length > 0 && (
                     <div className="space-y-1.5">
                       {review.items.map((item: any, i: number) => (
-                        <div key={i} className={`flex items-start gap-2 rounded-lg p-2 text-[11px] ${
-                          item.severity === 'critical' ? 'bg-red-500/10 text-red-300' :
-                          item.severity === 'major' ? 'bg-orange-500/10 text-orange-300' :
-                          'bg-yellow-500/10 text-yellow-300'
+                        <div key={i} className={`flex items-start gap-2 rounded-[3px] p-2 text-[11px] border ${
+                          item.severity === 'critical' ? 'bg-[var(--cinema-red)]/12 text-[var(--cinema-red)] border-[var(--cinema-red)]/30' :
+                          item.severity === 'major' ? 'bg-[var(--cinema-amber)]/10 text-[var(--cinema-amber)] border-[var(--cinema-amber-deep)]' :
+                          'bg-[var(--cinema-amber)]/[0.05] text-[var(--cinema-text-2)] border-[var(--cinema-border)]'
                         }`}>
                           <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                           <div>
-                            {item.shotNumber && <span className="opacity-70">镜头{item.shotNumber}: </span>}
+                            {item.shotNumber && <span className="opacity-70 cinema-mono">SHOT {String(item.shotNumber).padStart(2, '0')}: </span>}
                             {item.issue}
                             <span className="opacity-60 ml-1">→ {item.suggestion}</span>
                           </div>
