@@ -14,7 +14,7 @@ import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
 import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-sidebar';
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
 import { ShotInspector, type InspectShot } from '@/components/project/shot-inspector';
-import { Eyebrow, TimecodeChip, FilmStripDivider } from '@/components/cinema/primitives';
+import { Eyebrow, TimecodeChip, FilmStripDivider, EmptyState } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
 import { PlatformExportDropdown } from '@/components/project/platform-export-dropdown';
 import { ShotWorkshopTab } from '@/components/project/shot-workshop-tab';
@@ -597,6 +597,7 @@ export default function ProjectDetailPage() {
           {/* 角色 */}
           {activeTab === 'characters' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {characters.length === 0 && <div className="col-span-full"><EmptyState icon={Users} title="还没有角色" hint="生成剧本后,AI 角色设计师会自动产出角色设定与立绘" /></div>}
               {characters.map((c: any) => (
                 <div key={c.id} className="cinema-card overflow-hidden">
                   {c.mediaUrls?.[0] && (
@@ -638,6 +639,7 @@ export default function ProjectDetailPage() {
           {/* 场景 */}
           {activeTab === 'scenes' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {scenes.length === 0 && <div className="col-span-full"><EmptyState icon={Mountain} title="还没有场景" hint="生成剧本后,AI 场景设计师会自动产出场景视觉方案" /></div>}
               {scenes.map((s: any) => (
                 <div key={s.id} className="cinema-card overflow-hidden">
                   {s.mediaUrls?.[0] && (
@@ -783,6 +785,7 @@ export default function ProjectDetailPage() {
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {videos.length === 0 && <div className="col-span-full"><EmptyState icon={Video} title="还没有镜头视频" hint="完成分镜后,在镜头工坊或主管线生成每镜视频" /></div>}
               {videos.map((v: any) => {
                 const url = v.mediaUrls?.[0];
                 const isVid = url && isVideoUrl(url);

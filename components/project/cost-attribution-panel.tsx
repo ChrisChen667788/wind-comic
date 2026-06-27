@@ -10,6 +10,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { CurrencyCny, Lightbulb } from '@phosphor-icons/react';
+import { EmptyState } from '@/components/cinema/primitives';
 import { evaluateCostGuard } from '@/lib/cost-attribution';
 
 const GUARD_CLS: Record<'none' | 'ok' | 'warn' | 'over', string> = {
@@ -76,7 +77,7 @@ export function CostAttributionPanel({ projectId }: { projectId: string }) {
       </div>
 
       {!attr || attr.totalCny === 0 ? (
-        <div className="cinema-mono text-[12px] text-[var(--cinema-text-3)] py-4 text-center">暂无成本数据 —— 生成成片后即可看每阶段花销与省钱建议</div>
+        <EmptyState icon={CurrencyCny} title="暂无成本数据" hint="生成成片后即可看每阶段花销与省钱建议" />
       ) : (
         <>
           {/* v9.7.17 预算护栏 */}

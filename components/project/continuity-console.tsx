@@ -13,6 +13,7 @@
 
 import { useState } from 'react';
 import { Lock, ArrowsClockwise as RefreshCw, FloppyDisk as Save, CircleNotch as Loader2, Users, Mountains as Mountain, Hash, LinkSimple as Link2, UserFocus as ScanFace, Check } from '@phosphor-icons/react';
+import { EmptyState } from '@/components/cinema/primitives';
 import {
   LINK_MODES, FACEID_STRENGTHS, generateSeed, normalizeContinuitySettings,
   computeContinuityTags, describeContinuity,
@@ -102,7 +103,7 @@ export function ContinuityConsole({
         {/* 分镜连贯性逻辑预览 */}
         <div className="cinema-card !p-4">
           <div className="cinema-eyebrow mb-3">分镜连贯性逻辑 · {storyboards.length} 镜</div>
-          {storyboards.length === 0 && <div className="cinema-mono text-[11px] opacity-40">暂无分镜</div>}
+          {storyboards.length === 0 && <EmptyState icon={Link2} title="暂无分镜" hint="生成分镜后,这里可设连续性 / 种子锁 / FaceID" />}
           <div className="flex flex-col gap-2">
             {storyboards.slice(0, 8).map((sb: any, i: number) => {
               const tags = computeContinuityTags(s, { hasCharacter, hasEnvironment, isFirstShot: i === 0 });

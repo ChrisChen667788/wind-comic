@@ -11,7 +11,7 @@
  *   - 信息密度高,但层级清晰
  */
 
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { BorderBeam, Spotlight, TextGenerateEffect } from './effects';
 import {
   Tooltip,
@@ -250,6 +250,33 @@ export function MeterBar({
         />
       </div>
       <span className="cinema-mono text-[11px] w-8 text-right opacity-80">{Math.round(value)}</span>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// EmptyState — 统一空状态 (图标 + 标题 + 可选提示 + 可选 CTA)
+// 替代各面板散乱的「纯文字 / 无图标 / 不渲染」空态,统一影院语言。
+// ──────────────────────────────────────────────────────────
+export function EmptyState({
+  icon: Icon,
+  title,
+  hint,
+  action,
+  className = '',
+}: {
+  icon?: ComponentType<{ className?: string; weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone' }>;
+  title: string;
+  hint?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col items-center justify-center text-center py-10 px-6 ${className}`}>
+      {Icon && <Icon className="w-8 h-8 text-[var(--cinema-amber)] opacity-40 mb-3" weight="duotone" />}
+      <p className="cinema-subhead text-sm opacity-80">{title}</p>
+      {hint && <p className="cinema-mono text-[11px] opacity-45 mt-1.5 max-w-sm leading-relaxed">{hint}</p>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

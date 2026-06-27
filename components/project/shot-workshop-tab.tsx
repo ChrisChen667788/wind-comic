@@ -16,6 +16,7 @@
 
 import { useState } from 'react';
 import { ArrowsClockwise as RefreshCw, CircleNotch as Loader2, Sparkle as Sparkles, ArrowSquareOut as ExternalLink, Lock, FilmStrip as Film, Pencil, SquaresFour as Grid } from '@phosphor-icons/react';
+import { EmptyState } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from './export-resolution-dropdown';
 import { StoryboardRegenModal } from './storyboard-regen-modal';
 import { CandidateGridModal } from './candidate-grid-modal'; // v12.35.0 九宫格候选帧
@@ -164,8 +165,8 @@ export function ShotWorkshopTab({
 
       {/* per-shot 列表 */}
       {sortedShots.length === 0 ? (
-        <div className="cinema-card p-8 text-center">
-          <p className="cinema-mono text-[11px] opacity-50">还没有视频镜头 — 完成主管线创作后回来看这里</p>
+        <div className="cinema-card">
+          <EmptyState icon={Film} title="还没有视频镜头" hint="完成主管线创作后回来看这里" />
         </div>
       ) : (
         <div className="space-y-2">
@@ -201,7 +202,7 @@ export function ShotWorkshopTab({
                       <span className="cinema-chip !px-1.5 !py-0.5 !text-[9px] opacity-70">{currentQuality}</span>
                     )}
                     {overridden && <span className="cinema-mono text-[9px] text-[var(--cinema-green)]">✓ 4K 已重渲</span>}
-                    {sbRegenerated && <span className="cinema-mono text-[9px] text-[var(--cinema-amber)]">🎨 分镜图已重生</span>}
+                    {sbRegenerated && <span className="cinema-mono text-[9px] text-[var(--cinema-amber)] inline-flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" />分镜图已重生</span>}
                   </div>
                   {isBusy && progress && progress.shotNumber === v.shotNumber && (
                     <div className="flex items-center gap-2 mt-1">

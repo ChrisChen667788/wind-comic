@@ -10,6 +10,7 @@
 
 import { useState } from 'react';
 import { Pulse as Activity } from '@phosphor-icons/react';
+import { EmptyState } from '@/components/cinema/primitives';
 import { curveStats, describeCurve, type EmotionPoint } from '@/lib/emotion-curve';
 
 const SERIES: { key: keyof EmotionPoint; label: string; color: string }[] = [
@@ -38,7 +39,7 @@ export function EmotionRhythmChart({ curve }: { curve: EmotionPoint[] }) {
   const stats = curveStats(curve);
 
   if (!curve.length) {
-    return <div className="cinema-card !p-4 cinema-mono text-[11px] opacity-50">暂无分镜情绪数据 — 先生成剧本/分镜</div>;
+    return <div className="cinema-card"><EmptyState icon={Activity} title="暂无分镜情绪数据" hint="先生成剧本 / 分镜" /></div>;
   }
 
   const climaxX = stats.climaxIndex >= 0 && curve.length > 1

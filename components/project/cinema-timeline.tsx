@@ -787,7 +787,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
       >
         {/* BGM Track — v3.1.2 加波形 + 双边沿 resize */}
         <TrackRow
-          title="BGM · 按幕段 · 拖中间平移 / 拖边沿改时长 / 🔇 静音"
+          title="BGM · 按幕段 · 拖中间平移 / 拖边沿改时长 / 点轨首图标静音"
           icon={<Music className="w-3 h-3" />}
           segments={data.tracks.bgm}
           totalDuration={data.totalDuration}
@@ -805,7 +805,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
 
         {/* Subtitle Track — v3.1.2 加双边沿 resize 改时长 */}
         <TrackRow
-          title="SUBTITLE · 字幕段 · 拖边沿改时长 / 双击改文字 / 🔇 静音"
+          title="SUBTITLE · 字幕段 · 拖边沿改时长 / 双击改文字 / 点轨首图标静音"
           icon={<MessageSquare className="w-3 h-3" />}
           segments={data.tracks.subtitle}
           totalDuration={data.totalDuration}
@@ -934,7 +934,7 @@ export function CinemaTimeline({ projectId, currentUser }: CinemaTimelineProps) 
       )}
 
       <div className="cinema-mono text-[10px] opacity-50 leading-relaxed">
-        🎬 拖 shot 重排; 时长下拉改单镜时长; BGM/字幕段拖移位; 🔇 静音; 双击字幕段改文字; 点 🔄 重置.
+        拖 shot 重排 · 时长下拉改单镜时长 · BGM / 字幕段拖移位 · 双击字幕段改文字 · 轨首图标静音 / 重置.
         保存后下次成片合成用新数据.
       </div>
     </div>

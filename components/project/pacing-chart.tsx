@@ -9,7 +9,8 @@
  *   - DialogueCoverageReport (v2.24 C) — 缺反打 / 缺特写 列表
  */
 
-import { ArrowRight, Warning as AlertTriangle, CheckCircle as CheckCircle2, TrendUp as TrendingUp, TrendDown as TrendingDown, Minus, Lightbulb, Palette, ChatCircle as MessageCircle } from '@phosphor-icons/react';
+import { ArrowRight, Warning as AlertTriangle, CheckCircle as CheckCircle2, TrendUp as TrendingUp, TrendDown as TrendingDown, Minus, Lightbulb, Palette, ChatCircle as MessageCircle, ArrowsClockwise as RefreshCw } from '@phosphor-icons/react';
+import { EmptyState } from '@/components/cinema/primitives';
 
 type Polarity = -1 | 0 | 1;
 
@@ -95,10 +96,8 @@ function PolarityIcon({ p }: { p: Polarity }) {
 export function PacingChart({ report, styleAuditShots, dialogueCoverage }: PacingChartProps) {
   if (!report) {
     return (
-      <div className="cinema-card-hi p-6 text-center">
-        <div className="cinema-mono text-[11px] opacity-50">
-          暂无节奏数据 — 等编剧完成本项目后这里会显示节奏分析
-        </div>
+      <div className="cinema-card-hi">
+        <EmptyState icon={TrendingUp} title="暂无节奏数据" hint="等编剧完成本项目后这里会显示节奏分析" />
       </div>
     );
   }
@@ -330,7 +329,7 @@ export function PacingChart({ report, styleAuditShots, dialogueCoverage }: Pacin
                       style={{ color: 'var(--cinema-amber)' }}
                       title={`已重生 (vision 修偏: ${s.styleAuditReason || ''})`}
                     >
-                      🔄
+                      <RefreshCw className="w-2.5 h-2.5" />
                     </span>
                   )}
                   <div
@@ -360,7 +359,7 @@ export function PacingChart({ report, styleAuditShots, dialogueCoverage }: Pacin
             <span className="inline-flex items-center gap-1">
               <span className="w-2 h-2 rounded-sm" style={{ background: 'var(--cinema-red)' }} /> 弱 &lt;70 (已触发重生)
             </span>
-            <span className="ml-auto inline-flex items-center gap-1">🔄 vision auto-regen</span>
+            <span className="ml-auto inline-flex items-center gap-1"><RefreshCw className="w-2.5 h-2.5" />vision auto-regen</span>
           </div>
         </div>
       )}
@@ -388,8 +387,8 @@ export function PacingChart({ report, styleAuditShots, dialogueCoverage }: Pacin
           </div>
           {dialogueCoverage.needsReverseShot.length > 0 && (
             <div className="mt-2">
-              <div className="cinema-mono text-[10px] opacity-80 mb-1">
-                🎬 缺正反打 ({dialogueCoverage.needsReverseShot.length} 处)
+              <div className="cinema-mono text-[10px] opacity-80 mb-1 flex items-center gap-1">
+                <MessageCircle className="w-3 h-3" />缺正反打 ({dialogueCoverage.needsReverseShot.length} 处)
               </div>
               <ul className="space-y-0.5">
                 {dialogueCoverage.needsReverseShot.slice(0, 5).map((s, i) => (
