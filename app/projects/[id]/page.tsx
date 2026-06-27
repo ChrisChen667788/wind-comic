@@ -13,6 +13,7 @@ import { DirectorConsole } from '@/components/director-console';
 import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
 import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-sidebar';
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
+import { ShotInspector, type InspectShot } from '@/components/project/shot-inspector';
 import { Eyebrow, TimecodeChip, FilmStripDivider } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
 import { PlatformExportDropdown } from '@/components/project/platform-export-dropdown';
@@ -124,6 +125,7 @@ export default function ProjectDetailPage() {
   const [batchRetryMsg, setBatchRetryMsg] = useState<string>('');
   // v7.2 单镜头摄影台: 当前打开的分镜 + 本地已保存机位覆盖 (省一次全量刷新)
   const [cinemaShot, setCinemaShot] = useState<{ shotNumber: number; title?: string; spec: ShotSpec; emotion?: string } | null>(null);
+  const [inspectShot, setInspectShot] = useState<InspectShot | null>(null);
   const [specOverrides, setSpecOverrides] = useState<Record<number, ShotSpec>>({});
 
   useEffect(() => {
@@ -697,6 +699,9 @@ export default function ProjectDetailPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {storyboards.map((sb: any) => {
                   const dur = (sb.data?.duration as number) || 5;
+                  const curSpec: ShotSpec = specOverrides[sb.shotNumber] || (sb.data?.cameraSpec ? normalizeShotSpec(sb.data.cameraSpec) : seedSpecFromCameraAngle(sb.data?.cameraAngle));
+                  const hasSaved = !!specOverrides[sb.shotNumber] || !!sb.data?.cameraSpec;
+                  const scriptShot = (script?.shots || [])[sb.shotNumber - 1];
                   return (
                     <div
                       key={sb.id}
@@ -706,9 +711,15 @@ export default function ProjectDetailPage() {
                       {/* Sprint A.4 · 右上角 Cameo 徽章 (没分数时不渲染) */}
                       <CameoBadge data={sb.data || {}} />
                       {sb.mediaUrls?.[0] ? (
-                        <div className="relative">
+                        <div
+                          className="relative cursor-pointer group/insp"
+                          onClick={() => setInspectShot({ shotNumber: sb.shotNumber, imageUrl: sb.mediaUrls[0], description: sb.data?.description, dialogue: scriptShot?.dialogue, emotion: scriptShot?.emotion, duration: dur, data: sb.data || {}, specSummary: describeShotSpec(curSpec) })}
+                        >
                           <img loading="lazy" decoding="async" src={sb.mediaUrls[0]} alt={sb.name} className={`w-full ${frameClass} object-cover`} />
                           {isVertical && showSafeArea && <SafeAreaOverlay />}
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/insp:bg-black/35 opacity-0 group-hover/insp:opacity-100 transition-all">
+                            <span className="cinema-chip cinema-chip-amber">检查器</span>
+                          </div>
                         </div>
                       ) : (
                         <div className={`w-full ${frameClass} flex items-center justify-center bg-[var(--cinema-surface-2)] cinema-mono text-[10px] opacity-40`}>
@@ -724,24 +735,16 @@ export default function ProjectDetailPage() {
                           {sb.data?.description?.slice(0, 60) || '——'}
                         </p>
                         {/* v7.2 单镜头摄影台 — 机位摘要 chip + 入口 */}
-                        {(() => {
-                          const curSpec: ShotSpec =
-                            specOverrides[sb.shotNumber]
-                            || (sb.data?.cameraSpec ? normalizeShotSpec(sb.data.cameraSpec) : seedSpecFromCameraAngle(sb.data?.cameraAngle));
-                          const hasSaved = !!specOverrides[sb.shotNumber] || !!sb.data?.cameraSpec;
-                          return (
-                            <button
-                              onClick={() => setCinemaShot({ shotNumber: sb.shotNumber, title: sb.data?.description?.slice(0, 60), spec: curSpec, emotion: (script?.shots || [])[sb.shotNumber - 1]?.emotion })}
-                              title="单镜头摄影台 — 景别/机位/镜头/运镜/焦点/氛围"
-                              className="mt-1.5 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--cinema-border)] hover:border-[var(--cinema-amber)] transition group/cine"
-                            >
-                              <Clapperboard size={11} className={hasSaved ? 'text-[var(--cinema-amber)]' : 'text-[var(--cinema-text-3)]'} />
-                              <span className="cinema-mono text-[9px] truncate opacity-75 group-hover/cine:opacity-100">
-                                {describeShotSpec(curSpec)}
-                              </span>
-                            </button>
-                          );
-                        })()}
+                        <button
+                          onClick={() => setCinemaShot({ shotNumber: sb.shotNumber, title: sb.data?.description?.slice(0, 60), spec: curSpec, emotion: scriptShot?.emotion })}
+                          title="单镜头摄影台 — 景别/机位/镜头/运镜/焦点/氛围"
+                          className="mt-1.5 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--cinema-border)] hover:border-[var(--cinema-amber)] transition group/cine"
+                        >
+                          <Clapperboard size={11} className={hasSaved ? 'text-[var(--cinema-amber)]' : 'text-[var(--cinema-text-3)]'} />
+                          <span className="cinema-mono text-[9px] truncate opacity-75 group-hover/cine:opacity-100">
+                            {describeShotSpec(curSpec)}
+                          </span>
+                        </button>
                       </div>
                     </div>
                   );
@@ -1115,6 +1118,23 @@ export default function ProjectDetailPage() {
           emotion={cinemaShot.emotion}
           onClose={() => setCinemaShot(null)}
           onSaved={(spec) => setSpecOverrides((m) => ({ ...m, [cinemaShot.shotNumber]: spec }))}
+        />
+      )}
+
+      {/* v12.44 统一镜头检查器 — 点分镜图弹出,聚合单镜预览/元数据/操作 */}
+      {inspectShot && (
+        <ShotInspector
+          shot={inspectShot}
+          frameClass={frameClass}
+          onClose={() => setInspectShot(null)}
+          onCinema={() => {
+            const sn = inspectShot.shotNumber;
+            const sbx = (storyboards as any[]).find((s) => s.shotNumber === sn);
+            const spec = specOverrides[sn] || (sbx?.data?.cameraSpec ? normalizeShotSpec(sbx.data.cameraSpec) : seedSpecFromCameraAngle(sbx?.data?.cameraAngle));
+            setCinemaShot({ shotNumber: sn, title: inspectShot.description?.slice(0, 60), spec, emotion: inspectShot.emotion });
+            setInspectShot(null);
+          }}
+          onWorkshop={() => { setActiveTab('workshop'); setInspectShot(null); }}
         />
       )}
     </div>
