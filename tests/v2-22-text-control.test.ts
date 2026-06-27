@@ -8,6 +8,7 @@ import {
   buildSrtEntry,
   buildSrt,
   findCjkFont,
+  stripNonDialogueBrackets,
 } from '@/lib/text-control';
 
 describe('v2.22 · sanitizeDialogueForPrompt', () => {
@@ -156,5 +157,51 @@ describe('v2.22 · findCjkFont (env override + system lookup)', () => {
     if (process.platform === 'darwin' && font !== null) {
       expect(font).toMatch(/\.tt[cf]$|\.otf$/);
     }
+  });
+});
+
+describe('v12.41 · stripNonDialogueBrackets (字幕/TTS 剔除音效配乐提示)', () => {
+  it('整行括号音效提示 → 整条删除', () => {
+    expect(stripNonDialogueBrackets('(无对白，只有金属撞击与走火的轰响)')).toBe('');
+    expect(stripNonDialogueBrackets('（喉间一声闷哑的吸气）')).toBe('');
+    expect(stripNonDialogueBrackets('(背景音乐渐强)')).toBe('');
+  });
+
+  it('行内括号(音效/动作)→ 删括号段,保留台词', () => {
+    expect(stripNonDialogueBrackets('来不及了（喉间一声闷哑的吸气）')).toBe('来不及了');
+    expect(stripNonDialogueBrackets('住手（枪声）')).toBe('住手');
+  });
+
+  it('舞台/语气括号一律剔除(字幕只留出声台词)', () => {
+    expect(stripNonDialogueBrackets('好（停顿）')).toBe('好');
+    expect(stripNonDialogueBrackets('（笑）你来了')).toBe('你来了');
+    expect(stripNonDialogueBrackets('（沉稳)今晚到此为止。')).toBe('今晚到此为止。');
+  });
+
+  it('删括号后清理行首孤立标点', () => {
+    expect(stripNonDialogueBrackets('(低哑,对自己)……哪来的。')).toBe('哪来的。');
+  });
+
+  it('纯台词原样返回 / 空输入返空', () => {
+    expect(stripNonDialogueBrackets('这一战，必赢。')).toBe('这一战，必赢。');
+    expect(stripNonDialogueBrackets('')).toBe('');
+    expect(stripNonDialogueBrackets('   ')).toBe('');
+  });
+
+  it('buildSrt 端到端:整行音效提示镜头不进字幕', () => {
+    const shots = [
+      { dialogue: '我回来了', duration: 4 },
+      { dialogue: '(无对白，只有金属撞击与走火的轰响)', duration: 4 },
+      { dialogue: '别动', duration: 4 },
+    ];
+    const srt = buildSrt(shots);
+    expect(srt).toContain('我回来了');
+    expect(srt).toContain('别动');
+    expect(srt).not.toContain('金属撞击');
+    expect(srt).not.toContain('无对白');
+    // 仅 2 条字幕,序号连续
+    expect(srt).toMatch(/^1\n/m);
+    expect(srt).toMatch(/^2\n/m);
+    expect(srt).not.toMatch(/^3\n/m);
   });
 });

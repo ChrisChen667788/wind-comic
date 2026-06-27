@@ -73,4 +73,27 @@ describe('isFullScriptInput — Bug fix: 普通叙述不再误判为剧本', () 
     expect(novel.length).toBeLessThan(800);
     expect(isFullScriptInput(novel)).toBe(false);
   });
+
+  // ── v12.41 英文/好莱坞格式剧本检测(此前漏检走原创路径) ──
+  it('强信号:INT./EXT. + " - DAY/NIGHT"(标准好莱坞分隔)→ 判定为剧本', () => {
+    const text = `INT. HELL'S KITCHEN ROOFTOP - NIGHT\nMatt drops from the shadows.\n${'x'.repeat(200)}`;
+    expect(isFullScriptInput(text)).toBe(true);
+  });
+
+  it('弱信号:≥3 行 ALL-CAPS 角色名对白 + ≥500 字 → 判定为剧本', () => {
+    const dialogues = [
+      'MATT MURDOCK: I am not the man you think I am.',
+      'BULLSEYE: Every shot finds its mark.',
+      'KINGPIN: This city belongs to me.',
+      'KAREN: We have to publish the truth.',
+    ].join('\n');
+    const padding = 'The rooftop is silent except for distant sirens. '.repeat(12);
+    expect(isFullScriptInput(`${dialogues}\n${padding}`)).toBe(true);
+  });
+
+  it('守护:普通英文散文(无角色名对白)不误判为剧本', () => {
+    const prose = 'The night was cold and the city slept under a thin veil of fog. '.repeat(12);
+    expect(prose.length).toBeGreaterThan(500);
+    expect(isFullScriptInput(prose)).toBe(false);
+  });
 });

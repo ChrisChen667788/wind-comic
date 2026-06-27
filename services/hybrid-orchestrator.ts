@@ -1289,6 +1289,17 @@ export class HybridOrchestrator {
             const origName = char?.name?.trim() || '';
             const looksGeneric = !origName || GENERIC_NAMES.test(origName);
             if (looksGeneric) {
+              // v12.41 改编模式:绝不套中文化兜底 —— 优先用原剧本解析出的同序角色名,
+              // 原剧本也无具体名才保留原值(可能是 role 词),避免把原作人名换皮成中式名。
+              if (this.parsedScript) {
+                const parsedName = (this.parsedScript.characters?.[idx]?.name || '').trim();
+                if (parsedName && !GENERIC_NAMES.test(parsedName)) {
+                  usedNames.add(parsedName);
+                  return { ...char, name: parsedName, originalRoleLabel: origName };
+                }
+                return char; // 保留原值,改编模式不强行中文化
+              }
+              // 原创模式:中文名兜底(原逻辑)
               // 用 visual.age + role 推断性别 → 取对应库一个未用过的名字
               const ageHint = (char?.visual?.age || '').toString();
               const roleHint = (char?.role || origName || '').toString();
@@ -4066,13 +4077,17 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           const t = dialogueShots[i];
           try {
             // ── 语言统一：过滤纯英文对白 → 仅为中文/含中文对白生成配音 ──
-            const hasChinese = /[\u4e00-\u9fa5]/.test(t.dialogue);
+            // v12.41:\u5148\u5254\u9664\u97f3\u6548/\u914d\u4e50/\u52a8\u4f5c\u62ec\u53f7\u63d0\u793a(\u4e0e\u5b57\u5e55\u540c\u6e90),\u907f\u514d TTS \u5ff5\u51fa\u300c\u91d1\u5c5e\u8f70\u54cd\u300d\u8fd9\u7c7b\u63d0\u793a
+            const { stripNonDialogueBrackets } = await import('@/lib/text-control');
+            const spokenDialogue = stripNonDialogueBrackets(t.dialogue);
+            if (!spokenDialogue) { console.log(`[Editor] TTS skip (\u4ec5\u97f3\u6548/\u821e\u53f0\u63d0\u793a): "${t.dialogue.slice(0, 30)}"`); continue; }
+            const hasChinese = /[\u4e00-\u9fa5]/.test(spokenDialogue);
             if (!hasChinese) {
               console.log(`[Editor] TTS skip (non-Chinese): "${t.dialogue.slice(0, 30)}"`);
               continue;
             }
             // 替换对白中的英文片段为中文发音提示（避免 TTS 中英文混杂）
-            const cleanedDialogue = t.dialogue
+            const cleanedDialogue = spokenDialogue
               .replace(/[a-zA-Z]+/g, (match: string) => match.length <= 3 ? match : '')  // 保留短缩写如 AI、OK
               .replace(/\s{2,}/g, ' ')
               .trim();

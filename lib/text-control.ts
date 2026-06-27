@@ -113,7 +113,7 @@ export function buildSrt(
   let index = 1;
   for (const shot of shots) {
     const dur = typeof shot.duration === 'number' && shot.duration > 0 ? shot.duration : 5;
-    const dialogue = (shot.dialogue || '').trim();
+    const dialogue = stripNonDialogueBrackets(shot.dialogue || '');
     if (dialogue) {
       parts.push(buildSrtEntry(index, cursor, dur, dialogue));
       index++;
@@ -121,6 +121,25 @@ export function buildSrt(
     cursor += dur;
   }
   return parts.join('\n');
+}
+
+/**
+ * 过滤"非台词"括号内容,只保留真正会被说出口的台词,供字幕烧录与 TTS 共用。
+ * 剧本里的括号一律是舞台/音效/配乐/语气/动作指示(如「(无对白,只有金属撞击与走火的轰响)」
+ * 「(喉间一声闷哑的吸气)」「(沉稳)」「(低哑,对自己)」),都不是出声台词 —— 一律剔除,
+ * 只留角色真正说出的话,避免它们被烧进字幕或被 TTS 念出来。
+ *  · 整行只有括号 → 返回 ''(该镜无台词)
+ *  · 行内括号 → 删括号段,保留前后台词
+ *  · 清掉括号删除后残留的行首孤立标点(如「……哪来的」→「哪来的」)
+ */
+export function stripNonDialogueBrackets(text: string): string {
+  let t = (text || '').replace(/\r/g, '').trim();
+  if (!t) return '';
+  // 删除所有括号段(中/英,非嵌套)
+  t = t.replace(/[（(][^（()）]*[)）]/g, '').replace(/\s{2,}/g, ' ').trim();
+  // 清理括号删除后残留的行首孤立标点
+  t = t.replace(/^[\s,，、:：;；…—-]+/, '').trim();
+  return t;
 }
 
 /**

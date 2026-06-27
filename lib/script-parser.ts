@@ -86,15 +86,23 @@ export function isFullScriptInput(text: string): boolean {
   const hasChapterMark = /第\d+[章集幕]/.test(text);
   const hasSceneMark = /\d+-\d+\s*\S+\s*(日|夜|晨|昏|黄昏|拂晓|清晨|深夜|白天|夜晚|傍晚|凌晨)/.test(text);
   const hasSceneMarkAlt = /(?:场景|第)\s*[\d一二三四五六七八九十]+\s*[：:场]?\s*\S+/.test(text);
-  const hasSceneMarkIntExt = /(?:INT|EXT|内|外|内\/外)[.\s]+.+(?:——|-–)\s*(?:日|夜|DAY|NIGHT)/i.test(text);
+  // 中式(——/-– 分隔)+ 标准好莱坞格式(INT./EXT. … - DAY/NIGHT,用 " - " 或空格分隔)
+  const hasSceneMarkIntExt = /(?:INT|EXT|内|外|内\/外)[.\s]+.+(?:——|-–)\s*(?:日|夜|DAY|NIGHT)/i.test(text)
+    || /^\s*(?:INT|EXT)[.\s].+[-–—\s]\s*(?:DAY|NIGHT|DAWN|DUSK|MORNING|EVENING|CONTINUOUS)\b/im.test(text);
   const hasDialogue = /[\u4e00-\u9fa5a-zA-Z]{1,20}[：:].{2,}/m.test(text);
   const hasMultipleDialogues = (text.match(/[\u4e00-\u9fa5]{1,15}[：:].{2,}/gm) || []).length >= 3;
   const hasAction = /△|画面[：:]/.test(text);
   const hasOSMark = /[（(]\s*OS\s*[）)]/.test(text);
 
   // 强信号:出现明确剧本结构标记之一 → 一票通过
+  // English screenplay: >=3 ALL-CAPS speaker lines ("MATT:" form) or standalone speaker lines = Hollywood format
+  const hasEnglishDialogue =
+    (text.match(/^[A-Z][A-Z .'-]{1,24}:\s*\S/gm) || []).length >= 3
+    || (text.match(/^[A-Z][A-Z .'-]{2,24}\s*$/gm) || []).length >= 3;
   if (hasChapterMark || hasSceneMark || hasSceneMarkAlt || hasSceneMarkIntExt) return true;
   if (hasAction || hasOSMark) return true;
+  // 英文剧本弱信号:>=3 行全大写角色名对白 + 长文本(>=500),防普通英文段落误判
+  if (hasEnglishDialogue && text.length > 500) return true;
 
   // 弱信号组合:仅当"多对白行(≥4) + 长文本(≥800)"才算剧本
   // 单纯 hasDialogue 不够,防止"小说+引述"误判

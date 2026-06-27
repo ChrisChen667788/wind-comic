@@ -970,6 +970,19 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         cumMs += (durations[k] || 0) * 1000;
       }
 
+      // v12.41 口型/配音同步:变速镜(高光慢放 setpts)画面被拉伸,配音也要同比 atempo
+      // (atempo 变速不变调),否则慢放镜口型变慢、配音却原速播完 = "配音没跟上口型"。
+      // atempo 单次范围 [0.5,2.0],超出区间链式分解(总因子 = 各段相乘 = speed)。
+      const buildAtempoChain = (speed: number): string => {
+        if (!speed || speed === 1.0 || speed <= 0) return '';
+        let s = speed;
+        const parts: string[] = [];
+        while (s < 0.5) { parts.push('atempo=0.5'); s /= 0.5; }
+        while (s > 2.0) { parts.push('atempo=2.0'); s /= 2.0; }
+        parts.push(`atempo=${s.toFixed(3)}`);
+        return parts.join(',');
+      };
+
       const voSubInputs: string[] = [];
       let voCount = 0;
       let jCutCount = 0;
@@ -997,7 +1010,11 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         // adelay 需要每声道的 ms,立体声用 `startMs|startMs`
         const delay = `${adjustedStartMs}|${adjustedStartMs}`;
         const lbl = `vo${voCount}`;
-        filters.push(`[${voIdx}:a]adelay=${delay},volume=${voiceoverVolume}[${lbl}]`);
+        // 变速镜配音同比 atempo(在 adelay 之前),让台词跟随被拉伸/压缩的画面与口型
+        const voSpeed = validClips[myIdx]?.speedMultiplier || 1.0;
+        const atempoChain = buildAtempoChain(voSpeed);
+        const voChain = atempoChain ? `${atempoChain},adelay=${delay}` : `adelay=${delay}`;
+        filters.push(`[${voIdx}:a]${voChain},volume=${voiceoverVolume}[${lbl}]`);
         voSubInputs.push(`[${lbl}]`);
         voCount++;
       }
