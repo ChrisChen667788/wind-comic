@@ -1,0 +1,109 @@
+import { NextResponse } from 'next/server';
+import { getUserFromRequest } from '@/app/api/auth/lib';
+import { getOwnedProject } from '@/lib/repos/project-repo';
+import { listAssetsByType, upsertAsset } from '@/lib/repos/asset-repo';
+import { dimsForAspect } from '@/lib/video-reframe';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * v12.50.0 — 复用现有镜头「重新合成成片」(不重生视频,省 AI/时间)。
+ *
+ * 用途:换画幅(横→竖)、丢掉个别坏镜、加结构化片尾卡后,**用已生成的逐镜视频重新走 composer**
+ * 产出新成片并存回 final_video。比整片重跑快一个量级,且确定性(纯本地 ffmpeg,不碰生成引擎)。
+ *
+ * POST { aspect?, keepShots?: number[], dropShots?: number[], endCard?: {title?, slogan?, durationSec?, bg?} }
+ *   - 属主守卫(需登录 + 是本人项目)
+ *   - 从 video/script/music/timeline 资产重建 composer 输入,filter keep/drop
+ *   - composeVideo(aspect 生效)→ appendEndCard(可选)→ upsert final_video(幂等替换)
+ */
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const payload = getUserFromRequest(request);
+  if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  if (!(await getOwnedProject(id, payload.sub))) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+
+  const body = await request.json().catch(() => ({} as any));
+  const aspect: string = typeof body?.aspect === 'string' ? body.aspect : '16:9';
+  const keepShots: number[] | undefined = Array.isArray(body?.keepShots) ? body.keepShots.map(Number) : undefined;
+  const dropShots: Set<number> = new Set((Array.isArray(body?.dropShots) ? body.dropShots : []).map(Number));
+  const endCard = body?.endCard && typeof body.endCard === 'object' ? body.endCard : undefined;
+
+  const origin = new URL(request.url).origin;
+  const fullUrl = (u: string | null | undefined): string => {
+    if (!u) return '';
+    return u.startsWith('/api/serve-file') ? origin + u : u;
+  };
+
+  // ── 重建 composer 输入(复用已生成资产)──
+  const [videoAssets, scriptAssets, musicAssets, timelineAssets] = await Promise.all([
+    listAssetsByType(id, 'video'),
+    listAssetsByType(id, 'script'),
+    listAssetsByType(id, 'music'),
+    listAssetsByType(id, 'timeline'),
+  ]);
+  if (videoAssets.length === 0) return NextResponse.json({ message: '该项目没有可复用的镜头视频' }, { status: 400 });
+
+  const parse = (s: string | null): any => { try { return s ? JSON.parse(s) : {}; } catch { return {}; } };
+  const scriptShots: any[] = parse(scriptAssets[0]?.data)?.shots || [];
+  const dlg = new Map<number, { dialogue?: string; transition?: string; duration?: number }>();
+  for (const s of scriptShots) dlg.set(s.shotNumber, { dialogue: s.dialogue, transition: s.transition, duration: s.duration });
+
+  const clips = videoAssets
+    .map((v) => {
+      const shotNumber = v.shot_number ?? 0;
+      const meta = parse(v.data);
+      const sc = dlg.get(shotNumber) || {};
+      return {
+        shotNumber,
+        videoUrl: fullUrl(v.persistent_url || parse(v.media_urls)?.[0] || ''),
+        duration: meta?.duration || sc.duration || 4,
+        transition: sc.transition || 'cut',
+        dialogue: sc.dialogue || '',
+      };
+    })
+    .filter((c) => c.videoUrl && (!keepShots || keepShots.includes(c.shotNumber)) && !dropShots.has(c.shotNumber))
+    .sort((a, b) => a.shotNumber - b.shotNumber);
+
+  if (clips.length === 0) return NextResponse.json({ message: 'keep/drop 过滤后无可用镜头' }, { status: 400 });
+
+  const musicUrl = fullUrl(musicAssets[0]?.persistent_url || parse(musicAssets[0]?.media_urls)?.[0] || '');
+  const voSrc: any[] = parse(timelineAssets[0]?.data)?.voiceoverClips || [];
+  const keepSet = new Set(clips.map((c) => c.shotNumber));
+  const voiceoverClips = voSrc
+    .filter((vo) => keepSet.has(vo.shotNumber) && vo.audioUrl)
+    .map((vo) => ({ shotNumber: vo.shotNumber, audioUrl: fullUrl(vo.audioUrl) }));
+
+  // ── 合成 ──
+  const { composeVideo, appendEndCard } = await import('@/services/video-composer');
+  const result = await composeVideo({
+    clips,
+    aspect,                                  // v12.49.0 画布跟画幅
+    musicUrl: musicUrl || undefined,
+    voiceoverClips: voiceoverClips.length > 0 ? voiceoverClips : undefined,
+    musicVolume: voiceoverClips.length > 0 ? 0.2 : 0.3,
+    voiceoverVolume: 0.9,
+  });
+
+  const { w, h } = dimsForAspect(aspect);
+  let outputPath = result.outputPath;
+  let cardAppended = false;
+  if (endCard && (endCard.title || endCard.slogan)) {
+    const card = await appendEndCard(outputPath, {
+      title: endCard.title, slogan: endCard.slogan,
+      w, h, durationSec: endCard.durationSec, bg: endCard.bg === 'solid' ? 'solid' : 'blur',
+    });
+    outputPath = card.outputPath;
+    cardAppended = card.appended;
+  }
+
+  const serveUrl = `/api/serve-file?path=${encodeURIComponent(outputPath)}`;
+  await upsertAsset({
+    projectId: id, type: 'final_video', name: '最终成片',
+    data: { duration: result.totalDuration, hasBgm: result.hasMusic, hasVoiceover: result.hasVoiceover, audible: !!(result.hasMusic || result.hasVoiceover), aspect, width: w, height: h, recomposed: true, endCard: cardAppended },
+    mediaUrls: [serveUrl], persistentUrl: serveUrl,
+  });
+
+  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, endCard: cardAppended });
+}

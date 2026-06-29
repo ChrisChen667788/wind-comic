@@ -416,6 +416,67 @@ export async function concatVideos(
 }
 
 /**
+ * v12.50.0 结构化片尾卡:把一张「CTA 文字全走 ffmpeg drawtext」的干净片尾卡拼到成片末尾。
+ * 解决广告收尾被视频模型烤乱码英文的根因 —— 文字永远后期渲染(系统 CJK 字体),确定性、零乱码。
+ *  - bg='blur'(默认):取成片末帧放大裁满 + 高斯模糊压暗作背景(承接画面氛围)
+ *  - bg='solid':纯色卡
+ * 文案一律写入 textfile 再喂 drawtext(绝不内联中文 → 无转义/乱码风险)。无 title/slogan → 原样返回不加卡。
+ */
+export async function appendEndCard(
+  mainVideoPath: string,
+  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; outputDir?: string },
+): Promise<{ outputPath: string; appended: boolean }> {
+  const title = (opts.title || '').trim();
+  const slogan = (opts.slogan || '').trim();
+  if (!title && !slogan) return { outputPath: mainVideoPath, appended: false }; // 无文案 → 不加卡
+
+  const { buildEndCardVf } = await import('@/lib/end-card');
+  const { findCjkFont } = await import('@/lib/text-control');
+  const dur = Math.max(2, Math.min(opts.durationSec ?? 3.2, 6));
+  const fontFile = findCjkFont() || '/System/Library/Fonts/STHeiti Light.ttc';
+  const bg = opts.bg ?? 'blur';
+  const ff = resolvedFFmpegPath;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'endcard-'));
+  const sh = (cmd: string) => execSync(cmd, { stdio: 'pipe' });
+
+  try {
+    let titleFile: string | undefined;
+    let sloganFile: string | undefined;
+    if (title) { titleFile = path.join(tmpDir, 'title.txt'); fs.writeFileSync(titleFile, title, 'utf-8'); }
+    if (slogan) { sloganFile = path.join(tmpDir, 'slogan.txt'); fs.writeFileSync(sloganFile, slogan, 'utf-8'); }
+
+    const vf = buildEndCardVf({ w: opts.w, h: opts.h, fontFile, titleFile, sloganFile, bg, solidColor: opts.solidColor });
+
+    // 1) 片尾卡背景输入
+    let cardInputArgs: string;
+    if (bg === 'blur') {
+      const bgPng = path.join(tmpDir, 'bg.png');
+      sh(`"${ff}" -y -v error -sseof -0.3 -i "${mainVideoPath}" -frames:v 1 "${bgPng}"`);
+      cardInputArgs = `-loop 1 -t ${dur} -i "${bgPng}"`;
+    } else {
+      cardInputArgs = `-f lavfi -t ${dur} -i "color=c=${opts.solidColor || '0x1A1015'}:s=${opts.w}x${opts.h}"`;
+    }
+    // 2) 渲染片尾卡(静音轨,便于与成片 concat a=1)
+    const cardPath = path.join(tmpDir, 'endcard.mp4');
+    sh(`"${ff}" -y -v error ${cardInputArgs} -f lavfi -i anullsrc=r=44100:cl=stereo -vf "${vf}" -shortest -r 24 -c:v libx264 -crf 20 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k "${cardPath}"`);
+
+    // 3) concat 成片 + 片尾卡(重编码归一,容忍编码参数差异)
+    const outputDir = opts.outputDir || path.join(process.cwd(), 'data', 'composed');
+    fs.mkdirSync(outputDir, { recursive: true });
+    const outputPath = path.join(outputDir, `final-endcard-${Date.now()}.mp4`);
+    const fc =
+      `[0:v]fps=24,scale=${opts.w}:${opts.h},setsar=1[v0];[1:v]fps=24,scale=${opts.w}:${opts.h},setsar=1[v1];` +
+      `[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];` +
+      `[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]`;
+    sh(`"${ff}" -y -v error -i "${mainVideoPath}" -i "${cardPath}" -filter_complex "${fc}" -map "[v]" -map "[a]" -c:v libx264 -crf 20 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart "${outputPath}"`);
+    console.log(`[EndCard] 片尾卡已拼接 → ${outputPath}`);
+    return { outputPath, appended: true };
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+}
+
+/**
  * v2.12 Sprint B.1 — j-cut/l-cut 音轨偏移决策
  *
  * 设计:
