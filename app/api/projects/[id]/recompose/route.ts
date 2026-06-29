@@ -29,6 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const keepShots: number[] | undefined = Array.isArray(body?.keepShots) ? body.keepShots.map(Number) : undefined;
   const dropShots: Set<number> = new Set((Array.isArray(body?.dropShots) ? body.dropShots : []).map(Number));
   const endCard = body?.endCard && typeof body.endCard === 'object' ? body.endCard : undefined;
+  const regenVoiceover: boolean = body?.regenVoiceover === true; // 重生 TTS(原配音临时音频过期时自愈)
 
   const origin = new URL(request.url).origin;
   const fullUrl = (u: string | null | undefined): string => {
@@ -69,11 +70,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (clips.length === 0) return NextResponse.json({ message: 'keep/drop 过滤后无可用镜头' }, { status: 400 });
 
   const musicUrl = fullUrl(musicAssets[0]?.persistent_url || parse(musicAssets[0]?.media_urls)?.[0] || '');
-  const voSrc: any[] = parse(timelineAssets[0]?.data)?.voiceoverClips || [];
   const keepSet = new Set(clips.map((c) => c.shotNumber));
-  const voiceoverClips = voSrc
-    .filter((vo) => keepSet.has(vo.shotNumber) && vo.audioUrl)
-    .map((vo) => ({ shotNumber: vo.shotNumber, audioUrl: fullUrl(vo.audioUrl) }));
+
+  let voiceoverClips: Array<{ shotNumber: number; audioUrl: string }> = [];
+  if (regenVoiceover) {
+    // 重生 TTS:为有台词的镜逐条生成配音(原 timeline 的 TTS 临时音频过期/丢失时用)。
+    // audioUrl 可能是 data:/serve-file?path=,composeVideo 在同进程 downloadFile 直接处理,无需 origin 前缀。
+    await import('@/lib/tts-providers/builtins'); // 注册 TTS provider(否则 dispatch 链为空 → 0 配音)
+    const { dispatchTTSGenerate } = await import('@/lib/tts-providers/registry');
+    const { ttsLangCode } = await import('@/lib/language-detect');
+    for (const c of clips) {
+      const line = (c.dialogue || '').trim();
+      if (!line) continue;
+      try {
+        const d = await dispatchTTSGenerate({ text: line, voiceId: 'female-zh', language: ttsLangCode('zh') });
+        if (d.result?.audioUrl) voiceoverClips.push({ shotNumber: c.shotNumber, audioUrl: d.result.audioUrl });
+      } catch (e) { console.warn(`[recompose] TTS 重生失败 shot ${c.shotNumber}:`, e instanceof Error ? e.message : e); }
+    }
+  } else {
+    const voSrc: any[] = parse(timelineAssets[0]?.data)?.voiceoverClips || [];
+    voiceoverClips = voSrc
+      .filter((vo) => keepSet.has(vo.shotNumber) && vo.audioUrl)
+      .map((vo) => ({ shotNumber: vo.shotNumber, audioUrl: fullUrl(vo.audioUrl) }));
+  }
 
   // ── 合成 ──
   const { composeVideo, appendEndCard } = await import('@/services/video-composer');

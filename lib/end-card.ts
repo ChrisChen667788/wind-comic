@@ -17,6 +17,25 @@ export interface EndCardText {
   durationSec?: number; // 片尾卡时长,默认 3.2s
 }
 
+/** 广告/宣传/带货等商业题材信号(用原始创意判,决定主管线是否自动加结构化片尾卡)。 */
+export function isCommercialIdea(idea: string): boolean {
+  return /广告片?|宣传片|宣传短片|promo|commercial|tvc|带货|种草|品牌片|新品发布|产品宣传|营销短片/i.test(idea || '');
+}
+
+/**
+ * 主管线自动派生片尾卡文案:**宁缺毋滥** —— 只有「确为商业题材」且「末镜有一句干净 CTA 台词」
+ * 才出卡;否则返回 null(不加卡,避免硬塞低质卡反伤成片)。CTA 文字取 Writer 真实台词(干净中文),
+ * 由 ffmpeg drawtext 渲染(不交给视频模型 → 零乱码)。
+ */
+export function deriveEndCard(idea: string, lastDialogue?: string, productLine?: string): EndCardText | null {
+  if (!isCommercialIdea(idea)) return null;
+  const cta = (lastDialogue || '').replace(/^[…。\s]+/, '').trim();
+  // CTA 句要短而完整:2–24 字、不含换行(单句标语);太长/空 → 不出卡
+  if (!cta || cta.length < 2 || cta.length > 24 || /[\r\n]/.test(cta)) return null;
+  const slogan = (productLine || '').trim();
+  return { title: cta, slogan: slogan && slogan.length <= 20 ? slogan : undefined };
+}
+
 export interface EndCardLayout {
   titleSize: number;
   sloganSize: number;

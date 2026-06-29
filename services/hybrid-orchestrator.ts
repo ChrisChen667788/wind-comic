@@ -4432,6 +4432,27 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
 
         finalVideoUrl = `/api/serve-file?path=${encodeURIComponent(result.outputPath)}`;
         console.log(`[Editor] Final video: ${result.clipCount} clips, ${result.totalDuration}s, music=${result.hasMusic}, voiceover=${result.hasVoiceover}, highlights=${result.highlights.length}`);
+
+        // v12.51.0 商业题材自动拼结构化 CTA 片尾卡(文字走 ffmpeg drawtext,根治模型烤乱码;
+        // 宁缺毋滥:非广告 / 末镜无干净 CTA 台词 → deriveEndCard 返 null 不加卡)。非阻塞。
+        try {
+          const { deriveEndCard } = await import('@/lib/end-card');
+          const lastDialogue = [...composerClips].reverse().find((c) => (c.dialogue || '').trim())?.dialogue;
+          const ec = deriveEndCard(this.originalIdea || '', lastDialogue);
+          if (ec) {
+            const { appendEndCard } = await import('./video-composer');
+            const { dimsForAspect } = await import('@/lib/video-reframe');
+            const { w, h } = dimsForAspect(this.aspect);
+            const card = await appendEndCard(result.outputPath, { title: ec.title, slogan: ec.slogan, w, h, bg: 'blur' });
+            if (card.appended) {
+              finalVideoUrl = `/api/serve-file?path=${encodeURIComponent(card.outputPath)}`;
+              console.log(`[Editor] 商业片尾卡已拼接: "${ec.title}"`);
+              this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🏷️ 已为广告自动生成干净 CTA 片尾卡:「${ec.title}」` });
+            }
+          }
+        } catch (e) {
+          console.warn('[Editor] 片尾卡拼接失败(非阻塞,跳过):', e instanceof Error ? e.message : e);
+        }
         this.emit('agentTalk', {
           role: AgentRole.EDITOR,
           text: `🎬 FFmpeg 合成完成！${result.clipCount}个片段` +
