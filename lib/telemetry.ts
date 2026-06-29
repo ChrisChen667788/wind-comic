@@ -25,8 +25,13 @@ async function loadSentry() {
   if (!dsn) return;
 
   try {
+    // 可选依赖:用字符串拼接的 specifier,使 Turbopack/webpack 无法静态解析 →
+    // 未安装 @sentry/nextjs 时不再报 "Module not found"(此前在 PIPELINE_QUEUE=1
+    // 扩大模块图后会让 instrumentation 构建失败、连带 POST/node 路由 404)。
+    // 运行时仅当配了 SENTRY_DSN 才会真 import(上面已 early-return),失败也被 catch 兜住。
+    const sentrySpec = '@sentry' + '/nextjs';
     // @ts-ignore — 可选依赖,tsconfig 不强制
-    sentryMod = await import('@sentry/nextjs').catch(() => null);
+    sentryMod = await import(/* webpackIgnore: true */ sentrySpec).catch(() => null);
     if (sentryMod && typeof sentryMod.init === 'function') {
       sentryMod.init({
         dsn,

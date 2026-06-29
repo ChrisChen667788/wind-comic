@@ -280,6 +280,19 @@ export function isReasoningModelName(model: string | null | undefined): boolean 
   return /\bm2\b|deepseek-r1|^o1$|^o1-|^o3$|^o3-|^o4$|^o4-|reasoning/i.test(model);
 }
 
+/**
+ * v12.47 兜底年代/题材识别(纯函数,可测)。LLM 失败走 fallback 时用它判 古装/赛博/现代。
+ * 必须用「古装/赛博专属多字词」,严禁单字 —— 否则「修护/清爽/聪明/朝阳」等现代(尤其护肤/
+ * 电商)常用字会被误判成古装,把现代商业片跑偏成古装戏(headless 实测实锤的真实 bug)。
+ */
+export function inferFallbackEra(text: string): { isAncient: boolean; isCyber: boolean } {
+  const t = text || '';
+  return {
+    isAncient: /古装|古代|古风|武侠|仙侠|修仙|修真|玄幻|宫廷|皇宫|王朝|朝廷|皇帝|太子|公主|格格|大侠|江湖|衙门|书生|侯爷|将军|秦朝|唐朝|宋朝|明朝|清朝|穿越/.test(t),
+    isCyber: /赛博朋克|赛博|科幻|末日|废土|机甲|太空|星际|外星|未来世界|星舰|克隆人/.test(t),
+  };
+}
+
 export class HybridOrchestrator {
   private agents: Map<AgentRole, Agent>;
   private openai: OpenAI | null;
@@ -1402,8 +1415,9 @@ export class HybridOrchestrator {
   }
 
   private fallbackDirectorPlan(idea: string): DirectorPlan {
-    const isAncient = /古|秦|唐|宋|明|清|朝|宫|侠|武|仙|修/.test(idea);
-    const isCyber = /赛博|科幻|未来|机器|AI|太空/.test(idea);
+    // v12.47:古装/赛博检测用「古装专属多字词」(见 inferFallbackEra),不能用单字 —— 否则
+    // 「修护/清爽/聪明/朝阳」等现代(尤其护肤/电商)常用字会误判成古装,把现代商业片跑偏。
+    const { isAncient, isCyber } = inferFallbackEra(idea);
     // 仅当用户未选定画风时，才自动检测
     if (!this.userSelectedStyle) {
       this.genre = isAncient ? '古装历史' : isCyber ? '赛博科幻' : '现代剧情';
@@ -1414,8 +1428,8 @@ export class HybridOrchestrator {
     if (this.parsedScript) {
       // 从类型推断中获取年代背景
       const detectedGenre = this.parsedScript.genreHints[0] || this.genre || '';
-      const isAncientScript = /古|侠|武|仙|修|朝|宫|唐|宋|明|清|秦/.test(detectedGenre + this.parsedScript.rawText.slice(0, 500));
-      const isCyberScript = /赛博|科幻|未来|机器|AI|太空/.test(detectedGenre + this.parsedScript.rawText.slice(0, 500));
+      const eraSrc = detectedGenre + this.parsedScript.rawText.slice(0, 500);
+      const { isAncient: isAncientScript, isCyber: isCyberScript } = inferFallbackEra(eraSrc);
       const eraPrefix = isAncientScript ? '古装人物，身着传统汉服/古装服饰，' :
                          isCyberScript ? '未来科幻人物，赛博朋克服饰，' : '';
       const eraAppearance = isAncientScript
