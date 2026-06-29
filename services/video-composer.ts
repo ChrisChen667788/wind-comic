@@ -82,6 +82,7 @@ export interface ComposeOptions {
   musicVolume?: number;        // 配乐音量 0~1，默认 0.3
   voiceoverVolume?: number;    // 配音音量 0~1，默认 0.9
   aspect?: string;             // v12.49.0 成片画幅('16:9'|'9:16'|'1:1'...) — 决定合成画布分辨率;缺省 16:9(旧行为)
+  captionStyle?: import('@/lib/caption-style').CaptionPreset; // v12.52.0 字幕风格预设;缺省 clean(零回归)
   editStyle?: string;          // v12.0.4 一句指令调剪辑风格(快节奏燃向/慢叙抒情...)
   actionMode?: boolean;        // v12.13.0 动作片节奏:高光不整段慢放、硬切替淡入、保快节奏
   // v12.13.1 打击音效层:冲击点(镜号 + 镜内秒 + 强度)→ 程序化合成闷响打击音并末端混入
@@ -749,7 +750,9 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         // force_style: 字号 + 白字 + 黑边 + 下方居中 (Alignment=2 = 底部居中 libass)
         // FontName 用 PingFang SC / Noto Sans CJK SC 等 CJK 字体名, 找不到字体时让 libass 走默认
         const fontName = cjkFont ? path.basename(cjkFont, path.extname(cjkFont)) : 'PingFang SC';
-        const forceStyle = `FontName=${fontName},FontSize=24,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00000000&,Outline=2,Shadow=1,Alignment=2,MarginV=40`;
+        // v12.52.0 字幕风格预设(clean 与旧硬编码逐字符一致;social 给电商/广告大字抬高)
+        const { buildCaptionForceStyle } = await import('@/lib/caption-style');
+        const forceStyle = buildCaptionForceStyle(options.captionStyle || 'clean', fontName, { vertical: canvasH > canvasW });
         subtitlesFilterFragment = `,subtitles='${escapedPath}':force_style='${forceStyle}'`;
         if (cjkFont) {
           const fontDir = path.dirname(cjkFont).replace(/\\/g, '/').replace(/:/g, '\\:');

@@ -30,6 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const dropShots: Set<number> = new Set((Array.isArray(body?.dropShots) ? body.dropShots : []).map(Number));
   const endCard = body?.endCard && typeof body.endCard === 'object' ? body.endCard : undefined;
   const regenVoiceover: boolean = body?.regenVoiceover === true; // 重生 TTS(原配音临时音频过期时自愈)
+  const captionStyle = ['clean', 'social', 'bold'].includes(body?.captionStyle) ? body.captionStyle : undefined; // v12.52.0 字幕风格
 
   const origin = new URL(request.url).origin;
   const fullUrl = (u: string | null | undefined): string => {
@@ -99,6 +100,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const result = await composeVideo({
     clips,
     aspect,                                  // v12.49.0 画布跟画幅
+    captionStyle,                            // v12.52.0 字幕风格预设(社媒大字等)
     musicUrl: musicUrl || undefined,
     voiceoverClips: voiceoverClips.length > 0 ? voiceoverClips : undefined,
     musicVolume: voiceoverClips.length > 0 ? 0.2 : 0.3,
