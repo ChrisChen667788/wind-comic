@@ -1040,7 +1040,21 @@ export default function DashboardCreatePage() {
               </div>
             </div>
             <div className="relative rounded-[2px] overflow-hidden border border-[var(--cinema-border)] bg-black">
-              <img loading="lazy" decoding="async" src={IMG_PREVIEW_DEFAULT} alt="preview" className="w-full h-[260px] object-cover opacity-90" />
+              {/* v12.46: 双城之战素材循环预览(autoplay/muted/loop;IMG_PREVIEW_DEFAULT 作 poster 兜底) */}
+              <video
+                src="/preview/live-preview.mp4"
+                poster={IMG_PREVIEW_DEFAULT}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="w-full h-[260px] object-cover opacity-90"
+              />
+              {/* LIVE 指示 */}
+              <div className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] bg-black/50 backdrop-blur-sm pointer-events-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--cinema-red)] animate-pulse" />
+                <span className="cinema-mono text-[8px] tracking-widest text-white/80">LIVE</span>
+              </div>
               {/* 安全区裁切线 — 影院软件常见 */}
               <div className="absolute inset-[10%] border border-dashed border-[rgba(245,241,234,0.18)] pointer-events-none" />
             </div>
