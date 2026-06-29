@@ -95,6 +95,19 @@ export function isMinimaxVideoQuotaError(message: string): boolean {
   return /\b2056\b|\b1008\b|usage limit|limit reached|insufficient|quota|exceeded|额度|用尽|超出|余额/i.test(message || '');
 }
 
+/**
+ * v12.48 S2V-01 参考图组装(纯函数,可测)。S2V-01 与 first_frame_image 互斥(API 报
+ * "model S2V-01 and param 'first_frame_image' are mutually exclusive")—— 首帧图不能进
+ * first_frame_image,改作为 reference_images 锚点;与额外参考图合并、去重、过滤非 http、上限 3。
+ */
+export function buildS2VRefImages(firstFrameImage?: string, referenceImages?: string[]): string[] {
+  const isHttp = (u?: string): u is string => !!u && /^https?:\/\//.test(u);
+  return Array.from(new Set([
+    ...(isHttp(firstFrameImage) ? [firstFrameImage] : []),
+    ...((referenceImages || []).filter(isHttp)),
+  ])).slice(0, 3);
+}
+
 export class MinimaxService {
   private apiKey: string;
   private baseURL: string;
@@ -421,19 +434,11 @@ export class MinimaxService {
       subject_reference: subjectReferenceArray,
     };
 
-    if (hasFirstFrame) {
-      body.first_frame_image = options!.firstFrameImage;
-    }
-
-    // 辅助参考图(场景/风格)— 如果网关支持 reference_images 字段就一起带上
-    if (options?.referenceImages && options.referenceImages.length > 0) {
-      const extras = options.referenceImages
-        .filter(isHttpImg)
-        .filter((u) => u !== options.firstFrameImage)
-        .slice(0, 3);
-      if (extras.length > 0) {
-        body.reference_images = extras;
-      }
+    // v12.48 修:S2V-01 与 first_frame_image 互斥(API 报错)—— 绝不给 S2V body 传
+    // first_frame_image。首帧图改进 reference_images(见 buildS2VRefImages),身份靠 subject_reference。
+    const refPool = buildS2VRefImages(options?.firstFrameImage, options?.referenceImages);
+    if (refPool.length > 0) {
+      body.reference_images = refPool;
     }
 
     console.log(`[Minimax-S2V] 多主体一致性视频生成`);
