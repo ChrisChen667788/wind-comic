@@ -4412,6 +4412,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
 
         const result = await composeVideo({
           clips: composerClips,
+          aspect: this.aspect, // v12.49.0 成片画布跟项目画幅(修竖屏 9:16 成片仍出 16:9 的 bug)
           musicUrl: musicUrl || undefined,
           voiceoverClips: voiceoverClips.length > 0 ? voiceoverClips : undefined,
           nativeAudioShots: nativeShotsSet.size > 0 ? [...nativeShotsSet] : undefined, // v12.29.0(P1):这些镜用成片真音轨
@@ -4459,6 +4460,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
             }));
             const simpleResult = await composeVideoRetry({
               clips: simpleClips,
+              aspect: this.aspect, // v12.49.0 降级路径也跟项目画幅
               musicUrl: musicUrl || undefined,
               transitionDuration: 0.1, // 极短转场
               musicVolume: 0.3,

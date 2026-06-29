@@ -41,3 +41,22 @@ export function buildReframeFilterComplex(target: VideoAspect | string, mode: Re
   const out = `[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1[vout]`;
   return { filter: `${bg};${fg};${out}`, w, h };
 }
+
+/**
+ * v12.49.0 合成画布适配片段(无输入/输出标签,内联拼在 `[i:v]trim=...,setpts=...,` 与
+ * `,fps=24,setsar=1` 之间)。修 composer 此前硬编码 `scale=1280:720,pad=1280:720` 致**任何比例
+ * 的成片都被合成成 16:9**(竖屏项目 9:16 出片仍 1280×720 横屏)的根因。
+ *
+ *  - 横屏/方(w>=h):`decrease + pad` —— 等比缩入 + 居中补边,零内容损失。
+ *    当 aspect='16:9' → `scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2`,
+ *    与旧硬编码逐字符一致 → 横屏链路零回归。
+ *  - 竖屏(h>w):`increase + crop` —— 放大裁满竖框(源片多为引擎出的 16:9,裁两侧填满竖屏,
+ *    主体居中的广告/短剧更显专业,优于黑边 letterbox)。
+ */
+export function buildCanvasFit(aspect: string): { fit: string; w: number; h: number } {
+  const { w, h } = dimsForAspect(aspect);
+  const fit = h > w
+    ? `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`
+    : `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2`;
+  return { fit, w, h };
+}

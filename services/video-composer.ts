@@ -81,6 +81,7 @@ export interface ComposeOptions {
   transitionDuration?: number; // 转场时长（秒），默认 0.5
   musicVolume?: number;        // 配乐音量 0~1，默认 0.3
   voiceoverVolume?: number;    // 配音音量 0~1，默认 0.9
+  aspect?: string;             // v12.49.0 成片画幅('16:9'|'9:16'|'1:1'...) — 决定合成画布分辨率;缺省 16:9(旧行为)
   editStyle?: string;          // v12.0.4 一句指令调剪辑风格(快节奏燃向/慢叙抒情...)
   actionMode?: boolean;        // v12.13.0 动作片节奏:高光不整段慢放、硬切替淡入、保快节奏
   // v12.13.1 打击音效层:冲击点(镜号 + 镜内秒 + 强度)→ 程序化合成闷响打击音并末端混入
@@ -508,6 +509,13 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     throw new Error('No clips provided');
   }
 
+  // ═══ v12.49.0 成片画布按项目画幅 ═══
+  // 病根:此前每镜预处理硬编码 `scale=1280:720,pad=1280:720` → 无视项目比例,竖屏(9:16)项目
+  // 成片仍出 16:9 横屏。改为按 aspect 取画布尺寸 + 适配滤镜(横屏缩入补边=旧行为零回归;竖屏放大裁满)。
+  const { buildCanvasFit } = await import('@/lib/video-reframe');
+  const { fit: canvasFit, w: canvasW, h: canvasH } = buildCanvasFit(options.aspect || '16:9');
+  console.log(`[Composer] 画布 ${canvasW}x${canvasH} (aspect=${options.aspect || '16:9'})`);
+
   // ═══ 高光检测 ═══
   const highlights = detectHighlights(clips, { actionMode, impactShots: options.impactShots });
   const highlightShots = highlights.filter(h => h.isHighlight).map(h => h.shotNumber);
@@ -789,7 +797,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       const isHL = validClips[0]?.isHighlight || false;
       // v12.13.0:单镜也按设计时长裁切(designed 未给则 = 源时长,无裁切)
       const trimTo0 = Math.min(durations[0], sourceDurations[0]);
-      let videoFilter = `[0:v]trim=0:${trimTo0.toFixed(2)},setpts=PTS-STARTPTS,scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1`;
+      let videoFilter = `[0:v]trim=0:${trimTo0.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=24,setsar=1`;
       if (speed !== 1.0 && speed > 0) {
         const pts = 1.0 / speed;
         videoFilter += `,setpts=${pts.toFixed(3)}*PTS`;
@@ -873,7 +881,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       const isHighlightClip = validClips[i]?.isHighlight || false;
       // v12.13.0:按设计时长真裁切源片(trim=0:T + 重置时间戳)—— 杜绝 8s 源整段流出,快切节奏落地。
       const trimTo = Math.min(durations[i], sourceDurations[i]);
-      let videoFilter = `[${i}:v]trim=0:${trimTo.toFixed(2)},setpts=PTS-STARTPTS,scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1`;
+      let videoFilter = `[${i}:v]trim=0:${trimTo.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=24,setsar=1`;
 
       // 高光变速：setpts 调整视频播放速度（<1 = 加速, >1 = 减速）
       if (speed !== 1.0 && speed > 0) {
