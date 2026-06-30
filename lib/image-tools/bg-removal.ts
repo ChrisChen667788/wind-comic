@@ -86,11 +86,20 @@ export async function removeBackground(
   const outDir = opts?.outputDir || fs.mkdtempSync(path.join(os.tmpdir(), 'rembg-'));
   fs.mkdirSync(outDir, { recursive: true });
 
-  // 取本地输入
+  // 取本地输入(支持 http(s) / data: / /api/serve-file?path= / 本地路径)
   let localInput = inputPathOrUrl;
   if (/^https?:\/\//.test(inputPathOrUrl)) {
     localInput = path.join(outDir, 'src');
     await downloadToFile(inputPathOrUrl, localInput);
+  } else if (inputPathOrUrl.startsWith('data:')) {
+    const m = inputPathOrUrl.match(/^data:[^;,]*;base64,(.*)$/);
+    if (!m) throw new Error('removeBackground: 不支持的 data: URI');
+    localInput = path.join(outDir, 'src.png');
+    fs.writeFileSync(localInput, Buffer.from(m[1], 'base64'));
+  } else if (inputPathOrUrl.startsWith('/api/serve-file')) {
+    const lp = new URL(inputPathOrUrl, 'http://localhost').searchParams.get('path');
+    if (!lp || !fs.existsSync(lp)) throw new Error('removeBackground: serve-file 本地路径不存在');
+    localInput = lp;
   } else if (!fs.existsSync(inputPathOrUrl)) {
     throw new Error(`removeBackground: 源不存在 ${inputPathOrUrl.slice(0, 80)}`);
   }
@@ -111,4 +120,29 @@ export async function removeBackground(
   const outBuf = Buffer.from(await res.arrayBuffer());
   fs.writeFileSync(outputPath, outBuf);
   return { outputPath, method: 'http' };
+}
+
+/**
+ * v12.56.0 主管线产品/角色参考图自动抠净 → 跨镜复用保一致(电商核心痛点:产品本体跨镜漂移)。
+ * **gated**:抠图后端不可用(默认)→ 原样返回,零行为改动;可用时逐张 removeBackground + persistAsset
+ * (存储适配器:local serve-file / S3 公网 URL),失败保留原图(非阻塞)。
+ * 注:抠图产物要喂外部图像/视频引擎需公网可达 → 生产建议 STORAGE_DRIVER=s3,本地 local 仅 UI/合成可用。
+ */
+export async function prepProductReferences(refUrls: Array<string | null | undefined>): Promise<string[]> {
+  const refs = (refUrls || []).filter((u): u is string => !!u);
+  if (!bgRemovalAvailable() || refs.length === 0) return refs;
+  const { persistAsset } = await import('@/lib/asset-storage');
+  const out: string[] = [];
+  for (const url of refs) {
+    if (url.startsWith('data:image/svg')) { out.push(url); continue; } // seed svg 不抠
+    try {
+      const { outputPath } = await removeBackground(url);
+      const persisted = await persistAsset(outputPath, { contentType: 'image/png', ext: '.png' });
+      out.push(persisted?.url || url); // 持久化失败 → 保留原图
+    } catch (e) {
+      console.warn('[bg-removal] 产品抠图失败,保留原图:', e instanceof Error ? e.message : e);
+      out.push(url);
+    }
+  }
+  return out;
 }

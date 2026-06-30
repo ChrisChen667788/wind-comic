@@ -2,7 +2,7 @@
  * v12.55 — 产品抠图 provider(rembg/HTTP 后端探测 + 命令拼装)。纯逻辑测试。
  */
 import { describe, it, expect } from 'vitest';
-import { rembgCliArgs, resolveBgRemovalBackend, bgRemovalAvailable } from '@/lib/image-tools/bg-removal';
+import { rembgCliArgs, resolveBgRemovalBackend, bgRemovalAvailable, prepProductReferences } from '@/lib/image-tools/bg-removal';
 
 describe('v12.55 · 抠图 provider 纯逻辑', () => {
   it('rembgCliArgs:i [-m model] input output', () => {
@@ -27,5 +27,10 @@ describe('v12.55 · 抠图 provider 纯逻辑', () => {
   it('bgRemovalAvailable:显式配置即 true', () => {
     expect(bgRemovalAvailable({ BG_REMOVAL_URL: 'https://x/api' } as any)).toBe(true);
     expect(bgRemovalAvailable({ REMBG_CMD: 'rembg' } as any)).toBe(true);
+  });
+
+  it('prepProductReferences:空/全 falsy 输入短路返回(不碰后端)', async () => {
+    expect(await prepProductReferences([])).toEqual([]);
+    expect(await prepProductReferences([null, undefined, ''])).toEqual([]);
   });
 });

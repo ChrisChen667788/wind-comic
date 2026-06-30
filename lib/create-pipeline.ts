@@ -223,6 +223,22 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       if (typeof cw === 'number') orchestrator.setPrimaryCharacterCw(cw);
       send('status', { message: `多参:角色元素已锁主角 (cref + DNA${typeof cw === 'number' ? `, cw ${cw}` : ''})` });
     }
+    // v12.56.0 广告题材:产品/角色参考图自动抠净背景 → 锁主体跨镜复用保一致(电商核心痛点)。
+    // gated:仅「商业题材 + 抠图后端可用(rembg/BG_REMOVAL_URL)」才抠;否则原样,零行为改动。非阻塞。
+    // 注:抠图产物喂外部引擎需公网可达 → 生产建议 STORAGE_DRIVER=s3(local 仅 UI/本地合成可用)。
+    if (effectiveCameoRef) {
+      try {
+        const { isCommercialIdea } = await import('@/lib/end-card');
+        const { bgRemovalAvailable, prepProductReferences } = await import('@/lib/image-tools/bg-removal');
+        if (isCommercialIdea(idea) && bgRemovalAvailable()) {
+          const [cut] = await prepProductReferences([effectiveCameoRef]);
+          if (cut && cut !== effectiveCameoRef) {
+            effectiveCameoRef = cut;
+            send('status', { message: '产品参考图已抠净背景 → 锁主体跨镜复用保一致' });
+          }
+        }
+      } catch (e) { console.warn('[create] 产品抠图预处理失败(非阻塞):', e instanceof Error ? e.message : e); }
+    }
     if (effectiveCameoRef) {
       orchestrator.setPrimaryCharacterRef(effectiveCameoRef);
     }

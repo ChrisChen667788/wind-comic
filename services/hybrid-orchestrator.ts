@@ -4411,10 +4411,11 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         });
 
         const { isCommercialIdea: _isCommercial } = await import('@/lib/end-card');
+        const { pickCaptionPreset } = await import('@/lib/caption-style');
         const result = await composeVideo({
           clips: composerClips,
           aspect: this.aspect, // v12.49.0 成片画布跟项目画幅(修竖屏 9:16 成片仍出 16:9 的 bug)
-          captionStyle: _isCommercial(this.originalIdea || '') ? 'social' : 'clean', // v12.52.0 广告→社媒大字
+          captionStyle: pickCaptionPreset(_isCommercial(this.originalIdea || '')), // v12.56.0 广告→karaoke 词级扫光
           musicUrl: musicUrl || undefined,
           voiceoverClips: voiceoverClips.length > 0 ? voiceoverClips : undefined,
           nativeAudioShots: nativeShotsSet.size > 0 ? [...nativeShotsSet] : undefined, // v12.29.0(P1):这些镜用成片真音轨

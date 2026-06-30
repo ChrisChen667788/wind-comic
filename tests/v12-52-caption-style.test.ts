@@ -36,8 +36,8 @@ describe('v12.52 · 字幕风格预设', () => {
     expect(b).toContain('Outline=4');
   });
 
-  it('pickCaptionPreset:商业题材 social,否则 clean', () => {
-    expect(pickCaptionPreset(true)).toBe('social');
+  it('pickCaptionPreset:商业题材 karaoke(v12.56 默认升级),否则 clean', () => {
+    expect(pickCaptionPreset(true)).toBe('karaoke');
     expect(pickCaptionPreset(false)).toBe('clean');
   });
 });

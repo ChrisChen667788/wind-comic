@@ -32,7 +32,8 @@ export function buildCaptionForceStyle(
   }
 }
 
-/** 按画幅/题材自动选字幕风格:商业题材 → social(社媒大字);否则 clean(零回归)。 */
+/** 按题材自动选字幕风格:商业题材 → karaoke(词级扫光,短视频质感最高);否则 clean(零回归)。
+ *  v12.56.0:广告默认从 social 升级为 karaoke(逐字亮起,留存/质感更强)。 */
 export function pickCaptionPreset(isCommercial: boolean): CaptionPreset {
-  return isCommercial ? 'social' : 'clean';
+  return isCommercial ? 'karaoke' : 'clean';
 }
