@@ -23,6 +23,16 @@ export function isCommercialIdea(idea: string): boolean {
 }
 
 /**
+ * v12.57.0 商业广告 Director 硬锚点。
+ * 病根:健康的 Director(sonnet-4)也会把「高级感/冷色调/琥珀/铜」等词过度风格化成「现代古装融合风」
+ * —— 实测冷萃咖啡广告跑成 genre=古装职业 + 汉服宫廷。商业题材强制当代现实主义、明令禁古装/年代戏/奇幻。
+ * 注入 Director userPrompt(非脚本改编时),不动 system 模板 → 零回归。
+ */
+export function commercialDirectorAnchor(): string {
+  return `\n\n【商业广告·硬性风格要求】这是现代商业广告片,必须用**当代现实主义**:真实当代人物 + 真实现代产品 + 现代生活/职场/都市场景。genre 必须是现代题材(如「现代商业」「都市生活」),**严禁古装/古风/古代/历史剧/戏曲/汉服/宫廷/武侠/玄幻/仙侠**等任何年代戏或奇幻设定;styleKeywords **不得**出现 ancient / period / historical / hanfu / costume / imperial / dynasty 等词。产品按真实现代包装呈现,不要做成古董/铜壶/陶瓷等仿古道具。`;
+}
+
+/**
  * 主管线自动派生片尾卡文案:**宁缺毋滥** —— 只有「确为商业题材」且「末镜有一句干净 CTA 台词」
  * 才出卡;否则返回 null(不加卡,避免硬塞低质卡反伤成片)。CTA 文字取 Writer 真实台词(干净中文),
  * 由 ffmpeg drawtext 渲染(不交给视频模型 → 零乱码)。

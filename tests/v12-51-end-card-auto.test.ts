@@ -2,7 +2,7 @@
  * v12.51 — 主管线自动片尾卡:商业题材判定 + 文案派生(宁缺毋滥)。
  */
 import { describe, it, expect } from 'vitest';
-import { isCommercialIdea, deriveEndCard } from '@/lib/end-card';
+import { isCommercialIdea, deriveEndCard, commercialDirectorAnchor } from '@/lib/end-card';
 
 describe('v12.51 · 自动片尾卡派生', () => {
   it('isCommercialIdea:广告/宣传片/promo/带货/种草 命中;短剧/纪录片不命中', () => {
@@ -38,5 +38,14 @@ describe('v12.51 · 自动片尾卡派生', () => {
   it('productLine 短则带上作副标,过长则丢', () => {
     expect(deriveEndCard('广告片', '快来吧', '抗老精华水')!.slogan).toBe('抗老精华水');
     expect(deriveEndCard('广告片', '快来吧', '这是一个非常长的产品线描述超过二十字上限了的')!.slogan).toBeUndefined();
+  });
+
+  it('commercialDirectorAnchor:强制现代写实 + 明令禁古装/ancient(v12.57 修古装漂移)', () => {
+    const a = commercialDirectorAnchor();
+    expect(a).toContain('当代现实主义');
+    expect(a).toContain('严禁古装');
+    for (const w of ['古风', '历史剧', '汉服', '宫廷', '武侠', '玄幻', 'ancient', 'hanfu', 'costume']) {
+      expect(a).toContain(w);
+    }
   });
 });

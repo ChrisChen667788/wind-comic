@@ -1255,6 +1255,16 @@ export class HybridOrchestrator {
         userPrompt = `用户创意：${idea}${directorTemplateHint}`;
       }
 
+      // v12.57.0 商业广告硬锚:健康 Director 也会把「高级感/冷色调/琥珀/铜」等词过度风格化成
+      // 「现代古装融合风」(实测冷萃咖啡广告跑成 genre=古装职业 + 汉服宫廷)。商业题材强制当代现实主义,
+      // 明令禁古装/年代戏/奇幻 —— 改 userPrompt(非脚本改编时),不动 system 模板,零回归。
+      {
+        const { isCommercialIdea, commercialDirectorAnchor } = await import('@/lib/end-card');
+        if (!this.parsedScript && isCommercialIdea(idea)) {
+          userPrompt += commercialDirectorAnchor();
+        }
+      }
+
       // 注入用户选定画风到 Director 提示中
       if (this.userSelectedStyle) {
         userPrompt += `\n\n【重要：用户指定画风】用户已选定画风为"${this.userSelectedStyle}"（${this.genre}），你的所有视觉描述、角色设计、场景设计必须严格遵循此画风。styleKeywords 必须包含: ${this.styleKeywords}`;
