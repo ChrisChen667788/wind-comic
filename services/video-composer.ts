@@ -417,15 +417,16 @@ export async function concatVideos(
 }
 
 /**
- * v12.50.0 结构化片尾卡:把一张「CTA 文字全走 ffmpeg drawtext」的干净片尾卡拼到成片末尾。
- * 解决广告收尾被视频模型烤乱码英文的根因 —— 文字永远后期渲染(系统 CJK 字体),确定性、零乱码。
- *  - bg='blur'(默认):取成片末帧放大裁满 + 高斯模糊压暗作背景(承接画面氛围)
+ * v12.50.0/v12.53.0 结构化文字卡:把一张「文字全走 ffmpeg drawtext」的干净卡片拼到成片首/尾。
+ * 解决广告 hook/CTA 被视频模型烤乱码英文的根因 —— 文字永远后期渲染(系统 CJK 字体),确定性、零乱码。
+ *  - bg='blur'(默认):取成片首帧(hook)/末帧(CTA)放大裁满 + 高斯模糊压暗作背景(承接画面氛围)
  *  - bg='solid':纯色卡
+ *  - position='end'(默认,片尾 CTA)/ 'start'(片头 hook,提留存)
  * 文案一律写入 textfile 再喂 drawtext(绝不内联中文 → 无转义/乱码风险)。无 title/slogan → 原样返回不加卡。
  */
-export async function appendEndCard(
+export async function attachTextCard(
   mainVideoPath: string,
-  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; outputDir?: string },
+  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; outputDir?: string; position?: 'start' | 'end' },
 ): Promise<{ outputPath: string; appended: boolean }> {
   const title = (opts.title || '').trim();
   const slogan = (opts.slogan || '').trim();
@@ -433,11 +434,12 @@ export async function appendEndCard(
 
   const { buildEndCardVf } = await import('@/lib/end-card');
   const { findCjkFont } = await import('@/lib/text-control');
-  const dur = Math.max(2, Math.min(opts.durationSec ?? 3.2, 6));
+  const position = opts.position ?? 'end';
+  const dur = Math.max(1.2, Math.min(opts.durationSec ?? (position === 'start' ? 2.2 : 3.2), 6));
   const fontFile = findCjkFont() || '/System/Library/Fonts/STHeiti Light.ttc';
   const bg = opts.bg ?? 'blur';
   const ff = resolvedFFmpegPath;
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'endcard-'));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'txtcard-'));
   const sh = (cmd: string) => execSync(cmd, { stdio: 'pipe' });
 
   try {
@@ -448,33 +450,51 @@ export async function appendEndCard(
 
     const vf = buildEndCardVf({ w: opts.w, h: opts.h, fontFile, titleFile, sloganFile, bg, solidColor: opts.solidColor });
 
-    // 1) 片尾卡背景输入
+    // 1) 卡片背景输入(hook 取首帧、CTA 取末帧)
     let cardInputArgs: string;
     if (bg === 'blur') {
       const bgPng = path.join(tmpDir, 'bg.png');
-      sh(`"${ff}" -y -v error -sseof -0.3 -i "${mainVideoPath}" -frames:v 1 "${bgPng}"`);
+      const seek = position === 'start' ? '-ss 0.2' : '-sseof -0.3';
+      sh(`"${ff}" -y -v error ${seek} -i "${mainVideoPath}" -frames:v 1 "${bgPng}"`);
       cardInputArgs = `-loop 1 -t ${dur} -i "${bgPng}"`;
     } else {
       cardInputArgs = `-f lavfi -t ${dur} -i "color=c=${opts.solidColor || '0x1A1015'}:s=${opts.w}x${opts.h}"`;
     }
-    // 2) 渲染片尾卡(静音轨,便于与成片 concat a=1)
-    const cardPath = path.join(tmpDir, 'endcard.mp4');
+    // 2) 渲染卡片(静音轨,便于与成片 concat a=1)
+    const cardPath = path.join(tmpDir, 'card.mp4');
     sh(`"${ff}" -y -v error ${cardInputArgs} -f lavfi -i anullsrc=r=44100:cl=stereo -vf "${vf}" -shortest -r 24 -c:v libx264 -crf 20 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k "${cardPath}"`);
 
-    // 3) concat 成片 + 片尾卡(重编码归一,容忍编码参数差异)
+    // 3) concat(重编码归一);position 决定卡在前(hook)还是在后(CTA)
     const outputDir = opts.outputDir || path.join(process.cwd(), 'data', 'composed');
     fs.mkdirSync(outputDir, { recursive: true });
-    const outputPath = path.join(outputDir, `final-endcard-${Date.now()}.mp4`);
+    const outputPath = path.join(outputDir, `final-${position === 'start' ? 'hook' : 'endcard'}-${Date.now()}.mp4`);
+    const [first, second] = position === 'start' ? [cardPath, mainVideoPath] : [mainVideoPath, cardPath];
     const fc =
       `[0:v]fps=24,scale=${opts.w}:${opts.h},setsar=1[v0];[1:v]fps=24,scale=${opts.w}:${opts.h},setsar=1[v1];` +
       `[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];` +
       `[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]`;
-    sh(`"${ff}" -y -v error -i "${mainVideoPath}" -i "${cardPath}" -filter_complex "${fc}" -map "[v]" -map "[a]" -c:v libx264 -crf 20 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart "${outputPath}"`);
-    console.log(`[EndCard] 片尾卡已拼接 → ${outputPath}`);
+    sh(`"${ff}" -y -v error -i "${first}" -i "${second}" -filter_complex "${fc}" -map "[v]" -map "[a]" -c:v libx264 -crf 20 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart "${outputPath}"`);
+    console.log(`[Card] ${position === 'start' ? 'Hook 片头卡' : '片尾卡'}已拼接 → ${outputPath}`);
     return { outputPath, appended: true };
   } finally {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   }
+}
+
+/** 片尾 CTA 卡(末帧背景)。 */
+export async function appendEndCard(
+  mainVideoPath: string,
+  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; outputDir?: string },
+): Promise<{ outputPath: string; appended: boolean }> {
+  return attachTextCard(mainVideoPath, { ...opts, position: 'end' });
+}
+
+/** v12.53.0 开场 Hook 卡(首帧背景,提短视频留存)。 */
+export async function prependHookCard(
+  mainVideoPath: string,
+  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; outputDir?: string },
+): Promise<{ outputPath: string; appended: boolean }> {
+  return attachTextCard(mainVideoPath, { ...opts, position: 'start' });
 }
 
 /**

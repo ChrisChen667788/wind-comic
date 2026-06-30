@@ -96,7 +96,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // ── 合成 ──
-  const { composeVideo, appendEndCard } = await import('@/services/video-composer');
+  const { composeVideo, appendEndCard, prependHookCard } = await import('@/services/video-composer');
   const result = await composeVideo({
     clips,
     aspect,                                  // v12.49.0 画布跟画幅
@@ -108,8 +108,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
 
   const { w, h } = dimsForAspect(aspect);
+  const hookCard = body?.hookCard && typeof body.hookCard === 'object' ? body.hookCard : undefined;
   let outputPath = result.outputPath;
+  let hookAppended = false;
   let cardAppended = false;
+  if (hookCard && hookCard.title) {
+    const hk = await prependHookCard(outputPath, {
+      title: hookCard.title, slogan: hookCard.slogan,
+      w, h, durationSec: hookCard.durationSec, bg: hookCard.bg === 'solid' ? 'solid' : 'blur',
+    });
+    outputPath = hk.outputPath;
+    hookAppended = hk.appended;
+  }
   if (endCard && (endCard.title || endCard.slogan)) {
     const card = await appendEndCard(outputPath, {
       title: endCard.title, slogan: endCard.slogan,
@@ -122,9 +132,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const serveUrl = `/api/serve-file?path=${encodeURIComponent(outputPath)}`;
   await upsertAsset({
     projectId: id, type: 'final_video', name: '最终成片',
-    data: { duration: result.totalDuration, hasBgm: result.hasMusic, hasVoiceover: result.hasVoiceover, audible: !!(result.hasMusic || result.hasVoiceover), aspect, width: w, height: h, recomposed: true, endCard: cardAppended },
+    data: { duration: result.totalDuration, hasBgm: result.hasMusic, hasVoiceover: result.hasVoiceover, audible: !!(result.hasMusic || result.hasVoiceover), aspect, width: w, height: h, recomposed: true, hookCard: hookAppended, endCard: cardAppended },
     mediaUrls: [serveUrl], persistentUrl: serveUrl,
   });
 
-  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, endCard: cardAppended });
+  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, hookCard: hookAppended, endCard: cardAppended });
 }

@@ -4435,25 +4435,30 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         finalVideoUrl = `/api/serve-file?path=${encodeURIComponent(result.outputPath)}`;
         console.log(`[Editor] Final video: ${result.clipCount} clips, ${result.totalDuration}s, music=${result.hasMusic}, voiceover=${result.hasVoiceover}, highlights=${result.highlights.length}`);
 
-        // v12.51.0 商业题材自动拼结构化 CTA 片尾卡(文字走 ffmpeg drawtext,根治模型烤乱码;
-        // 宁缺毋滥:非广告 / 末镜无干净 CTA 台词 → deriveEndCard 返 null 不加卡)。非阻塞。
+        // v12.51.0/v12.53.0 商业题材自动拼结构化文字卡(文字全走 ffmpeg drawtext,根治模型烤乱码):
+        // 片头 Hook 卡(提留存)+ 片尾 CTA 卡。宁缺毋滥:非广告 / 无干净短句 → derive 返 null 不加。非阻塞。
         try {
-          const { deriveEndCard } = await import('@/lib/end-card');
+          const { deriveEndCard, deriveHookCard } = await import('@/lib/end-card');
+          const { prependHookCard, appendEndCard } = await import('./video-composer');
+          const { dimsForAspect } = await import('@/lib/video-reframe');
+          const { w, h } = dimsForAspect(this.aspect);
+          const firstDialogue = composerClips.find((c) => (c.dialogue || '').trim())?.dialogue;
           const lastDialogue = [...composerClips].reverse().find((c) => (c.dialogue || '').trim())?.dialogue;
+          let outPath = result.outputPath;
+
+          const hook = deriveHookCard(this.originalIdea || '', firstDialogue);
+          if (hook) {
+            const r = await prependHookCard(outPath, { title: hook.title, w, h, bg: 'blur' });
+            if (r.appended) { outPath = r.outputPath; console.log(`[Editor] Hook 片头卡: "${hook.title}"`); this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🎯 自动生成开场 Hook 卡:「${hook.title}」` }); }
+          }
           const ec = deriveEndCard(this.originalIdea || '', lastDialogue);
           if (ec) {
-            const { appendEndCard } = await import('./video-composer');
-            const { dimsForAspect } = await import('@/lib/video-reframe');
-            const { w, h } = dimsForAspect(this.aspect);
-            const card = await appendEndCard(result.outputPath, { title: ec.title, slogan: ec.slogan, w, h, bg: 'blur' });
-            if (card.appended) {
-              finalVideoUrl = `/api/serve-file?path=${encodeURIComponent(card.outputPath)}`;
-              console.log(`[Editor] 商业片尾卡已拼接: "${ec.title}"`);
-              this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🏷️ 已为广告自动生成干净 CTA 片尾卡:「${ec.title}」` });
-            }
+            const r = await appendEndCard(outPath, { title: ec.title, slogan: ec.slogan, w, h, bg: 'blur' });
+            if (r.appended) { outPath = r.outputPath; console.log(`[Editor] 商业片尾卡: "${ec.title}"`); this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🏷️ 自动生成干净 CTA 片尾卡:「${ec.title}」` }); }
           }
+          if (outPath !== result.outputPath) finalVideoUrl = `/api/serve-file?path=${encodeURIComponent(outPath)}`;
         } catch (e) {
-          console.warn('[Editor] 片尾卡拼接失败(非阻塞,跳过):', e instanceof Error ? e.message : e);
+          console.warn('[Editor] 文字卡拼接失败(非阻塞,跳过):', e instanceof Error ? e.message : e);
         }
         this.emit('agentTalk', {
           role: AgentRole.EDITOR,

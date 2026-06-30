@@ -36,6 +36,17 @@ export function deriveEndCard(idea: string, lastDialogue?: string, productLine?:
   return { title: cta, slogan: slogan && slogan.length <= 20 ? slogan : undefined };
 }
 
+/**
+ * v12.53.0 开场 Hook 卡文案派生(短视频前 2s 留存):**宁缺毋滥** —— 只有商业题材且有一句
+ * 短 hook(显式 hookLine 优先,否则首镜台词)才出卡;太长(>16 字)/含换行/空 → 不出卡。
+ */
+export function deriveHookCard(idea: string, firstDialogue?: string, hookLine?: string): EndCardText | null {
+  if (!isCommercialIdea(idea)) return null;
+  const line = (hookLine || firstDialogue || '').replace(/^[…。\s]+/, '').trim();
+  if (!line || line.length < 2 || line.length > 16 || /[\r\n]/.test(line)) return null;
+  return { title: line };
+}
+
 export interface EndCardLayout {
   titleSize: number;
   sloganSize: number;
