@@ -48,4 +48,13 @@ describe('v12.51 · 自动片尾卡派生', () => {
       expect(a).toContain(w);
     }
   });
+
+  it('commercialDirectorAnchor:强制仿真人实拍 + 明令禁 octane/3D/CGI(v12.58 修 3D 塑料感)', () => {
+    const a = commercialDirectorAnchor();
+    expect(a).toContain('photorealistic');
+    expect(a).toMatch(/真人实拍|真实摄影/);
+    for (const w of ['octane render', '3d render', 'CGI', 'cartoon', 'illustration', 'unreal engine']) {
+      expect(a).toContain(w);
+    }
+  });
 });
