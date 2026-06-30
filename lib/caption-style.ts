@@ -7,7 +7,7 @@
  * 零新依赖),按题材/画幅选档。`clean` 与改造前的硬编码逐字符一致 → 旧链路零回归。
  */
 
-export type CaptionPreset = 'clean' | 'social' | 'bold';
+export type CaptionPreset = 'clean' | 'social' | 'bold' | 'karaoke';
 
 /**
  * 生成 libass force_style 串。

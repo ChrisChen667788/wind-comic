@@ -752,34 +752,45 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     const hasAnyDialogue = validClips.some((c) => (c?.dialogue || '').trim().length > 0);
     if (hasAnyDialogue) {
       const { buildSrt, findCjkFont } = await import('@/lib/text-control');
-      // 注意: 这里的 duration 应该是 scaled 后的, 但 srt 时间轴是按"成片播放时间"算 —
-      // 单镜路径下文 line 508 会因 speed 改 durations[0], 多镜路径 durations 是原始.
-      // 为了和成片时间轴对得齐, 先按 ComposerClip.duration 拼 srt (这是 ORIGINAL 时长).
-      // 单镜路径如果 speed≠1, 会有轻微 drift, 但单镜场景几乎都是 5-15s, 用户感知小于多镜.
-      const srtSrc = validClips.map((c) => ({
-        dialogue: c.dialogue || '',
-        duration: c.duration,
-      }));
-      const srtContent = buildSrt(srtSrc);
-      if (srtContent.trim().length > 0) {
-        const srtPath = path.join(tmpDir, 'subtitles.srt');
-        fs.writeFileSync(srtPath, srtContent, 'utf-8');
-        // libass subtitles filter — 必须 escape colon (Windows path 兼容) + 内部单引号
-        const escapedPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-        const cjkFont = findCjkFont();
-        // force_style: 字号 + 白字 + 黑边 + 下方居中 (Alignment=2 = 底部居中 libass)
-        // FontName 用 PingFang SC / Noto Sans CJK SC 等 CJK 字体名, 找不到字体时让 libass 走默认
-        const fontName = cjkFont ? path.basename(cjkFont, path.extname(cjkFont)) : 'PingFang SC';
-        // v12.52.0 字幕风格预设(clean 与旧硬编码逐字符一致;social 给电商/广告大字抬高)
-        const { buildCaptionForceStyle } = await import('@/lib/caption-style');
-        const forceStyle = buildCaptionForceStyle(options.captionStyle || 'clean', fontName, { vertical: canvasH > canvasW });
-        subtitlesFilterFragment = `,subtitles='${escapedPath}':force_style='${forceStyle}'`;
-        if (cjkFont) {
-          const fontDir = path.dirname(cjkFont).replace(/\\/g, '/').replace(/:/g, '\\:');
-          // fontsdir 让 libass 在指定目录找字体, 解决 macOS PingFang.ttc 默认搜不到的问题
-          subtitlesFilterFragment = `,subtitles='${escapedPath}':fontsdir='${fontDir}':force_style='${forceStyle}'`;
+      const cjkFont = findCjkFont();
+      // FontName 用 PingFang SC / Noto Sans CJK SC 等 CJK 字体名, 找不到字体时让 libass 走默认
+      const fontName = cjkFont ? path.basename(cjkFont, path.extname(cjkFont)) : 'PingFang SC';
+      const fontDirFrag = cjkFont ? `:fontsdir='${path.dirname(cjkFont).replace(/\\/g, '/').replace(/:/g, '\\:')}'` : '';
+      const vertical = canvasH > canvasW;
+      const captionStyle = options.captionStyle || 'clean';
+
+      if (captionStyle === 'karaoke') {
+        // v12.54.0 词级动效字幕(ASS karaoke 扫光)—— 行级时长均摊到字合成 \kf,libass 渲染。
+        const { buildKaraokeAss } = await import('@/lib/ass-karaoke');
+        const lines: Array<{ text: string; startSec: number; durSec: number }> = [];
+        let cursor = 0;
+        for (const c of validClips) {
+          const d = c.duration || 4;
+          if ((c.dialogue || '').trim()) lines.push({ text: c.dialogue || '', startSec: cursor, durSec: d });
+          cursor += d;
         }
-        console.log(`[Composer] 字幕烧入: ${srtPath} (font: ${cjkFont || 'system default'})`);
+        if (lines.length > 0) {
+          const ass = buildKaraokeAss(lines, { w: canvasW, h: canvasH, fontName, vertical });
+          const assPath = path.join(tmpDir, 'subtitles.ass');
+          fs.writeFileSync(assPath, ass, 'utf-8');
+          const escAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+          subtitlesFilterFragment = `,subtitles='${escAss}'${fontDirFrag}`;
+          console.log(`[Composer] 词级动效字幕(ASS karaoke)烧入: ${assPath} (font: ${cjkFont || 'system default'})`);
+        }
+      } else {
+        // 注意: srt 时间轴按"成片播放时间"算 —— 按 ComposerClip.duration(ORIGINAL 时长)拼,和成片对齐。
+        const srtContent = buildSrt(validClips.map((c) => ({ dialogue: c.dialogue || '', duration: c.duration })));
+        if (srtContent.trim().length > 0) {
+          const srtPath = path.join(tmpDir, 'subtitles.srt');
+          fs.writeFileSync(srtPath, srtContent, 'utf-8');
+          // libass subtitles filter — 必须 escape colon (Windows path 兼容) + 内部单引号
+          const escapedPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+          // v12.52.0 字幕风格预设(clean 与旧硬编码逐字符一致;social 给电商/广告大字抬高)
+          const { buildCaptionForceStyle } = await import('@/lib/caption-style');
+          const forceStyle = buildCaptionForceStyle(captionStyle, fontName, { vertical });
+          subtitlesFilterFragment = `,subtitles='${escapedPath}'${fontDirFrag}:force_style='${forceStyle}'`;
+          console.log(`[Composer] 字幕烧入: ${srtPath} (font: ${cjkFont || 'system default'})`);
+        }
       }
     }
   } catch (e) {
