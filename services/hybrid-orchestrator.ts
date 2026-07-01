@@ -2945,6 +2945,42 @@ ${shots.map((s, i) => {
         }
       }
 
+      // ── v12.60.0 P0-1 · 逐镜风格质量门禁(仿真人度 + 烤字 + 画质崩坏)──────────
+      // cameo 验脸、styleAudit 验画风,本门禁验「仿真人 vs 3D塑料 / 有无烤入乱码文字 / 脸手崩坏」。
+      // 只对商业仿真人片 + 真图跑;不达标重生 1 次(图是杠杆,视频继承);vision 挂了放行不阻塞。
+      try {
+        const { isCommercialIdea } = await import('@/lib/end-card');
+        const isRealImg = finalImageUrl && finalImageUrl.startsWith('http');
+        if (isRealImg && isCommercialIdea(this.originalIdea || '')) {
+          const { evaluateShotStyle } = await import('@/lib/shot-quality-gate');
+          const gate = await evaluateShotStyle({
+            imageUrl: finalImageUrl,
+            gateOpts: { requirePhotoreal: true },
+            maxRetries: 1,
+            regenerate: async (attempt, fixHint) => {
+              const fixedPrompt = `${renderPrompt}. ${fixHint}`;
+              return await this.generateImage(fixedPrompt, {
+                aspectRatio: this.aspect || '16:9',
+                label: `Shot ${sb.shotNumber} (quality-gate #${attempt})`,
+                cref: crefUrl || undefined,
+                cw: refsPick.cw,
+                sref: finalSref,
+                referenceImages: progressiveRefs.length > 0 ? progressiveRefs : undefined,
+              });
+            },
+          });
+          if (gate.retried && gate.finalUrl) {
+            finalImageUrl = gate.finalUrl;
+            this.emit('agentTalk', {
+              role: AgentRole.STORYBOARD,
+              text: `🔎 第 ${sb.shotNumber} 镜质量门禁重生(${gate.reasons.join('/')})→ photoreal ${gate.firstScore?.photoreal ?? '?'}→${gate.finalScore?.photoreal ?? '?'}`,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn(`[ShotGate] shot ${sb.shotNumber} non-blocking:`, e instanceof Error ? e.message : e);
+      }
+
       // ── v2.23 P0.1 · Style Bible Vision Audit (画风一致性) ────────────────
       // 跟 cameo-retry 平级: cameo 验"脸像不像", styleAudit 验"画风对得上 bible 吗"
       // 只在有 styleAnchorImageUrl + 真图时跑; <70 触发 1 次重生.
