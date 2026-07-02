@@ -806,17 +806,13 @@ export class HybridOrchestrator {
     // (所有调用方都已处理 ''/异常 → fallbackScript/基础模板;这保证 journey 确定性 + 零外部调用)
     if (process.env.MOCK_ENGINES === '1') return '';
     const cfg = API_CONFIG.openai as any;
-    // v7.0: LLM 尝试链 — 主 (创意=DeepSeek / 通用=主网关) → MiniMax 全局兜底.
-    // 任何主 LLM 异常/欠费/超时 → 自动路由到 MiniMax 继续.
-    const primaryAttempt = useCreativeModel
-      ? { baseURL: cfg.creativeBaseURL || cfg.baseURL, apiKey: cfg.creativeApiKey || cfg.apiKey, model: cfg.creativeModel || cfg.model, label: '创意·DeepSeek' }
-      : { baseURL: cfg.baseURL, apiKey: cfg.apiKey, model: cfg.model, label: '通用' };
-    const llmAttempts: Array<{ baseURL: string; apiKey: string; model: string; label: string }> = [];
-    if (primaryAttempt.apiKey) llmAttempts.push(primaryAttempt);
-    if (cfg.fallbackApiKey && (cfg.fallbackApiKey !== primaryAttempt.apiKey || cfg.fallbackModel !== primaryAttempt.model)) {
-      llmAttempts.push({ baseURL: cfg.fallbackBaseURL, apiKey: cfg.fallbackApiKey, model: cfg.fallbackModel, label: 'MiniMax兜底' });
-    }
+    // v12.61.0 P0-2:统一尝试链(主 → 同网关备用模型 OPENAI_ALT_MODELS → MiniMax 全局兜底)
+    // + 健康缓存跳过冷却中的饱和模型 —— 主模型 429/503 时秒级切同网关健康模型,不再每次白撞饱和模型。
+    const { buildLLMAttempts } = await import('@/lib/llm-client');
+    const { filterHealthyAttempts } = await import('@/lib/llm-health');
+    const llmAttempts = filterHealthyAttempts(buildLLMAttempts(useCreativeModel, cfg, false));
     if (llmAttempts.length === 0) return '';
+    const primaryAttempt = llmAttempts[0];
 
     const model = primaryAttempt.model;
     const callId = `llm-${Date.now()}`;
@@ -909,6 +905,12 @@ export class HybridOrchestrator {
         }
         lastErr = (r && r.error) || 'empty';
         console.warn(`[LLM:${callId}] ⚠️ 尝试 [${a.label}] 失败: ${lastErr} | ${elapsed}s`);
+        // v12.61.0 P0-2:瞬时错误(429/503/超时)→ 标记该模型冷却,同片后续 LLM 调用直接跳过它(不再白撞)
+        try {
+          const { isTransientLLMError } = await import('@/lib/llm-client');
+          const { markLLMDown, llmKey } = await import('@/lib/llm-health');
+          if (isTransientLLMError(lastErr) || lastErr === 'timeout') markLLMDown(llmKey(a));
+        } catch { /* ignore */ }
         try {
           const { recordApiCall } = await import('@/lib/api-usage-tracker');
           await recordApiCall({ provider: 'openai', model: a.model, method: 'chat.completions', success: false, errorMessage: String(lastErr).slice(0, 200), projectId: this.projectId });

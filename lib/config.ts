@@ -6,6 +6,9 @@ export const API_CONFIG = {
     // v6.8: 通用 LLM (高频: 规划/校验/质检) —— Claude Sonnet 4.6 via 主网关
     // v10.6.3 模型雷达:模型 ID 一律 getter 读 env —— 扫描采用后免重启生效
     get model() { return process.env.OPENAI_MODEL || 'claude-sonnet-4-6'; },
+    // v12.61.0 P0-2:同网关备用模型(主模型 429/503 时先切同网关这些健康模型,再落慢 MiniMax)。
+    // 逗号分隔,如 OPENAI_ALT_MODELS=claude-sonnet-4-20250514,claude-sonnet-4-6。缺省空。
+    get altModels(): string[] { return (process.env.OPENAI_ALT_MODELS || '').split(',').map(s => s.trim()).filter(Boolean); },
     // v7.0: 编剧/导演 创意主 LLM —— 默认 DeepSeek 最强 deepseek-v4-pro (独立 endpoint, 推理模型/质量优先)
     get creativeModel() { return process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro'; },
     // v7.1: 创意"快档" LLM —— deepseek-v4-flash, 同属 DeepSeek v4 最新一族, 推理 token 远少于 pro

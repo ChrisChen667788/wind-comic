@@ -72,29 +72,42 @@ export function gateFixHint(reasons: string[]): string {
   return bits.join(', ');
 }
 
-/** 调 VLM 给单张镜头图打分。无 key / vision 挂 → null(调用方放行)。 */
+/** 调 VLM 给单张镜头图打分。无 key / vision 全挂 → null(调用方放行)。
+ *  v12.61.0 P0-2:主视觉模型 429/503 时自动切同网关备用模型(OPENAI_ALT_MODELS)+ 健康缓存跳过饱和模型。 */
 export async function scoreShotStyle(imageUrl: string): Promise<ShotStyleScore | null> {
-  if (!API_CONFIG.openai.apiKey) return null;
+  const base = API_CONFIG.openai.baseURL;
+  const key = API_CONFIG.openai.apiKey;
+  if (!key) return null;
   const { toVisionImageInput } = await import('@/lib/cameo-vision');
   const visionInput = await toVisionImageInput(imageUrl);
   if (!visionInput) return null;
-  try {
-    const OpenAI = (await import('openai')).default;
-    const client = new OpenAI({ apiKey: API_CONFIG.openai.apiKey, baseURL: API_CONFIG.openai.baseURL });
-    const resp = await client.chat.completions.create({
-      model: API_CONFIG.openai.model,
-      response_format: { type: 'json_object' },
-      max_tokens: 300,
-      messages: [
-        { role: 'system', content: SHOT_GATE_SYSTEM_PROMPT },
-        { role: 'user', content: [{ type: 'text', text: '质检这张广告画面' }, { type: 'image_url', image_url: { url: visionInput } }] as any },
-      ],
-    });
-    return parseShotGate(resp.choices?.[0]?.message?.content || '');
-  } catch (e) {
-    console.warn('[ShotGate] score failed:', e instanceof Error ? e.message : e);
-    return null;
+  const { isLLMDown, markLLMDown, llmKey } = await import('@/lib/llm-health');
+  const { isTransientLLMError } = await import('@/lib/llm-client');
+  const OpenAI = (await import('openai')).default;
+  // 视觉候选:主模型 + 同网关备用(都是 qingyuntop-OpenAI 兼容,支持 image_url;不含 minimax 兜底=未必支持视觉)
+  const models = [API_CONFIG.openai.model, ...(API_CONFIG.openai.altModels || [])].filter((m, i, a) => m && a.indexOf(m) === i);
+  for (const model of models) {
+    if (isLLMDown(llmKey({ baseURL: base, model }))) continue;
+    try {
+      const client = new OpenAI({ apiKey: key, baseURL: base });
+      const resp = await client.chat.completions.create({
+        model,
+        response_format: { type: 'json_object' },
+        max_tokens: 300,
+        messages: [
+          { role: 'system', content: SHOT_GATE_SYSTEM_PROMPT },
+          { role: 'user', content: [{ type: 'text', text: '质检这张广告画面' }, { type: 'image_url', image_url: { url: visionInput } }] as any },
+        ],
+      });
+      const parsed = parseShotGate(resp.choices?.[0]?.message?.content || '');
+      if (parsed) return parsed;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (isTransientLLMError(msg)) markLLMDown(llmKey({ baseURL: base, model }));
+      console.warn(`[ShotGate] ${model} 打分失败:`, msg.slice(0, 80));
+    }
   }
+  return null;
 }
 
 /**

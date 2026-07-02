@@ -24,6 +24,15 @@ export function buildLLMAttempts(useCreative: boolean, cfg: any = API_CONFIG.ope
     : { baseURL: cfg.baseURL, apiKey: cfg.apiKey, model: cfg.model, label: '通用' };
   const out: LLMAttempt[] = [];
   if (primary.apiKey) out.push(primary);
+  // v12.61.0 P0-2:同网关备用模型 —— 主模型 429/503 时先切同网关这些健康模型(秒级、同 key),
+  // 再落慢的 MiniMax 兜底(推理模型 40-100s)。与 primary 同 base/key、跳过同名/重复。
+  if (primary.apiKey) {
+    for (const alt of (cfg.altModels || [])) {
+      if (alt && alt !== primary.model && !out.some((a: LLMAttempt) => a.model === alt && a.baseURL === primary.baseURL)) {
+        out.push({ baseURL: primary.baseURL, apiKey: primary.apiKey, model: alt, label: `同网关备用·${alt}` });
+      }
+    }
+  }
   if (cfg.fallbackApiKey && (cfg.fallbackApiKey !== primary.apiKey || cfg.fallbackModel !== primary.model)) {
     out.push({ baseURL: cfg.fallbackBaseURL, apiKey: cfg.fallbackApiKey, model: cfg.fallbackModel, label: 'MiniMax兜底' });
   }
