@@ -301,17 +301,21 @@ function downloadFile(url: string, destPath: string): Promise<void> {
  * v12.71.0 视频完整性校验:文件存在 + 非空 + 有视频流 + 时长 ≥0.3s。
  * 引擎偶发返回坏 mp4(截断/HTML 错误页当 mp4 存了)→ 提前拦下,别让 filter_complex 全片崩。
  */
-export async function probeVideoIntegrity(filePath: string): Promise<{ ok: boolean; reason?: string; durationSec?: number }> {
+export async function probeVideoIntegrity(filePath: string): Promise<{
+  ok: boolean; reason?: string; durationSec?: number;
+  width?: number; height?: number; hasAudio?: boolean; sizeBytes?: number; // v12.73 发布预检用
+}> {
   try {
     if (!fs.existsSync(filePath)) return { ok: false, reason: 'missing' };
     const size = fs.statSync(filePath).size;
     if (size < 1024) return { ok: false, reason: `too-small(${size}B)` };
     const md: any = await new Promise((res, rej) => ffmpeg.ffprobe(filePath, (e, m) => (e ? rej(e) : res(m))));
-    const hasVideo = Array.isArray(md?.streams) && md.streams.some((s: any) => s.codec_type === 'video');
-    if (!hasVideo) return { ok: false, reason: 'no-video-stream' };
+    const vStream = Array.isArray(md?.streams) ? md.streams.find((s: any) => s.codec_type === 'video') : null;
+    if (!vStream) return { ok: false, reason: 'no-video-stream' };
+    const hasAudio = Array.isArray(md?.streams) && md.streams.some((s: any) => s.codec_type === 'audio');
     const dur = Number(md?.format?.duration) || 0;
     if (dur < 0.3) return { ok: false, reason: `too-short(${dur}s)` };
-    return { ok: true, durationSec: dur };
+    return { ok: true, durationSec: dur, width: Number(vStream.width) || 0, height: Number(vStream.height) || 0, hasAudio, sizeBytes: size };
   } catch (e) {
     return { ok: false, reason: `probe-failed(${e instanceof Error ? e.message.slice(0, 40) : e})` };
   }
