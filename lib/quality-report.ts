@@ -22,9 +22,11 @@ export interface QualityReport {
   summary: string;              // 一句话中文摘要
 }
 
-const DEGRADE_KINDS = new Set(['kenburns-fallback']);
+const DEGRADE_KINDS = new Set(['kenburns-fallback', 'missing-video']);
 const RETRY_PENALTY = 5;
 const DEGRADE_PENALTY = 12;
+// v12.91.0:缺镜(视频没出、连兜底图都没有)比兜底更重 —— 内容直接没了
+const MISSING_PENALTY = 15;
 
 export function summarizeQualityLedger(events: QualityEvent[]): QualityReport {
   const byKind: Record<string, number> = {};
@@ -38,12 +40,15 @@ export function summarizeQualityLedger(events: QualityEvent[]): QualityReport {
   const total = (events || []).length;
   let score = 100;
   for (const e of events || []) {
-    score -= DEGRADE_KINDS.has(e.kind) ? DEGRADE_PENALTY : RETRY_PENALTY;
+    score -= e.kind === 'missing-video' ? MISSING_PENALTY : DEGRADE_KINDS.has(e.kind) ? DEGRADE_PENALTY : RETRY_PENALTY;
   }
   score = Math.max(20, Math.round(score));
   const parts: string[] = [];
   if (total === 0) parts.push('全片零质量干预,一次成型');
   else {
+    // v12.91:缺镜最严重,放摘要首位(实测坑:3/12 镜 15.8s 残片却报 100 分「一次成型」)
+    if (byKind['missing-video']) parts.push(`⚠️ ${byKind['missing-video']} 镜缺失(视频未出且无兜底图,成片不完整)`);
+    if (byKind['dialogue-overflow']) parts.push(`${byKind['dialogue-overflow']} 镜台词偏长`);
     if (byKind['cameo-retry']) parts.push(`${byKind['cameo-retry']} 镜一致性重生`);
     if (byKind['shot-gate']) parts.push(`${byKind['shot-gate']} 镜风格门禁重生`);
     if (byKind['style-audit']) parts.push(`${byKind['style-audit']} 镜画风校正`);

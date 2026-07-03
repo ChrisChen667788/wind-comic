@@ -4493,6 +4493,14 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
       }
     }
 
+    // v12.91.0 缺镜如实记账:KenBurns 兜底后仍无视频的镜(常见于分镜图是占位、无米下锅)
+    // → qualityLedger 'missing-video'(重扣健康分),质检报告不再对残片报「一次成型」。
+    for (const t of timeline) {
+      if (!isValidVideoUrl(t.videoUrl)) {
+        this.qualityLedger.push({ shot: t.shotNumber ?? 0, kind: 'missing-video', detail: this.shotImageMap.get(t.shotNumber as number) ? 'fallback-failed' : 'no-image-for-fallback' });
+      }
+    }
+
     // ═══ 第5步：FFmpeg 智能合成（高光变速 + 转场 + 配乐 + 配音）═══
     let finalVideoUrl = '';
     const validVideoClips = timeline.filter(t => isValidVideoUrl(t.videoUrl));

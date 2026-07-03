@@ -43,3 +43,23 @@ describe('v12.66 · summarizeQualityLedger', () => {
     expect(r.summary).toContain('1 镜静图动画兜底');
   });
 });
+
+describe('v12.91 · 缺镜如实记账(修「残片报 100 分」实测坑)', () => {
+  it('missing-video 扣 15/镜、计入 degradedShots、摘要打 ⚠️ 首位', () => {
+    const r = summarizeQualityLedger([
+      { shot: 4, kind: 'missing-video', detail: 'no-image-for-fallback' },
+      { shot: 5, kind: 'missing-video', detail: 'no-image-for-fallback' },
+      { shot: 1, kind: 'cameo-retry', detail: '' },
+    ]);
+    expect(r.healthScore).toBe(100 - 15 - 15 - 5);
+    expect(r.degradedShots).toEqual([4, 5]);
+    expect(r.summary.startsWith('⚠️ 2 镜缺失')).toBe(true);
+  });
+
+  it('9 镜缺失(实测 juicer 场景)→ 健康分打到下限 20,绝不是 100', () => {
+    const events = Array.from({ length: 9 }, (_, i) => ({ shot: i + 4, kind: 'missing-video', detail: '' }));
+    const r = summarizeQualityLedger(events);
+    expect(r.healthScore).toBe(20);
+    expect(r.summary).toContain('9 镜缺失');
+  });
+});
