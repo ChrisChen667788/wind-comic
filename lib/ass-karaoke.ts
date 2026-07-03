@@ -13,6 +13,9 @@ export interface KaraokeLine {
   text: string;
   startSec: number;
   durSec: number;
+  /** v12.68.0:扫光实际时长(=该句 TTS 音频真实时长)。缺省 = durSec(均摊,旧行为)。
+   *  配音 2s 说完而镜长 4s 时,扫光 2s 内完成、其后整句保持高亮 —— 音画同步。 */
+  sweepSec?: number;
 }
 
 export interface KaraokeAssOptions {
@@ -92,7 +95,9 @@ export function buildKaraokeAss(lines: KaraokeLine[], opts: KaraokeAssOptions): 
     .map((l) => {
       const start = assTime(l.startSec);
       const end = assTime(l.startSec + Math.max(0.2, l.durSec));
-      const body = buildKaraokeLineText(l.text, l.durSec);
+      // v12.68.0:扫光按 TTS 真实时长(clamp 到 [0.2, durSec]),显示仍到镜末
+      const sweep = Math.max(0.2, Math.min(l.sweepSec ?? l.durSec, l.durSec));
+      const body = buildKaraokeLineText(l.text, sweep);
       return `Dialogue: 0,${start},${end},Default,,0,0,0,,${body}`;
     });
 

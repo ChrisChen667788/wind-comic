@@ -4147,6 +4147,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
     // v12.29.0(P1):runEditor 级别算「原生音频镜」集合,供 TTS 跳过 + composer 取真音轨共用。
     const nativeShotsSet = new Set(nativeAudioShotNumbers(videos));
     const voiceoverClips: Array<{ shotNumber: number; audioUrl: string }> = [];
+    const voiceoverDurations: Record<number, number> = {}; // v12.68 镜号→TTS 真实时长(karaoke 对齐)
     // v2.11 #B1: 收集音频相关的降级信号, 最后带入 final payload 让前端明示"哪些镜头降级了"
     const audioWarnings: string[] = [];
     // v12.7.0: 配音走 TTS 注册表 —— 不再只认 minimax;任一 TTS provider 可用即跑(vectorengine-tts 等也能出声)。
@@ -4229,6 +4230,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
             );
             const audioUrl = _ttsResult.audioUrl;
             voiceoverClips.push({ shotNumber: t.shotNumber || 0, audioUrl });
+            if (_ttsResult.duration && _ttsResult.duration > 0) voiceoverDurations[t.shotNumber || 0] = _ttsResult.duration; // v12.68
             this.emit('agentTalk', {
               role: AgentRole.EDITOR,
               text: `🎙️ 配音 ${i + 1}/${dialogueShots.length}: "${t.dialogue.slice(0, 15)}..." ✓`
@@ -4516,6 +4518,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           clips: composerClips,
           aspect: this.aspect, // v12.49.0 成片画布跟项目画幅(修竖屏 9:16 成片仍出 16:9 的 bug)
           captionStyle: pickCaptionPreset(_isCommercial(this.originalIdea || '')), // v12.56.0 广告→karaoke 词级扫光
+          voiceoverDurations: Object.keys(voiceoverDurations).length > 0 ? voiceoverDurations : undefined, // v12.68 扫光对齐 TTS
           musicUrl: musicUrl || undefined,
           voiceoverClips: voiceoverClips.length > 0 ? voiceoverClips : undefined,
           nativeAudioShots: nativeShotsSet.size > 0 ? [...nativeShotsSet] : undefined, // v12.29.0(P1):这些镜用成片真音轨

@@ -83,6 +83,7 @@ export interface ComposeOptions {
   voiceoverVolume?: number;    // 配音音量 0~1，默认 0.9
   aspect?: string;             // v12.49.0 成片画幅('16:9'|'9:16'|'1:1'...) — 决定合成画布分辨率;缺省 16:9(旧行为)
   captionStyle?: import('@/lib/caption-style').CaptionPreset; // v12.52.0 字幕风格预设;缺省 clean(零回归)
+  voiceoverDurations?: Record<number, number>; // v12.68.0 镜号→TTS 真实时长(karaoke 扫光对齐音频)
   editStyle?: string;          // v12.0.4 一句指令调剪辑风格(快节奏燃向/慢叙抒情...)
   actionMode?: boolean;        // v12.13.0 动作片节奏:高光不整段慢放、硬切替淡入、保快节奏
   // v12.13.1 打击音效层:冲击点(镜号 + 镜内秒 + 强度)→ 程序化合成闷响打击音并末端混入
@@ -762,11 +763,14 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       if (captionStyle === 'karaoke') {
         // v12.54.0 词级动效字幕(ASS karaoke 扫光)—— 行级时长均摊到字合成 \kf,libass 渲染。
         const { buildKaraokeAss } = await import('@/lib/ass-karaoke');
-        const lines: Array<{ text: string; startSec: number; durSec: number }> = [];
+        const lines: Array<{ text: string; startSec: number; durSec: number; sweepSec?: number }> = [];
         let cursor = 0;
         for (const c of validClips) {
           const d = c.duration || 4;
-          if ((c.dialogue || '').trim()) lines.push({ text: c.dialogue || '', startSec: cursor, durSec: d });
+          if ((c.dialogue || '').trim()) {
+            const voDur = options.voiceoverDurations?.[c.shotNumber]; // v12.68 扫光对齐 TTS 真实时长
+            lines.push({ text: c.dialogue || '', startSec: cursor, durSec: d, sweepSec: voDur && voDur > 0 ? voDur : undefined });
+          }
           cursor += d;
         }
         if (lines.length > 0) {
