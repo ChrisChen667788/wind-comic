@@ -1356,11 +1356,45 @@ export async function extractKeyFrames(
  * @param outputDir  输出目录
  * @param zoomDir    'in' = 慢推, 'out' = 慢拉, 'pan' = 横移
  */
+/**
+ * v12.62.0 Ken Burns 滤镜(纯函数,可测)。画幅感知:上采样画布 = 目标 4x 同比例(此前写死
+ * 5120x2880+s=1280x720 → 竖屏项目兜底片会被 v12.49 画布 crop 掉 ~70% 宽,构图全毁)。
+ */
+export function kenBurnsFilter(
+  zoomDir: 'in' | 'out' | 'pan',
+  totalFrames: number,
+  w: number = 1280,
+  h: number = 720,
+  fps: number = 24,
+): string {
+  let zoomExpr: string;
+  let xExpr = "'iw/2-(iw/zoom/2)'";
+  let yExpr = "'ih/2-(ih/zoom/2)'";
+  if (zoomDir === 'in') {
+    zoomExpr = `'min(zoom+0.0008,1.3)'`;
+  } else if (zoomDir === 'out') {
+    zoomExpr = `'if(eq(on,1),1.3,max(zoom-0.0008,1.0))'`;
+  } else {
+    zoomExpr = `'1.2'`;
+    xExpr = `'iw*0.1+(iw*0.3)*on/${totalFrames}'`;
+    yExpr = `'ih/2-(ih/zoom/2)'`;
+  }
+  const uw = w * 4;
+  const uh = h * 4;
+  return [
+    `scale=${uw}:${uh}:force_original_aspect_ratio=increase`,
+    `crop=${uw}:${uh}`,
+    `zoompan=z=${zoomExpr}:x=${xExpr}:y=${yExpr}:d=${totalFrames}:s=${w}x${h}:fps=${fps}`,
+    `format=yuv420p`,
+  ].join(',');
+}
+
 export async function stillFrameToVideo(
   imageUrl: string,
   duration: number = 8,
   outputDir?: string,
   zoomDir: 'in' | 'out' | 'pan' = 'in',
+  dims?: { w: number; h: number },
 ): Promise<string> {
   if (!imageUrl) throw new Error('stillFrameToVideo: empty imageUrl');
 
@@ -1416,29 +1450,8 @@ export async function stillFrameToVideo(
   // 2. 构建 Ken Burns 滤镜
   // zoompan 会基于上采样后的图做平滑推拉，避免锯齿
   // 先 scale 到 4x 大尺寸再 zoompan，最后 crop/scale 到 1280x720
-  let zoomExpr: string;
-  let xExpr = "'iw/2-(iw/zoom/2)'";
-  let yExpr = "'ih/2-(ih/zoom/2)'";
-
-  if (zoomDir === 'in') {
-    // 1.0 → 1.3 缓推
-    zoomExpr = `'min(zoom+0.0008,1.3)'`;
-  } else if (zoomDir === 'out') {
-    // 1.3 → 1.0 缓拉
-    zoomExpr = `'if(eq(on,1),1.3,max(zoom-0.0008,1.0))'`;
-  } else {
-    // pan: 横移
-    zoomExpr = `'1.2'`;
-    xExpr = `'iw*0.1+(iw*0.3)*on/${totalFrames}'`;
-    yExpr = `'ih/2-(ih/zoom/2)'`;
-  }
-
-  const vf = [
-    `scale=5120:2880:force_original_aspect_ratio=increase`,
-    `crop=5120:2880`,
-    `zoompan=z=${zoomExpr}:x=${xExpr}:y=${yExpr}:d=${totalFrames}:s=1280x720:fps=${fps}`,
-    `format=yuv420p`,
-  ].join(',');
+  // v12.62.0:画幅感知 Ken Burns(纯函数 kenBurnsFilter;dims 缺省 1280x720 = 旧行为)
+  const vf = kenBurnsFilter(zoomDir, totalFrames, dims?.w ?? 1280, dims?.h ?? 720, fps);
 
   return new Promise((resolve, reject) => {
     ffmpeg()

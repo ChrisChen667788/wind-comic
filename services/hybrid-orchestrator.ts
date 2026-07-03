@@ -345,6 +345,9 @@ export class HybridOrchestrator {
   // P4: 渐进式一致性链 — 存储已渲染的分镜图URL，作为后续镜头的额外参考
   private renderedStoryboardUrls: string[] = [];
 
+  // v12.62.0: 镜号 → 分镜图(视频生成失败镜的 Ken Burns 兜底取图用)
+  private shotImageMap: Map<number, string> = new Map();
+
   // v2.19 P0.2: 试拍图复用 — 用户在 create 页"试拍 1 镜"接受了某张图,把这张图
   // 直接当作第 1 镜的 storyboard 渲染结果, 跳过对应的 MJ 生成调用。
   // 只接受 http(s) URL, data:/svg/mock 图自动忽略。
@@ -3034,6 +3037,7 @@ ${shots.map((s, i) => {
       // P4: 将成功渲染的图片加入一致性链
       if (finalImageUrl && !finalImageUrl.startsWith('data:')) {
         this.renderedStoryboardUrls.push(finalImageUrl);
+        if (typeof sb.shotNumber === 'number') this.shotImageMap.set(sb.shotNumber, finalImageUrl); // v12.62.0 兜底取图
       }
 
       completedCount++;
@@ -4422,6 +4426,31 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         const warn = `🎵 BGM 生成失败, 成片为无配乐版本 (原因: ${errMsg.slice(0, 80)})`;
         audioWarnings.push(warn);
         this.emit('agentTalk', { role: AgentRole.EDITOR, text: warn });
+      }
+    }
+
+    // ═══ v12.62.0 失败镜 Ken Burns 兜底(成片时长保障)═══
+    // 病根:引擎偶发错误(Minimax video-01 error 等)让 10 分镜只成 3 视频 → 成片 16s 残片。
+    // 兜底:没出视频但有分镜图的镜,用画幅感知 Ken Burns 把静图动画化(推/拉/横移交替),
+    // 保住叙事完整与目标时长。逐镜 try/catch,单镜兜底失败不连累其它。
+    {
+      const missing = timeline.filter(t => !isValidVideoUrl(t.videoUrl) && typeof t.shotNumber === 'number' && this.shotImageMap.get(t.shotNumber));
+      if (missing.length > 0) {
+        this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🎞️ ${missing.length} 个镜头视频缺失,用分镜图 Ken Burns 动画兜底(保成片完整)` });
+        const { stillFrameToVideo } = await import('./video-composer');
+        const { dimsForAspect } = await import('@/lib/video-reframe');
+        const dims = dimsForAspect(this.aspect);
+        const dirs: Array<'in' | 'out' | 'pan'> = ['in', 'out', 'pan'];
+        for (let k = 0; k < missing.length; k++) {
+          const t = missing[k];
+          try {
+            const p = await stillFrameToVideo(this.shotImageMap.get(t.shotNumber as number)!, t.duration || 4, undefined, dirs[k % 3], dims);
+            t.videoUrl = `/api/serve-file?path=${encodeURIComponent(p)}`;
+            console.log(`[Editor] v12.62 Ken Burns 兜底: 镜 ${t.shotNumber} (${dirs[k % 3]}, ${dims.w}x${dims.h})`);
+          } catch (e) {
+            console.warn(`[Editor] Ken Burns 兜底失败 镜 ${t.shotNumber}(跳过):`, e instanceof Error ? e.message : e);
+          }
+        }
       }
     }
 
