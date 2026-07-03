@@ -4543,11 +4543,12 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         // v12.51.0/v12.53.0 商业题材自动拼结构化文字卡(文字全走 ffmpeg drawtext,根治模型烤乱码):
         // 片头 Hook 卡(提留存)+ 片尾 CTA 卡。宁缺毋滥:非广告 / 无干净短句 → derive 返 null 不加。非阻塞。
         try {
-          const { deriveEndCard, deriveHookCard } = await import('@/lib/end-card');
+          const { deriveEndCard, deriveHookCard, pickHookLine } = await import('@/lib/end-card');
           const { prependHookCard, appendEndCard } = await import('./video-composer');
           const { dimsForAspect } = await import('@/lib/video-reframe');
           const { w, h } = dimsForAspect(this.aspect);
-          const firstDialogue = composerClips.find((c) => (c.dialogue || '').trim())?.dialogue;
+          // v12.77:开场 3 句里按留存公式挑最抓人的(问句>感叹>短句),而非傻取首镜
+          const firstDialogue = pickHookLine(composerClips.map((c) => c.dialogue)) || undefined;
           const lastDialogue = [...composerClips].reverse().find((c) => (c.dialogue || '').trim())?.dialogue;
           let outPath = result.outputPath;
 

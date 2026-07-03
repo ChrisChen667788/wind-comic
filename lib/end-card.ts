@@ -111,6 +111,27 @@ export function deriveHookCard(idea: string, firstDialogue?: string, hookLine?: 
   return { title: line };
 }
 
+/**
+ * v12.77.0 Hook 公式化选句(留存公式:73% 电商广告死在头 3 秒)。
+ * 在开场若干句台词里按公式排序挑最抓人的一句(而非傻取首镜):
+ *   1. 痛点问句(?/吗/呢 结尾)—— 最强 pattern-interrupt
+ *   2. 感叹句(!结尾)
+ *   3. 任意合规短句
+ * 均需 2-16 字、无换行;清洗开头省略号。全不合格 → null(宁缺毋滥)。纯函数可测。
+ */
+export function pickHookLine(dialogues: Array<string | undefined | null>, maxScan: number = 3): string | null {
+  const clean = (dialogues || [])
+    .slice(0, maxScan)
+    .map((d) => (d || '').replace(/^[…。\s]+/, '').trim())
+    .filter((d) => d.length >= 2 && d.length <= 16 && !/[\r\n]/.test(d));
+  if (clean.length === 0) return null;
+  const question = clean.find((d) => /[?？]$|[吗呢]\s*[?？!!。]?$/.test(d));
+  if (question) return question;
+  const exclaim = clean.find((d) => /[!!]$/.test(d));
+  if (exclaim) return exclaim;
+  return clean[0];
+}
+
 export interface EndCardLayout {
   titleSize: number;
   sloganSize: number;
