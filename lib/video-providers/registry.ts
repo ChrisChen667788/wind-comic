@@ -94,6 +94,21 @@ export interface VideoDispatchResult {
  * 合法 videoUrl 必须以 "http" 或 "data:video" 开头. 任何其他形态 (包括 "<svg>"  / file:// /
  * 空字符串) 都判失败, 跳到下一 provider.
  */
+/**
+ * v12.63.0 视频瞬时错误判定(纯函数,可测)。
+ * 瞬时(值得同 provider 重试一次):引擎侧偶发生成失败(如 `Minimax video-01 error`)、超时、
+ * 网络抖动、5xx/过载。**非**瞬时(重试无意义,交给熔断/下家):401/403/402、余额/配额、参数错、
+ * 内容审核拒绝、mutually exclusive 等 4xx 语义错误。
+ */
+export function isTransientVideoError(msg: string): boolean {
+  const m = (msg || '').toLowerCase();
+  if (/(^|\D)(401|403|402|400|429)(\D|$)/.test(m)) return false; // 鉴权/额度/限流 → 熔断/下家,重试无意义
+  if (/invalid[_ ]api[_ ]key|unauthor|forbidden|余额不足|insufficient|quota|配额|exclusive|param|审核|sensitive|policy|no available channel|saturated/i.test(msg)) return false;
+  return /video-01 error|minimax-fast error|timeout|timed out|econnreset|socket hang|fetch failed|network|(^|\D)(500|502|504)(\D|$)|internal error|server error/i.test(msg);
+}
+
+const VIDEO_TRANSIENT_RETRY_DELAY_MS = 3000;
+
 export async function dispatchVideoGenerate(
   input: VideoGenerateInput,
   selection?: VideoSelectInput,
@@ -107,22 +122,33 @@ export async function dispatchVideoGenerate(
 
   const tried: VideoDispatchResult['tried'] = [];
   for (const p of chain) {
-    try {
-      const r = await p.generate(input);
-      if (!r || !r.videoUrl) {
-        tried.push({ id: p.id, error: 'empty result' });
-        continue;
+    // v12.63.0:瞬时错误(引擎偶发生成失败/超时/网络/5xx)同 provider 重试 1 次(3s 后)——
+    // 此前一败即跳下家甚至掉光,Minimax video-01 error 这类偶发把 10 分镜拖成 3 成片。
+    // 非瞬时(鉴权/额度/限流/参数/审核)不重试,交给熔断 + 下家。
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await p.generate(input);
+        if (!r || !r.videoUrl) {
+          tried.push({ id: p.id, error: 'empty result' });
+          break; // 空结果非瞬时语义,跳下家
+        }
+        const ok = r.videoUrl.startsWith('http') || r.videoUrl.startsWith('data:video');
+        if (!ok) {
+          tried.push({ id: p.id, error: `invalid videoUrl: ${r.videoUrl.slice(0, 40)}` });
+          break;
+        }
+        return { result: r, tried };
+      } catch (e) {
+        const _msg = e instanceof Error ? e.message : String(e);
+        tried.push({ id: p.id, error: _msg });
+        if (attempt === 0 && isTransientVideoError(_msg)) {
+          console.log(`[VideoDispatch] ${p.id} 瞬时错误,3s 后同引擎重试一次: ${_msg.slice(0, 80)}`);
+          await new Promise((res) => setTimeout(res, VIDEO_TRANSIENT_RETRY_DELAY_MS));
+          continue;
+        }
+        markProviderDownIfFatal(p.id, _msg); // v12.8.0: auth/配额/饱和 → 熔断冷却
+        break;
       }
-      const ok = r.videoUrl.startsWith('http') || r.videoUrl.startsWith('data:video');
-      if (!ok) {
-        tried.push({ id: p.id, error: `invalid videoUrl: ${r.videoUrl.slice(0, 40)}` });
-        continue;
-      }
-      return { result: r, tried };
-    } catch (e) {
-      const _msg = e instanceof Error ? e.message : String(e);
-      markProviderDownIfFatal(p.id, _msg); // v12.8.0: auth/配额/饱和 → 熔断冷却
-      tried.push({ id: p.id, error: _msg });
     }
   }
   return { result: null, tried };
