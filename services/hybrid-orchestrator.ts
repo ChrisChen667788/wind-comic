@@ -4189,6 +4189,19 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
               emotion: t.emotion,
               emotionTemperature: t.emotionTemperature,
             });
+            // v12.87.0 台词-镜长适配:说不完就在合法区间提速(≤1.3),仍溢出记账告警(不擅自删词)
+            {
+              const { fitSpeechToShot } = await import('@/lib/tts-prosody');
+              const fit = fitSpeechToShot(cleanedDialogue, t.duration || 4, prosody.speed);
+              if (fit.speed > prosody.speed) {
+                console.log(`[Editor] v12.87 台词适配 shot ${t.shotNumber}: speed ${prosody.speed}→${fit.speed}(估 ${fit.estimatedSec.toFixed(1)}s / 镜 ${t.duration || 4}s)`);
+                prosody.speed = fit.speed;
+              }
+              if (fit.overflow) {
+                this.qualityLedger.push({ shot: t.shotNumber ?? 0, kind: 'dialogue-overflow', detail: `${fit.estimatedSec.toFixed(1)}s>${t.duration || 4}s` });
+                this.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 第 ${t.shotNumber} 镜台词偏长(约 ${fit.estimatedSec.toFixed(1)}s > 镜 ${t.duration || 4}s),已提速仍可能溢出` });
+              }
+            }
             console.log(`[Editor] TTS prosody shot ${t.shotNumber}: emotion="${t.emotion}" temp=${t.emotionTemperature ?? 0} → speed=${prosody.speed} pitch=${prosody.pitch} vol=${prosody.vol}`);
             const _gender = t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male';
             // v3.2 P4.3: TTS 走 withTTSPlugin. off → 直接 generateSpeech (行为不变),

@@ -110,3 +110,34 @@ function clampInt(v: number, lo: number, hi: number): number {
 function round2(v: number): number {
   return Math.round(v * 100) / 100;
 }
+
+// ─── v12.87.0 台词-镜长适配 ─────────────────────────────────────────────────
+// 病根:台词按情绪定速,但不看镜头时长 —— 20 字台词塞 3s 镜,后半句被下一镜切走
+// (或 adelay 链让台词溢进下一镜,口型/字幕全乱)。这里按「中文常速 ≈4.3 字/秒」估算,
+// 说不完就在 MiniMax 合法区间内提速(上限 1.3,再快像倒带),仍不够 → 如实返回 overflow
+// 让调用方记账告警(不擅自删词)。
+
+/** 估算一句台词的语音时长(秒,speed=1.0 基准)。CJK 逐字 4.3 字/s;ASCII 词按 2.8 词/s。 */
+export function estimateSpeechSec(text: string): number {
+  const t = (text || '').trim();
+  if (!t) return 0;
+  const cjk = (t.match(/[一-鿿぀-ヿ]/g) || []).length;
+  const words = (t.match(/[A-Za-z0-9]+/g) || []).length;
+  const punct = (t.match(/[,。!?、,.!?;;]/g) || []).length;
+  return cjk / 4.3 + words / 2.8 + punct * 0.12;
+}
+
+/**
+ * 让台词适配镜长:返回适配后的 speed 与是否仍溢出。
+ * @param baseSpeed 情绪 prosody 给的速度(下限,不会降速去拖戏)
+ * @param shotSec   镜头设计时长(留 0.25s 呼吸头)
+ */
+export function fitSpeechToShot(text: string, shotSec: number, baseSpeed: number): { speed: number; estimatedSec: number; overflow: boolean } {
+  const est = estimateSpeechSec(text);
+  const budget = Math.max(0.5, shotSec - 0.25);
+  if (est <= 0 || est / baseSpeed <= budget) return { speed: baseSpeed, estimatedSec: est / baseSpeed, overflow: false };
+  const needed = est / budget;
+  const speed = Math.min(1.3, Math.max(baseSpeed, Math.round(needed * 100) / 100));
+  const finalSec = est / speed;
+  return { speed, estimatedSec: finalSec, overflow: finalSec > budget + 0.3 };
+}
