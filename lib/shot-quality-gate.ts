@@ -52,6 +52,28 @@ export interface ShotGateOpts {
   qualityMin?: number;        // 默认 55
 }
 
+/**
+ * v12.75.0 门禁配置解析(env 可调,纯函数可测):
+ *   SHOT_GATE_DISABLE=1          → 整个门禁关闭(enabled=false)
+ *   SHOT_GATE_PHOTOREAL_MIN=80   → photoreal 阈值(clamp 0-100,默认 70)
+ *   SHOT_GATE_QUALITY_MIN=60     → quality 阈值(clamp 0-100,默认 55)
+ *   SHOT_GATE_MAX_RETRIES=2      → 重生次数(clamp 0-2,默认 1)
+ */
+export function resolveGateConfig(env: NodeJS.ProcessEnv = process.env): {
+  enabled: boolean; photorealMin: number; qualityMin: number; maxRetries: number;
+} {
+  const num = (v: string | undefined, dflt: number, lo: number, hi: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n))) : dflt;
+  };
+  return {
+    enabled: env.SHOT_GATE_DISABLE !== '1',
+    photorealMin: num(env.SHOT_GATE_PHOTOREAL_MIN, 70, 0, 100),
+    qualityMin: num(env.SHOT_GATE_QUALITY_MIN, 55, 0, 100),
+    maxRetries: num(env.SHOT_GATE_MAX_RETRIES, 1, 0, 2),
+  };
+}
+
 /** 是否过关 + 不过关的原因(供重生 prompt 定向补强)。纯函数,可单测。 */
 export function shotGatePass(s: ShotStyleScore, opts: ShotGateOpts = {}): { pass: boolean; reasons: string[] } {
   const reasons: string[] = [];

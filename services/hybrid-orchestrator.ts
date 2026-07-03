@@ -2976,12 +2976,13 @@ ${shots.map((s, i) => {
       try {
         const { isCommercialIdea } = await import('@/lib/end-card');
         const isRealImg = finalImageUrl && finalImageUrl.startsWith('http');
-        if (isRealImg && isCommercialIdea(this.originalIdea || '')) {
-          const { evaluateShotStyle } = await import('@/lib/shot-quality-gate');
+        const { resolveGateConfig, evaluateShotStyle } = await import('@/lib/shot-quality-gate');
+        const gateCfg = resolveGateConfig(); // v12.75 env 可调阈值/开关
+        if (isRealImg && gateCfg.enabled && isCommercialIdea(this.originalIdea || '')) {
           const gate = await evaluateShotStyle({
             imageUrl: finalImageUrl,
-            gateOpts: { requirePhotoreal: true },
-            maxRetries: 1,
+            gateOpts: { requirePhotoreal: true, photorealMin: gateCfg.photorealMin, qualityMin: gateCfg.qualityMin },
+            maxRetries: gateCfg.maxRetries,
             regenerate: async (attempt, fixHint) => {
               const fixedPrompt = `${renderPrompt}. ${fixHint}`;
               return await this.generateImage(fixedPrompt, {
