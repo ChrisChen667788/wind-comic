@@ -414,6 +414,21 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       send('step', { step: 'writer' });
       send('status', { message: 'AI 编剧正在运用麦基方法论创作剧本...' });
       script = await orchestrator.runWriter(plan);
+
+      // v12.65.0 广告合规:商业题材台词过《广告法》红线(最/第一/根治…自动替换安全表达)。
+      // 台词会被烧成字幕 + TTS 成旁白 → 必须在落地前净化;非商业题材零改动。
+      try {
+        const { isCommercialIdea } = await import('@/lib/end-card');
+        if (isCommercialIdea(idea) && Array.isArray((script as any)?.shots)) {
+          const { sanitizeScriptDialogues } = await import('@/lib/ad-compliance');
+          const hits = sanitizeScriptDialogues((script as any).shots);
+          if (hits.length > 0) {
+            console.warn(`[create] v12.65 广告合规净化 ${hits.length} 处: ${hits.slice(0, 5).map((h) => h.word).join('、')}`);
+            send('status', { message: `⚖️ 广告合规:已替换 ${hits.length} 处违禁用语(${[...new Set(hits.map((h) => h.category))].join('/')})` });
+          }
+        }
+      } catch (e) { console.warn('[create] 广告合规检查失败(非阻塞):', e instanceof Error ? e.message : e); }
+
       send('agents', orchestrator.getAllAgents());
       send('script', script);
       await saveAsset(projectId, 'script', '剧本', { synopsis: script.synopsis, title: script.title, shots: script.shots, theme: (script as any).theme });
