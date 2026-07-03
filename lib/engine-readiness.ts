@@ -80,6 +80,27 @@ const STAGE_DEFS: Array<{ key: string; label: string; dependsOn: EngineKind | nu
   { key: 'assemble', label: '剪辑合成', dependsOn: null },
 ];
 
+/**
+ * v12.76.0 存储就绪度(纯函数):local vs s3 决定「产物是否公网可达」——
+ * 抠图参考图/跨镜产品一致性要喂外部图像/视频引擎,local(serve-file=localhost)引擎够不到,
+ * 只有 S3(配齐 endpoint/bucket/keys)才真正解锁。之前这个坑只在代码注释里,用户看不到。
+ */
+export function computeStorageReadiness(env: NodeJS.ProcessEnv = process.env): {
+  driver: 'local' | 's3';
+  publicReachable: boolean;
+  hint: string;
+} {
+  const wantS3 = env.STORAGE_DRIVER === 's3';
+  const s3Complete = !!(env.S3_ENDPOINT && env.S3_BUCKET && env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY);
+  if (wantS3 && s3Complete) {
+    return { driver: 's3', publicReachable: true, hint: 'S3 已配齐,产物公网可达(抠图参考可喂外部引擎)' };
+  }
+  if (wantS3 && !s3Complete) {
+    return { driver: 'local', publicReachable: false, hint: 'STORAGE_DRIVER=s3 但 S3_* 未配齐,已降级 local;抠图参考仅本地可用' };
+  }
+  return { driver: 'local', publicReachable: false, hint: 'local 存储:成片/UI 正常;抠图参考图喂外部引擎需配 S3(STORAGE_DRIVER=s3 + S3_*)' };
+}
+
 export function computeLevel(flags: Record<EngineKind, boolean>): ReadinessLevel {
   if (flags.llm && flags.image && flags.video) return 'film';
   if (flags.llm && flags.image) return 'visual';

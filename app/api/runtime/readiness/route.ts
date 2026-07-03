@@ -13,7 +13,7 @@ import '@/lib/video-providers/builtins'; // 副作用:注册内置视频 provide
 import { listTTSProviders } from '@/lib/tts-providers/registry';
 import '@/lib/tts-providers/builtins'; // 副作用:注册内置 TTS provider
 import { lipSyncEngineConfigured } from '@/lib/lipsync-providers';
-import { computeReadiness } from '@/lib/engine-readiness';
+import { computeReadiness, computeStorageReadiness } from '@/lib/engine-readiness';
 import { API_CONFIG } from '@/lib/config';
 
 export const runtime = 'nodejs';
@@ -43,5 +43,5 @@ export async function GET() {
     lipsync: lipSyncEngineConfigured(),
   });
   // v10.4.0: mock 引擎开关回显 —— journey e2e 据此判断 dev server 是否以 MOCK_ENGINES=1 启动
-  return NextResponse.json({ ...report, mockEngines: process.env.MOCK_ENGINES === '1' });
+  return NextResponse.json({ ...report, mockEngines: process.env.MOCK_ENGINES === '1', storage: computeStorageReadiness() }); // v12.76 存储就绪度
 }
