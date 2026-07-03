@@ -298,6 +298,26 @@ function downloadFile(url: string, destPath: string): Promise<void> {
 }
 
 /**
+ * v12.71.0 视频完整性校验:文件存在 + 非空 + 有视频流 + 时长 ≥0.3s。
+ * 引擎偶发返回坏 mp4(截断/HTML 错误页当 mp4 存了)→ 提前拦下,别让 filter_complex 全片崩。
+ */
+export async function probeVideoIntegrity(filePath: string): Promise<{ ok: boolean; reason?: string; durationSec?: number }> {
+  try {
+    if (!fs.existsSync(filePath)) return { ok: false, reason: 'missing' };
+    const size = fs.statSync(filePath).size;
+    if (size < 1024) return { ok: false, reason: `too-small(${size}B)` };
+    const md: any = await new Promise((res, rej) => ffmpeg.ffprobe(filePath, (e, m) => (e ? rej(e) : res(m))));
+    const hasVideo = Array.isArray(md?.streams) && md.streams.some((s: any) => s.codec_type === 'video');
+    if (!hasVideo) return { ok: false, reason: 'no-video-stream' };
+    const dur = Number(md?.format?.duration) || 0;
+    if (dur < 0.3) return { ok: false, reason: `too-short(${dur}s)` };
+    return { ok: true, durationSec: dur };
+  } catch (e) {
+    return { ok: false, reason: `probe-failed(${e instanceof Error ? e.message.slice(0, 40) : e})` };
+  }
+}
+
+/**
  * 获取视频时长（ffprobe）
  */
 function getVideoDuration(filePath: string): Promise<number> {
@@ -650,6 +670,14 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
 
     try {
       await downloadFile(clip.videoUrl, localPath);
+      // v12.71.0 完整性校验:引擎偶发返回坏 mp4(0 字节/截断/无视频流)会让 filter_complex 全片崩。
+      // ffprobe 验「有视频流 + 时长 ≥0.3s」,坏片按下载失败处理(跳过,交给上游兜底链)。
+      const integ = await probeVideoIntegrity(localPath);
+      if (!integ.ok) {
+        console.warn(`[Composer] v12.71 镜 ${clip.shotNumber} 视频损坏(${integ.reason}),跳过`);
+        try { fs.unlinkSync(localPath); } catch {}
+        continue;
+      }
       localClips.push(localPath);
       validClips.push(clip);
       onProgress?.(5 + Math.round((i / clips.length) * 30), `下载片段 ${i + 1}/${clips.length}`);
