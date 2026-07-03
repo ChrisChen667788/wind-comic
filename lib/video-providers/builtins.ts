@@ -117,12 +117,14 @@ registerVideoProvider({
 // 优先级 70 — 通常 Veo 后第二选择. FLF 首尾帧融合是其独家 ability.
 registerVideoProvider({
   id: 'kling',
-  name: 'Kling v1 / v1-6 (FLF + 4K Master)',
+  name: 'Kling v1 / v1-6 (FLF + 4K Master + Elements)',
   priority: 70,
   supportsImage2Video: true,
   supportsText2Video: true,
   supportsLastFrame: true,        // ← 独家
-  supportsSubjectReference: false,
+  // v12.78.0:KLING_ELEMENTS=1 时支持多参考图跨镜锁定(Elements,一致性 SOTA 路线);
+  // getter 动态求值 —— dispatch 的 hasSubjectReference 过滤在开关开启时不再把 kling 踢出链。
+  get supportsSubjectReference() { return process.env.KLING_ELEMENTS === '1'; },
   maxDurationSec: 10,
   supportsNativeAudio: true, // v12.29.0(P1):Kling 3.0 Omni 跨镜音画同步
   available: () => {
@@ -149,12 +151,15 @@ registerVideoProvider({
       if (!url) throw new Error('Kling FLF returned empty url');
       return { videoUrl: url, provider: 'kling-flf' };
     }
-    // 普通 I2V / T2V
+    // 普通 I2V / T2V(v12.78.0:透传 subjectReferences/referenceImages —— service 层 Elements
+    // v12.15 已实现但 provider 一直没传,dispatch 到不了;KLING_ELEMENTS=1 时生效)
     const url = await svc.generateVideo(input.firstFrameUrl || '', input.prompt, {
       duration: input.durationSec,
       resolution: input.resolution,
       aspectRatio: input.aspectRatio, // v12.14.0 横竖屏
       mode: input.mode || 'standard',
+      subjectReferences: input.subjectReferences,
+      referenceImages: input.referenceImages,
       onProgress: input.onProgress,
     });
     if (!url) throw new Error('Kling returned empty url');
