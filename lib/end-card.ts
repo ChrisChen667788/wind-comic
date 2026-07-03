@@ -28,6 +28,42 @@ export function isCommercialIdea(idea: string): boolean {
  * —— 实测冷萃咖啡广告跑成 genre=古装职业 + 汉服宫廷。商业题材强制当代现实主义、明令禁古装/年代戏/奇幻。
  * 注入 Director userPrompt(非脚本改编时),不动 system 模板 → 零回归。
  */
+/** 商业 plan 违禁检测词(古装/年代 + 3D 渲染)。 */
+const PLAN_ANCIENT_RE = /古装|古风|古代|历史剧|戏曲|汉服|宫廷|宫殿|王朝|朝廷|武侠|玄幻|仙侠|ancient|hanfu|imperial|dynasty|period drama|historical/i;
+const PLAN_3D_RE = /octane|3d render|unreal engine|\bcgi\b|cartoon|anime|illustration|stylized render|render quality/i;
+
+/**
+ * v12.64.0 商业 plan 确定性净化(锚点的「硬保险」)。
+ * 锚点(v12.57/58)是软约束,LLM 仍可能违反(尤其兜底模型)。本函数零 LLM、零延迟地
+ * 兜住关键字段:genre 含古装 → 改「现代商业」;style/styleKeywords 含古装或 3D 渲染词 →
+ * 剔除违禁 token 并补 photoreal 锚。返回 changed 供调用方同步内部状态/告警。纯函数可测。
+ */
+export function sanitizeCommercialPlan(plan: {
+  genre?: string; style?: string; styleKeywords?: string;
+}): { changed: boolean; fixes: string[] } {
+  const fixes: string[] = [];
+  if (plan.genre && PLAN_ANCIENT_RE.test(plan.genre)) {
+    plan.genre = '现代商业';
+    fixes.push('genre→现代商业');
+  }
+  for (const key of ['style', 'styleKeywords'] as const) {
+    const v = plan[key];
+    if (!v) continue;
+    if (PLAN_ANCIENT_RE.test(v) || PLAN_3D_RE.test(v)) {
+      const cleaned = v
+        .split(/[,，、;；]/)
+        .map((t) => t.trim())
+        .filter((t) => t && !PLAN_ANCIENT_RE.test(t) && !PLAN_3D_RE.test(t))
+        .join(', ');
+      plan[key] = key === 'styleKeywords'
+        ? `${cleaned}${cleaned ? ', ' : ''}photorealistic, real human skin, natural film grain, true-to-life lighting`
+        : (cleaned || '现代写实商业风');
+      fixes.push(`${key} 净化`);
+    }
+  }
+  return { changed: fixes.length > 0, fixes };
+}
+
 export function commercialDirectorAnchor(): string {
   return `\n\n【商业广告·硬性风格要求】这是现代商业广告片,必须用**当代现实主义**:真实当代人物 + 真实现代产品 + 现代生活/职场/都市场景。genre 必须是现代题材(如「现代商业」「都市生活」),**严禁古装/古风/古代/历史剧/戏曲/汉服/宫廷/武侠/玄幻/仙侠**等任何年代戏或奇幻设定;styleKeywords **不得**出现 ancient / period / historical / hanfu / costume / imperial / dynasty 等词。产品按真实现代包装呈现,不要做成古董/铜壶/陶瓷等仿古道具。\n【仿真人实拍质感·硬性】画面必须是**真人实拍/真实摄影**质感:photorealistic、shot on cinema camera (ARRI/RED)、real human skin with pores、natural film grain、true-to-life lighting。**严禁任何 3D 渲染/CGI/动画质感**:styleKeywords **绝不可**出现 octane render / 3d render / unreal engine / CGI / cartoon / anime / illustration / stylized / render quality 等渲染或卡通词(这些会让成片变塑料 3D 感)。追求广告大片级的**真实人物与真实产品**。`;
 }

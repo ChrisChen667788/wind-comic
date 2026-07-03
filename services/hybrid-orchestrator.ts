@@ -1412,6 +1412,22 @@ export class HybridOrchestrator {
       console.log(`[Director] Character Bible 生成: ${this.characterBible.length} 条`);
     }
 
+    // ═══ v12.64.0 商业 plan 确定性净化(锚点的硬保险)═══
+    // 锚点(v12.57/58)是软约束,LLM(尤其兜底模型)仍可能违反 → 零 LLM 零延迟兜住关键字段:
+    // genre 古装→现代商业;style/styleKeywords 剔古装/3D 渲染词 + 补 photoreal。同步内部状态。
+    try {
+      const { isCommercialIdea, sanitizeCommercialPlan } = await import('@/lib/end-card');
+      if (isCommercialIdea(this.originalIdea || idea)) {
+        const fix = sanitizeCommercialPlan(plan as any);
+        if (fix.changed) {
+          this.genre = plan.genre || this.genre;
+          this.styleKeywords = (plan as any).styleKeywords || this.styleKeywords;
+          console.warn(`[Director] v12.64 商业 plan 净化: ${fix.fixes.join(' / ')}`);
+          this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `🛡️ 商业片风格保险已生效(${fix.fixes.join('、')})` });
+        }
+      }
+    } catch { /* 非阻塞 */ }
+
     // ═══ v2.7: ShotBench 8 维规格校验(soft warn,不阻塞) ═══
     // 只有当 Director 输出了 shots 数组时才校验(有些 plan 只有 characters+scenes 没有 shots)
     try {
