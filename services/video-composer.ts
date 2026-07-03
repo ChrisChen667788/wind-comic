@@ -953,6 +953,9 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     });
   }
 
+  // v12.67.0:ducking 模块在 Promise 外加载(sync 滤镜段不能 await)
+  const { shouldDuck, buildDuckingFilters } = await import('@/lib/audio-ducking');
+
   // 6. 多片段 xfade 合成
   return new Promise((resolve, reject) => {
     const cmd = ffmpeg();
@@ -1126,12 +1129,24 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       }
 
       if (voCount > 0) {
+        let voLabel: string;
         if (voCount === 1) {
-          audioMixParts.push(voSubInputs[0]);
+          voLabel = voSubInputs[0];
         } else {
           // 多段配音先 mix 成一条
           filters.push(`${voSubInputs.join('')}amix=inputs=${voCount}:duration=longest:dropout_transition=0[vomix]`);
-          audioMixParts.push('[vomix]');
+          voLabel = '[vomix]';
+        }
+        // v12.67.0 BGM 自动闪避:旁白响起 sidechain 压低 BGM,人声更清晰(BGM_DUCK_DISABLE=1 关)
+        if (shouldDuck(!!localMusicPath, voCount)) {
+          const duck = buildDuckingFilters('[musicvol]', voLabel);
+          filters.push(...duck.filters);
+          const mi = audioMixParts.indexOf('[musicvol]');
+          if (mi >= 0) audioMixParts[mi] = duck.musicOut;
+          audioMixParts.push(duck.voOut);
+          console.log('[Composer] v12.67 BGM ducking 启用(sidechaincompress)');
+        } else {
+          audioMixParts.push(voLabel);
         }
         audioMixCount++;
         console.log(`[Composer] TTS: ${voCount} 段配音逐镜头对齐,偏移范围 ${Array.from(shotStartMs.values()).join('ms, ')}ms`);
