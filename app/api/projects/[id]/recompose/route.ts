@@ -114,7 +114,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let cardAppended = false;
   if (hookCard && hookCard.title) {
     const hk = await prependHookCard(outputPath, {
-      title: hookCard.title, slogan: hookCard.slogan,
+      title: hookCard.title, slogan: hookCard.slogan, accentColor: hookCard.accentColor,
       w, h, durationSec: hookCard.durationSec, bg: hookCard.bg === 'solid' ? 'solid' : 'blur',
     });
     outputPath = hk.outputPath;
@@ -122,7 +122,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (endCard && (endCard.title || endCard.slogan)) {
     const card = await appendEndCard(outputPath, {
-      title: endCard.title, slogan: endCard.slogan,
+      title: endCard.title, slogan: endCard.slogan, accentColor: endCard.accentColor,
       w, h, durationSec: endCard.durationSec, bg: endCard.bg === 'solid' ? 'solid' : 'blur',
     });
     outputPath = card.outputPath;

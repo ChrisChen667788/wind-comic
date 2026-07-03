@@ -146,6 +146,13 @@ export function escapeDrawtextPath(p: string): string {
   return p.replace(/\\/g, '/').replace(/:/g, '\\:');
 }
 
+/** v12.74.0 品牌色规范化:'#FF5533' / 'ff5533' / '0xFF5533' → ffmpeg 色串 '0xFF5533';非法 → null。 */
+export function normalizeHexColor(c?: string | null): string | null {
+  if (!c) return null;
+  const m = String(c).trim().match(/^(?:#|0x)?([0-9a-fA-F]{6})$/);
+  return m ? `0x${m[1].toUpperCase()}` : null;
+}
+
 export interface EndCardVfInput {
   w: number;
   h: number;
@@ -154,6 +161,7 @@ export interface EndCardVfInput {
   sloganFile?: string;    // 副标 textfile 路径
   bg: 'blur' | 'solid';   // blur=用末帧模糊压暗(承接画面);solid=纯色卡
   solidColor?: string;    // bg=solid 时背景色,默认深玫瑰棕
+  accentColor?: string;   // v12.74 品牌色(点缀线+副标),接受 #RRGGBB/0xRRGGBB;缺省玫瑰(零回归)
 }
 
 /**
@@ -175,9 +183,10 @@ export function buildEndCardVf(input: EndCardVfInput): string {
     // solid 卡:输入本就是 color 源,无需 scale;仅轻微暗角可选,这里保持纯净
   }
 
-  // 玫瑰点缀线(在主副标之间)
+  // 点缀线(在主副标之间)——v12.74 品牌色可配,缺省玫瑰
+  const accent = normalizeHexColor(input.accentColor) || '0xE8A0AE';
   parts.push(
-    `drawbox=x=(w-${L.accentW})/2:y=${L.accentY}:w=${L.accentW}:h=3:color=0xE8A0AE@0.9:t=fill`,
+    `drawbox=x=(w-${L.accentW})/2:y=${L.accentY}:w=${L.accentW}:h=3:color=${accent}@0.9:t=fill`,
   );
 
   if (input.titleFile) {
@@ -190,7 +199,7 @@ export function buildEndCardVf(input: EndCardVfInput): string {
   if (input.sloganFile) {
     const sf = escapeDrawtextPath(input.sloganFile);
     parts.push(
-      `drawtext=fontfile='${font}':textfile='${sf}':fontcolor=0xF3D9DE:fontsize=${L.sloganSize}` +
+      `drawtext=fontfile='${font}':textfile='${sf}':fontcolor=${normalizeHexColor(input.accentColor) ? `${accent}` : '0xF3D9DE'}:fontsize=${L.sloganSize}` +
         `:x=(w-text_w)/2:y=${L.sloganY}`,
     );
   }

@@ -451,7 +451,7 @@ export async function concatVideos(
  */
 export async function attachTextCard(
   mainVideoPath: string,
-  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; outputDir?: string; position?: 'start' | 'end' },
+  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; accentColor?: string; outputDir?: string; position?: 'start' | 'end' },
 ): Promise<{ outputPath: string; appended: boolean }> {
   const title = (opts.title || '').trim();
   const slogan = (opts.slogan || '').trim();
@@ -473,7 +473,7 @@ export async function attachTextCard(
     if (title) { titleFile = path.join(tmpDir, 'title.txt'); fs.writeFileSync(titleFile, title, 'utf-8'); }
     if (slogan) { sloganFile = path.join(tmpDir, 'slogan.txt'); fs.writeFileSync(sloganFile, slogan, 'utf-8'); }
 
-    const vf = buildEndCardVf({ w: opts.w, h: opts.h, fontFile, titleFile, sloganFile, bg, solidColor: opts.solidColor });
+    const vf = buildEndCardVf({ w: opts.w, h: opts.h, fontFile, titleFile, sloganFile, bg, solidColor: opts.solidColor, accentColor: opts.accentColor });
 
     // 1) 卡片背景输入(hook 取首帧、CTA 取末帧)
     let cardInputArgs: string;
@@ -509,7 +509,7 @@ export async function attachTextCard(
 /** 片尾 CTA 卡(末帧背景)。 */
 export async function appendEndCard(
   mainVideoPath: string,
-  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; outputDir?: string },
+  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; accentColor?: string; outputDir?: string },
 ): Promise<{ outputPath: string; appended: boolean }> {
   return attachTextCard(mainVideoPath, { ...opts, position: 'end' });
 }
@@ -517,7 +517,7 @@ export async function appendEndCard(
 /** v12.53.0 开场 Hook 卡(首帧背景,提短视频留存)。 */
 export async function prependHookCard(
   mainVideoPath: string,
-  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; outputDir?: string },
+  opts: { title?: string; slogan?: string; w: number; h: number; durationSec?: number; bg?: 'blur' | 'solid'; solidColor?: string; accentColor?: string; outputDir?: string },
 ): Promise<{ outputPath: string; appended: boolean }> {
   return attachTextCard(mainVideoPath, { ...opts, position: 'start' });
 }
