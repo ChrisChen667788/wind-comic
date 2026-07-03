@@ -49,9 +49,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const bundle = buildPublishPackage(spec, pack, { finalVideoUrl, coverUrl });
 
+  // ═══ v12.90.0 广告工厂产物并包 ═══
+  // 散落的新件一站取齐:发布文案(v12.84)/发布预检+质检健康分(v12.85/66)/A-B 变体与选胜(v12.69/88)。
+  const copyRow = db.prepare(`SELECT data FROM project_assets WHERE project_id = ? AND type = 'publish_copy' ORDER BY version DESC LIMIT 1`).get(id) as any;
+  const publishCopy = parse(copyRow?.data) || null;
+  const qrRow = db.prepare(`SELECT data FROM project_assets WHERE project_id = ? AND type = 'quality_report' ORDER BY version DESC LIMIT 1`).get(id) as any;
+  const qualityReport = parse(qrRow?.data) || null;
+  const preflight = qualityReport?.preflight?.find?.((p: any) => p.platform === platform) || null;
+  const varRows = db.prepare(`SELECT shot_number, name, persistent_url, media_urls, data FROM project_assets WHERE project_id = ? AND type = 'ab_variant' ORDER BY shot_number ASC`).all(id) as any[];
+  const finalData = parse((db.prepare(`SELECT data FROM project_assets WHERE project_id = ? AND type = 'final_video' ORDER BY version DESC LIMIT 1`).get(id) as any)?.data);
+  const abVariants = varRows.map((v) => ({
+    variant: v.shot_number,
+    hookTitle: parse(v.data)?.hookTitle || v.name,
+    url: v.persistent_url || (parse(v.media_urls) || [])[0] || null,
+    chosen: finalData?.chosenVariant === v.shot_number,
+  }));
+
   return NextResponse.json({
     ...bundle,
     hasDistributionPack: !!pack,
+    publishCopy,                                     // v12.84 标题/话题/封面题(已合规净化)
+    preflight,                                       // v12.85 该平台硬指标核对(可能 null=未预检)
+    qualityHealthScore: qualityReport?.healthScore ?? null, // v12.66 质检健康分
+    abVariants,                                      // v12.69/88 变体清单 + 谁被选胜
     // 让前端一键导出该平台 aspect 成片(带平台字幕样式)
     exportHint: { endpoint: `/api/projects/${id}/export-platform`, method: 'POST', body: { aspect: spec.aspect, subtitlePlatform: 'default' } },
   });
