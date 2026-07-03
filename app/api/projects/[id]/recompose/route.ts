@@ -129,6 +129,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     cardAppended = card.appended;
   }
 
+  // v12.69.0 批量 Hook 变体(A/B):同一主体成片 + N 个不同 Hook 开场(≤3),每变体独立落
+  // ab_variant 资产(shotNumber=序号)。主成片(上方 hookCard/endCard 链)不受影响。
+  const hookVariants: Array<{ title: string; slogan?: string; durationSec?: number }> =
+    (Array.isArray(body?.hookVariants) ? body.hookVariants : [])
+      .filter((v: any) => v && typeof v.title === 'string' && v.title.trim())
+      .slice(0, 3);
+  const variants: Array<{ title: string; url: string }> = [];
+  for (let vi = 0; vi < hookVariants.length; vi++) {
+    const hv = hookVariants[vi];
+    try {
+      let vPath = result.outputPath; // 变体基于「无卡」主体成片
+      const hk = await prependHookCard(vPath, { title: hv.title, slogan: hv.slogan, w, h, durationSec: hv.durationSec, bg: 'blur' });
+      vPath = hk.outputPath;
+      if (endCard && (endCard.title || endCard.slogan)) {
+        const ec = await appendEndCard(vPath, { title: endCard.title, slogan: endCard.slogan, w, h, durationSec: endCard.durationSec, bg: endCard.bg === 'solid' ? 'solid' : 'blur' });
+        vPath = ec.outputPath;
+      }
+      const vUrl = `/api/serve-file?path=${encodeURIComponent(vPath)}`;
+      await upsertAsset({
+        projectId: id, type: 'ab_variant', name: `Hook变体${vi + 1}: ${hv.title.slice(0, 20)}`,
+        data: { hookTitle: hv.title, aspect, width: w, height: h }, mediaUrls: [vUrl], persistentUrl: vUrl, shotNumber: vi + 1,
+      });
+      variants.push({ title: hv.title, url: vUrl });
+    } catch (e) {
+      console.warn(`[recompose] Hook 变体 ${vi + 1} 失败(跳过):`, e instanceof Error ? e.message : e);
+    }
+  }
+
   const serveUrl = `/api/serve-file?path=${encodeURIComponent(outputPath)}`;
   await upsertAsset({
     projectId: id, type: 'final_video', name: '最终成片',
@@ -136,5 +164,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     mediaUrls: [serveUrl], persistentUrl: serveUrl,
   });
 
-  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, hookCard: hookAppended, endCard: cardAppended });
+  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, hookCard: hookAppended, endCard: cardAppended, variants: variants.length > 0 ? variants : undefined });
 }
