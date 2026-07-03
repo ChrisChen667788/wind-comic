@@ -26,6 +26,37 @@ export function buildPublishCopyPrompt(input: { idea?: string; genre?: string; s
   return { system, user };
 }
 
+/**
+ * v12.86.0 Hook 创意生成(A/B 变体的弹药)。公式约束写进 prompt:
+ * 痛点问句 / 反常识陈述 / 数字利益点,每条 ≤14 字(卡片上限 16 留余量)。
+ */
+export function buildHookIdeasPrompt(input: { idea?: string; genre?: string; synopsis?: string }): { system: string; user: string } {
+  const system =
+    '你是短视频投放操盘手。为一条竖屏广告写 5 条开场 Hook(头 2 秒的卡片大字),严格只输出 JSON:' +
+    '{"hooks":["每条≤14字,优先痛点问句(带?),其次反常识陈述/数字利益点"]}' +
+    '。禁止《广告法》违禁词,禁止换行。';
+  const user = `创意:${(input.idea || '').slice(0, 300)}\n题材:${input.genre || ''}\n梗概:${(input.synopsis || '').slice(0, 200)}`;
+  return { system, user };
+}
+
+/** 解析 hooks:抠 JSON → 逐条净化 → 2-16 字/无换行过滤 → 去重 → ≤5 条。非法 → null。 */
+export function parseHookIdeas(raw: string): string[] | null {
+  let j: any;
+  try { j = JSON.parse(raw); } catch {
+    const m = (raw || '').match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { j = JSON.parse(m[0]); } catch { return null; }
+  }
+  if (!j || !Array.isArray(j.hooks)) return null;
+  const seen = new Set<string>();
+  const hooks = j.hooks
+    .map((h: unknown) => sanitizeAdCopy(String(h ?? '').trim()).text)
+    .filter((h: string) => h.length >= 2 && h.length <= 16 && !/[\r\n]/.test(h))
+    .filter((h: string) => (seen.has(h) ? false : (seen.add(h), true)))
+    .slice(0, 5);
+  return hooks.length > 0 ? hooks : null;
+}
+
 /** 解析 LLM 返回(容忍 markdown 包裹/杂文),结构校验 + 截断 + 合规净化。非法 → null。 */
 export function parsePublishCopy(raw: string): PublishCopy | null {
   let j: any;
