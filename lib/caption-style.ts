@@ -37,3 +37,15 @@ export function buildCaptionForceStyle(
 export function pickCaptionPreset(isCommercial: boolean): CaptionPreset {
   return isCommercial ? 'karaoke' : 'clean';
 }
+
+export type CaptionPlatform = 'douyin' | 'xiaohongshu' | 'none';
+
+/**
+ * v12.79.0 平台安全区(竖屏信息流 UI 避让):抖音底部进度条+文案区 ~18-20%H、
+ * 小红书 ~16%H 会盖住贴底字幕。返回字幕底边距占画面高的比例;横屏/none 用缺省。
+ */
+export function captionSafeBottomRatio(platform: CaptionPlatform | undefined, vertical: boolean): number {
+  if (!vertical || !platform || platform === 'none') return 0.10; // 缺省 = karaoke 现行 10%H(零回归)
+  if (platform === 'douyin') return 0.20;
+  return 0.17; // xiaohongshu
+}

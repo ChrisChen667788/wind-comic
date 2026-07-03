@@ -27,6 +27,8 @@ export interface KaraokeAssOptions {
   primaryColour?: string;
   /** 未扫到的底色。默认白。 */
   secondaryColour?: string;
+  /** v12.79:字幕底边距占画面高的比例(平台安全区避让)。缺省 竖屏 0.10 / 横屏 0.08。 */
+  marginVRatio?: number;
 }
 
 /** 秒 → ASS 时间 H:MM:SS.cs(厘秒)。 */
@@ -84,7 +86,7 @@ export function buildKaraokeAss(lines: KaraokeLine[], opts: KaraokeAssOptions): 
   // ASS 用真实分辨率作 PlayRes,字号/边距按高度百分比算(libass 在 PlayResY 坐标系里量字号),
   // 否则像 30 这种绝对值在 1280 高的画布上会非常小。竖屏 ~7.5%H、横屏 ~6%H,抬高避 CTA/UI。
   const fontSize = Math.round(h * (vertical ? 0.075 : 0.06));
-  const marginV = Math.round(h * (vertical ? 0.1 : 0.08));
+  const marginV = Math.round(h * (opts.marginVRatio ?? (vertical ? 0.1 : 0.08)));
   const outline = Math.max(2, Math.round(fontSize * 0.06));
 
   // V4+ Style:PrimaryColour=扫过色,SecondaryColour=未扫色(karaoke 由二者间扫光),Bold=1,底部居中

@@ -84,6 +84,7 @@ export interface ComposeOptions {
   aspect?: string;             // v12.49.0 成片画幅('16:9'|'9:16'|'1:1'...) — 决定合成画布分辨率;缺省 16:9(旧行为)
   captionStyle?: import('@/lib/caption-style').CaptionPreset; // v12.52.0 字幕风格预设;缺省 clean(零回归)
   voiceoverDurations?: Record<number, number>; // v12.68.0 镜号→TTS 真实时长(karaoke 扫光对齐音频)
+  platform?: import('@/lib/caption-style').CaptionPlatform; // v12.79.0 平台安全区(抖音/小红书字幕避让)
   editStyle?: string;          // v12.0.4 一句指令调剪辑风格(快节奏燃向/慢叙抒情...)
   actionMode?: boolean;        // v12.13.0 动作片节奏:高光不整段慢放、硬切替淡入、保快节奏
   // v12.13.1 打击音效层:冲击点(镜号 + 镜内秒 + 强度)→ 程序化合成闷响打击音并末端混入
@@ -806,7 +807,8 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           cursor += d;
         }
         if (lines.length > 0) {
-          const ass = buildKaraokeAss(lines, { w: canvasW, h: canvasH, fontName, vertical });
+          const { captionSafeBottomRatio } = await import('@/lib/caption-style');
+          const ass = buildKaraokeAss(lines, { w: canvasW, h: canvasH, fontName, vertical, marginVRatio: captionSafeBottomRatio(options.platform, vertical) });
           const assPath = path.join(tmpDir, 'subtitles.ass');
           fs.writeFileSync(assPath, ass, 'utf-8');
           const escAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
