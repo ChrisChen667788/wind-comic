@@ -219,24 +219,24 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 
 ## 🥊 vs. competitors
 
-> 阵容核验 2026-07-02:Artificial Analysis / llm-stats 盲投竞技场 —— **文生视频榜首仍为 Kling v3(2011 分)**,LTX-2 Fast 次席(1892,开源权重最强),Seedance 2.0 Fast 第三(1760)。**图生视频榜首再易主:Dreamina Seedance 2.0 720p 登顶**(无音频 Elo 1343 / 带音频 1195 双第一),**Grok Imagine 1.5 退居次席**(1325),PixVerse V6 第三(1323),**HappyHorse-1.1(阿里 Taotian)回榜前列**(1311/带音频 1117,已出公开版)。**Veo 3.1** 仍是画质与物理一致性王者(4K + 原生对白音轨);**Runway Gen-4.5** 控制面最强(motion brush + GWM-1 世界模型)。**Sora 2** 已停服(App 2026-04-26 下线、API 2026-09-24 关停)。在产竞品均为生产可用第一梯队 + 公开 BYO API。
+> 阵容核验 2026-07-02:Artificial Analysis / llm-stats 盲投竞技场 —— **文生视频榜首仍为 Kling v3(2011 分)**,LTX-2 Fast 次席(1892,开源权重最强),Seedance 2.0 Fast 第三(1760)。**图生视频榜首再易主:Dreamina Seedance 2.0 720p 登顶**(无音频 Elo 1343 / 带音频 1195 双第一),**Grok Imagine 1.5 退居次席**(1325),PixVerse V6 第三(1323),**HappyHorse-1.1(阿里 Taotian)回榜前列**(1311/带音频 1117)——**已有官方公开 BYO API(fal 官方伙伴:i2v/ref2v/t2v/video-edit 四端点),达入列门槛,本轮入表**;PixVerse V6 亦有公开 API($100/月起)但列数所限暂以核验行记录。**Veo 3.1** 仍是画质与物理一致性王者(4K + 原生对白音轨);**Runway Gen-4.5** 控制面最强(motion brush + GWM-1 世界模型)。**Sora 2** 已停服(App 2026-04-26 下线、API 2026-09-24 关停)。在产竞品均为生产可用第一梯队 + 公开 BYO API。
 > 结论不变:**生成层已是红海(竞品在出片/多镜/音频都第一梯队),Wind Comic 护城河收窄到「制作/平台层」**——节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO。
 
-| Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | Grok Imagine 1.5 | **Wind Comic** |
-|---|---|---|---|---|---|---|
-| Multi-shot story from one prompt | ⚠️ | ✅ storyboard mode | ✅ multi-shot native | ⚠️ | ⚠️ (one clip) | **✅ 8-agent script→edit pipeline** |
-| Character consistency across shots | ✅ | ✅ | ✅ | ✅ reference | ✅ | **✅ cref + sref + 8-dim DNA + vision retry** |
-| Style coherence locked | ✅ | ✅ | ✅ | ✅ | ⚠️ | **✅ Style Bible Frame** |
-| Native dialogue + SFX audio | ✅ | ✅ | ✅ | ⚠️ | ✅ | **✅ per-character TTS + lip-sync** |
-| Real CJK subtitles (burned-in) | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ libass + PingFang burn** |
-| Vertical drama tropes | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12 templates + 9:16 default** |
-| Real-time multiplayer timeline | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Yjs CRDT + Y.Map locks + cursors** |
-| Self-hostable | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Next.js + SQLite + Web Audio** |
-| BYO LLM (OpenAI / Claude / DeepSeek / local) | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12+ providers via .env** |
-| Open source | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ MIT** |
-| Per-shot regenerate with custom prompt | ⚠️ | ✅ | ⚠️ | ✅ motion brush | ⚠️ | **✅ + reference image upload** |
-| Pacing / conflict audit | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ shot-level score + reversal detection** |
-| Smart editing (beat-snap + emotion pacing + one-instruction style) | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ beat-snap · emotion pacing · emphasis · transition aesthetics · "fast & hype/slow & lyrical" in one line (BYO LLM)** |
+| Capability | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | Grok Imagine 1.5 | HappyHorse-1.1 | **Wind Comic** |
+|---|---|---|---|---|---|---|---|
+| Multi-shot story from one prompt | ⚠️ | ✅ storyboard mode | ✅ multi-shot native | ⚠️ | ⚠️ (one clip) | ⚠️ (one clip) | **✅ 8-agent script→edit pipeline** |
+| Character consistency across shots | ✅ | ✅ | ✅ | ✅ reference | ✅ | ✅ reference-to-video | **✅ cref + sref + 8-dim DNA + vision retry** |
+| Style coherence locked | ✅ | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | **✅ Style Bible Frame** |
+| Native dialogue + SFX audio | ✅ | ✅ | ✅ | ⚠️ | ✅ | ✅ 单次生成即带音频 | **✅ per-character TTS + lip-sync** |
+| Real CJK subtitles (burned-in) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ libass + PingFang burn** |
+| Vertical drama tropes | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12 templates + 9:16 default** |
+| Real-time multiplayer timeline | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Yjs CRDT + Y.Map locks + cursors** |
+| Self-hostable | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Next.js + SQLite + Web Audio** |
+| BYO LLM (OpenAI / Claude / DeepSeek / local) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12+ providers via .env** |
+| Open source | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ 权重部分开放 | **✅ MIT** |
+| Per-shot regenerate with custom prompt | ⚠️ | ✅ | ⚠️ | ✅ motion brush | ⚠️ | ✅ video-edit 端点 | **✅ + reference image upload** |
+| Pacing / conflict audit | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ shot-level score + reversal detection** |
+| Smart editing (beat-snap + emotion pacing + one-instruction style) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ beat-snap · emotion pacing · emphasis · transition aesthetics · "fast & hype/slow & lyrical" in one line (BYO LLM)** |
 
 > Cells marked ⚠️ = the feature exists but in a limited / locked-down form (e.g. "you can only do this on a paid Pro tier through a UI panel").
 
