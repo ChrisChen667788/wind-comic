@@ -736,8 +736,33 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
         await saveAsset(projectId, 'music', '背景配乐', { duration: editResult.totalDuration }, [editResult.musicUrl]);
       }
       // v12.66.0 成片质检报告(质量防线事件账本:哪些镜被重生/兜底、健康分)
+      // v12.85.0:出片即自动发布预检(三平台硬指标),并入质检报告 —— 不用等用户手动调端点
       if ((editResult as any).qualityReport) {
-        await saveAsset(projectId, 'quality_report', '成片质检报告', (editResult as any).qualityReport);
+        const reportData: any = { ...(editResult as any).qualityReport };
+        try {
+          if (editResult.finalVideoUrl?.startsWith('/api/serve-file')) {
+            const lp = decodeURIComponent(new URL(editResult.finalVideoUrl, 'http://localhost').searchParams.get('path') || '');
+            if (lp) {
+              const { probeVideoIntegrity } = await import('@/services/video-composer');
+              const probe = await probeVideoIntegrity(lp);
+              if (probe.ok) {
+                const { preflightAll } = await import('@/lib/publish-preflight');
+                const preflight = preflightAll({
+                  width: probe.width || 0, height: probe.height || 0,
+                  durationSec: probe.durationSec || 0, hasAudio: !!probe.hasAudio, sizeBytes: probe.sizeBytes || 0,
+                });
+                reportData.preflight = preflight;
+                const blocked = preflight.filter((p) => !p.pass);
+                if (blocked.length > 0) {
+                  send('status', { message: `⚠️ 发布预检:${blocked.map((p) => `${p.label}(${p.issues[0]})`).join(';')}` });
+                } else {
+                  send('status', { message: '✅ 发布预检:抖音/小红书/视频号 三平台硬指标全过' });
+                }
+              }
+            }
+          }
+        } catch (e) { console.warn('[create] v12.85 发布预检失败(非阻塞):', e instanceof Error ? e.message : e); }
+        await saveAsset(projectId, 'quality_report', '成片质检报告', reportData);
       }
 
       // ── v2.11 #4 Writer-Editor 闭环: Editor 成片后对最终视频打 3 维分 ──
