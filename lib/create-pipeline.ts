@@ -418,13 +418,19 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       // v12.65.0 广告合规:商业题材台词过《广告法》红线(最/第一/根治…自动替换安全表达)。
       // 台词会被烧成字幕 + TTS 成旁白 → 必须在落地前净化;非商业题材零改动。
       try {
-        const { isCommercialIdea } = await import('@/lib/end-card');
+        const { isCommercialIdea, ensureCtaEnding } = await import('@/lib/end-card');
         if (isCommercialIdea(idea) && Array.isArray((script as any)?.shots)) {
           const { sanitizeScriptDialogues } = await import('@/lib/ad-compliance');
           const hits = sanitizeScriptDialogues((script as any).shots);
           if (hits.length > 0) {
             console.warn(`[create] v12.65 广告合规净化 ${hits.length} 处: ${hits.slice(0, 5).map((h) => h.word).join('、')}`);
             send('status', { message: `⚖️ 广告合规:已替换 ${hits.length} 处违禁用语(${[...new Set(hits.map((h) => h.category))].join('/')})` });
+          }
+          // v12.72.0 CTA 收尾保障:末镜无号召则补确定性 CTA(片尾卡与口播都吃它)
+          const ctaFix = ensureCtaEnding((script as any).shots, (script as any).title || '');
+          if (ctaFix.added) {
+            console.log(`[create] v12.72 CTA 收尾已补: ${ctaFix.cta}`);
+            send('status', { message: `📣 已为广告补 CTA 收尾:「${ctaFix.cta}」` });
           }
         }
       } catch (e) { console.warn('[create] 广告合规检查失败(非阻塞):', e instanceof Error ? e.message : e); }

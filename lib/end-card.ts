@@ -28,6 +28,24 @@ export function isCommercialIdea(idea: string): boolean {
  * —— 实测冷萃咖啡广告跑成 genre=古装职业 + 汉服宫廷。商业题材强制当代现实主义、明令禁古装/年代戏/奇幻。
  * 注入 Director userPrompt(非脚本改编时),不动 system 模板 → 零回归。
  */
+/** CTA 信号词(末镜台词有这些即认为已有号召)。 */
+const CTA_SIGNAL_RE = /点击|下单|入手|试试|别错过|抢|购|链接|评论区|关注|了解一下|来一|你吗[?？]|会是你|等什么|冲鸭?|安排/;
+
+/**
+ * v12.72.0 商业片 CTA 收尾保障。末 2 镜台词都无 CTA 信号 → 给末镜补一句确定性 CTA
+ * (有台词则追加、无台词则填入;广告法安全用语)。返回 added 供记账。纯函数可测。
+ */
+export function ensureCtaEnding(shots: Array<{ dialogue?: string }>, productHint?: string): { added: boolean; cta?: string } {
+  if (!shots || shots.length === 0) return { added: false };
+  const tail = shots.slice(-2);
+  if (tail.some((s) => s?.dialogue && CTA_SIGNAL_RE.test(s.dialogue))) return { added: false };
+  const hint = (productHint || '').trim().slice(0, 12);
+  const cta = hint ? `心动就试试${hint},下一个惊喜是你。` : '心动不如行动,来试试,下一个惊喜是你。';
+  const last = shots[shots.length - 1];
+  last.dialogue = last.dialogue && last.dialogue.trim() ? `${last.dialogue.trim().replace(/[。!!]?$/, '。')}${cta}` : cta;
+  return { added: true, cta };
+}
+
 /** 商业 plan 违禁检测词(古装/年代 + 3D 渲染)。 */
 const PLAN_ANCIENT_RE = /古装|古风|古代|历史剧|戏曲|汉服|宫廷|宫殿|王朝|朝廷|武侠|玄幻|仙侠|ancient|hanfu|imperial|dynasty|period drama|historical/i;
 const PLAN_3D_RE = /octane|3d render|unreal engine|\bcgi\b|cartoon|anime|illustration|stylized render|render quality/i;
