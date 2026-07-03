@@ -71,6 +71,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (clips.length === 0) return NextResponse.json({ message: 'keep/drop 过滤后无可用镜头' }, { status: 400 });
 
+  // v12.80.0 合规守卫全覆盖:带 hookCard/endCard/hookVariants = 广告场景 → 台词(烧字幕+TTS)、
+  // 卡文案、变体标题全过《广告法》净化(v12.65 只盖主管线 Writer 出口,recompose 入口一直绕过;
+  // 老项目 recompose 也借此补净化)。纯剧情片(无卡)不动。
+  {
+    const isAdContext = !!(body?.hookCard?.title || body?.endCard?.title || body?.endCard?.slogan || (Array.isArray(body?.hookVariants) && body.hookVariants.length));
+    if (isAdContext) {
+      const { sanitizeAdCopy } = await import('@/lib/ad-compliance');
+      let hits = 0;
+      for (const c of clips) {
+        if (!c.dialogue) continue;
+        const r = sanitizeAdCopy(c.dialogue);
+        if (r.hits.length) { c.dialogue = r.text; hits += r.hits.length; }
+      }
+      for (const card of [body?.hookCard, body?.endCard, ...(Array.isArray(body?.hookVariants) ? body.hookVariants : [])]) {
+        if (!card) continue;
+        for (const k of ['title', 'slogan'] as const) {
+          if (typeof card[k] === 'string' && card[k]) {
+            const r = sanitizeAdCopy(card[k]);
+            if (r.hits.length) { card[k] = r.text; hits += r.hits.length; }
+          }
+        }
+      }
+      if (hits > 0) console.warn(`[recompose] v12.80 广告合规净化 ${hits} 处(台词/卡文案/变体)`);
+    }
+  }
+
   const musicUrl = fullUrl(musicAssets[0]?.persistent_url || parse(musicAssets[0]?.media_urls)?.[0] || '');
   const keepSet = new Set(clips.map((c) => c.shotNumber));
 
