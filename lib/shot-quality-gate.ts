@@ -94,8 +94,29 @@ export function gateFixHint(reasons: string[]): string {
   return bits.join(', ');
 }
 
+/**
+ * v12.83.0 视觉兜底网关解析(纯函数可测)。主网关(qingyuntop)vision 通道整组饱和时
+ * (实测连续 >24h 429),同网关换模型救不了 —— 需要**跨网关**视觉兜底。
+ * 优先显式 env(VISION_FALLBACK_BASE_URL/KEY/MODEL);否则有 MINIMAX_API_KEY 时用
+ * MiniMax 直连 `abab7-chat-preview`(实测 OpenAI-compat image_url 正常回答,~1s)。
+ */
+export function resolveVisionFallback(env: NodeJS.ProcessEnv = process.env): { baseURL: string; apiKey: string; model: string } | null {
+  if (env.VISION_FALLBACK_BASE_URL && env.VISION_FALLBACK_API_KEY) {
+    return {
+      baseURL: env.VISION_FALLBACK_BASE_URL,
+      apiKey: env.VISION_FALLBACK_API_KEY,
+      model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview',
+    };
+  }
+  if (env.MINIMAX_API_KEY) {
+    return { baseURL: 'https://api.minimaxi.com/v1', apiKey: env.MINIMAX_API_KEY, model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview' };
+  }
+  return null;
+}
+
 /** 调 VLM 给单张镜头图打分。无 key / vision 全挂 → null(调用方放行)。
- *  v12.61.0 P0-2:主视觉模型 429/503 时自动切同网关备用模型(OPENAI_ALT_MODELS)+ 健康缓存跳过饱和模型。 */
+ *  v12.61.0 P0-2:主视觉模型 429/503 时自动切同网关备用模型(OPENAI_ALT_MODELS)+ 健康缓存跳过饱和模型。
+ *  v12.83.0:主网关全挂再切跨网关视觉兜底(MiniMax 直连/显式 env)。 */
 export async function scoreShotStyle(imageUrl: string): Promise<ShotStyleScore | null> {
   const base = API_CONFIG.openai.baseURL;
   const key = API_CONFIG.openai.apiKey;
@@ -108,13 +129,20 @@ export async function scoreShotStyle(imageUrl: string): Promise<ShotStyleScore |
   const OpenAI = (await import('openai')).default;
   // 视觉候选:主模型 + 同网关备用(都是 qingyuntop-OpenAI 兼容,支持 image_url;不含 minimax 兜底=未必支持视觉)
   const models = [API_CONFIG.openai.model, ...(API_CONFIG.openai.altModels || [])].filter((m, i, a) => m && a.indexOf(m) === i);
-  for (const model of models) {
-    if (isLLMDown(llmKey({ baseURL: base, model }))) continue;
+  // v12.83:候选 = 主网关各模型 + 跨网关视觉兜底(MiniMax 直连/显式 env)
+  const candidates: Array<{ baseURL: string; apiKey: string; model: string; tag: string; jsonFormat: boolean }> = models.map((m) => ({ baseURL: base, apiKey: key, model: m, tag: m, jsonFormat: true }));
+  const fb = resolveVisionFallback();
+  if (fb && !candidates.some((c) => c.baseURL === fb.baseURL && c.model === fb.model)) {
+    // MiniMax 等不支持 response_format:json_object(400 code 2013)→ 兜底靠 system 指令 + parseShotGate 抠 JSON
+    candidates.push({ ...fb, tag: `fallback:${fb.model}`, jsonFormat: false });
+  }
+  for (const c of candidates) {
+    if (isLLMDown(llmKey({ baseURL: c.baseURL, model: c.model }))) continue;
     try {
-      const client = new OpenAI({ apiKey: key, baseURL: base });
+      const client = new OpenAI({ apiKey: c.apiKey, baseURL: c.baseURL });
       const resp = await client.chat.completions.create({
-        model,
-        response_format: { type: 'json_object' },
+        model: c.model,
+        ...(c.jsonFormat ? { response_format: { type: 'json_object' as const } } : {}),
         max_tokens: 300,
         messages: [
           { role: 'system', content: SHOT_GATE_SYSTEM_PROMPT },
@@ -125,8 +153,8 @@ export async function scoreShotStyle(imageUrl: string): Promise<ShotStyleScore |
       if (parsed) return parsed;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (isTransientLLMError(msg)) markLLMDown(llmKey({ baseURL: base, model }));
-      console.warn(`[ShotGate] ${model} 打分失败:`, msg.slice(0, 80));
+      if (isTransientLLMError(msg)) markLLMDown(llmKey({ baseURL: c.baseURL, model: c.model }));
+      console.warn(`[ShotGate] ${c.tag} 打分失败:`, msg.slice(0, 80));
     }
   }
   return null;

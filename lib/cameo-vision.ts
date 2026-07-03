@@ -104,7 +104,16 @@ export async function toVisionImageInput(imageUrl: string): Promise<string | nul
   if (!imageUrl) return null;
 
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    return imageUrl;
+    // v12.83.0:localhost/127.0.0.1 的 serve-file URL 外部 vision API 够不到(MiniMax 400
+    // disallowed url)→ 剥 origin 落到下面「本地读文件转 data: URI」分支
+    try {
+      const u = new URL(imageUrl);
+      if ((u.hostname === 'localhost' || u.hostname === '127.0.0.1') && u.pathname.startsWith('/api/serve-file')) {
+        imageUrl = u.pathname + u.search;
+      } else {
+        return imageUrl;
+      }
+    } catch { return imageUrl; }
   }
   if (imageUrl.startsWith('data:')) {
     return imageUrl;
