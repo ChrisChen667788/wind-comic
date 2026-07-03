@@ -348,6 +348,9 @@ export class HybridOrchestrator {
   // v12.62.0: 镜号 → 分镜图(视频生成失败镜的 Ken Burns 兜底取图用)
   private shotImageMap: Map<number, string> = new Map();
 
+  // v12.66.0: 质量防线事件账本(gate/cameo/styleAudit/KenBurns…)→ 成片质检报告
+  private qualityLedger: Array<{ shot: number; kind: string; detail: string }> = [];
+
   // v2.19 P0.2: 试拍图复用 — 用户在 create 页"试拍 1 镜"接受了某张图,把这张图
   // 直接当作第 1 镜的 storyboard 渲染结果, 跳过对应的 MJ 生成调用。
   // 只接受 http(s) URL, data:/svg/mock 图自动忽略。
@@ -2953,6 +2956,7 @@ ${shots.map((s, i) => {
           });
           finalImageUrl = cameoOutcome.finalImageUrl;
           if (cameoOutcome.retried) {
+            this.qualityLedger.push({ shot: sb.shotNumber ?? 0, kind: 'cameo-retry', detail: `${cameoOutcome.firstScore ?? '?'}→${cameoOutcome.finalScore ?? '?'}` }); // v12.66
             this.emit('agentTalk', {
               role: AgentRole.STORYBOARD,
               text: cameoOutcome.finalScore != null
@@ -2992,6 +2996,7 @@ ${shots.map((s, i) => {
           });
           if (gate.retried && gate.finalUrl) {
             finalImageUrl = gate.finalUrl;
+            this.qualityLedger.push({ shot: sb.shotNumber ?? 0, kind: 'shot-gate', detail: gate.reasons.join('/') }); // v12.66
             this.emit('agentTalk', {
               role: AgentRole.STORYBOARD,
               text: `🔎 第 ${sb.shotNumber} 镜质量门禁重生(${gate.reasons.join('/')})→ photoreal ${gate.firstScore?.photoreal ?? '?'}→${gate.finalScore?.photoreal ?? '?'}`,
@@ -3035,6 +3040,7 @@ ${shots.map((s, i) => {
                   finalImageUrl = newImg;
                   styleAuditResult = reAudit;
                   styleAuditRetried = true;
+                  this.qualityLedger.push({ shot: sb.shotNumber ?? 0, kind: 'style-audit', detail: `score→${reAudit.score}` }); // v12.66
                   this.emit('agentTalk', {
                     role: AgentRole.STORYBOARD,
                     text: `🎨 第 ${sb.shotNumber} 镜画风自动重生: ${styleAuditResult.score < reAudit.score ? styleAuditResult.score : '?'} → ${reAudit.score} (修偏: ${reAudit.reasoning.slice(0, 30)})`,
@@ -4462,6 +4468,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           try {
             const p = await stillFrameToVideo(this.shotImageMap.get(t.shotNumber as number)!, t.duration || 4, undefined, dirs[k % 3], dims);
             t.videoUrl = `/api/serve-file?path=${encodeURIComponent(p)}`;
+            this.qualityLedger.push({ shot: t.shotNumber ?? 0, kind: 'kenburns-fallback', detail: dirs[k % 3] }); // v12.66
             console.log(`[Editor] v12.62 Ken Burns 兜底: 镜 ${t.shotNumber} (${dirs[k % 3]}, ${dims.w}x${dims.h})`);
           } catch (e) {
             console.warn(`[Editor] Ken Burns 兜底失败 镜 ${t.shotNumber}(跳过):`, e instanceof Error ? e.message : e);
@@ -4666,6 +4673,8 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
       audioWarnings,
       hasBgm: Boolean(musicUrl),
       hasVoiceover: voiceoverClips.length > 0,   // v12.1.1 成片音频体检用
+      // v12.66.0 质检报告:全片质量防线事件账本汇总(gate/cameo/styleAudit/KenBurns)
+      qualityReport: (await import('@/lib/quality-report')).summarizeQualityLedger(this.qualityLedger),
     };
   }
 

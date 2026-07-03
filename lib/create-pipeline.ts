@@ -729,6 +729,10 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       if (editResult.musicUrl) {
         await saveAsset(projectId, 'music', '背景配乐', { duration: editResult.totalDuration }, [editResult.musicUrl]);
       }
+      // v12.66.0 成片质检报告(质量防线事件账本:哪些镜被重生/兜底、健康分)
+      if ((editResult as any).qualityReport) {
+        await saveAsset(projectId, 'quality_report', '成片质检报告', (editResult as any).qualityReport);
+      }
 
       // ── v2.11 #4 Writer-Editor 闭环: Editor 成片后对最终视频打 3 维分 ──
       // 异步跑(fire-and-forget),不阻塞下一步的 Producer Review
