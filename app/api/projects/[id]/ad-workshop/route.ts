@@ -30,10 +30,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const aspect: string = ['9:16', '16:9', '1:1'].includes(body?.aspect) ? body.aspect : '9:16';
   const origin = new URL(request.url).origin;
   const auth = request.headers.get('authorization') || '';
+  const cookie = request.headers.get('cookie') || ''; // v12.100:UI 走 httpOnly cookie 鉴权,必须一并转发
   const call = async (path: string, init?: RequestInit): Promise<any> => {
     const r = await fetch(`${origin}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', Authorization: auth, ...(init?.headers || {}) },
+      headers: { 'Content-Type': 'application/json', Authorization: auth, Cookie: cookie, ...(init?.headers || {}) },
     });
     const j = await r.json().catch(() => ({}));
     return { status: r.status, ...j };

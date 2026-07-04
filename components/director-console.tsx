@@ -45,6 +45,9 @@ export function DirectorConsole({
   const [impact, setImpact] = useState<StageId | null>(null);
   const [rerunning, setRerunning] = useState<StageId | null>(null);
   const [rerunMsg, setRerunMsg] = useState('');
+  // v12.100:一键广告包装车间(hook 弹药→变体+双卡→文案→并包)
+  const [workshopBusy, setWorkshopBusy] = useState(false);
+  const [workshopMsg, setWorkshopMsg] = useState('');
 
   // v12.44: 从 assets 按类型派生 KPI 概览
   const cnt = (t: string) => (assets as Array<{ type?: string }>).filter((a) => a?.type === t).length;
@@ -58,6 +61,33 @@ export function DirectorConsole({
   const nextHint = nextStage
     ? (nextStage.status === 'empty' ? `下一步 · 生成「${nextStage.label}」` : `建议 · 重生「${nextStage.label}」`)
     : '全链路就绪 · 可导出成片';
+
+  const doWorkshop = async () => {
+    if (!projectId || workshopBusy) return;
+    setWorkshopBusy(true); setWorkshopMsg('包装中…(hook→变体→文案→并包,约 1-3 分钟)');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/ad-workshop`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: 'douyin', aspect: '9:16' }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || '包装失败');
+      const st = d.steps || {};
+      setWorkshopMsg(
+        `✓ 包装 ${d.okSteps}/${d.totalSteps}:` +
+        `${st.hookIdeas?.ok ? ` Hook×${(st.hookIdeas.hooks || []).length}` : ' Hook✗'}` +
+        `${st.recompose?.ok ? ` · 变体×${(st.recompose.variants || []).length}` : ' · 合成✗'}` +
+        `${st.publishCopy?.ok ? ' · 文案✓' : ' · 文案✗'}` +
+        `${st.package?.ok ? ' · 并包✓' : ' · 并包✗'}`,
+      );
+      onReran?.();
+    } catch (e: unknown) {
+      setWorkshopMsg(e instanceof Error ? e.message : '包装失败');
+    } finally {
+      setWorkshopBusy(false);
+      setTimeout(() => setWorkshopMsg(''), 12000);
+    }
+  };
 
   const doRerun = async (sid: StageId) => {
     if (!projectId) return;
@@ -95,11 +125,27 @@ export function DirectorConsole({
           </h3>
           <p className="cinema-subhead text-xs opacity-65 mt-0.5">逐环节查看状态 · 进入任意节点编辑 / 重生 · 了解重跑的下游影响</p>
         </div>
-        <span className={`cinema-chip shrink-0 ${nextStage ? 'cinema-chip-amber' : 'cinema-chip-green'}`}>
-          {nextStage ? <Lightning className="w-3 h-3" weight="fill" /> : <CheckCircle2 className="w-3 h-3" weight="fill" />}
-          {nextHint}
-        </span>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {cnt('final_video') > 0 && projectId && (
+            <button
+              onClick={doWorkshop}
+              disabled={workshopBusy}
+              className="cinema-chip cinema-chip-amber hover:brightness-110 disabled:opacity-50 cursor-pointer"
+              title="一键后期:Hook 弹药 → A/B 变体 + 双卡 → 发布文案 → 发布包"
+            >
+              🎁 {workshopBusy ? '包装中…' : '广告包装车间'}
+            </button>
+          )}
+          <span className={`cinema-chip shrink-0 ${nextStage ? 'cinema-chip-amber' : 'cinema-chip-green'}`}>
+            {nextStage ? <Lightning className="w-3 h-3" weight="fill" /> : <CheckCircle2 className="w-3 h-3" weight="fill" />}
+            {nextHint}
+          </span>
+        </div>
       </div>
+
+      {workshopMsg && (
+        <div className="mb-3 text-xs cinema-subhead px-3 py-2 rounded-lg bg-white/5 border border-white/10">{workshopMsg}</div>
+      )}
 
       {/* KPI 概览 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
