@@ -29,7 +29,24 @@ describe('v12.94 · OpenRouter 档', () => {
     expect(resolveVisionFallback({ VISION_FALLBACK_BASE_URL: 'https://x/v1', VISION_FALLBACK_API_KEY: 'v', OPENROUTER_API_KEY: 'o', MINIMAX_API_KEY: 'm' } as any)!.baseURL).toBe('https://x/v1');
     const or = resolveVisionFallback({ OPENROUTER_API_KEY: 'o', MINIMAX_API_KEY: 'm' } as any)!;
     expect(or.baseURL).toBe('https://openrouter.ai/api/v1');
-    expect(or.model).toBe('anthropic/claude-sonnet-4');
+    expect(or.model).toBe('qwen/qwen3-vl-235b-a22b-instruct'); // v12.101 区域适配缺省
+    expect(resolveVisionFallback({ MINIMAX_API_KEY: 'm' } as any)!.model).toBe('abab7-chat-preview');
+  });
+});
+
+describe('v12.101 · 视觉兜底数组化 + 区域适配', () => {
+  it('全部档入链:显式 → OpenRouter(qwen3-vl 缺省)→ MiniMax', async () => {
+    const { resolveVisionFallbacks } = await import('@/lib/shot-quality-gate');
+    const arr = resolveVisionFallbacks({ VISION_FALLBACK_BASE_URL: 'https://x/v1', VISION_FALLBACK_API_KEY: 'v', OPENROUTER_API_KEY: 'o', MINIMAX_API_KEY: 'm' } as any);
+    expect(arr.length).toBe(3);
+    expect(arr[0].baseURL).toBe('https://x/v1');
+    expect(arr[1].model).toBe('qwen/qwen3-vl-235b-a22b-instruct'); // 区域可用缺省
+    expect(arr[2].model).toBe('abab7-chat-preview');
+  });
+
+  it('OPENROUTER_VISION_MODEL 可覆盖;resolveVisionFallback 兼容旧单选语义', async () => {
+    const { resolveVisionFallbacks, resolveVisionFallback } = await import('@/lib/shot-quality-gate');
+    expect(resolveVisionFallbacks({ OPENROUTER_API_KEY: 'o', OPENROUTER_VISION_MODEL: 'my/vl' } as any)[0].model).toBe('my/vl');
     expect(resolveVisionFallback({ MINIMAX_API_KEY: 'm' } as any)!.model).toBe('abab7-chat-preview');
   });
 });

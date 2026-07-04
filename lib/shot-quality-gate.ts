@@ -101,25 +101,30 @@ export function gateFixHint(reasons: string[]): string {
  * MiniMax 直连 `abab7-chat-preview`(实测 OpenAI-compat image_url 正常回答,~1s)。
  */
 export function resolveVisionFallback(env: NodeJS.ProcessEnv = process.env): { baseURL: string; apiKey: string; model: string } | null {
+  return resolveVisionFallbacks(env)[0] || null;
+}
+
+/**
+ * v12.101.0:兜底档**数组化** —— 显式 env、OpenRouter、MiniMax 全部入链依次试
+ * (此前单选一档,选中的挂了就没了)。OpenRouter 视觉默认模型改 **qwen3-vl**
+ * (实测 1.2s 且不受 anthropic/google 的区域 403 限制)。
+ */
+export function resolveVisionFallbacks(env: NodeJS.ProcessEnv = process.env): Array<{ baseURL: string; apiKey: string; model: string }> {
+  const out: Array<{ baseURL: string; apiKey: string; model: string }> = [];
   if (env.VISION_FALLBACK_BASE_URL && env.VISION_FALLBACK_API_KEY) {
-    return {
-      baseURL: env.VISION_FALLBACK_BASE_URL,
-      apiKey: env.VISION_FALLBACK_API_KEY,
-      model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview',
-    };
+    out.push({ baseURL: env.VISION_FALLBACK_BASE_URL, apiKey: env.VISION_FALLBACK_API_KEY, model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview' });
   }
-  // v12.94.0:OpenRouter 视觉档(优先于 MiniMax —— provider 级自动 failover,视觉模型多)
   if (env.OPENROUTER_API_KEY) {
-    return {
+    out.push({
       baseURL: env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
       apiKey: env.OPENROUTER_API_KEY,
-      model: env.VISION_FALLBACK_MODEL || 'anthropic/claude-sonnet-4',
-    };
+      model: env.OPENROUTER_VISION_MODEL || 'qwen/qwen3-vl-235b-a22b-instruct',
+    });
   }
   if (env.MINIMAX_API_KEY) {
-    return { baseURL: 'https://api.minimaxi.com/v1', apiKey: env.MINIMAX_API_KEY, model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview' };
+    out.push({ baseURL: 'https://api.minimaxi.com/v1', apiKey: env.MINIMAX_API_KEY, model: 'abab7-chat-preview' });
   }
-  return null;
+  return out;
 }
 
 /** 调 VLM 给单张镜头图打分。无 key / vision 全挂 → null(调用方放行)。
@@ -139,10 +144,12 @@ export async function scoreShotStyle(imageUrl: string): Promise<ShotStyleScore |
   const models = [API_CONFIG.openai.model, ...(API_CONFIG.openai.altModels || [])].filter((m, i, a) => m && a.indexOf(m) === i);
   // v12.83:候选 = 主网关各模型 + 跨网关视觉兜底(MiniMax 直连/显式 env)
   const candidates: Array<{ baseURL: string; apiKey: string; model: string; tag: string; jsonFormat: boolean }> = models.map((m) => ({ baseURL: base, apiKey: key, model: m, tag: m, jsonFormat: true }));
-  const fb = resolveVisionFallback();
-  if (fb && !candidates.some((c) => c.baseURL === fb.baseURL && c.model === fb.model)) {
-    // MiniMax 等不支持 response_format:json_object(400 code 2013)→ 兜底靠 system 指令 + parseShotGate 抠 JSON
-    candidates.push({ ...fb, tag: `fallback:${fb.model}`, jsonFormat: false });
+  // v12.101:全部兜底档入链(显式 → OpenRouter(qwen3-vl)→ MiniMax),挨个试
+  for (const fb of resolveVisionFallbacks()) {
+    if (!candidates.some((c) => c.baseURL === fb.baseURL && c.model === fb.model)) {
+      // MiniMax 等不支持 response_format:json_object(400 code 2013)→ 兜底靠 system 指令 + parseShotGate 抠 JSON
+      candidates.push({ ...fb, tag: `fallback:${fb.model}`, jsonFormat: false });
+    }
   }
   for (const c of candidates) {
     if (isLLMDown(llmKey({ baseURL: c.baseURL, model: c.model }))) continue;
