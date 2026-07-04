@@ -1207,6 +1207,17 @@ export class HybridOrchestrator {
       } catch (e) { console.warn(`[ImageRouter] ComfyUI failed for ${label}:`, e); }
     }
 
+    // v12.96.0 P0-2:OpenRouter 图像档(跨网关,provider 级自动 failover)—— mock 前最后真实档。
+    // MJ parameter error 整组翻车时不再直接掉占位图;OPENROUTER_API_KEY 未配自动跳过。
+    try {
+      const { generateOpenRouterImage } = await import('@/lib/image-providers/openrouter-image');
+      const orImg = await generateOpenRouterImage(prompt, { aspectRatio: opts?.aspectRatio });
+      if (orImg) {
+        console.log(`[ImageRouter] ✅ openrouter-image for: ${label}`);
+        return orImg;
+      }
+    } catch (e) { console.warn(`[ImageRouter] openrouter-image failed for ${label}:`, e instanceof Error ? e.message : e); }
+
     // 最后备用：Mock SVG
     console.warn(`[ImageRouter] All engines failed, using mock for: ${label}`);
     await sleep(800);
