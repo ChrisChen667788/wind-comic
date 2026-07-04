@@ -27,6 +27,46 @@ export function buildPublishCopyPrompt(input: { idea?: string; genre?: string; s
 }
 
 /**
+ * v12.99.0 文案变体矩阵(对标 marketingskills Ad Creative:20+ 变体×3 形态)。
+ * 短(信息流标题)×8 / 中(标题+正文)×8 / 长(种草长文)×4 = 20 条,全过合规净化。
+ */
+export interface CopyMatrix {
+  short: string[];                                  // ≤20 字 ×8
+  medium: Array<{ title: string; body: string }>;   // 标题≤20 + 正文≤60 ×8
+  long: string[];                                   // ≤300 字种草文 ×4
+}
+
+export function buildCopyMatrixPrompt(input: { idea?: string; genre?: string; synopsis?: string }): { system: string; user: string } {
+  const system =
+    '你是电商投放文案。为一条竖屏广告写发布文案矩阵,严格只输出 JSON:' +
+    '{"short":["8 条信息流短标题,每条≤20字,钩子各不同(痛点/好奇/数字/反差)"],' +
+    '"medium":[{"title":"≤20字","body":"≤60字正文"} 共 8 条],' +
+    '"long":["4 条小红书风种草长文,每条≤300字,口语化第一人称"]}' +
+    '。禁止《广告法》违禁词(最/第一/顶级/根治等)。';
+  const user = `创意:${(input.idea || '').slice(0, 300)}\n题材:${input.genre || ''}\n梗概:${(input.synopsis || '').slice(0, 200)}`;
+  return { system, user };
+}
+
+export function parseCopyMatrix(raw: string): CopyMatrix | null {
+  let j: any;
+  try { j = JSON.parse(raw); } catch {
+    const m = (raw || '').match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { j = JSON.parse(m[0]); } catch { return null; }
+  }
+  if (!j || !Array.isArray(j.short)) return null;
+  const clean = (s: unknown, max: number): string => sanitizeAdCopy(String(s ?? '').trim()).text.slice(0, max);
+  const short = j.short.map((t: unknown) => clean(t, 20)).filter(Boolean).slice(0, 8);
+  const medium = (Array.isArray(j.medium) ? j.medium : [])
+    .map((m: any) => ({ title: clean(m?.title, 20), body: clean(m?.body, 60) }))
+    .filter((m: any) => m.title && m.body)
+    .slice(0, 8);
+  const long = (Array.isArray(j.long) ? j.long : []).map((t: unknown) => clean(t, 300)).filter(Boolean).slice(0, 4);
+  if (short.length === 0) return null;
+  return { short, medium, long };
+}
+
+/**
  * v12.86.0 Hook 创意生成(A/B 变体的弹药)。公式约束写进 prompt:
  * 痛点问句 / 反常识陈述 / 数字利益点,每条 ≤14 字(卡片上限 16 留余量)。
  */

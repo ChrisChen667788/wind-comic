@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '@/app/api/auth/lib';
 import { getOwnedProject } from '@/lib/repos/project-repo';
 import { listAssetsByType, upsertAsset } from '@/lib/repos/asset-repo';
-import { buildPublishCopyPrompt, parsePublishCopy } from '@/lib/publish-copy';
+import { buildPublishCopyPrompt, parsePublishCopy, buildCopyMatrixPrompt, parseCopyMatrix } from '@/lib/publish-copy';
 import { callLLMWithFallback } from '@/lib/llm-client';
 
 export const runtime = 'nodejs';
@@ -26,6 +26,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const plan = parse(plans[0]?.data);
   const script = parse(scripts[0]?.data);
   if (!plan.genre && !script.synopsis) return NextResponse.json({ message: '项目缺 plan/script,无法生成文案' }, { status: 422 });
+
+  // v12.99.0 文案变体矩阵:body.matrix=true → 20 条×3 形态(短8/中8/长4),落 publish_copy_matrix
+  const wantMatrix = (await request.clone().json().catch(() => ({} as any)))?.matrix === true;
+  if (wantMatrix) {
+    const mp = buildCopyMatrixPrompt({ idea: script.title || plan.title, genre: plan.genre, synopsis: script.synopsis });
+    const mr = await callLLMWithFallback({ system: mp.system, user: mp.user, useCreative: false, jsonMode: true, maxTokens: 2200, timeoutMs: 120_000 });
+    if (!mr.ok || !mr.content) return NextResponse.json({ message: `LLM 失败: ${(mr.error || '').slice(0, 120)}` }, { status: 502 });
+    const matrix = parseCopyMatrix(mr.content);
+    if (!matrix) return NextResponse.json({ message: 'LLM 输出无法解析为文案矩阵' }, { status: 502 });
+    await upsertAsset({ projectId: id, type: 'publish_copy_matrix', name: '文案变体矩阵', data: matrix });
+    return NextResponse.json({ ok: true, matrix, counts: { short: matrix.short.length, medium: matrix.medium.length, long: matrix.long.length }, model: mr.model });
+  }
 
   const { system, user } = buildPublishCopyPrompt({
     idea: script.title || plan.title,
