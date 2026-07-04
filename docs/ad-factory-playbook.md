@@ -61,6 +61,8 @@ POST /api/projects/<id>/ad-workshop
 | Director 慢/超时 | opus-4-8 被 429 | 已切 sonnet-4;确认 OPENAI_CREATIVE_MODEL |
 | 门禁不打分 | qingyuntop vision 429 | 自动走 MiniMax abab7 兜底;或配 VISION_FALLBACK_* |
 | 成片 3D 感/古装 | 锚点被无视(旧版本) | 确认 ≥v12.58;plan 净化 v12.64 兜底 |
+| Kling/Elements 想用但 404 | vectorengine 网关无 Kling 视频端点(实测 POST /v1/videos/image2video 404) | 需原生 api.klingai.com key 或支持 Kling 视频路由的网关;在那之前 KLING_ELEMENTS 别开(开了也 404,白耗一档) |
+| 分镜全占位想救 | MJ 挂 + 未配跨网关图像档 | 配 OPENROUTER_API_KEY(v12.96 图像档)+ PEXELS_API_KEY(v12.95 B-roll) |
 
 ## 关键 env
 `OPENAI_MODEL/OPENAI_CREATIVE_MODEL`(sonnet-4)· `MINIMAX_API_KEY`(视频+TTS+视觉兜底)·
