@@ -108,6 +108,14 @@ export function resolveVisionFallback(env: NodeJS.ProcessEnv = process.env): { b
       model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview',
     };
   }
+  // v12.94.0:OpenRouter 视觉档(优先于 MiniMax —— provider 级自动 failover,视觉模型多)
+  if (env.OPENROUTER_API_KEY) {
+    return {
+      baseURL: env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+      apiKey: env.OPENROUTER_API_KEY,
+      model: env.VISION_FALLBACK_MODEL || 'anthropic/claude-sonnet-4',
+    };
+  }
   if (env.MINIMAX_API_KEY) {
     return { baseURL: 'https://api.minimaxi.com/v1', apiKey: env.MINIMAX_API_KEY, model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview' };
   }

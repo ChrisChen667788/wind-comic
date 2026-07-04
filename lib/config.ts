@@ -20,6 +20,10 @@ export const API_CONFIG = {
     // v7.0: 全局 LLM 兜底 —— 任何主 LLM 异常/欠费 → 路由到 MiniMax (OpenAI 兼容)
     fallbackBaseURL: process.env.LLM_FALLBACK_BASE_URL || 'https://api.minimaxi.com/v1',
     fallbackApiKey: process.env.LLM_FALLBACK_API_KEY || process.env.MINIMAX_API_KEY || '',
+    // v12.94.0 OpenRouter 档(70+ provider 自动健康路由;配 key 即启用)
+    openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
+    openrouterBaseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+    get openrouterModel() { return process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4'; },
     get fallbackModel() { return process.env.LLM_FALLBACK_MODEL || 'MiniMax-M2.7'; },
     pricing: {
       input: 2.5,  // $/1M tokens

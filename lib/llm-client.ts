@@ -33,6 +33,17 @@ export function buildLLMAttempts(useCreative: boolean, cfg: any = API_CONFIG.ope
       }
     }
   }
+  // v12.94.0 OpenRouter 档(调研落地):70+ provider 自动健康路由(30s 故障检测 + provider failover),
+  // OpenAI 兼容零改造 —— 主网关整组饱和时这档比单一兜底稳得多。配 OPENROUTER_API_KEY 即启用,
+  // 模型默认 anthropic/claude-sonnet-4(OPENROUTER_MODEL 可覆盖);排在同网关备用后、MiniMax 慢兜底前。
+  if (cfg.openrouterApiKey) {
+    out.push({
+      baseURL: cfg.openrouterBaseURL || 'https://openrouter.ai/api/v1',
+      apiKey: cfg.openrouterApiKey,
+      model: cfg.openrouterModel || 'anthropic/claude-sonnet-4',
+      label: 'OpenRouter兜底',
+    });
+  }
   if (cfg.fallbackApiKey && (cfg.fallbackApiKey !== primary.apiKey || cfg.fallbackModel !== primary.model)) {
     out.push({ baseURL: cfg.fallbackBaseURL, apiKey: cfg.fallbackApiKey, model: cfg.fallbackModel, label: 'MiniMax兜底' });
   }
