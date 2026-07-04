@@ -22,11 +22,13 @@ export interface QualityReport {
   summary: string;              // 一句话中文摘要
 }
 
-const DEGRADE_KINDS = new Set(['kenburns-fallback', 'missing-video']);
+const DEGRADE_KINDS = new Set(['kenburns-fallback', 'missing-video', 'broll-fallback']);
 const RETRY_PENALTY = 5;
 const DEGRADE_PENALTY = 12;
 // v12.91.0:缺镜(视频没出、连兜底图都没有)比兜底更重 —— 内容直接没了
 const MISSING_PENALTY = 15;
+// v12.95.0:B-roll 实拍素材兜底比静图动画轻(画面仍生动,只是非 AI 定制)
+const BROLL_PENALTY = 8;
 
 export function summarizeQualityLedger(events: QualityEvent[]): QualityReport {
   const byKind: Record<string, number> = {};
@@ -40,7 +42,9 @@ export function summarizeQualityLedger(events: QualityEvent[]): QualityReport {
   const total = (events || []).length;
   let score = 100;
   for (const e of events || []) {
-    score -= e.kind === 'missing-video' ? MISSING_PENALTY : DEGRADE_KINDS.has(e.kind) ? DEGRADE_PENALTY : RETRY_PENALTY;
+    score -= e.kind === 'missing-video' ? MISSING_PENALTY
+      : e.kind === 'broll-fallback' ? BROLL_PENALTY
+      : DEGRADE_KINDS.has(e.kind) ? DEGRADE_PENALTY : RETRY_PENALTY;
   }
   score = Math.max(20, Math.round(score));
   const parts: string[] = [];
@@ -53,6 +57,7 @@ export function summarizeQualityLedger(events: QualityEvent[]): QualityReport {
     if (byKind['shot-gate']) parts.push(`${byKind['shot-gate']} 镜风格门禁重生`);
     if (byKind['style-audit']) parts.push(`${byKind['style-audit']} 镜画风校正`);
     if (byKind['video-retry']) parts.push(`${byKind['video-retry']} 镜视频重试`);
+    if (byKind['broll-fallback']) parts.push(`${byKind['broll-fallback']} 镜实拍素材兜底`);
     if (byKind['kenburns-fallback']) parts.push(`${byKind['kenburns-fallback']} 镜静图动画兜底`);
     if (byKind['compliance']) parts.push(`${byKind['compliance']} 处广告合规替换`);
   }

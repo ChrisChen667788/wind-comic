@@ -4467,22 +4467,41 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
       }
     }
 
-    // ═══ v12.62.0 失败镜 Ken Burns 兜底(成片时长保障)═══
-    // 病根:引擎偶发错误(Minimax video-01 error 等)让 10 分镜只成 3 视频 → 成片 16s 残片。
-    // 兜底:没出视频但有分镜图的镜,用画幅感知 Ken Burns 把静图动画化(推/拉/横移交替),
-    // 保住叙事完整与目标时长。逐镜 try/catch,单镜兜底失败不连累其它。
+    // ═══ v12.62.0→v12.95.0 失败镜双层兜底(成片时长保障)═══
+    // 供给侧翻车(引擎偶发/余额尽/分镜占位)时:先搜 Pexels 免版权实拍 B-roll(v12.95,
+    // 比静图动画生动,商用安全;PEXELS_API_KEY 未配自动跳过),再 Ken Burns 静图动画(需分镜真图)。
+    // 逐镜 try/catch,单镜失败不连累。
     {
-      const missing = timeline.filter(t => !isValidVideoUrl(t.videoUrl) && typeof t.shotNumber === 'number' && this.shotImageMap.get(t.shotNumber));
+      const missing = timeline.filter(t => !isValidVideoUrl(t.videoUrl) && typeof t.shotNumber === 'number');
       if (missing.length > 0) {
-        this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🎞️ ${missing.length} 个镜头视频缺失,用分镜图 Ken Burns 动画兜底(保成片完整)` });
+        this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🎞️ ${missing.length} 个镜头视频缺失,启动双层兜底(实拍素材 → 静图动画)` });
         const { stillFrameToVideo } = await import('./video-composer');
         const { dimsForAspect } = await import('@/lib/video-reframe');
+        const { buildBrollQuery, searchPexelsBroll } = await import('@/lib/broll');
         const dims = dimsForAspect(this.aspect);
+        const vertical = dims.h > dims.w;
         const dirs: Array<'in' | 'out' | 'pan'> = ['in', 'out', 'pan'];
         for (let k = 0; k < missing.length; k++) {
           const t = missing[k];
+          // 第 1 层:Pexels B-roll(用该镜英文 visualPrompt 构造查询)
           try {
-            const p = await stillFrameToVideo(this.shotImageMap.get(t.shotNumber as number)!, t.duration || 4, undefined, dirs[k % 3], dims);
+            const shot = script?.shots?.find((s: any) => s.shotNumber === t.shotNumber);
+            const query = buildBrollQuery((shot as any)?.visualPrompt || (shot as any)?.sceneDescription || '');
+            const link = await searchPexelsBroll(query, { vertical, minSec: t.duration || 4 });
+            if (link) {
+              t.videoUrl = link;
+              this.qualityLedger.push({ shot: t.shotNumber ?? 0, kind: 'broll-fallback', detail: query.slice(0, 40) });
+              console.log(`[Editor] v12.95 B-roll 兜底: 镜 ${t.shotNumber} ← "${query.slice(0, 50)}"`);
+              continue;
+            }
+          } catch (e) {
+            console.warn(`[Editor] B-roll 兜底失败 镜 ${t.shotNumber}(转 Ken Burns):`, e instanceof Error ? e.message : e);
+          }
+          // 第 2 层:Ken Burns(需分镜真图)
+          const img = this.shotImageMap.get(t.shotNumber as number);
+          if (!img) continue; // 无图无素材 → 交给 missing-video 记账
+          try {
+            const p = await stillFrameToVideo(img, t.duration || 4, undefined, dirs[k % 3], dims);
             t.videoUrl = `/api/serve-file?path=${encodeURIComponent(p)}`;
             this.qualityLedger.push({ shot: t.shotNumber ?? 0, kind: 'kenburns-fallback', detail: dirs[k % 3] }); // v12.66
             console.log(`[Editor] v12.62 Ken Burns 兜底: 镜 ${t.shotNumber} (${dirs[k % 3]}, ${dims.w}x${dims.h})`);
