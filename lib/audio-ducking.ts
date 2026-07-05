@@ -32,3 +32,16 @@ export function buildDuckingFilters(musicLabel: string, voLabel: string): Duckin
 export function shouldDuck(hasMusic: boolean, voCount: number, env: NodeJS.ProcessEnv = process.env): boolean {
   return hasMusic && voCount > 0 && env.BGM_DUCK_DISABLE !== '1';
 }
+
+/**
+ * v12.110.0 响度归一(纯函数):平台标准 -14 LUFS(抖音/小红书/YouTube 通行),
+ * true peak -1.5 dBTP 防削波。成片响度忽大忽小会被平台二次压缩(音质损)或听感突兀。
+ * 挂在最终音频标签后;AUDIO_LOUDNORM_DISABLE=1 关。
+ */
+export function buildLoudnormFilter(inLabel: string, outLabel: string = '[anorm]'): string {
+  return `${inLabel}loudnorm=I=-14:TP=-1.5:LRA=11[${outLabel.replace(/^\[|\]$/g, '')}]`;
+}
+
+export function shouldLoudnorm(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.AUDIO_LOUDNORM_DISABLE !== '1';
+}

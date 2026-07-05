@@ -992,7 +992,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   }
 
   // v12.67.0:ducking 模块在 Promise 外加载(sync 滤镜段不能 await)
-  const { shouldDuck, buildDuckingFilters } = await import('@/lib/audio-ducking');
+  const { shouldDuck, buildDuckingFilters, shouldLoudnorm, buildLoudnormFilter } = await import('@/lib/audio-ducking');
 
   // 6. 多片段 xfade 合成
   return new Promise((resolve, reject) => {
@@ -1245,6 +1245,14 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     }
 
     const totalDuration = cumulativeDuration;
+
+    // v12.110.0 响度归一:最终音频过 loudnorm(-14 LUFS/-1.5 dBTP,平台标准),
+    // 防成片忽大忽小被平台二压。AUDIO_LOUDNORM_DISABLE=1 关。
+    if (shouldLoudnorm()) {
+      filters.push(buildLoudnormFilter(audioOut, '[anorm]'));
+      audioOut = '[anorm]';
+      console.log('[Composer] v12.110 响度归一 -14 LUFS 启用');
+    }
 
     cmd
       .complexFilter(filters)

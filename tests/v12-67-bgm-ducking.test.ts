@@ -27,3 +27,16 @@ describe('v12.67 · BGM ducking', () => {
     expect(shouldDuck(true, 3, { BGM_DUCK_DISABLE: '1' } as any)).toBe(false);
   });
 });
+
+describe('v12.110 · 响度归一', () => {
+  it('buildLoudnormFilter:-14 LUFS/-1.5 dBTP,标签接续正确', async () => {
+    const { buildLoudnormFilter } = await import('@/lib/audio-ducking');
+    expect(buildLoudnormFilter('[outa]')).toBe('[outa]loudnorm=I=-14:TP=-1.5:LRA=11[anorm]');
+    expect(buildLoudnormFilter('[outfinal]', '[x]')).toBe('[outfinal]loudnorm=I=-14:TP=-1.5:LRA=11[x]');
+  });
+  it('shouldLoudnorm:默认开,env 可关', async () => {
+    const { shouldLoudnorm } = await import('@/lib/audio-ducking');
+    expect(shouldLoudnorm({} as any)).toBe(true);
+    expect(shouldLoudnorm({ AUDIO_LOUDNORM_DISABLE: '1' } as any)).toBe(false);
+  });
+});
