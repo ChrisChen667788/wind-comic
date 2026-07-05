@@ -331,7 +331,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
 2. **测试是底线.** Vitest 1711/1711 必须保持绿. 新加 lib/service 必须配测试.
 
-详见 [`CLAUDE.md`](CLAUDE.md) — 仓库的"代码风格"和 agent 设计笔记.
+详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 
 ---
 

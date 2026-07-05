@@ -413,7 +413,7 @@ We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
 2. **Tests gate everything.** Vitest 1894/1894 must stay green. Add tests for new lib/service files.
 
-See [`CLAUDE.md`](CLAUDE.md) for the repo's "house style" + agent design notes.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 
 ---
 
