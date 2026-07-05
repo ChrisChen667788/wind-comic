@@ -480,8 +480,12 @@ export class MinimaxService {
   }
 
   // 轮询结果
-  private async pollResult(taskId: string, maxAttempts = 60): Promise<string> {
-    for (let i = 0; i < maxAttempts; i++) {
+  // v12.105.0:上限 env 可配(MINIMAX_VIDEO_POLL_TIMEOUT_MS,默认 10min)。实测坑:Hailuo 队列
+  // 慢时段任务实际在跑,5min(60×5s)就放弃 = 任务费照扣却丢镜,还连累整片掉兜底。
+  private async pollResult(taskId: string, maxAttempts?: number): Promise<string> {
+    const timeoutMs = Number(process.env.MINIMAX_VIDEO_POLL_TIMEOUT_MS) || 10 * 60_000;
+    const attempts = maxAttempts ?? Math.max(12, Math.round(timeoutMs / 5000));
+    for (let i = 0; i < attempts; i++) {
       await this.sleep(5000);
 
       const response = await fetchWithTimeout(`${this.baseURL}/v1/query/video_generation?task_id=${taskId}`, {
@@ -523,7 +527,8 @@ export class MinimaxService {
       // Processing / Queueing — 继续等待
     }
 
-    throw new Error('Minimax video generation timeout (5 min)');
+    const mins = Math.round(((Number(process.env.MINIMAX_VIDEO_POLL_TIMEOUT_MS) || 10 * 60_000)) / 60000);
+    throw new Error(`Minimax video generation timeout (${mins} min, task=${taskId} 仍可能在跑 — 可调 MINIMAX_VIDEO_POLL_TIMEOUT_MS)`);
   }
 
   // 通过 file_id 获取文件下载 URL
