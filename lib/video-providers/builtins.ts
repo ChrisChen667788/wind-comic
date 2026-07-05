@@ -167,6 +167,35 @@ registerVideoProvider({
   },
 });
 
+// ─── Provider 2.5: Vidu Q3(经 qingyuntop 网关,v12.104)─────────────────────
+// 优先级 75(kling 70 之后、minimax 80 之前):veo 死/minimax 慢时的新 AI 视频通道。
+// Vidu 官方 /ent/v2 形态,复用 OPENAI_API_KEY;QYT_VIDU_DISABLE=1 可关。
+registerVideoProvider({
+  id: 'qyt-vidu',
+  name: 'Vidu Q3 (via qingyuntop /ent/v2)',
+  priority: 75,
+  supportsImage2Video: true,
+  supportsText2Video: true,
+  supportsLastFrame: false,
+  supportsSubjectReference: false,
+  maxDurationSec: 8,
+  available: () => {
+    try {
+      const m = require('@/services/qyt-vidu.service');
+      return m.hasQytVidu?.() ?? false;
+    } catch { return false; }
+  },
+  async generate(input: VideoGenerateInput) {
+    const { QytViduService } = await import('@/services/qyt-vidu.service');
+    const url = await new QytViduService().generateVideo(input.firstFrameUrl || '', input.prompt, {
+      duration: input.durationSec,
+      aspectRatio: input.aspectRatio,
+    });
+    if (!url) throw new Error('QytVidu returned empty url');
+    return { videoUrl: url, provider: 'qyt-vidu' };
+  },
+});
+
 // ─── Provider 3: Minimax 视频 (Hailuo-2.3 / S2V-01) ────────────────────────
 // 优先级 80 — S2V-01 多主体一致性是其独家 ability.
 registerVideoProvider({
