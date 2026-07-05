@@ -109,6 +109,14 @@ export async function searchPexelsBroll(
 ): Promise<string | null> {
   const key = env.PEXELS_API_KEY;
   if (!key || !query) return null;
+  // v12.108:缓存命中直接复用(已筛过的干净链接)
+  const ck = brollCacheKey(query, opts.vertical);
+  const cache = readBrollCache();
+  const hit = cache[ck];
+  if (hit && Date.now() - hit.at < 7 * 24 * 3600_000) {
+    console.log(`[Broll] v12.108 缓存命中: "${query.slice(0, 40)}"`);
+    return hit.link;
+  }
   try {
     const u = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=${opts.vertical ? 'portrait' : 'landscape'}&per_page=6`;
     const controller = new AbortController();
@@ -130,6 +138,7 @@ export async function searchPexelsBroll(
         continue;
       }
       if (verdict === 'unknown' && i === 0) console.log('[Broll] 视觉筛查不可用,按原排序放行');
+      if (verdict === 'clean') { cache[ck] = { link: candidates[i], at: Date.now() }; writeBrollCache(cache); } // 只缓存筛过的干净结果
       return candidates[i];
     }
     console.log('[Broll] v12.103 全部候选含烤字 → 放弃 B-roll(交 Ken Burns)');
@@ -152,3 +161,47 @@ export function classifyClipSource(url: string | undefined | null): 'ai' | 'brol
 
 /** AI 镜烤字抽查:与 B-roll 同款(抽第 1 秒帧 → VLM hasBakedText)。 */
 export const screenVideoForBakedText = screenBrollForBakedText;
+
+// ─── v12.108.0 B-roll 结果缓存(落盘 LRU)────────────────────────────────────────
+// 同 query 的筛查结果复用:每次筛查 ~15s(抽帧+VLM)+ 费用;同品类多镜/重跑常撞同查询。
+// data/broll-cache.json,上限 200 条,TTL 7 天(Pexels 直链长期有效)。
+
+const BROLL_CACHE_MAX = 200;
+const BROLL_CACHE_TTL_MS = 7 * 24 * 3600_000;
+
+export function brollCacheKey(query: string, vertical: boolean): string {
+  return `${vertical ? 'v' : 'h'}:${query.trim().toLowerCase()}`;
+}
+
+/** 纯函数:裁剪缓存(去过期 + LRU 截断到上限)。 */
+export function pruneBrollCache(
+  cache: Record<string, { link: string; at: number }>,
+  now: number,
+  max: number = BROLL_CACHE_MAX,
+  ttlMs: number = BROLL_CACHE_TTL_MS,
+): Record<string, { link: string; at: number }> {
+  const alive = Object.entries(cache || {}).filter(([, v]) => v && now - v.at < ttlMs);
+  alive.sort((a, b) => b[1].at - a[1].at);
+  return Object.fromEntries(alive.slice(0, max));
+}
+
+function brollCachePath(): string {
+  const path = require('path') as typeof import('path');
+  return path.join(process.cwd(), 'data', 'broll-cache.json');
+}
+
+export function readBrollCache(): Record<string, { link: string; at: number }> {
+  try {
+    const fs = require('fs') as typeof import('fs');
+    return JSON.parse(fs.readFileSync(brollCachePath(), 'utf-8'));
+  } catch { return {}; }
+}
+
+export function writeBrollCache(cache: Record<string, { link: string; at: number }>): void {
+  try {
+    const fs = require('fs') as typeof import('fs');
+    const path = require('path') as typeof import('path');
+    fs.mkdirSync(path.dirname(brollCachePath()), { recursive: true });
+    fs.writeFileSync(brollCachePath(), JSON.stringify(pruneBrollCache(cache, Date.now())));
+  } catch { /* 缓存写失败不阻塞 */ }
+}

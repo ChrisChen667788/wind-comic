@@ -79,3 +79,20 @@ describe('v12.107 · 角色感知查询', () => {
     expect(derivePersonaHint('一杯咖啡的特写')).toBe('');
   });
 });
+
+describe('v12.108 · B-roll 缓存纯逻辑', () => {
+  it('key 归一(方向+小写trim);prune 去过期+LRU 截断', async () => {
+    const { brollCacheKey, pruneBrollCache } = await import('@/lib/broll');
+    expect(brollCacheKey('  Young Man Coffee ', true)).toBe('v:young man coffee');
+    const now = 1_000_000_000;
+    const cache = {
+      fresh: { link: 'a', at: now - 1000 },
+      stale: { link: 'b', at: now - 8 * 24 * 3600_000 },
+      old1: { link: 'c', at: now - 5000 },
+    };
+    const pruned = pruneBrollCache(cache as any, now, 2);
+    expect(pruned.stale).toBeUndefined();      // 过期
+    expect(Object.keys(pruned).length).toBe(2); // LRU 截断
+    expect(pruned.fresh.link).toBe('a');
+  });
+});
