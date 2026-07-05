@@ -25,6 +25,19 @@ export function buildBrollQuery(visualPrompt: string): string {
   return words.slice(0, 8).join(' ');
 }
 
+/**
+ * v12.107.0 角色感知(纯函数):从 brief/锁定角色性别推出英文人设词,注入查询首部 ——
+ * 实测坑:耳机片 brief 锁男主,B-roll 却混入女性镜(通用素材检索不带人设)。
+ */
+export function derivePersonaHint(idea: string, lockedGender?: 'male' | 'female' | 'unknown'): string {
+  if (lockedGender === 'male') return 'young man';
+  if (lockedGender === 'female') return 'young woman';
+  const t = idea || '';
+  if (/男主角|男性|男生|小伙|先生|男士/.test(t)) return 'young man';
+  if (/女主角|女性|女生|姑娘|女士|她/.test(t)) return 'young woman';
+  return '';
+}
+
 export interface PexelsVideoFile { width: number; height: number; link: string; quality?: string }
 export interface PexelsVideo { duration: number; video_files: PexelsVideoFile[] }
 

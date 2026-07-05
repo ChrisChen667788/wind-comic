@@ -69,3 +69,13 @@ describe('v12.106 · 片源分类', () => {
     expect(classifyClipSource('ftp://x')).toBe('invalid');
   });
 });
+
+describe('v12.107 · 角色感知查询', () => {
+  it('锁定性别优先;brief 正则次之;无信号空串', async () => {
+    const { derivePersonaHint } = await import('@/lib/broll');
+    expect(derivePersonaHint('随便', 'male')).toBe('young man');
+    expect(derivePersonaHint('全片锁定同一位真人男主角')).toBe('young man');
+    expect(derivePersonaHint('职场女性的一天')).toBe('young woman');
+    expect(derivePersonaHint('一杯咖啡的特写')).toBe('');
+  });
+});

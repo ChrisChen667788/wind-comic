@@ -4508,7 +4508,9 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         this.emit('agentTalk', { role: AgentRole.EDITOR, text: `🎞️ ${missing.length} 个镜头视频缺失,启动双层兜底(实拍素材 → 静图动画)` });
         const { stillFrameToVideo } = await import('./video-composer');
         const { dimsForAspect } = await import('@/lib/video-reframe');
-        const { buildBrollQuery, searchPexelsBroll } = await import('@/lib/broll');
+        const { buildBrollQuery, searchPexelsBroll, derivePersonaHint } = await import('@/lib/broll');
+        // v12.107:主角性别注入查询(锁定角色 traits 优先,否则 brief 正则)—— 修 B-roll 男女混用
+        const personaHint = derivePersonaHint(this.originalIdea || '', (this.lockedCharacters?.[0] as any)?.traits?.gender);
         const dims = dimsForAspect(this.aspect);
         const vertical = dims.h > dims.w;
         const dirs: Array<'in' | 'out' | 'pan'> = ['in', 'out', 'pan'];
@@ -4517,7 +4519,10 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           // 第 1 层:Pexels B-roll(用该镜英文 visualPrompt 构造查询)
           try {
             const shot = script?.shots?.find((s: any) => s.shotNumber === t.shotNumber);
-            const query = buildBrollQuery((shot as any)?.visualPrompt || (shot as any)?.sceneDescription || '');
+            const baseQuery = buildBrollQuery((shot as any)?.visualPrompt || (shot as any)?.sceneDescription || '');
+            // 人物镜(prompt 含 man/woman/person 或该镜有角色)才注入人设词,产品特写镜不注入
+            const isPeopleShot = /man|woman|person|people|face|portrait/i.test(baseQuery) || ((shot as any)?.characters || []).length > 0;
+            const query = isPeopleShot && personaHint && !baseQuery.includes(personaHint) ? `${personaHint} ${baseQuery}`.slice(0, 100) : baseQuery;
             const link = await searchPexelsBroll(query, { vertical, minSec: t.duration || 4 });
             if (link) {
               t.videoUrl = link;
