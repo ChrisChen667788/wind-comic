@@ -58,3 +58,14 @@ describe('v12.103 · 候选排序 + 烤字筛查纯逻辑', () => {
     expect(pickBestBrollFile(vids as any, true, 4)).toBe(rankBrollFiles(vids as any, true, 4, 1)[0]);
   });
 });
+
+describe('v12.106 · 片源分类', () => {
+  it('classifyClipSource:AI CDN / pexels / 本地 / 无效', async () => {
+    const { classifyClipSource } = await import('@/lib/broll');
+    expect(classifyClipSource('https://cdn.hailuo.ai/v.mp4')).toBe('ai');
+    expect(classifyClipSource('https://videos.pexels.com/video-files/1/1-hd.mp4')).toBe('broll');
+    expect(classifyClipSource('/api/serve-file?path=%2Ftmp%2Fa.mp4')).toBe('local');
+    expect(classifyClipSource('')).toBe('invalid');
+    expect(classifyClipSource('ftp://x')).toBe('invalid');
+  });
+});

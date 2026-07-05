@@ -4478,6 +4478,26 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
       }
     }
 
+    // ═══ v12.106.0 AI 视频镜烤字抽查 ═══
+    // gate 只查分镜图,AI 视频生成阶段仍可能把字烤进画面(实测疑云)。对 AI CDN 片源抽帧 VLM 查:
+    // 默认只记账告警(qualityLedger 'video-baked-text');VIDEO_BAKED_DROP=1 时清掉该镜 videoUrl
+    // → 下方双层兜底自动以干净素材顶上。VIDEO_TEXT_SCREEN_DISABLE=1 关。商业题材 only(省 VLM)。
+    try {
+      const { isCommercialIdea } = await import('@/lib/end-card');
+      if (process.env.VIDEO_TEXT_SCREEN_DISABLE !== '1' && isCommercialIdea(this.originalIdea || '')) {
+        const { classifyClipSource, screenVideoForBakedText } = await import('@/lib/broll');
+        for (const t of timeline) {
+          if (classifyClipSource(t.videoUrl) !== 'ai') continue;
+          const verdict = await screenVideoForBakedText(t.videoUrl);
+          if (verdict === 'baked-text') {
+            this.qualityLedger.push({ shot: t.shotNumber ?? 0, kind: 'video-baked-text', detail: 'AI 镜画面含烤字' });
+            this.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 第 ${t.shotNumber} 镜 AI 视频画面检出烤字${process.env.VIDEO_BAKED_DROP === '1' ? ',已剔除交兜底重配' : '(仅记录,VIDEO_BAKED_DROP=1 可自动剔除)'}` });
+            if (process.env.VIDEO_BAKED_DROP === '1') t.videoUrl = '';
+          }
+        }
+      }
+    } catch (e) { console.warn('[Editor] v12.106 烤字抽查失败(非阻塞):', e instanceof Error ? e.message : e); }
+
     // ═══ v12.62.0→v12.95.0 失败镜双层兜底(成片时长保障)═══
     // 供给侧翻车(引擎偶发/余额尽/分镜占位)时:先搜 Pexels 免版权实拍 B-roll(v12.95,
     // 比静图动画生动,商用安全;PEXELS_API_KEY 未配自动跳过),再 Ken Burns 静图动画(需分镜真图)。

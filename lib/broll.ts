@@ -126,3 +126,16 @@ export async function searchPexelsBroll(
     return null;
   }
 }
+
+// ─── v12.106.0 AI 视频镜烤字抽查(复用本模块抽帧+VLM 基建)────────────────────────
+/** 片源分类(纯函数):AI CDN / Pexels B-roll(已筛过)/ 本地(KenBurns 等)/ 无效。 */
+export function classifyClipSource(url: string | undefined | null): 'ai' | 'broll' | 'local' | 'invalid' {
+  if (!url) return 'invalid';
+  if (url.startsWith('/api/serve-file') || url.startsWith('data:')) return 'local';
+  if (!url.startsWith('http')) return 'invalid';
+  if (/pexels\.com/i.test(url)) return 'broll';
+  return 'ai';
+}
+
+/** AI 镜烤字抽查:与 B-roll 同款(抽第 1 秒帧 → VLM hasBakedText)。 */
+export const screenVideoForBakedText = screenBrollForBakedText;
