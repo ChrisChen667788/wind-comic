@@ -16,7 +16,7 @@
  * 决策纯函数, 好测.
  */
 
-export type ImageEngine = 'mj' | 'minimax-multi' | 'minimax-single' | 'kontext';
+export type ImageEngine = 'mj' | 'minimax-multi' | 'minimax-single' | 'kontext' | 'seedream'; // v12.109 seedream 档
 
 export interface ImageRouteDecision {
   primary: ImageEngine;
@@ -48,6 +48,13 @@ export interface ImageRouteInput {
  * | ≥3   | ✓  | ✗       | -       | mj (退化到 2 ref) → kontext                     |
  * | ≥3   | ✗  | ✓       | -       | minimax-multi → kontext                         |
  */
+/** v12.109:seedream 档(qingyuntop images/generations 实测 14s 出图,竖屏直出)追加到链尾。 */
+export function appendSeedreamTier(route: { primary: ImageEngine; fallbacks: ImageEngine[]; reason: string }): typeof route {
+  if (process.env.IMAGE_SEEDREAM_DISABLE === '1') return route;
+  if (route.primary !== 'seedream' && !route.fallbacks.includes('seedream')) route.fallbacks = [...route.fallbacks, 'seedream'];
+  return route;
+}
+
 export function decideImageRoute(input: ImageRouteInput): ImageRouteDecision {
   const refCount = input.validRefs.length;
 

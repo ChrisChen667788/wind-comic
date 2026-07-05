@@ -1128,18 +1128,18 @@ export class HybridOrchestrator {
     // ═══ v2.20 P0.3: 智能路由 — 按 refs 数量分流 ═══
     // 关键改进: refs ≥ 3 时优先走 Minimax multi-ref (能用全部 4 张), 而不是 MJ 退化成 2 张.
     // 这样 Style Bible + 主角 + 配角 + 场景 可以同时锁住, 不再每镜舍弃一半参考.
-    const { decideImageRoute, collectValidRefs } = await import('@/lib/image-router');
+    const { decideImageRoute, collectValidRefs, appendSeedreamTier } = await import('@/lib/image-router');
     const validRefs = collectValidRefs({
       cref: opts?.cref,
       sref: opts?.sref,
       referenceImages: opts?.referenceImages,
     });
-    const route = decideImageRoute({
+    const route = appendSeedreamTier(decideImageRoute({
       validRefs,
       mjAvailable: !!this.mjService,
       minimaxAvailable: !!this.minimaxService?.isImageAvailable(),
       kontextAvailable: !!veKey || !!qytKey,
-    });
+    }));
     console.log(`[ImageRouter] ${label}: refs=${validRefs.length} → primary=${route.primary} fallbacks=[${route.fallbacks.join(',')}] (${route.reason})`);
 
     // engine 执行器 — 每个 engine 抽成一个 thunk, router 按顺序串行 try
@@ -1166,9 +1166,18 @@ export class HybridOrchestrator {
           return await this.minimaxService.generateImage(prompt, { aspectRatio: opts?.aspectRatio || '16:9' });
         }
         case 'kontext': {
-          if (veKey) return hasRefImages ? await kontextImage(veBase, veKey) : await apiImage('flux.1-kontext-pro', veBase, veKey);
-          if (qytKey) return hasRefImages ? await kontextImage(qytBase, qytKey) : await apiImage('flux.1-kontext-pro', qytBase, qytKey);
+          const km = process.env.IMAGE_KONTEXT_MODEL || 'flux.1-kontext-pro'; // v12.109 env 可换 flux-2-pro
+          if (veKey) return hasRefImages ? await kontextImage(veBase, veKey) : await apiImage(km, veBase, veKey);
+          if (qytKey) return hasRefImages ? await kontextImage(qytBase, qytKey) : await apiImage(km, qytBase, qytKey);
           throw new Error('no kontext gateway key');
+        }
+        case 'seedream': {
+          // v12.109:Seedream 4.5(Dreamina 同家,I2V 双榜第一的 t2i)—— 实测 14s 出图,
+          // 竖屏 720x1280 直出(画幅比 MJ 准);qingyuntop images/generations 形态。
+          if (!qytKey) throw new Error('no qingyuntop key for seedream');
+          const sm = process.env.IMAGE_SEEDREAM_MODEL || 'doubao-seedream-4-5-251128';
+          const size = opts?.aspectRatio === '9:16' ? '720x1280' : opts?.aspectRatio === '1:1' ? '1024x1024' : '1280x720';
+          return await apiImage(sm, qytBase, qytKey, size);
         }
       }
     };
