@@ -101,7 +101,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/bcryptjs": "^2.4.6",
@@ -109,10 +109,10 @@
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/ws": "^8.18.1",
-    "@vitejs/plugin-react": "^6.0.4",
+    "@vitejs/plugin-react": "^6.0.5",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.15",
-    "puppeteer": "^25.3.0",
+    "puppeteer": "^25.4.0",
     "tsx": "^4.23.1",
     "vitest": "^4.1.10"
   },
