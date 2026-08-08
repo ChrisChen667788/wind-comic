@@ -109,6 +109,30 @@ export function deriveProsody(input: ProsodyInput = {}): ProsodyParams {
  * v12.203:角色名 → prosody 偏置(纯函数,可测)。中英线索松匹配;无线索 → 零偏置。
  * 年龄优先级高于性别(老者/孩童的语速特征比音高更显著)。
  */
+/**
+ * v12.288:角色名 → {性别, 年龄段} 推断(与 `characterProsodyBias` **共用同一套线索词表**)。
+ *
+ * 为什么要抽出来:选音色与调韵律本该基于**同一个**对角色的判断,但此前
+ *   · 韵律侧用 `characterProsodyBias`(线索丰富:老/爷/婆/翁/叟 + 中英性别词);
+ *   · 音色侧根本没做推断 —— editor-agent 是拿**这句台词的情绪**猜性别(见 v12.288 病根)。
+ * 两处口径不一,就会出现「按老者调慢语速、却配了个少女嗓」的割裂。
+ *
+ * 诚实边界:纯词表启发式,**多数中文人名判不出**(如「顾行舟」「林晚」)—— 返回 undefined,
+ * 由调用方退回哈希散列。这不是缺陷,是不瞎猜:宁可散列也不要把男主判成女声。
+ */
+export function inferTraitsFromName(name?: string | null): { gender?: 'male' | 'female'; ageGroup?: string } {
+  const n = (name || '').toLowerCase();
+  if (!n.trim()) return {};
+  const out: { gender?: 'male' | 'female'; ageGroup?: string } = {};
+  const male = /[男叔爷伯汉][^女]?|先生|大爷|老汉|父亲|爸|哥|\bmr\b|\bsir\b|\bboy\b/.test(n);
+  const female = /女|姐|妹|婆|娘|母亲|妈|小姐|夫人|\bmrs\b|\bms\b|\bmiss\b|\bgirl\b|\blady\b/.test(n);
+  if (male && !female) out.gender = 'male';
+  else if (female && !male) out.gender = 'female';
+  if (/老|爷|婆|翁|叟|年迈|奶奶|爷爷|\bold\b|\belder\b/.test(n)) out.ageGroup = '老年';
+  else if (/孩|童|娃|幼|少年|\bkid\b|\bchild\b/.test(n)) out.ageGroup = '童年';
+  return out;
+}
+
 export function characterProsodyBias(name?: string | null): { pitchDelta: number; speedMul: number } {
   const n = (name || '').toLowerCase();
   if (!n.trim()) return { pitchDelta: 0, speedMul: 1.0 };

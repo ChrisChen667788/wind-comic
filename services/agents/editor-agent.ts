@@ -396,14 +396,36 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
               }
             }
             console.log(`[Editor] TTS prosody shot ${t.shotNumber}: emotion="${t.emotion}" temp=${t.emotionTemperature ?? 0} → speed=${prosody.speed} pitch=${prosody.pitch} vol=${prosody.vol}`);
+            // ── v12.288:角色音色按**角色**定,不再按**台词情绪**猜 ────────────────────
+            // 病根(本版最要命的一条):原来是 `t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male'`
+            //   ① 性别从**这句台词的情绪**推断 —— 于是**同一个角色会在镜与镜之间换嗓**:
+            //      这句「温柔」用女声、下句「愤怒」变男声;男主哭一场就变成女声。
+            //   ② 全片只有 `female-zh` / `male-zh` **两个写死 id**,且**不在 VOICE_CATALOG 内**;
+            //      v12.229 扩到 22 档、v12.274 逐档配韵律、v12.287 打开选路 —— 主出片链路一个都没用上。
+            //   ③ `t.speaker`(角色名)其实**就在手边**:上面第 383 行的 prosody 纠偏已经在用它了。
+            // 现在:按角色名走 `assignVoiceToCharacter`(v12.287 已让它认性别年龄并散开到全目录),
+            // 同一角色全片恒定同音色;无角色名(旁白等)才退回情绪猜测的旧行为。
+            const _speaker = String((t as any).speaker || '').trim();
             const _gender = t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male';
+            let _voiceId = _gender === 'female' ? 'female-zh' : 'male-zh';
+            if (_speaker) {
+              try {
+                const { TTSService } = await import('@/services/tts.service');
+                // v12.288:先按角色名推性别/年龄(与 prosody 共用同一套线索词表,口径一致),
+                // 推不出就传空 —— assignVoiceToCharacter 会退回全目录哈希,不瞎猜。
+                const { inferTraitsFromName } = await import('@/lib/tts-prosody');
+                const _traits = inferTraitsFromName(_speaker);
+                const _picked = new TTSService().assignVoiceToCharacter(_speaker, _traits);
+                if (_picked) _voiceId = _picked;
+              } catch { /* 取不到就沿用旧的性别兜底,不阻塞配音 */ }
+            }
             // v3.2 P4.3: TTS 走 withTTSPlugin. off → 直接 generateSpeech (行为不变),
             // primary → 先 plugin chain 失败落老 generateSpeech, shadow → 老逻辑出结果 + plugin 采样比对.
             const { withTTSPlugin } = await import('@/lib/plugin-chain-router');
             const _ttsResult = await withTTSPlugin(
               {
                 text: cleanedDialogue,
-                voiceId: _gender === 'female' ? 'female-zh' : 'male-zh',
+                voiceId: _voiceId, // v12.288:按角色恒定,不再逐句按情绪猜
                 emotion: t.emotion,
                 speed: prosody.speed,
                 pitch: prosody.pitch,
@@ -416,7 +438,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
                 // 注册表全失败再退回直连 minimax(保旧行为为最后兜底);都没有 → 抛错走静音兜底。
                 const d = await dispatchTTSGenerate({
                   text: cleanedDialogue,
-                  voiceId: _gender === 'female' ? 'female-zh' : 'male-zh',
+                  voiceId: _voiceId, // v12.288:同上,注册表通道也用同一把嗓
                   emotion: t.emotion,
                   speed: prosody.speed,
                   pitch: prosody.pitch,
