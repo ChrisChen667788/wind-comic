@@ -199,6 +199,18 @@ export interface VoicePick {
 export function pickVoiceForCharacter(
   traits: Pick<CharacterTraits, 'gender' | 'ageGroup'> | null | undefined,
   catalog: VoiceMeta[] = VOICE_CATALOG,
+  /**
+   * v12.287:角色名 —— **仅用于同分候选的散列**。
+   *
+   * 病根:原实现用 `score > bestScore`,**同分时永远取目录里第一个**;
+   * 而前 4 档兼容音色(青年男/成熟男/青年女/成熟女)恰好覆盖了全部 10 种性别×年龄组合,
+   * 于是 **22 档目录实际只能挑出 4 档** —— v12.229 的扩容与 v12.274 的逐档韵律,
+   * 在这条路径上等于白做;同性别同年龄的多个角色还必然**撞同一把嗓子**。
+   *
+   * 现在:取**并列最高分的全部候选**,按角色名确定性哈希选一个 —— 同名恒定同音色(可复现),
+   * 不同角色则散得开。**不传 name 时行为与旧版逐字节一致**(仍取第一个),故既有调用零回归。
+   */
+  name?: string,
 ): VoicePick {
   if (!catalog.length) return { voiceId: DEFAULT_VOICE_ID, label: '默认', matched: false };
   const gender = traits?.gender;
@@ -206,11 +218,19 @@ export function pickVoiceForCharacter(
 
   let best: VoiceMeta | null = null;
   let bestScore = -1;
+  const tied: VoiceMeta[] = [];
   for (const v of catalog) {
     let score = 0;
     if ((gender === 'male' || gender === 'female') && v.gender === gender) score += 2;
     if (age && age !== '未明示' && v.ageGroups.includes(age as VoiceMeta['ageGroups'][number])) score += 1;
-    if (score > bestScore) { bestScore = score; best = v; }
+    if (score > bestScore) { bestScore = score; best = v; tied.length = 0; tied.push(v); }
+    else if (score === bestScore) { tied.push(v); }
+  }
+  // v12.287:有名字且存在并列 → 在并列集合内按名字哈希散开(否则沿用「第一个」,零回归)
+  if (name && tied.length > 1) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h += name.charCodeAt(i);
+    best = tied[h % tied.length];
   }
   // bestScore <= 0 代表既没性别也没年龄命中 → 兜底
   if (!best || bestScore <= 0) {

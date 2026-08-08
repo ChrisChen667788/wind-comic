@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.286**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.287**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.286**:**vitest 3685 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.287**:**vitest 3695 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -210,6 +210,25 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
+| **v12.287.0** | 2026-08-08 | `d6d6036` | **🎚️ 角色音色选路重做:22 档目录终于用得上(此前恒定只用 4 档)**。
+
+**这条打脸我自己的 v12.274** —— 那版给 22 档音色逐档配了专属韵律,但主配音链路上**另外 18 档永远轮不到**。挖下去是**两层病**:
+
+**① 真正生效的选路无视性别年龄**。`TTSService.assignVoiceToCharacter` 是在 4 个 `DEFAULT_VOICES` 里**按名字哈希**挑 —— 老年男角可能拿到「青年女声」;且与建角色时 `pickVoiceForCharacter` 定下的音色**互不相干**,那次挑选等于白做。
+
+**② 连「好的」那个也只能挑出 4 档**。`pickVoiceForCharacter` 用 `score > bestScore`,**同分时永远取目录第一个**;而前 4 档兼容音色恰好覆盖全部 10 种性别×年龄组合 —— 实测「10 组合 → 只用到 4 档」。这才是根因,只改①是治不好的。
+
+**修法**:① 有 traits 时 `assignVoiceToCharacter` 复用 `pickVoiceForCharacter`(与建角色同一口径),无 traits 时**按性别分池后在全目录哈希**(而非只在 4 个默认音色里);② 给 `pickVoiceForCharacter` 加**同分散列** —— 取并列最高分的**全部**候选,按角色名确定性哈希选一个。
+
+**实测**:10 组合 × 8 名字 → 用到 **20 / 22 档**(修复前 4 档);4 个「青年女性」角色拿到 3 种不同音色(修复前恒为 1,全撞同一把嗓)。同名多次调用恒定(可复现,不是抽奖)。
+
+**零回归**:`name` 参数**可选** —— 不传时行为与旧版逐字节一致(仍取第一个),测试直接断言「不传 name → 恒定那 4 档」。既有调用无需改动。
+
+**顺带记录第三套实现**:`lib/voice-routing.ts` 的 `voiceForCharacter` / `effectiveVoice`(支持 force > overrides > routing > default 优先级)**生产零调用** —— 同一件事**三套实现并存各写各的**。本版未合并(动它要改 UI 覆盖链路,风险不匹配),但已在测试注释里点名,留作后续。
+
+**发现方式**:审计 workflow 第三次撞限额全挂后,改为自己写脚本**系统性扫「生产零调用、仅测试引用的导出」**。首轮扫出 113 个 —— 一看就不可信,查出是漏扫了 `components/` 与 `scripts/`;修正范围后才得到可信清单,`voiceForCharacter` 正在其中。
+
+**验收**:tsc 0 + 全量 **3695/3695**(440 文件,+10)+ 门禁零违规。 |
 | **v12.286.0** | 2026-08-08 | `a75ee80` | **🔍 视觉漂移检测接进主管线(此前只有手动端点会跑)**。
 
 **病根**:`detectDriftOutliers` 全仓**只被 `/api/projects/[id]/drift-check` 调用**,主管线一次都不跑 —— 用户必须自己想起来去点一下才知道哪镜跑偏,**这个能力对正常出片流程等于不存在**。与 v12.278(审计算了却不落库)、v12.279(v2 算了却不显示)、v12.281(DNA 只喂分镜不喂视频)同一类:**能力做好了,却没接到用得上的地方**。

@@ -1,7 +1,7 @@
 import { API_CONFIG } from '@/lib/config';
 import { emotionToMinimaxEmotion } from '@/lib/emotion-tag';
 import { voiceForLanguage } from '@/lib/tts-voice-map';
-import { VOICE_CATALOG } from '@/lib/character-studio';
+import { VOICE_CATALOG, pickVoiceForCharacter } from '@/lib/character-studio';
 
 export interface TTSOptions {
   voiceId?: string;
@@ -146,17 +146,35 @@ export class TTSService {
   }
 
   /**
-   * Deterministically assign a voice to a character based on their name.
-   * Returns one of the 4 default voice IDs.
+   * 角色 → 音色(v12.287 重做)。
+   *
+   * 病根:原实现是**在 4 个 DEFAULT_VOICES 里按名字哈希**挑 ——
+   *   ① **完全无视性别与年龄**:老年男角可能拿到「青年女声」;
+   *   ② 候选池只有 4 个,而 `VOICE_CATALOG` 自 v12.229 起有 **22 档**,
+   *      v12.274 还逐档配了专属韵律 —— **其中 18 档在主配音链路上永远轮不到**;
+   *   ③ 与建角色时 `pickVoiceForCharacter` 定下的音色**互不相干**,等于那次挑选白做。
+   *
+   * 现在:有 traits(性别/年龄)→ 复用 `pickVoiceForCharacter`(按性别+年龄打分,与建角色同一口径);
+   * 无 traits → 退化为**按性别分池后在全目录内哈希**,至少不再把 22 档砍成 4 档;
+   * 性别也未知 → 全目录哈希。确定性不变(同名恒定同音色),只是候选池与匹配质量变了。
    */
-  assignVoiceToCharacter(characterName: string): string {
-    const voices = Object.values(DEFAULT_VOICES);
-    // Simple hash: sum of char codes mod number of voices
-    let hash = 0;
-    for (let i = 0; i < characterName.length; i++) {
-      hash += characterName.charCodeAt(i);
+  assignVoiceToCharacter(characterName: string, traits?: { gender?: string; ageGroup?: string }): string {
+    // 有性别/年龄 → 走与「建角色」同一套挑选,保证前后一致
+    if (traits && (traits.gender || traits.ageGroup)) {
+      try {
+        const pick = pickVoiceForCharacter(traits as any, undefined, characterName); // v12.287:带名字 → 同分散开
+        if (pick?.voiceId) return pick.voiceId;
+      } catch { /* 落到下方哈希 */ }
     }
-    return voices[hash % voices.length];
+    // 无 traits:按性别分池(若知道)后在**全目录**内确定性哈希 —— 而不是只在 4 个默认音色里
+    const pool = VOICE_CATALOG.filter((v) => (traits?.gender === 'male' || traits?.gender === 'female')
+      ? v.gender === traits.gender
+      : true);
+    const candidates = (pool.length > 0 ? pool : VOICE_CATALOG).map((v) => v.id);
+    if (candidates.length === 0) return DEFAULT_VOICES.narrator_male;
+    let hash = 0;
+    for (let i = 0; i < characterName.length; i++) hash += characterName.charCodeAt(i);
+    return candidates[hash % candidates.length];
   }
 
   /**
