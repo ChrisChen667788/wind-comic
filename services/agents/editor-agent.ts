@@ -854,6 +854,20 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         finalVideoUrl = `${serveFilePathUrl(result.outputPath)}`;
         console.log(`[Editor] Final video: ${result.clipCount} clips, ${result.totalDuration}s, music=${result.hasMusic}, voiceover=${result.hasVoiceover}, highlights=${result.highlights.length}`);
 
+        // v12.289:**成片实际转场回写 timeline**。
+        // 病根:上面第 171 行按镜号奇偶给 transition,而合成时 `selectTransitions` 会按张力/关键镜**重挑**,
+        // 时长还被 `min(相邻时长)/2` 夹过 —— 两者从不一致,且 `transitionDurationS` 生产端**从没被写过**
+        // (EDL 导出恒用 `?? 0.5` 兜底)。于是 v12.277 接进 EDL/AAF 的转场,导出的是**设计值而非成片值**:
+        // 剪辑线里写「溶解 0.5s」,成片里其实是硬切或 1.3× 长的 fade。与 v12.277 修的「设计时长 vs 成片时长」同一类。
+        // 回写按 shotNumber 对齐(validClips 是过滤后的子集,下标会错位)。
+        try {
+          const { applyRenderedTransitions } = await import('@/lib/edit-rhythm');
+          const _n = applyRenderedTransitions(timeline as any[], result.renderedTransitions);
+          if (_n > 0) console.log(`[Editor] 转场回写 timeline: ${_n}/${timeline.length} 镜(导出剪辑线与成片对齐)`);
+        } catch (e) {
+          console.warn('[Editor] 转场回写跳过(非阻塞):', e instanceof Error ? e.message : e);
+        }
+
         // v12.51.0/v12.53.0 商业题材自动拼结构化文字卡(文字全走 ffmpeg drawtext,根治模型烤乱码):
         // 片头 Hook 卡(提留存)+ 片尾 CTA 卡。宁缺毋滥:非广告 / 无干净短句 → derive 返 null 不加。非阻塞。
         try {

@@ -161,6 +161,18 @@ export interface ComposeOptions {
   onProgress?: (percent: number, stage: string) => void;
 }
 
+/**
+ * v12.289 成片**实际**用的转场(不是 timeline 里设计的那份)。
+ * 合成时 `selectTransitions` 会按张力/关键镜重挑,时长还被 `min(相邻时长)/2` 夹过 ——
+ * 这份回传给 editor-agent 写回 timeline,导出的剪辑线(EDL/AAF)才与成片一致。
+ * `shotNumber` 对齐(不用下标:validClips 是过滤后的子集)。首镜无入场转场,故不含首镜。
+ */
+export interface RenderedTransition {
+  shotNumber: number;
+  transition: string;        // 语义名(dissolve/cut/fadeblack/...),非 ffmpeg xfade 名
+  transitionDurationS: number;
+}
+
 export interface ComposeResult {
   outputPath: string;        // 本地成片路径
   totalDuration: number;     // 总时长
@@ -170,6 +182,7 @@ export interface ComposeResult {
   highlights: number[];      // 高光镜头编号列表
   beatEdit?: string;         // v12.0.0 卡点剪辑摘要(如 "120 拍, 5/8 镜切点对齐"),无则空
   emotionPacing?: string;    // v12.0.1 情绪节奏摘要(如 "3/8 镜情绪调速"),无则空
+  renderedTransitions?: RenderedTransition[]; // v12.289 成片实际转场(见上)
 }
 
 // ═══════════════════════════════════════════
@@ -1147,6 +1160,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
             hasMusic: !!localMusicPath,
             hasVoiceover: localVoiceovers.size > 0,
             highlights: highlightShots,
+            renderedTransitions: [], // v12.289 单镜成片无转场
           });
         })
         .on('error', reject)
@@ -1220,6 +1234,14 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     //   ③ 画面 xfade offset / 配音 adelay / 字幕起点 / 打击音效**四者共用同一份 clipStartSec**。
     const effectiveTds: number[] = new Array(n).fill(0); // [0] 恒 0(首镜无转场)
     const transitionOf: string[] = new Array(n).fill('');
+    // v12.289:同一趟循环里把「实际转场类型 + 实际时长」记下来回传,
+    // 供 editor-agent 写回 timeline —— 否则导出的剪辑线用的是设计值,与成片不符。
+    const renderedTransitions: RenderedTransition[] = [];
+    // 首镜如实回传「无入场转场」:成片 effectiveTds[0] 恒 0,而 timeline 里的设计值会让
+    // EDL 给第一镜写一条「溶解入场」—— 无物可溶,剪辑软件里是条假事件。
+    if (typeof validClips[0]?.shotNumber === 'number') {
+      renderedTransitions.push({ shotNumber: validClips[0].shotNumber as number, transition: '', transitionDurationS: 0 });
+    }
     for (let i = 1; i < n; i++) {
       const clipAnalysis = highlights.find(h => h.shotNumber === validClips[i]?.shotNumber);
       const pick = transitionNames[i] || validClips[i]?.transition || 'dissolve';
@@ -1234,6 +1256,10 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         baseTd,
         Math.min(durations[i - 1], durations[i]) / 2
       );
+      const _sn = validClips[i]?.shotNumber;
+      if (typeof _sn === 'number') {
+        renderedTransitions.push({ shotNumber: _sn, transition: pick, transitionDurationS: effectiveTds[i] });
+      }
     }
 
     // 压缩后时间轴:clipStartSec[i] = 第 i 镜画面真实起点(= 其 xfade offset),totalSec = 成片总时长
@@ -1567,6 +1593,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           highlights: highlightShots,
           beatEdit: beatEditInfo || undefined,
           emotionPacing: pacingInfo || undefined,
+          renderedTransitions, // v12.289 成片实际转场 → 回写 timeline
         }));
       })
       .on('error', (err) => {

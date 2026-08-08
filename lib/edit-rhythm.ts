@@ -174,3 +174,47 @@ export function applyEmotionPacing(clips: RhythmClip[], opts?: { minShotS?: numb
   }
   return { durations: out, changed, reasons };
 }
+
+// ═══════════════════════════════════════════
+// v12.289 成片实际转场 → 回写 timeline
+// ═══════════════════════════════════════════
+
+/** 合成端回传的「这一镜实际用了什么转场、实际多长」。 */
+export interface RenderedTransitionEntry {
+  shotNumber: number;
+  transition: string;
+  transitionDurationS: number;
+}
+
+/**
+ * 把**成片实际用的**转场写回 timeline —— 让导出的剪辑线(EDL/AAF)与成片一致。
+ *
+ * 病根:timeline 里的 `transition` 是 editor-agent 在**出片前**按镜号奇偶/情绪关键词定的**设计值**,
+ * 而合成时 `selectTransitions` 会按张力曲线与关键镜**重新挑**,时长还被 `min(相邻时长)/2` 夹过。
+ * 二者从不一致;更糟的是 `transitionDurationS` 生产端**从没被写过**,EDL 恒用 `?? 0.5` 兜底。
+ *
+ * **按 shotNumber 对齐,不用下标** —— 合成端的 validClips 是过滤掉无效视频后的子集,下标必然错位。
+ * 原地改写(timeline 随后整体落盘);无回传数据时**一个字段都不动**(零回归)。
+ * 返回实际改写的镜数。
+ */
+export function applyRenderedTransitions(
+  timeline: Array<{ shotNumber?: number; transition?: string; transitionDurationS?: number }> | null | undefined,
+  rendered: RenderedTransitionEntry[] | null | undefined,
+): number {
+  if (!Array.isArray(timeline) || !Array.isArray(rendered) || rendered.length === 0) return 0;
+  const bySn = new Map<number, RenderedTransitionEntry>();
+  for (const r of rendered) {
+    if (r && typeof r.shotNumber === 'number' && typeof r.transition === 'string') bySn.set(r.shotNumber, r);
+  }
+  let n = 0;
+  for (const t of timeline) {
+    if (!t || typeof t.shotNumber !== 'number') continue;
+    const r = bySn.get(t.shotNumber);
+    if (!r) continue;                       // 未参与合成的镜(视频失败被过滤等):保持原样
+    // 注:首镜由合成端以 transition:'' 回传 —— 成片首镜无入场转场,导出也不该有
+    t.transition = r.transition;
+    if (Number.isFinite(r.transitionDurationS)) t.transitionDurationS = r.transitionDurationS;
+    n++;
+  }
+  return n;
+}
