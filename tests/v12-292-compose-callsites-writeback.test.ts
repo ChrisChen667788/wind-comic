@@ -42,8 +42,19 @@ function stripComments(s: string): string {
   return s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
-/** 真正的调用点:`composeVideo(` 或 `composeVideoXxx(`,排除实现本体与 import */
-const CALL_RE = /\bcomposeVideo[A-Za-z]*\s*\(/;
+/**
+ * v12.293:**门禁边界从「composeVideo 的调用点」扩到「所有出片函数的调用点」。**
+ *
+ * v12.292 立完这道门禁,我自己顺手又找到第四条路径:editor-agent 的**第三级降级**
+ * 走的是 `concatVideosSimple`(纯拼接,提示语自己写着「无转场」),压根不经过 composeVideo ——
+ * 于是那道按 composeVideo 扫的门禁**结构上就看不见它**。
+ * 门禁本身的边界划错,比漏一处调用更值得记:**它给的安全感是假的**。
+ *
+ * 现在的边界是「能产出一条成片的函数」。新增此类函数时必须加进这里,否则它带来的
+ * 出片路径不会被任何东西检查。
+ */
+const FILM_PRODUCERS = ['composeVideo', 'concatVideosSimple'];
+const CALL_RE = new RegExp(`\\b(${FILM_PRODUCERS.join('|')})[A-Za-z]*\\s*\\(`);
 
 /**
  * 豁免名单 —— 每条必须写 why。新增豁免等于主动声明「这条路径产出的片子不进剪辑线导出」。
@@ -56,6 +67,10 @@ const EXEMPT: Array<{ file: string; why: string }> = [
   {
     file: 'app/api/mv/compose/route.ts',
     why: 'MV 卡点合成:全程硬切、不写任何 project_asset(无 timeline 资产),EDL/AAF 也不认 MV 产物 —— 没有会读到过期转场的消费方',
+  },
+  {
+    file: 'app/api/comic/compose/route.ts',
+    why: 'v12.293 扩大门禁边界后抓出的第五条:漫剧顺序拼接,同样不写任何 project_asset,产物直接回给调用方,没有 timeline 资产会被 EDL/AAF 读到',
   },
 ];
 
@@ -127,5 +142,71 @@ describe('v12.292 · 三条路径逐一验明', () => {
   it('recompose 的 upsert 必须沿用原资产 name,否则会插出重复行', () => {
     const i = RECOMPOSE.indexOf("type: 'timeline'");
     expect(RECOMPOSE.slice(i, i + 220)).toMatch(/timelineAssets\[0\]\?\.name/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// v12.293 · 第三级降级(concat)也接上;并记下「门禁边界划错」这件事本身
+// ═══════════════════════════════════════════════════════════════
+describe('v12.293 · concat 降级路径:纯拼接 = 全硬切', () => {
+  const EDITOR2 = stripComments(fs.readFileSync('services/agents/editor-agent.ts', 'utf-8'));
+
+  it('concat 成功后回写全硬切(此前 timeline 留着溶解,EDL 凭空多出过渡帧)', () => {
+    expect(EDITOR2).toContain('hardCutTransitions(validVideoClips.map');
+    const iConcat = EDITOR2.indexOf('concatVideosSimple(');
+    const iApply = EDITOR2.indexOf('hardCutTransitions(validVideoClips.map');
+    expect(iConcat).toBeGreaterThan(0);
+    expect(iApply, '回写必须在 concat 之后').toBeGreaterThan(iConcat);
+  });
+
+  it('复用同一个写回入口,不另起一套', () => {
+    const i = EDITOR2.indexOf('hardCutTransitions(validVideoClips.map');
+    expect(EDITOR2.slice(i - 200, i)).toContain('applyRenderedTransitions');
+  });
+
+  it('门禁边界必须覆盖 concat —— v12.292 只扫 composeVideo,结构上看不见这条路径', () => {
+    const SELF = fs.readFileSync('tests/v12-292-compose-callsites-writeback.test.ts', 'utf-8');
+    expect(SELF).toContain("'concatVideosSimple'");
+    // 边界靠一份显式清单,新增出片函数时必须登记
+    expect(SELF).toMatch(/const FILM_PRODUCERS = \[/);
+  });
+});
+
+describe('v12.293 · hardCutTransitions 行为', () => {
+  it('首镜无入场转场,其余全 cut,时长恒 0', async () => {
+    const { hardCutTransitions } = await import('@/lib/edit-rhythm');
+    expect(hardCutTransitions([3, 5, 9])).toEqual([
+      { shotNumber: 3, transition: '', transitionDurationS: 0 },
+      { shotNumber: 5, transition: 'cut', transitionDurationS: 0 },
+      { shotNumber: 9, transition: 'cut', transitionDurationS: 0 },
+    ]);
+  });
+
+  it('镜号缺失的条目跳过,且不占用「首镜」名额', async () => {
+    const { hardCutTransitions } = await import('@/lib/edit-rhythm');
+    const r = hardCutTransitions([undefined, 4, 6]);
+    expect(r[0]).toEqual({ shotNumber: 4, transition: '', transitionDurationS: 0 });
+    expect(r).toHaveLength(2);
+  });
+
+  it('空输入返回空数组(回写方会因此一个字段都不动)', async () => {
+    const { hardCutTransitions } = await import('@/lib/edit-rhythm');
+    expect(hardCutTransitions([])).toEqual([]);
+  });
+
+  it('端到端:纯拼接成片导出的 EDL 里没有任何溶解', async () => {
+    const { hardCutTransitions, applyRenderedTransitions } = await import('@/lib/edit-rhythm');
+    const { buildEDL } = await import('@/lib/edl-export');
+    const tl: any[] = [
+      { shotNumber: 1, transition: 'cross-dissolve' },
+      { shotNumber: 2, transition: 'cross-dissolve' },
+      { shotNumber: 3, transition: 'fade' },
+    ];
+    applyRenderedTransitions(tl, hardCutTransitions([1, 2, 3]));
+    const edl = buildEDL(tl.map((t, i) => ({
+      name: `Shot 0${i + 1}`, durationS: 4, transition: t.transition, transitionDurationS: t.transitionDurationS,
+    })), 24);
+    expect(edl).not.toContain('CROSS DISSOLVE');
+    expect(edl).not.toMatch(/\bD\s+\d{3}\b/);
   });
 });

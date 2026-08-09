@@ -218,3 +218,24 @@ export function applyRenderedTransitions(
   }
   return n;
 }
+
+/**
+ * v12.293:**纯拼接成片的转场事实** —— 所有镜之间都是硬切,首镜无入场转场。
+ *
+ * 用在 `concatVideosSimple` 这类**不走 composeVideo** 的出片路径上(editor-agent 第三级降级、
+ * 漫剧拼接等)。这些路径不产出 `renderedTransitions`,而 timeline 里留着的是设计值(常是溶解),
+ * 于是导出的剪辑线会凭空多出**实际不存在的过渡帧**。
+ *
+ * 刻意复用 `applyRenderedTransitions` 而不另写一套写回:出片路径可以有很多条,
+ * 但「写回 timeline」必须只有一个入口(v12.292 门禁守的就是这个)。
+ */
+export function hardCutTransitions(shotNumbers: Array<number | undefined>): RenderedTransitionEntry[] {
+  const out: RenderedTransitionEntry[] = [];
+  let first = true;
+  for (const sn of shotNumbers) {
+    if (typeof sn !== 'number') continue;
+    out.push({ shotNumber: sn, transition: first ? '' : 'cut', transitionDurationS: 0 });
+    first = false;
+  }
+  return out;
+}

@@ -958,6 +958,20 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
                 musicUrl || undefined,
               );
               finalVideoUrl = `${serveFilePathUrl(concatOut)}`;
+              // v12.293:**第三级降级也要回写**。concat 是纯拼接、镜间全是硬切(上一行的提示语
+              // 自己写着「无转场」),而 timeline 里留着的设计值常是溶解 —— 不回写的话,
+              // 导出的剪辑线会凭空多出实际不存在的过渡帧。这条路径不走 composeVideo,
+              // 所以 v12.292 那道按 composeVideo 调用点扫的门禁**结构上看不见它**(门禁边界已在本版扩大)。
+              try {
+                const { applyRenderedTransitions, hardCutTransitions } = await import('@/lib/edit-rhythm');
+                const n3 = applyRenderedTransitions(
+                  timeline as any[],
+                  hardCutTransitions(validVideoClips.map((t) => t.shotNumber)),
+                );
+                if (n3 > 0) console.log(`[Editor] concat 降级转场回写(全硬切): ${n3} 镜`);
+              } catch (e4) {
+                console.warn('[Editor] concat 转场回写跳过(非阻塞):', e4 instanceof Error ? e4.message : e4);
+              }
               audioWarnings.push('🎬 已用最稳定 concat 模式合成 (无转场 / 无配音)');
               ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: `✅ concat 模式成功:${validVideoClips.length} 段已拼成完整成片(无转场/配音)` });
             } catch (e3) {
