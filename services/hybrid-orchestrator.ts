@@ -14,7 +14,7 @@ import { MinimaxService } from './minimax.service';
 import { VeoService, hasVeo } from './veo.service';
 import { MidjourneyService, hasMidjourney } from './midjourney.service';
 import { KlingService, hasKling } from './kling.service';
-import { HappyHorseService, getHappyHorseService } from '@/services/happyhorse.service'; // v12.272
+import { HappyHorseService, getHappyHorseService, happyHorseAspectSupported } from '@/services/happyhorse.service'; // v12.272 / v12.294 画幅门禁
 import { FalFluxService, hasFalFlux } from './fal-flux.service';
 import { ComfyUIService, hasComfyUI, hasComfyUIControlNet } from './comfyui.service';
 import { runWriter as runWriterAgent, type WriterAgentCtx } from './agents/writer-agent';
@@ -3239,7 +3239,17 @@ ${shots.map((s, i) => {
       if (this.klingService) availableEngines.push('kling');
       // v12.272:HappyHorse(阿里)—— 有 key 即登记;默认链序不含它,
       // 需 VIDEO_ENGINE_ORDER 显式列出或用户显式选择才会打头(不改变既有用户的出片结果)。
-      if (this.happyhorseService) availableEngines.push('happyhorse');
+      // v12.294:**画幅未确证就不登记**。v12.272 只在 README 里写了「竖屏别把它排链首」,
+      // 是 documented 但不 enforced —— 竖屏项目照样会被路由过来,静默拿到横屏素材。
+      // 病根实测于 2026-08-09:上游**不校验** size(非法值照样 200 建任务),然后静默回落默认画幅。
+      if (this.happyhorseService) {
+        const _aspect = this.videoAspect();
+        if (happyHorseAspectSupported(_aspect)) {
+          availableEngines.push('happyhorse');
+        } else {
+          console.log(`[Hybrid] HappyHorse 跳过:画幅 ${_aspect} 未经实测确证(仅 16:9 已确证);如网关支持,设 HAPPYHORSE_SIZE 后可用`);
+        }
+      }
 
       if (availableEngines.length > 0) {
         const route = routeVideoEngine(

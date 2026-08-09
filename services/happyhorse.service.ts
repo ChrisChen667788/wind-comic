@@ -30,6 +30,8 @@ export interface HappyHorseGenerateOptions {
   onProgress?: (progress: number, status: string) => void;
   /** 轮询上限秒数(默认 600) */
   timeoutSec?: number;
+  /** v12.294:上游自报的实际画幅(`usage.ratio`/`usage.SR`)—— 与请求不符时调用方可据此重生成或 reframe */
+  onAspectReport?: (r: { requested?: string; actual?: string; sr?: number; matched: boolean }) => void;
 }
 
 export interface HappyHorseTaskResult {
@@ -73,6 +75,40 @@ export function extractHappyHorseVideoUrl(output: any): string {
     }
   }
   return '';
+}
+
+/**
+ * v12.294:上游 `usage` 块**自报实际采用的画幅** —— 这是 2026-08-09 探测时才发现的字段:
+ *   `{"usage": {"SR": 1080, "ratio": "16:9", "duration": 3, ...}, "output": {...}}`
+ * 有了它,核对「要的画幅 vs 真出的画幅」不必再下载视频量分辨率,一次 3 秒任务即可判定。
+ */
+export function reportedHappyHorseAspect(payload: any): { ratio?: string; sr?: number } {
+  const u = payload?.usage;
+  if (!u || typeof u !== 'object') return {};
+  const ratio = typeof u.ratio === 'string' ? u.ratio : undefined;
+  const sr = Number.isFinite(Number(u.SR)) ? Number(u.SR) : undefined;
+  return { ratio, sr };
+}
+
+/**
+ * 请求的画幅**是否已被确证可用**。
+ *
+ * 病根(2026-08-09 实测):上游**不校验** `size` —— 传 `'ZZZ_INVALID_PROBE'` 照样 HTTP 200 建任务,
+ * 然后静默回落默认画幅。所以「请求 9:16 出 16:9」不是网关吞了参数,而是**参数格式不对且上游不报错**。
+ * 正确写法至今未能确证:探测期间上游通道持续 429(`local:quota_not_enough`,
+ * 文案却写「分组上游负载已饱和」—— 两者不是一回事)。
+ *
+ * 在确证之前,只承认**已实测出过**的 16:9;其余一律视为不支持,由引擎链跳过 ——
+ * v12.272 把这条限制只写在 README 里(documented 但不 enforced),于是竖屏项目照样会被路由过来、
+ * 静默拿到横屏素材。运营者若知道自己网关要的确切字符串,设 `HAPPYHORSE_SIZE` 即表示自行担保。
+ */
+export function happyHorseAspectSupported(
+  aspect: string | undefined,
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  if ((env.HAPPYHORSE_SIZE || '').trim()) return true;   // 运营者显式指定 → 自行担保
+  if (!aspect) return true;                              // 没指定画幅 → 用上游默认,无所谓
+  return aspect === '16:9';                              // 仅此一种被实测确证
 }
 
 export class HappyHorseService {
@@ -122,7 +158,18 @@ export class HappyHorseService {
       body: JSON.stringify({ model: happyHorseModelFor(hasImage), input, parameters }),
     });
     const text = await res.text();
-    if (!res.ok) throw new Error(`HappyHorse 建任务失败 (${res.status}): ${text.slice(0, 200)}`);
+    if (!res.ok) {
+      // v12.294:429 的**代码与文案说的不是一回事** —— 实测拿到
+      //   {"code":"local:quota_not_enough","message":"当前分组上游负载已饱和,请稍后再试"}
+      // 文案暗示「等等就好」,代码却是额度不足。把两者分开报,免得运营者一直干等一个不会好的东西。
+      if (res.status === 429 && /quota_not_enough/i.test(text)) {
+        throw new Error(
+          `HappyHorse 上游通道额度不足 (429 quota_not_enough):网关文案写「负载已饱和」但代码是额度问题,` +
+          `等待通常无效 —— 需网关侧补额度或换通道。原文:${text.slice(0, 160)}`,
+        );
+      }
+      throw new Error(`HappyHorse 建任务失败 (${res.status}): ${text.slice(0, 200)}`);
+    }
     let j: any = {};
     try { j = JSON.parse(text); } catch { throw new Error(`HappyHorse 返回非 JSON: ${text.slice(0, 120)}`); }
     const taskId = j?.output?.task_id;
@@ -146,6 +193,17 @@ export class HappyHorseService {
       if (status === 'SUCCEEDED') {
         const url = extractHappyHorseVideoUrl(j.output);
         if (!url) throw new Error(`HappyHorse 成功但无视频地址: ${JSON.stringify(j.output).slice(0, 200)}`);
+        // v12.294:核对上游自报的实际画幅 —— 此前**从不核对**,于是竖屏项目静默拿到横屏素材。
+        // 只报不拦:素材已经生成、拦下等于白烧一次;由调用方决定是重生成还是走 reframe。
+        const { ratio, sr } = reportedHappyHorseAspect(j);
+        const want = options?.aspectRatio;
+        if (want && ratio && ratio !== want) {
+          console.warn(
+            `[HappyHorse] ⚠️ 画幅不符:请求 ${want},上游实际出 ${ratio}(SR ${sr ?? '?'})。` +
+            `成因见 happyHorseAspectSupported 的注释(上游不校验 size,非法值静默回落)。task=${taskId}`,
+          );
+        }
+        options?.onAspectReport?.({ requested: want, actual: ratio, sr, matched: !want || !ratio || ratio === want });
         return url;
       }
       if (status === 'FAILED') {

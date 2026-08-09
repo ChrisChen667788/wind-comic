@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.293</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.294</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -19,7 +19,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-3789%2F3789-2ea44f"  alt="3789 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-3803%2F3803-2ea44f"  alt="3803 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -238,7 +238,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/llm-providers.md) for the full matrix.
 
-### 10. **3789 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **3803 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -489,7 +489,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 **Optional engines** (graceful fallback when missing):
 - `MINIMAX_API_KEY` — image-01 / Hailuo-2.3 video / speech-2.8-hd TTS / music-2.6 BGM
 - `KELING_API_KEY` — Kling Master 4K + first-last-frame fusion + lip-sync
-- `HAPPYHORSE_API_KEY` (or reuse `VECTORENGINE_API_KEY`) — **HappyHorse 1.1** (Alibaba). Joint video+audio in a single pass; top-5 on both Artificial Analysis boards. Enable by listing it in `VIDEO_ENGINE_ORDER` (it is **not** in the default chain, so adding the key alone changes nothing for existing users). Live-verified 2026-08-07: 1080p h264 + aac, ~170s for a 3s clip. **Known limitation:** the aspect-ratio parameter was *not* honoured in our live test (asked 9:16, got 1920×1080); the exact field its gateway wants is still unconfirmed, so set `HAPPYHORSE_SIZE` (e.g. `720*1280`) if you need vertical, and don't put HappyHorse first in the chain for vertical drama until you've verified it yourself.
+- `HAPPYHORSE_API_KEY` (or reuse `VECTORENGINE_API_KEY`) — **HappyHorse 1.1** (Alibaba). Joint video+audio in a single pass; top-5 on both Artificial Analysis boards. Enable by listing it in `VIDEO_ENGINE_ORDER` (it is **not** in the default chain, so adding the key alone changes nothing for existing users). Live-verified 2026-08-07: 1080p h264 + aac, ~170s for a 3s clip. **Known limitation (root cause re-diagnosed in v12.294):** the upstream does **not validate** `size` — a deliberately bogus value (`ZZZ_INVALID_PROBE`) still returns HTTP 200 and creates a task, then silently falls back to the default aspect. So passing `9:16` is the same as passing nothing; the earlier "the gateway ignored our parameter" reading was wrong. The field it actually wants is **still unconfirmed**: four candidate shapes were retried serially with backoff for ~88 minutes and every create returned 429 `local:quota_not_enough` (whose message misleadingly reads "upstream saturated"). Rather than leave this as prose, v12.294 **enforces** it: only the live-verified `16:9` is registered in the engine chain, any other aspect makes HappyHorse skip itself with a logged reason, and a successful task now cross-checks the upstream's self-reported `usage.ratio` and warns on mismatch instead of silently shipping the wrong aspect. Set `HAPPYHORSE_SIZE` (e.g. `720*1280`) to vouch for your own gateway and re-enable every aspect.
 - `VIDU_API_KEY` — Vidu Q3 (long-form 16s clips)
 - `VEO_API_KEY` — Veo 3.1-fast video fallback
 - `GROK_API_KEY` — xAI Grok Imagine 1.5 (T2V/I2V, native audio; BYO — 2026-06 image-to-video #1; auto-preferred when set)
@@ -504,7 +504,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 3789/3789 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 3803/3803 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/CONTRIBUTING.md) for the repo's contribution guide.
 
