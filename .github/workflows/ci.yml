@@ -27,7 +27,12 @@ jobs:
         node-version: [20.x, 22.x]
 
     steps:
+      # v12.290:fetch-depth: 0 拉全量历史 —— 否则默认浅克隆(depth=1)会让
+      # tests/v12-290 里三条「哈希可达性」断言全部 skipIf(shallow) 静默跳过,
+      # 护栏在 CI 里等于不存在(本地完整克隆才跑得到)。
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v7
@@ -55,7 +60,10 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      # v12.290:完整历史 —— 下方 version-hashes 步骤要判断哈希在 main 里是否可达
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -80,6 +88,12 @@ jobs:
       # 只阻断**新增**违规(存量记在 lib/consumer-gate/baseline.json 里当技术债)。
       - name: Consumer gate (唯一入口不得被绕过)
         run: npx tsx scripts/consumer-gate.mjs
+
+      # v12.290:变更日志溯源门禁 —— VERSIONS.md 里记的提交哈希必须在 main 历史中可达。
+      # 病根是「commit → sed 哈希 → git commit --amend」写进去的是**被 amend 丢弃的游离哈希**,
+      # 498 条里 247 条不可达。本步骤同时拦「陈旧待填」(发版漏跑回填脚本)。
+      - name: Version hash provenance (变更日志可溯源)
+        run: npm run check:version-hashes
 
   e2e:
     name: E2E smoke (Playwright)
