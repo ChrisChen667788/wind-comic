@@ -144,7 +144,12 @@ function VideoNodeComponent({ data }: NodeProps) {
             const isVideo = isLikelyVideoUrl(mediaUrl);
             const sn = v.shotNumber || 0;
             const isRegenerating = regeneratingShots.has(sn);
-            const isFailed = !hasMedia && d.status === 'completed';
+            // v12.299:**失败镜自己的状态优先**,不再等整个节点跑完才承认失败。
+            // 原来只看 `!hasMedia && d.status === 'completed'` —— 多镜同时生成时节点是 running,
+            // 于是某一镜网络超时进 catch、资产已写 status:'error',格子却静默变回「待生成」,
+            // 「点击重试」也不出现:用户以为它还在排队,其实早就死了。
+            const isFailed = !isRegenerating
+              && (v.data?.status === 'error' || (!hasMedia && d.status === 'completed'));
             const isGeneratingStatus = v.data?.status === 'generating' || isRegenerating;
 
             return (

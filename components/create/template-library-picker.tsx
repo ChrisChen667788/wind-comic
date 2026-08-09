@@ -30,6 +30,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MagnifyingGlass as Search, X, Trash as Trash2, Copy, User, Sparkle as Sparkles, Funnel as Filter, CaretDown as ChevronDown, CaretUp as ChevronUp, ShareNetwork as Share2, Check, Download, Upload } from '@phosphor-icons/react';
 import { storyTemplates, type StoryTemplate } from '@/lib/story-templates';
+import { useToast } from '@/components/ui/toast-provider';
 import {
   Popover,
   PopoverContent,
@@ -61,6 +62,7 @@ export interface TemplateLibraryPickerProps {
 export function TemplateLibraryPicker({
   selectedId, onSelect, onSaveCurrentAsTemplate,
 }: TemplateLibraryPickerProps) {
+  const { showToast } = useToast();   // v12.300:失败要让用户看见,不能只进 console
   const [search, setSearch] = useState('');
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [sortMode, setSortMode] = useState<'default' | 'personal-first' | 'builtin-first'>('default');
@@ -197,8 +199,10 @@ export function TemplateLibraryPicker({
         }),
       });
       if (!res.ok) {
+        // v12.300:同上 —— 克隆弹框停留但无任何错误文字,用户以为要重新命名或刷新
         const body = await res.json().catch(() => ({}));
         console.warn('[TemplateLibrary] clone failed:', body.error);
+        showToast({ title: '模板克隆失败', description: String(body?.error || `HTTP ${res.status}`).slice(0, 120), type: 'error', duration: 4000 });
         return;
       }
       setCloneOpenForId(null);

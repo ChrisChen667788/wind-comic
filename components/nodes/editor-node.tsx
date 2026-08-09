@@ -4,7 +4,7 @@ import { memo, useState, useEffect } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData, AgentRole } from '@/types/agents';
 import { NodeShell } from './node-shell';
-import { Scissors, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Play, FilmStrip as Film, FloppyDisk as Save, ArrowsClockwise as RefreshCw, MusicNotes as Music, SpeakerHigh as Volume2, ArrowUp, ArrowDown, Trash as Trash2, ArrowUUpLeft as Undo2 } from '@phosphor-icons/react';
+import { Scissors, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Play, FilmStrip as Film, FloppyDisk as Save, ArrowsClockwise as RefreshCw, MusicNotes as Music, SpeakerHigh as Volume2, ArrowUp, ArrowDown, Trash as Trash2, ArrowUUpLeft as Undo2, WarningCircle as AlertCircle } from '@phosphor-icons/react';
 import { VideoModal } from '@/components/ui/video-modal';
 import { useProjectWorkspaceStore } from '@/lib/store';
 
@@ -24,6 +24,8 @@ function EditorNodeComponent({ data }: NodeProps) {
   const [selectedVideoSrc, setSelectedVideoSrc] = useState('');
   const [selectedVideoTitle, setSelectedVideoTitle] = useState('');
   const [saved, setSaved] = useState(false);
+  /** v12.299:重新剪辑的失败原因 —— 此前失败被渲染成成功,用户完全看不到 */
+  const [regenError, setRegenError] = useState<string | null>(null);
   const [musicPlaying, setMusicPlaying] = useState(false);
 
   // ═══ 时间线本地可编辑 state ═══
@@ -118,6 +120,7 @@ function EditorNodeComponent({ data }: NodeProps) {
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   const handleRegenerate = async () => {
+    setRegenError(null);   // v12.299:重试前清掉上次的失败原因
     const s = useProjectWorkspaceStore.getState();
     const projectId = s.currentProject?.id;
     if (!projectId || isRegenerating) return;
@@ -160,8 +163,13 @@ function EditorNodeComponent({ data }: NodeProps) {
         }
       }
     } catch (error) {
+      // v12.299:**失败不能冒充成功**。原来这里写的是 status:'completed', progress:100 ——
+      // 于是网络出错/5xx 时,节点标题照样出现蓝色对勾、进度 100%、按钮全亮,
+      // 与真正成功**完全一致**;而 editResult 还是旧数据。用户以为剪辑刷新了,其实什么都没变。
       console.error('[EditorNode] Regenerate failed:', error);
-      s.updateNodeData('node-editor', { status: 'completed', progress: 100 } as any);
+      const _msg = error instanceof Error ? error.message : String(error ?? '未知错误');
+      setRegenError(_msg.slice(0, 120));
+      s.updateNodeData('node-editor', { status: 'error', progress: 0 } as any);
     } finally {
       setIsRegenerating(false);
     }
@@ -195,6 +203,7 @@ function EditorNodeComponent({ data }: NodeProps) {
             {d.status === 'running' && <Loader2 className="w-3.5 h-3.5 text-green-400 animate-spin" />}
             {d.status === 'completed' && <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />}
             {d.status === 'pending' && <Clock className="w-3.5 h-3.5 text-gray-500" />}
+            {d.status === 'error' && <AlertCircle className="w-3.5 h-3.5 text-red-400" weight="fill" />}
           </div>
           <div className="text-[11px] text-gray-400">剪辑 · 配乐 · 合成</div>
         </div>
@@ -334,8 +343,10 @@ function EditorNodeComponent({ data }: NodeProps) {
           )}
         </div>
       ) : (
-        <div className="text-center py-6 text-gray-500 text-xs">
-          {d.status === 'pending' ? '等待视频生成完成...' : d.status === 'running' ? '剪辑中...' : ''}
+        <div className="text-center py-6 text-xs">
+          {d.status === 'error'
+            ? <span className="text-red-400">重新剪辑失败,已保留原剪辑结果{regenError ? `:${regenError}` : ''}</span>
+            : <span className="text-gray-500">{d.status === 'pending' ? '等待视频生成完成...' : d.status === 'running' ? '剪辑中...' : ''}</span>}
         </div>
       )}
 

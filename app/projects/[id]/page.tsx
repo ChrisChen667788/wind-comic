@@ -46,6 +46,7 @@ import { EmotionRhythmChart } from '@/components/project/emotion-rhythm-chart';
 import { computeEmotionCurve } from '@/lib/emotion-curve';
 import { MonitorTab } from '@/components/project/monitor-tab';
 import { ParamLinkagePanel } from '@/components/project/param-linkage-panel';
+import { useToast } from '@/components/ui/toast-provider';
 
 // 代码分割:时间线是 projects 详情页里最重的组件(~1182 行 + 拖拽/音频依赖),
 // 且仅在 activeTab==='timeline' 时渲染 → 动态懒加载,移出首屏 bundle。
@@ -68,6 +69,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { user } = useAuth();
+  const { showToast } = useToast();   // v12.300:失败要让用户看见,不能只进 console
   const [project, setProject] = useState<any>(null);
   // v10.6.0 竖屏优先:项目级画幅驱动预览框(旧项目无列值 → 16:9 零回归);字幕安全区可开关
   const [showSafeArea, setShowSafeArea] = useState(false);
@@ -255,7 +257,10 @@ export default function ProjectDetailPage() {
         setEditingShot(null);
       }
     } catch (e) {
+      // v12.300:此前只 console.error —— 弹框保持打开、loading 消失、零提示,
+      // 用户不知道该重试还是放弃,也不确定内容有没有存进去。
       console.error('Failed to save shot:', e);
+      showToast({ title: '保存失败', description: (e instanceof Error ? e.message : '请检查网络后重试').slice(0, 120), type: 'error', duration: 4000 });
     } finally {
       setSaving(false);
     }

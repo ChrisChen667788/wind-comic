@@ -6,6 +6,8 @@ interface DropZoneProps {
   onFilesAccepted: (files: File[]) => void;
   accept?: Record<string, string[]>;
   maxSize?: number;
+  /** v12.300:上传失败回调 —— 外层想接管提示(如走 toast)时用;不传则显示内联错误 */
+  onError?: (error: unknown) => void;
 }
 
 export default function DropZone({
@@ -15,9 +17,12 @@ export default function DropZone({
     'video/*': ['.mp4', '.mov', '.avi'],
   },
   maxSize = 50 * 1024 * 1024, // 50MB
+  onError,
 }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  /** v12.300:上传失败原因 —— 此前失败只进 console,界面静默恢复初始态 */
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -37,10 +42,17 @@ export default function DropZone({
 
       const files = Array.from(e.dataTransfer.files);
 
+      setUploadError(null);
       try {
         await onFilesAccepted(files);
       } catch (error) {
+        // v12.300:此前只有 console.error —— 上传指示器消失、组件恢复初始态,
+        // 用户不知道失败了,可能以为成功、或反复重试。低层通用组件不依赖 ToastProvider,
+        // 自带内联错误(外层可用 onError 接管)。
         console.error('文件上传错误:', error);
+        const msg = error instanceof Error ? error.message : '上传失败,请重试';
+        setUploadError(msg.slice(0, 120));
+        onError?.(error);
       } finally {
         setUploading(false);
       }
@@ -54,10 +66,17 @@ export default function DropZone({
       if (files.length === 0) return;
 
       setUploading(true);
+      setUploadError(null);
       try {
         await onFilesAccepted(files);
       } catch (error) {
+        // v12.300:此前只有 console.error —— 上传指示器消失、组件恢复初始态,
+        // 用户不知道失败了,可能以为成功、或反复重试。低层通用组件不依赖 ToastProvider,
+        // 自带内联错误(外层可用 onError 接管)。
         console.error('文件上传错误:', error);
+        const msg = error instanceof Error ? error.message : '上传失败,请重试';
+        setUploadError(msg.slice(0, 120));
+        onError?.(error);
       } finally {
         setUploading(false);
       }
@@ -93,6 +112,8 @@ export default function DropZone({
           <div className="text-4xl">📁</div>
           {uploading ? (
             <p className="text-blue-500">上传中...</p>
+          ) : uploadError ? (
+            <p className="text-red-500" role="alert">上传失败:{uploadError}</p>
           ) : isDragging ? (
             <p className="text-blue-500">放开以上传文件...</p>
           ) : (

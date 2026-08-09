@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from 'react';
 import { Bookmark, Plus, Trash as Trash2, CircleNotch as Loader2 } from '@phosphor-icons/react';
+import { useToast } from '@/components/ui/toast-provider';
 import {
   Popover,
   PopoverContent,
@@ -56,6 +57,7 @@ export interface StyleLoraLibraryProps {
 export function StyleLoraLibrary({
   currentStyle, currentCameraDefault, onApply, thumbnailSuggest, className = '',
 }: StyleLoraLibraryProps) {
+  const { showToast } = useToast();   // v12.300:失败要让用户看见,不能只进 console
   const [items, setItems] = useState<GlobalAssetStyle[]>([]);
   const [loading, setLoading] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -107,8 +109,11 @@ export function StyleLoraLibrary({
         }),
       });
       if (!res.ok) {
+        // v12.300:此前只 console.warn —— 弹框停留、spinner 消失、零提示,
+        // 用户不知道保存失败,可能反复重试或以为要刷新页面。
         const body = await res.json().catch(() => ({}));
         console.warn('[StyleLora] save failed:', body.error);
+        showToast({ title: '风格保存失败', description: String(body?.error || `HTTP ${res.status}`).slice(0, 120), type: 'error', duration: 4000 });
         return;
       }
       setDraftName('');
