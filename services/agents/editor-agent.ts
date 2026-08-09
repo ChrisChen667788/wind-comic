@@ -347,6 +347,18 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
     if (ctx.minimaxService || ttsEngineConfigured()) {
       // v12.29.0(P1):原生音频镜跳 TTS(成片自带音轨,composer 取真音轨);其余仍走 TTS(零回归)。
       const allDialogueShots = timeline.filter(t => t.dialogue && t.dialogue.trim().length > 0);
+      // v12.296:**整组一次性定音色**,而不是逐句现挑。
+      // 逐句挑(v12.288 的做法)看不到全片阵容,于是与「重配单镜」那条路径(按整组去重挑)
+      // 天生对不齐 —— 实测 8/8 角色重配后换嗓、性别都反了。两边现在跑同一个 resolveCastVoices。
+      const _voiceCast: Map<string, string> = await (async () => {
+        try {
+          const { resolveCastVoices } = await import('@/lib/character-studio');
+          return resolveCastVoices(allDialogueShots.map((t: any) => String(t?.speaker || '').trim()));
+        } catch { return new Map<string, string>(); }
+      })();
+      if (_voiceCast.size > 0) {
+        console.log(`[Editor] 角色音色(整组定,${_voiceCast.size} 人): ${[...(_voiceCast as any)].map(([k, v]) => `${k}=${v}`).join(', ')}`);
+      }
       const { tts: dialogueShots, native: nativeDialogueShots } = partitionDialogueShots(allDialogueShots, nativeShotsSet);
       if (nativeDialogueShots.length > 0) {
         ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: `🎧 ${nativeDialogueShots.length} 个镜头用引擎原生音频(跳过 TTS,音画一体)` });
@@ -409,15 +421,18 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
             const _gender = t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male';
             let _voiceId = _gender === 'female' ? 'female-zh' : 'male-zh';
             if (_speaker) {
-              try {
-                const { TTSService } = await import('@/services/tts.service');
-                // v12.288:先按角色名推性别/年龄(与 prosody 共用同一套线索词表,口径一致),
-                // 推不出就传空 —— assignVoiceToCharacter 会退回全目录哈希,不瞎猜。
-                const { inferTraitsFromName } = await import('@/lib/tts-prosody');
-                const _traits = inferTraitsFromName(_speaker);
-                const _picked = new TTSService().assignVoiceToCharacter(_speaker, _traits);
-                if (_picked) _voiceId = _picked;
-              } catch { /* 取不到就沿用旧的性别兜底,不阻塞配音 */ }
+              // v12.296:直接取上面**整组一次性定好**的音色表。
+              // 逐句现挑会看不到全片阵容,与「重配单镜」那条路径对不齐(详见 _voiceCast 处的说明)。
+              const _fromCast = _voiceCast.get(_speaker);
+              if (_fromCast) _voiceId = _fromCast;
+              else {
+                try {
+                  // 阵容表里没有(理论上不该发生)→ 退回单角色入口,仍走同一套选路
+                  const { resolveCharacterVoice } = await import('@/lib/character-studio');
+                  const _picked = resolveCharacterVoice(_speaker);
+                  if (_picked) _voiceId = _picked;
+                } catch { /* 取不到就沿用旧的性别兜底,不阻塞配音 */ }
+              }
             }
             // v3.2 P4.3: TTS 走 withTTSPlugin. off → 直接 generateSpeech (行为不变),
             // primary → 先 plugin chain 失败落老 generateSpeech, shadow → 老逻辑出结果 + plugin 采样比对.

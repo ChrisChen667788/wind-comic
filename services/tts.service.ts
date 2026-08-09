@@ -1,7 +1,7 @@
 import { API_CONFIG } from '@/lib/config';
 import { emotionToMinimaxEmotion } from '@/lib/emotion-tag';
 import { voiceForLanguage } from '@/lib/tts-voice-map';
-import { VOICE_CATALOG, pickVoiceForCharacter } from '@/lib/character-studio';
+import { VOICE_CATALOG, pickVoiceForCharacter , resolveCharacterVoice } from '@/lib/character-studio';
 
 export interface TTSOptions {
   voiceId?: string;
@@ -159,23 +159,19 @@ export class TTSService {
    * 性别也未知 → 全目录哈希。确定性不变(同名恒定同音色),只是候选池与匹配质量变了。
    */
   assignVoiceToCharacter(characterName: string, traits?: { gender?: string; ageGroup?: string }): string {
-    // 有性别/年龄 → 走与「建角色」同一套挑选,保证前后一致
+    // v12.296:委托给全仓唯一入口 resolveCharacterVoice。
+    // 此前这里自带一套选路,而 lib/voice-routing 又有另一套 —— 同一角色在「成片」与「重配单镜」
+    // 两条路径上拿到不同音色,实测 8/8 不一致且性别都反了。
+    // 显式传入的 traits 优先(建角色时已知性别/年龄);没传则由入口按角色名推断。
     if (traits && (traits.gender || traits.ageGroup)) {
       try {
-        const pick = pickVoiceForCharacter(traits as any, undefined, characterName); // v12.287:带名字 → 同分散开
+        const pick = pickVoiceForCharacter(traits as any, undefined, characterName);
         if (pick?.voiceId) return pick.voiceId;
-      } catch { /* 落到下方哈希 */ }
+      } catch { /* 落到唯一入口 */ }
     }
-    // 无 traits:按性别分池(若知道)后在**全目录**内确定性哈希 —— 而不是只在 4 个默认音色里
-    const pool = VOICE_CATALOG.filter((v) => (traits?.gender === 'male' || traits?.gender === 'female')
-      ? v.gender === traits.gender
-      : true);
-    const candidates = (pool.length > 0 ? pool : VOICE_CATALOG).map((v) => v.id);
-    if (candidates.length === 0) return DEFAULT_VOICES.narrator_male;
-    let hash = 0;
-    for (let i = 0; i < characterName.length; i++) hash += characterName.charCodeAt(i);
-    return candidates[hash % candidates.length];
+    return resolveCharacterVoice(characterName) || DEFAULT_VOICES.narrator_male;
   }
+
 
   /**
    * Generate a single TTS voiceover from text using MiniMax T2A API.

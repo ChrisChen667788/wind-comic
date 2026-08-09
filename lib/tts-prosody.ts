@@ -120,14 +120,39 @@ export function deriveProsody(input: ProsodyInput = {}): ProsodyParams {
  * 诚实边界:纯词表启发式,**多数中文人名判不出**(如「顾行舟」「林晚」)—— 返回 undefined,
  * 由调用方退回哈希散列。这不是缺陷,是不瞎猜:宁可散列也不要把男主判成女声。
  */
+/**
+ * v12.296:**称谓词表的唯一定义**。
+ *
+ * 此前同一套「名字 → 性别」的正则散在**五处**:本文件的 `inferTraitsFromName`(两条)、
+ * `characterProsodyBias`(两条),外加 `lib/voice-routing.ts` 的 `FEMALE_HINT`/`MALE_HINT`。
+ * 各写各的,于是「戊姑」「己嫂」在 voice-routing 判 female、在这里判 unknown ——
+ * 音色选路与韵律纠偏对同一个角色给出不同性别。
+ *
+ * v12.288 曾断言「与 prosody 口径一致」,但用例只挑了「王大爷」这个两边都认的名字,
+ * **结论下大了**。这次合成一份:取两处词表的并集,并补上两边都漏的「婶」。
+ *
+ * 注意:词表变动会改变受影响角色的音色分配(已出片的项目不受影响,不会重生成)。
+ */
+export const MALE_NAME_HINT = /[男叔爷伯汉][^女]?|先生|大爷|老汉|父亲|爸|哥|弟|父|少爷|公子|郎|侠|帝|将军|大叔|\bmr\b|\bsir\b|\bboy\b/;
+export const FEMALE_NAME_HINT = /女|姐|妹|婆|娘|母亲|妈|母|小姐|夫人|姑|嫂|婶|奶|姨|嬷|妃|公主|\bmrs\b|\bms\b|\bmiss\b|\bgirl\b|\blady\b/;
+
+/** 名字 → 性别(共享词表;判不出返回 undefined,由调用方退回散列 —— 不瞎猜)。 */
+export function genderFromNameHints(name?: string | null): 'male' | 'female' | undefined {
+  const n = (name || '').toLowerCase();
+  if (!n.trim()) return undefined;
+  const male = MALE_NAME_HINT.test(n);
+  const female = FEMALE_NAME_HINT.test(n);
+  if (male && !female) return 'male';
+  if (female && !male) return 'female';
+  return undefined;
+}
+
 export function inferTraitsFromName(name?: string | null): { gender?: 'male' | 'female'; ageGroup?: string } {
   const n = (name || '').toLowerCase();
   if (!n.trim()) return {};
   const out: { gender?: 'male' | 'female'; ageGroup?: string } = {};
-  const male = /[男叔爷伯汉][^女]?|先生|大爷|老汉|父亲|爸|哥|\bmr\b|\bsir\b|\bboy\b/.test(n);
-  const female = /女|姐|妹|婆|娘|母亲|妈|小姐|夫人|\bmrs\b|\bms\b|\bmiss\b|\bgirl\b|\blady\b/.test(n);
-  if (male && !female) out.gender = 'male';
-  else if (female && !male) out.gender = 'female';
+  const g = genderFromNameHints(n);
+  if (g) out.gender = g;
   if (/老|爷|婆|翁|叟|年迈|奶奶|爷爷|\bold\b|\belder\b/.test(n)) out.ageGroup = '老年';
   else if (/孩|童|娃|幼|少年|\bkid\b|\bchild\b/.test(n)) out.ageGroup = '童年';
   return out;
@@ -138,8 +163,9 @@ export function characterProsodyBias(name?: string | null): { pitchDelta: number
   if (!n.trim()) return { pitchDelta: 0, speedMul: 1.0 };
   let pitchDelta = 0, speedMul = 1.0;
   // 性别线索
-  if (/[男叔爷伯汉][^女]?|先生|大爷|老汉|父亲|爸|哥|\bmr\b|\bsir\b|\bboy\b|\bhe\b|\bhim\b/.test(n)) { pitchDelta -= 2; speedMul *= 0.98; }
-  else if (/女|姐|妹|婆|娘|母亲|妈|小姐|夫人|\bmrs\b|\bms\b|\bmiss\b|\bgirl\b|\blady\b|\bshe\b|\bher\b/.test(n)) { pitchDelta += 1; }
+  // v12.296:与 inferTraitsFromName 共用同一份词表(英文代词是韵律独有的额外线索)
+  if (MALE_NAME_HINT.test(n) || /\bhe\b|\bhim\b/.test(n)) { pitchDelta -= 2; speedMul *= 0.98; }
+  else if (FEMALE_NAME_HINT.test(n) || /\bshe\b|\bher\b/.test(n)) { pitchDelta += 1; }
   // 年龄线索(覆盖性别的语速)
   if (/老|爷|婆|翁|叟|年迈|大爷|奶奶|爷爷|\bold\b|\belder\b/.test(n)) { pitchDelta -= 1; speedMul = 0.92; }
   else if (/孩|童|娃|幼|少年|\bkid\b|\bchild\b|\bboy\b|\bgirl\b/.test(n)) { pitchDelta += 2; speedMul = Math.max(speedMul, 1.02); }

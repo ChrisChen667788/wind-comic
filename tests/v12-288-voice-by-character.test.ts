@@ -80,9 +80,11 @@ describe('v12.288 · 角色名推断与 prosody 同源', () => {
 });
 
 describe('v12.288 · 接线与降级', () => {
+  // v12.296 更新:选音色从「逐句现挑 assignVoiceToCharacter(_speaker)」改成
+  // 「整组一次性定好的 _voiceCast 里取」—— 逐句挑看不到全片阵容,与重配路径天生对不齐。
   it('editor-agent 用 speaker 选音色,两个 TTS 通道用同一把嗓', () => {
     expect(SRC).toContain('const _speaker');
-    expect(SRC).toContain('assignVoiceToCharacter(_speaker');
+    expect(SRC).toContain('_voiceCast.get(_speaker)');
     // plugin 通道与注册表通道都必须用 _voiceId,不能一个新一个旧
     expect((SRC.match(/voiceId: _voiceId/g) || []).length).toBe(2);
   });
@@ -93,8 +95,11 @@ describe('v12.288 · 接线与降级', () => {
   });
 
   it('取音色失败不阻塞配音', () => {
-    const i = SRC.indexOf('assignVoiceToCharacter(_speaker');
-    expect(SRC.slice(i, i + 300)).toContain('catch');
+    // 阵容表构建本身包 try/catch(失败退空表),取用处再退回单角色入口且同样包 catch
+    const iCast = SRC.indexOf('const _voiceCast');
+    expect(SRC.slice(iCast, iCast + 400)).toContain('catch');
+    const iUse = SRC.indexOf('_voiceCast.get(_speaker)');
+    expect(SRC.slice(iUse, iUse + 800)).toContain('catch');
   });
 
   it('保留病根说明(防后人以为是冗余分支删掉)', () => {

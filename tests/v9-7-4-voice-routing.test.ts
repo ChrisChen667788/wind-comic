@@ -3,6 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { inferGenderFromName, buildVoiceRouting, voiceForCharacter, effectiveVoice, DEFAULT_VOICE_ID } from '@/lib/voice-routing';
+import { VOICE_CATALOG, resolveCharacterVoice } from '@/lib/character-studio';
 
 describe('v9.7.4 · inferGenderFromName', () => {
   it('称谓 hint 推性别', () => {
@@ -18,14 +19,29 @@ describe('v9.7.4 · inferGenderFromName', () => {
 });
 
 describe('v9.7.4 · buildVoiceRouting', () => {
-  it('同性别多角色分到不同音色(不撞嗓)', () => {
+  /**
+   * v12.296 更新:原断言锁的是 4 个**具体 id**(young_female_cn / narrator_female_cn /
+   * young_male_cn / narrator_male_cn)—— 那是旧「首 4 档轮转」的产物,而不是契约本身。
+   * 收口到 resolveCastVoices 后 id 变了,但真正要守的三件事一件没少,现在直接锁它们:
+   * 性别正确、同性别不撞嗓、且**与成片主链路给同一角色的结果一致**(这才是本版的病根)。
+   */
+  it('同性别多角色分到不同音色(不撞嗓),且性别正确', () => {
     const r = buildVoiceRouting(['小红姐', '王妈妈', '张大哥', '李先生']);
-    expect(r.get('小红姐')).toBe('young_female_cn');
-    expect(r.get('王妈妈')).toBe('narrator_female_cn');
+    const genderOf = (n: string) => VOICE_CATALOG.find((v) => v.id === r.get(n))!.gender;
+    expect(genderOf('小红姐')).toBe('female');
+    expect(genderOf('王妈妈')).toBe('female');
+    expect(genderOf('张大哥')).toBe('male');
+    expect(genderOf('李先生')).toBe('male');
     expect(r.get('小红姐')).not.toBe(r.get('王妈妈'));     // 两女不同嗓
-    expect(r.get('张大哥')).toBe('young_male_cn');
-    expect(r.get('李先生')).toBe('narrator_male_cn');
     expect(r.get('张大哥')).not.toBe(r.get('李先生'));     // 两男不同嗓
+  });
+
+  it('不给成年角色配童声(旧实现同分散列会落到 cute_boy_cn)', () => {
+    const r = buildVoiceRouting(['张大哥', '李先生', '王妈妈']);
+    for (const n of ['张大哥', '李先生', '王妈妈']) {
+      const meta = VOICE_CATALOG.find((v) => v.id === r.get(n))!;
+      expect(meta.ageGroups, `${n} 拿到 ${meta.id}(${meta.ageGroups?.join('|')})`).not.toEqual(['童年']);
+    }
   });
 
   it('确定性:同名永远同嗓 + 重复/空名跳过', () => {
@@ -51,17 +67,19 @@ describe('v9.7.4 · buildVoiceRouting', () => {
 describe('v9.7.4 · voiceForCharacter', () => {
   it('有路由用路由,无名兜底默认', () => {
     const r = buildVoiceRouting(['张大哥']);
-    expect(voiceForCharacter('张大哥', r)).toBe('young_male_cn');
+    // v12.296:单角色时必须与全仓唯一入口一致 —— 这正是「重配一镜换嗓」的病根所在
+    expect(voiceForCharacter('张大哥', r)).toBe(resolveCharacterVoice('张大哥'));
     expect(voiceForCharacter('')).toBe(DEFAULT_VOICE_ID);
   });
 });
 
 describe('v9.7.7 · effectiveVoice 优先级', () => {
-  const routing = buildVoiceRouting(['张大哥']); // 张大哥 → young_male_cn
+  const routing = buildVoiceRouting(['张大哥']);
+  const auto = resolveCharacterVoice('张大哥');   // v12.296:不再写死 id,锁的是优先级本身
   it('force > override > routing > default', () => {
     expect(effectiveVoice('张大哥', { force: 'narrator_female_cn', overrides: { 张大哥: 'young_female_cn' }, routing })).toBe('narrator_female_cn');
     expect(effectiveVoice('张大哥', { overrides: { 张大哥: 'young_female_cn' }, routing })).toBe('young_female_cn');
-    expect(effectiveVoice('张大哥', { routing })).toBe('young_male_cn');
+    expect(effectiveVoice('张大哥', { routing })).toBe(auto);
     expect(effectiveVoice('路人', { routing })).toBe(DEFAULT_VOICE_ID);
     expect(effectiveVoice('', {})).toBe(DEFAULT_VOICE_ID);
   });

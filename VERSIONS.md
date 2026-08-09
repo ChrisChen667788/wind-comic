@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.295**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.296**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.295**:**vitest 3808 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.296**:**vitest 3826 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,34 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.295.0** | 2026-08-09 | `待填` | **🔍 查到底了:我们一直在发一个**不存在的参数**;顺带炸出全片带水印**。
+| **v12.296.0** | 2026-08-09 | `待填` | **🎙️ 重配一镜就换嗓 —— 同一角色的音色有三条路径各算各的,实测 8/8 不一致且性别全反**。
+
+**先纠正我自己写下并重复过几次的一句错话**:v12.287 的测试注释里写「`lib/voice-routing.ts` 生产零调用」——**不对**。它有两个真实消费方:`app/api/projects/[id]/shot-audio`(重配单镜音频)与 `lib/voice-retake.ts`(配音重录)。实情比「没用上」糟得多:**它和主链路同时在线,各发各的音色**。
+
+实测(修复前,8 个角色):
+
+| 角色 | 成片 | 重配 |
+|---|---|---|
+| 顾行舟(男) | `student_male_cn` | **`young_female_cn`** |
+| 小囡(女童) | `mature_female_cn` | **`narrator_male_cn`** |
+| 裴少(男) | `badao_shaoye_cn` | **`audiobook_female1_cn`** |
+
+**8/8 不一致,性别全反。用户重配某一镜音频,那个角色在这一镜就换了性别。**
+
+三条路径:① `editor-agent` 逐句 `assignVoiceToCharacter(name, traits)`;② `TTSService.generateDialogueVoiceovers` 调同一函数但**不传 traits**(对有称谓线索的名字结果不同);③ `buildVoiceRouting` 按**首次出现顺序在全池轮转** —— 推不出性别的中文人名(绝大多数)直接拿池子里第 n 个,与角色本身毫无关系。
+
+**修法:收口到 `character-studio.resolveCastVoices` 一个入口**,editor-agent 改为**整组一次性定音色**(逐句挑看不到全片阵容,与整组去重的重配路径天生对不齐)。
+
+**没有为一致性牺牲 v12.229 的「每角色独立音色」**——那是真实需求。新算法是「先取该角色的偏好音色,撞车才在**同性别**候选里按名字散列另挑」,两者兼得。
+
+过程中还揪出两个**主链路本来就有**的坑:
+
+- **成年角色被配童声**:知性别不知年龄时评分在全体同性别音色里打平,同分散列可能落到童声上 ——「张大哥」实测拿到 `cute_boy_cn`(ageGroups `["童年"]`)。改为默认按「青年」挑。
+- **称谓词表散在五处**:本以为只有两套,实际是 `tts-prosody` 内三条正则 + `voice-routing` 两条。「戊姑」「己嫂」在一处判 female、另一处判 unknown,同一角色的音色与韵律性别对不上。v12.288 曾断言「与 prosody 口径一致」,但用例只挑了「王大爷」这个两边都认的名字,**结论下大了**。现合成唯一定义 `genderFromNameHints`(并集 + 补上两边都漏的「婶」)。
+
+**尚未关闭的缺口(已在测试里锁住前提)**:两边一致的前提是**阵容列表相同**。若重配只拿到部分镜头的说话人,整组去重结果可能与成片不同。根治办法是出片时把「角色→音色」映射**落盘**、重配读它(与 v12.289 转场回写同一招)——留待后续版本。
+
+| **v12.295.0** | 2026-08-09 | `31b8948` | **🔍 查到底了:我们一直在发一个**不存在的参数**;顺带炸出全片带水印**。
 
 v12.294 结在「正确写法未确证」。实测这条路确实走不通(88 分钟全 429),于是换路子——**查官方 API 文档**([HappyHorse 文生视频 API 参考](https://help.aliyun.com/zh/model-studio/happyhorse-text-to-video-api-reference)),真相是:
 

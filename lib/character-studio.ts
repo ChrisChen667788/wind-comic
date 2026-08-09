@@ -17,6 +17,7 @@
 import type { CharacterTraits } from './character-traits';
 import type { CharacterDna } from './character-dna';
 import { buildPromptBlock } from './character-dna';
+import { inferTraitsFromName } from './tts-prosody'; // v12.296:角色音色唯一入口与韵律共用称谓词表
 
 // ──────────────────────────────────────────────────────────────────────
 // 1) 多视角设定图 (turnaround)
@@ -420,3 +421,116 @@ export function parseProfile(json: string | null | undefined): CharacterProfile 
   }
 }
 
+
+// ═══════════════════════════════════════════
+// v12.296 角色音色的**唯一入口**
+// ═══════════════════════════════════════════
+
+/**
+ * 按角色名定音色 —— **全仓唯一入口**。
+ *
+ * 病根:同一个角色的音色此前有**三条路径各算各的**,实测 8/8 角色在主链路与重配路径上拿到
+ * 不同音色,而且**性别都反了**(顾行舟 主链路 `student_male_cn` / 重配 `young_female_cn`;
+ * 小囡 `mature_female_cn` / `narrator_male_cn`)。用户重配某一镜的音频,那个角色在这一镜就换了性别。
+ *
+ * 三条路径分别是:
+ *  ① `editor-agent` → `TTSService.assignVoiceToCharacter(name, inferTraitsFromName(name))`(成片走这条)
+ *  ② `TTSService.generateDialogueVoiceovers` → `assignVoiceToCharacter(name)` **不传 traits** ——
+ *     对「王大爷」这类有称谓线索的名字,与 ① 结果不同(① 走性别/年龄评分,② 走全目录哈希)
+ *  ③ `lib/voice-routing.buildVoiceRouting` → 按**首次出现顺序在全池轮转**;
+ *     推不出性别的中文人名(绝大多数)直接拿池子里第 n 个,与角色本身毫无关系
+ *
+ * 尤其要记的是 ③ 的来历:v12.229 给它加了「每角色独立音色」的全局去重 —— 出发点是好的,
+ * 但**成片自己并不去重**,于是这条路径按设计就与成片不一致。**去重换来的独立性,
+ * 代价是同一角色在重配后换嗓**;两害相权,一致性优先(成片本来就允许两个角色撞嗓)。
+ */
+export function resolveCharacterVoice(
+  name: string,
+  catalog: VoiceMeta[] = VOICE_CATALOG,
+): string {
+  return _preferredVoice(name, catalog);
+}
+
+/**
+ * 整部戏的「角色 → 音色」映射。**出片与重配必须用同一份**,否则重配一镜就换嗓。
+ *
+ * 与单角色版的关系:每个角色**先取** `resolveCharacterVoice` 的偏好值;若已被前面的角色占用,
+ * 才在**同性别**候选里按名字散列挑一个没被占的(仍是确定性的),同性别用尽再退全池。
+ * 于是:
+ *  - 单角色时结果与 `resolveCharacterVoice` 完全一致(两条路径天然对齐);
+ *  - 多角色时保住 v12.229 立的「每角色独立音色」—— 那是真实需求,不能为了一致性牺牲掉;
+ *  - 撞车时**不再退化成全池轮转**(原实现让「顾行舟」拿到 `young_female_cn` 这种性别相反的音色)。
+ *
+ * 角色数超过目录容量时才允许复用,复用仍按同一确定性顺序。
+ */
+export function resolveCastVoices(
+  names: Array<string | undefined | null>,
+  catalog: VoiceMeta[] = VOICE_CATALOG,
+): Map<string, string> {
+  const pool = catalog && catalog.length ? catalog : VOICE_CATALOG;
+  const map = new Map<string, string>();
+  const used = new Set<string>();
+
+  for (const raw of Array.isArray(names) ? names : []) {
+    const n = (raw || '').trim();
+    if (!n || map.has(n)) continue;
+
+    const preferred = _preferredVoice(n, pool);
+    let chosen = preferred;
+    if (used.has(preferred)) {
+      // 同性别候选里按名字散列找没被占的 —— 保持性别正确,且确定性
+      const g = pool.find((v) => v.id === preferred)?.gender;
+      const sameGender = pool.filter((v) => v.gender === g && !used.has(v.id));
+      const anyFree = pool.filter((v) => !used.has(v.id));
+      const bucket = sameGender.length ? sameGender : anyFree;
+      if (bucket.length) {
+        let h = 0;
+        for (let i = 0; i < n.length; i++) h += n.charCodeAt(i);
+        chosen = bucket[h % bucket.length].id;
+      }
+      // bucket 为空 = 角色数超过目录容量 → 复用 preferred
+    }
+    used.add(chosen);
+    map.set(n, chosen);
+  }
+  return map;
+}
+
+/** 单角色偏好音色(不考虑同片其他角色占用) */
+function _preferredVoice(
+  name: string,
+  catalog: VoiceMeta[] = VOICE_CATALOG,
+): string {
+  const n = (name || '').trim();
+  const pool = catalog && catalog.length ? catalog : VOICE_CATALOG;
+  if (!n) return pool[0]?.id || '';
+
+  // 与 tts-prosody 共用同一套称谓词表(v12.288 起),避免「音色判男、韵律判女」
+  let traits: { gender?: string; ageGroup?: string } = {};
+  try {
+    // 动态取值:tts-prosody 无任何依赖,这里静态 import 也安全,用 require 形态是为了不改本文件的 import 拓扑
+    traits = inferTraitsFromName(n) || {};
+  } catch { traits = {}; }
+
+  if (traits.gender || traits.ageGroup) {
+    try {
+      // v12.296:**知性别但不知年龄时,默认按「青年」挑**。
+      // 否则 pickVoiceForCharacter 在全体同性别音色里打平,同分散列可能落到童声/老声上 ——
+      // 实测「张大哥」(只推得出 male)拿到 `cute_boy_cn`(ageGroups: ["童年"]),成年角色配上奶音男孩。
+      // 这个坑主链路 `assignVoiceToCharacter` 本来就有,收口到唯一入口后一并修掉。
+      const eff = (traits.gender && !traits.ageGroup) ? { ...traits, ageGroup: '青年' } : traits;
+      const pick = pickVoiceForCharacter(eff as any, pool, n);
+      if (pick?.voiceId) return pick.voiceId;
+    } catch { /* 落到下方哈希 */ }
+  }
+
+  // 无线索:按性别分池(若知道)后在**全目录**内确定性哈希
+  const bucket = pool.filter((v) => (traits.gender === 'male' || traits.gender === 'female')
+    ? v.gender === traits.gender
+    : true);
+  const candidates = (bucket.length ? bucket : pool).map((v) => v.id);
+  if (!candidates.length) return '';
+  let hash = 0;
+  for (let i = 0; i < n.length; i++) hash += n.charCodeAt(i);
+  return candidates[hash % candidates.length];
+}
