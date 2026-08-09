@@ -173,6 +173,60 @@ export interface RenderedTransition {
   transitionDurationS: number;
 }
 
+/**
+ * v12.291(复核补强):算「每次转场的类型 + 实际时长」的**纯函数**。
+ *
+ * 原本这段是 composeVideo 里的一段内联循环 —— 只能靠「在源码里 grep 有没有这几行」来测,
+ * 而对抗式复核当场给出了破法:把首镜那个 `if` 改成 `if (false)`,源码文本纹丝不动、测试照绿,
+ * 功能却已经坏了。抽成纯函数后这些都能测真行为。
+ *
+ * 语义(与 v12.265「单一真源」一致):
+ *  - `effectiveTds[0]` 恒 0、`renderedTransitions[0].transition` 恒 `''` —— **首镜没有入场转场**;
+ *  - 硬切(cut/flash-cut)固定 0.1s;关键镜的柔转场加长 1.3×;
+ *  - 一律被 `min(前后镜时长)/2` 夹住(否则 xfade 会吃掉整镜);
+ *  - `renderedTransitions` 按 **shotNumber** 记录,供 editor-agent 回写 timeline(见 v12.289)。
+ */
+export function computeTransitionPlan(args: {
+  clips: Array<{ shotNumber?: number; transition?: string } | undefined>;
+  transitionNames: string[];
+  keyShots: Set<number>;
+  highlights: Array<{ shotNumber: number; editStrategy: { transitionDuration?: number } }>;
+  durations: number[];
+  td: number;
+}): { effectiveTds: number[]; transitionOf: string[]; renderedTransitions: RenderedTransition[] } {
+  const { clips, transitionNames, keyShots, highlights, durations, td } = args;
+  const n = clips.length;
+  const effectiveTds: number[] = new Array(n).fill(0); // [0] 恒 0(首镜无转场)
+  const transitionOf: string[] = new Array(n).fill('');
+  const renderedTransitions: RenderedTransition[] = [];
+
+  // 首镜如实回传「无入场转场」:成片 effectiveTds[0] 恒 0,而 timeline 里的设计值会让
+  // EDL 给第一镜写一条「溶解入场」—— 无物可溶,剪辑软件里是条假事件。
+  if (typeof clips[0]?.shotNumber === 'number') {
+    renderedTransitions.push({ shotNumber: clips[0].shotNumber as number, transition: '', transitionDurationS: 0 });
+  }
+  for (let i = 1; i < n; i++) {
+    const clipAnalysis = highlights.find((h) => h.shotNumber === clips[i]?.shotNumber);
+    const pick = transitionNames[i] || clips[i]?.transition || 'dissolve';
+    const isLastCut = pick === 'cut' || pick === 'flash-cut';
+    transitionOf[i] = mapTransition(pick);
+    // 关键镜 fade 略长(郑重入场);其余用高光分析推荐时长
+    const enteringKey = !isLastCut && keyShots.has(clips[i]?.shotNumber as number);
+    const baseTd = enteringKey
+      ? Math.max(td, clipAnalysis?.editStrategy.transitionDuration || td) * 1.3
+      : (clipAnalysis?.editStrategy.transitionDuration || td);
+    effectiveTds[i] = isLastCut ? 0.1 : Math.min(
+      baseTd,
+      Math.min(durations[i - 1], durations[i]) / 2,
+    );
+    const sn = clips[i]?.shotNumber;
+    if (typeof sn === 'number') {
+      renderedTransitions.push({ shotNumber: sn, transition: pick, transitionDurationS: effectiveTds[i] });
+    }
+  }
+  return { effectiveTds, transitionOf, renderedTransitions };
+}
+
 export interface ComposeResult {
   outputPath: string;        // 本地成片路径
   totalDuration: number;     // 总时长
@@ -182,7 +236,11 @@ export interface ComposeResult {
   highlights: number[];      // 高光镜头编号列表
   beatEdit?: string;         // v12.0.0 卡点剪辑摘要(如 "120 拍, 5/8 镜切点对齐"),无则空
   emotionPacing?: string;    // v12.0.1 情绪节奏摘要(如 "3/8 镜情绪调速"),无则空
-  renderedTransitions?: RenderedTransition[]; // v12.289 成片实际转场(见上)
+  // v12.289 成片实际转场(见上)。v12.291 复核补强:**必填**——
+  // 设成可选时,把某个 resolve 出口的这一行删掉,类型检查与测试都发现不了
+  // (旧测试只数了 `renderedTransitions` 在文件里出现几次,删一处仍达标),
+  // 而运行时回写会静默 no-op,导出又退回设计值。必填 → 删掉即 tsc 报错。
+  renderedTransitions: RenderedTransition[];
 }
 
 // ═══════════════════════════════════════════
@@ -1232,35 +1290,9 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     //   ① 前置 pass 只算「每次转场的类型 + 实际时长」(纯数据,不产滤镜);
     //   ② computeXfadeTimeline 一次性给出压缩后时间轴;
     //   ③ 画面 xfade offset / 配音 adelay / 字幕起点 / 打击音效**四者共用同一份 clipStartSec**。
-    const effectiveTds: number[] = new Array(n).fill(0); // [0] 恒 0(首镜无转场)
-    const transitionOf: string[] = new Array(n).fill('');
-    // v12.289:同一趟循环里把「实际转场类型 + 实际时长」记下来回传,
-    // 供 editor-agent 写回 timeline —— 否则导出的剪辑线用的是设计值,与成片不符。
-    const renderedTransitions: RenderedTransition[] = [];
-    // 首镜如实回传「无入场转场」:成片 effectiveTds[0] 恒 0,而 timeline 里的设计值会让
-    // EDL 给第一镜写一条「溶解入场」—— 无物可溶,剪辑软件里是条假事件。
-    if (typeof validClips[0]?.shotNumber === 'number') {
-      renderedTransitions.push({ shotNumber: validClips[0].shotNumber as number, transition: '', transitionDurationS: 0 });
-    }
-    for (let i = 1; i < n; i++) {
-      const clipAnalysis = highlights.find(h => h.shotNumber === validClips[i]?.shotNumber);
-      const pick = transitionNames[i] || validClips[i]?.transition || 'dissolve';
-      const isLastCut = pick === 'cut' || pick === 'flash-cut';
-      transitionOf[i] = mapTransition(pick);
-      // 关键镜 fade 略长(郑重入场);其余用高光分析推荐时长
-      const enteringKey = !isLastCut && keyShots.has(validClips[i]?.shotNumber as number);
-      const baseTd = enteringKey
-        ? Math.max(td, clipAnalysis?.editStrategy.transitionDuration || td) * 1.3
-        : (clipAnalysis?.editStrategy.transitionDuration || td);
-      effectiveTds[i] = isLastCut ? 0.1 : Math.min(
-        baseTd,
-        Math.min(durations[i - 1], durations[i]) / 2
-      );
-      const _sn = validClips[i]?.shotNumber;
-      if (typeof _sn === 'number') {
-        renderedTransitions.push({ shotNumber: _sn, transition: pick, transitionDurationS: effectiveTds[i] });
-      }
-    }
+    const { effectiveTds, transitionOf, renderedTransitions } = computeTransitionPlan({
+      clips: validClips, transitionNames, keyShots, highlights, durations, td,
+    });
 
     // 压缩后时间轴:clipStartSec[i] = 第 i 镜画面真实起点(= 其 xfade offset),totalSec = 成片总时长
     const { clipStartSec, totalSec } = computeXfadeTimeline(durations, effectiveTds);

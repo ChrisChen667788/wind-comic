@@ -16,7 +16,18 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import { selectTransitions, applyRenderedTransitions } from '@/lib/edit-rhythm';
+import { computeTransitionPlan } from '@/services/video-composer';
 import { buildEDL, isDissolveTransition, type EdlShot } from '@/lib/edl-export';
+
+/** 一份典型的四镜转场计划:第 3 镜硬切、第 4 镜是关键镜 */
+const mkPlan = () => computeTransitionPlan({
+  clips: [{ shotNumber: 1 }, { shotNumber: 2 }, { shotNumber: 3 }, { shotNumber: 4 }],
+  transitionNames: ['', 'dissolve', 'cut', 'fade'],
+  keyShots: new Set([4]),
+  highlights: [],
+  durations: [4, 4, 4, 4],
+  td: 0.5,
+});
 
 const EDITOR_SRC = fs.readFileSync('services/agents/editor-agent.ts', 'utf-8');
 const COMPOSER_SRC = fs.readFileSync('services/video-composer.ts', 'utf-8');
@@ -184,21 +195,32 @@ describe('v12.289 · 导出到 EDL 后确实是成片那份', () => {
 });
 
 describe('v12.289 · 接线', () => {
-  it('合成端在算 effectiveTds 的同一趟循环里记录实际转场(不另起一套)', () => {
-    const i = COMPOSER_SRC.indexOf('const renderedTransitions: RenderedTransition[] = []');
-    expect(i, '未找到回传数组').toBeGreaterThan(0);
-    const block = COMPOSER_SRC.slice(i, i + 1400);
-    expect(block).toContain('effectiveTds[i] =');
-    expect(block).toContain('renderedTransitions.push');
-    // 存语义名(pick),不能存 mapTransition 后的 ffmpeg 名 —— EDL 认的是语义名
-    expect(block).toMatch(/transition: pick/);
+  // v12.291 复核补强:下面两条原本是「在源码里 grep 这几行还在不在」。
+  // 对抗式复核当场给出破法:把首镜那个 if 改成 `if (false)`,源码文本纹丝不动、测试照绿,
+  // 功能却已经坏了。改为直接调 computeTransitionPlan 验真行为(详见 v12-291 测试文件)。
+  it('回传与 effectiveTds 同源(不另起一套算法)', () => {
+    const plan = mkPlan();
+    // 每条回传的时长必须等于该镜的 effectiveTds —— 两者若各算各的,这里立刻红
+    for (let i = 1; i < plan.effectiveTds.length; i++) {
+      const rt = plan.renderedTransitions.find((r) => r.shotNumber === i + 1);
+      expect(rt?.transitionDurationS, `第 ${i + 1} 镜`).toBe(plan.effectiveTds[i]);
+    }
+  });
+
+  it('回传的是语义名,不是 mapTransition 之后的 ffmpeg 名(EDL 认语义名)', () => {
+    const plan = computeTransitionPlan({
+      clips: [{ shotNumber: 1 }, { shotNumber: 2, transition: 'dip-to-black' }],
+      transitionNames: [], keyShots: new Set(), highlights: [], durations: [4, 4], td: 0.5,
+    });
+    expect(plan.renderedTransitions[1].transition).toBe('dip-to-black');
+    expect(plan.transitionOf[1], 'ffmpeg 侧才是映射后的名字').toBe('fadeblack');
   });
 
   it('首镜以空转场回传(否则导出仍会给第一镜编一条入场溶解)', () => {
-    const i = COMPOSER_SRC.indexOf('const renderedTransitions: RenderedTransition[] = []');
-    const block = COMPOSER_SRC.slice(i, i + 700);
-    expect(block).toMatch(/validClips\[0\]/);
-    expect(block).toMatch(/transition: ''/);
+    const plan = mkPlan();
+    expect(plan.renderedTransitions[0]).toEqual({ shotNumber: 1, transition: '', transitionDurationS: 0 });
+    expect(plan.effectiveTds[0]).toBe(0);
+    expect(isDissolveTransition(plan.renderedTransitions[0].transition)).toBe(false);
   });
 
   it('回写后再合成(recompose)是稳定的:硬切不会漂成溶解', () => {
@@ -211,14 +233,22 @@ describe('v12.289 · 接线', () => {
     expect(selectTransitions(clips as any)[1]).toBe('cut');
   });
 
-  it('两个 resolve 出口都带回传(单镜路径给空数组,不是 undefined)', () => {
-    expect((COMPOSER_SRC.match(/renderedTransitions/g) || []).length).toBeGreaterThanOrEqual(5);
+  // v12.291 复核补强:原本这条只数 `renderedTransitions` 在文件里出现 ≥5 次 ——
+  // 现有 6 处,删掉多镜 resolve 出口那一行仍满足,测试照绿而回写已静默失效。
+  // 改用**类型**来守:ComposeResult.renderedTransitions 现为**必填**,删任一出口即 tsc 报错。
+  it('回传字段必填 —— 删掉任一 resolve 出口会被 tsc 拦住,而不是靠数出现次数', () => {
+    const i = COMPOSER_SRC.indexOf('export interface ComposeResult');
+    const block = COMPOSER_SRC.slice(i, i + 900);
+    expect(block).toMatch(/renderedTransitions: RenderedTransition\[\];/);
+    expect(block, '一旦写成可选,删除就检测不到了').not.toMatch(/renderedTransitions\?:/);
     expect(COMPOSER_SRC).toContain('renderedTransitions: [], // v12.289 单镜成片无转场');
   });
 
-  it('editor-agent 在成片后、timeline 落盘前回写,且用共享纯函数', () => {
-    expect(EDITOR_SRC).toContain('applyRenderedTransitions');
-    const iApply = EDITOR_SRC.indexOf('applyRenderedTransitions(timeline');
+  // v12.291 复核补强:原本只断言「调用在 composeVideo 之后」,不看传的是什么 ——
+  // 把第二个参数改成常量 `[]` 测试照绿,而回写永远收到空数组。改为锁死整个实参。
+  it('editor-agent 在成片后回写,且传的是成片真数据(不是常量空数组)', () => {
+    const iApply = EDITOR_SRC.indexOf('applyRenderedTransitions(timeline as any[], result.renderedTransitions)');
+    expect(iApply, '实参必须是 result.renderedTransitions').toBeGreaterThan(0);
     const iCompose = EDITOR_SRC.indexOf('const result = await composeVideo({');
     expect(iCompose).toBeGreaterThan(0);
     expect(iApply, '回写必须在 composeVideo 之后').toBeGreaterThan(iCompose);

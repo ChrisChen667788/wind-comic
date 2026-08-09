@@ -49,6 +49,7 @@ const FILES = [
   'docs/MARKETING-zh.md',
   'docs/MARKETING-en.md',
   'docs/modelscope-profile.md',
+  'VERSIONS.md',   // v12.291:只同步抬头区,见 syncVersionsHeader —— 正文全是历史陈述,不能动
 ];
 
 /**
@@ -101,12 +102,39 @@ function syncOne(text) {
   return text.split('\n').map(syncLine).join('\n');
 }
 
+/**
+ * v12.291:VERSIONS.md 的**开头叙述**也纳入同步 —— 此前它是全仓最后一处手工维护的版本号/测试数,
+ * 每次发版都得记得改,忘了就靠 `tests/v12-234-recheck2` 事后报红(本版就是这么被抓到的)。
+ *
+ * ⚠️ 但这个文件与其它文档**性质不同**:整篇都是历史陈述,每条版本记录下面的正文里写着
+ * 「当时」的测试数与版本号(如「截至 v12.226:2135 tests」),那些一个字都不能动 ——
+ * v12.276 我就是用脚本改 VERSIONS.md 伤过历史记录。
+ *
+ * 因此**只处理第一条表格行之前的抬头区**(前言那几行),往后一律原样透传。
+ * 这个边界是结构性的:表格一开始,后面全是历史。
+ */
+function syncVersionsHeader(text) {
+  const lines = text.split('\n');
+  const firstRow = lines.findIndex((l) => /^\| \*\*v[0-9]/.test(l));
+  if (firstRow < 0) return text;                    // 没有版本表 → 不敢动,原样返回
+  const head = lines.slice(0, firstRow).map((l) => {
+    let s = syncLine(l);
+    // 抬头里的「到当前 (**v12.290**)」「截至 **v12.290**:」
+    s = s.replace(/\(\*\*v\d+\.\d+(?:\.\d+)?\*\*\)/g, `(**${vShort}**)`);
+    s = s.replace(/截至 \*\*v\d+\.\d+(?:\.\d+)?\*\*/g, `截至 **${vShort}**`);
+    // 抬头里的「vitest 3739 全绿」
+    s = s.replace(/vitest\s+\d{3,5}\s*全绿/gi, `vitest ${tests} 全绿`);
+    return s;
+  });
+  return [...head, ...lines.slice(firstRow)].join('\n');
+}
+
 let drifted = 0;
 const report = [];
 for (const f of FILES) {
   if (!fs.existsSync(f)) continue;
   const before = fs.readFileSync(f, 'utf-8');
-  const after = syncOne(before);
+  const after = f === 'VERSIONS.md' ? syncVersionsHeader(before) : syncOne(before);
   if (after !== before) {
     drifted++;
     // 统计变了几行,便于人工核对
