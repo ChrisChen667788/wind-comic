@@ -141,6 +141,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     voiceoverVolume: 0.9,
   });
 
+  // v12.292:**重合成也要把成片实际转场回写 timeline 资产**。
+  // v12.289 只接了 editor-agent 主路径 —— 而 EDL/AAF 导出一律以 timeline 资产为准。
+  // 重合成时 selectTransitions 会按张力/关键镜重新挑(与上次 editor 的结果未必相同),
+  // 不回写的话:成片已经换成 wipeleft 0.5s,剪辑线里却还写着上次的 dissolve 0.7s,越导越旧。
+  try {
+    const raw = timelineAssets[0]?.data;
+    const tl = raw ? JSON.parse(raw) : null;
+    if (tl && Array.isArray(tl.timeline)) {
+      const { applyRenderedTransitions } = await import('@/lib/edit-rhythm');
+      const n = applyRenderedTransitions(tl.timeline, result.renderedTransitions);
+      if (n > 0) {
+        // name 必须沿用原资产 —— upsertAsset 无 shotNumber 时按 {type, name} 选行,换名字会插出重复
+        await upsertAsset({
+          projectId: id, type: 'timeline',
+          name: timelineAssets[0]?.name || '剪辑时间线', data: tl,
+        });
+        console.log(`[recompose] 转场回写 timeline 资产: ${n} 镜`);
+      }
+    }
+  } catch (e) {
+    console.warn('[recompose] 转场回写跳过(非阻塞):', e instanceof Error ? e.message : e);
+  }
+
   const { w, h } = dimsForAspect(aspect);
   const hookCard = body?.hookCard && typeof body.hookCard === 'object' ? body.hookCard : undefined;
   let outputPath = result.outputPath;

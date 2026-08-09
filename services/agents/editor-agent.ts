@@ -930,6 +930,16 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
             finalVideoUrl = `${serveFilePathUrl(simpleResult.outputPath)}`;
             console.log(`[Editor] Simplified compose succeeded: ${simpleResult.clipCount} clips`);
             ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: `✅ 简化合成成功！${simpleResult.clipCount}个片段` });
+            // v12.292:**降级路径同样要回写转场**。v12.289 只接了主路径 —— 主合成抛异常时控制流
+            // 直接跳到这里,timeline 里留着的还是设计值(溶解),而降级成片是**全硬切**,
+            // 导出的剪辑线会凭空多出几条实际不存在的溶解。这正是 v12.289 自己在修的那个病。
+            try {
+              const { applyRenderedTransitions } = await import('@/lib/edit-rhythm');
+              const n2 = applyRenderedTransitions(timeline as any[], simpleResult.renderedTransitions);
+              if (n2 > 0) console.log(`[Editor] 降级路径转场回写: ${n2}/${timeline.length} 镜`);
+            } catch (e3) {
+              console.warn('[Editor] 降级路径转场回写跳过(非阻塞):', e3 instanceof Error ? e3.message : e3);
+            }
           } catch (e2) {
             const e2Msg = e2 instanceof Error ? e2.message : String(e2);
             console.error('[Editor] Simplified compose also failed:', e2Msg);

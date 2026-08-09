@@ -148,12 +148,16 @@ function main() {
     auditVersionRows(src, map, pkgVer);
 
   if (CHECK) {
-    const bad = fixed + filled + stale.length;
-    const totalRows = alreadyOk + fixed + filled + unresolved + pending +
-      stale.filter((s) => s.includes('找不到它的提交')).length;   // 可回填的陈旧行已计入 filled,不重复计
+    // v12.292:陈旧待填分两种,**只有「找不到提交」那种是独立行**;
+    // 「找得到提交」那种已经计进 filled,再算进类目就会与总行数对不上
+    //(复核实测:1 行输入却显示「可回填 1 · 陈旧待填 1」,像是两行有问题)。
+    const staleOnly = stale.filter((s) => s.includes('找不到它的提交')).length;
+    const missedBackfill = stale.length - staleOnly;   // 「非本版待填但历史里找得到」= 发版漏跑,已计进 filled
+    const bad = fixed + filled + staleOnly;
+    const totalRows = alreadyOk + fixed + filled + unresolved + pending + staleOnly;
     console.log(`[version-hashes] 核对 ${totalRows} 行:` +
-      ` ✅ 正确 ${alreadyOk} · ❌ 错误 ${fixed} · 可回填 ${filled} · 本版待填 ${pending}` +
-      ` · 陈旧待填 ${stale.length} · 无法解析 ${unresolved}`);
+      ` ✅ 正确 ${alreadyOk} · ❌ 错误 ${fixed} · 可回填 ${filled}(其中漏回填 ${missedBackfill})` +
+      ` · 本版待填 ${pending} · 陈旧待填 ${staleOnly} · 无法解析 ${unresolved}`);
     for (const s of stale) console.log(`   ⚠️ ${s}`);
     if (stale.length > 0) {
       console.log('   成因:发版时漏跑 sync-version-hashes,或提交信息没以 `vX.Y:` 开头(脚本认不出版本号)。');
