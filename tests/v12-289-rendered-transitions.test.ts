@@ -256,7 +256,7 @@ describe('v12.289 · 接线', () => {
 
   it('回写失败不阻塞出片', () => {
     const i = EDITOR_SRC.indexOf('applyRenderedTransitions');
-    expect(EDITOR_SRC.slice(i - 200, i + 300)).toContain('catch');
+    expect(EDITOR_SRC.slice(i - 200, i + 900)).toContain('catch');
   });
 
   it('保留病根说明(防后人以为是冗余分支删掉)', () => {

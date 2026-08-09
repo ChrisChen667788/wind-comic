@@ -239,3 +239,41 @@ export function hardCutTransitions(shotNumbers: Array<number | undefined>): Rend
   }
   return out;
 }
+
+/** v12.298 成片实际逐镜时长条目 */
+export interface RenderedDurationEntry {
+  shotNumber: number;
+  durationS: number;
+}
+
+/**
+ * 把**成片实际的逐镜时长**写回 timeline —— 与 `applyRenderedTransitions` 同一招、同一个理由。
+ *
+ * 病根:timeline 里的 `duration` 是**设计时长**,而成片经过情绪调速(压缩最多到 0.6×)、
+ * 卡点吸附、逐镜变速后已经不是那个数。导出的 EDL/AAF 逐镜都短/长几百毫秒,
+ * 10 镜项目实测可累计漂 6.6s —— 剪辑师按 EDL 找第 8 镜入点,画面早就过去了。
+ *
+ * 按 shotNumber 对齐(合成端 validClips 是过滤后的子集);无数据时一个字段都不动(零回归)。
+ * 返回实际改写的镜数。
+ */
+export function applyRenderedDurations(
+  timeline: Array<{ shotNumber?: number; duration?: number }> | null | undefined,
+  rendered: RenderedDurationEntry[] | null | undefined,
+): number {
+  if (!Array.isArray(timeline) || !Array.isArray(rendered) || rendered.length === 0) return 0;
+  const bySn = new Map<number, number>();
+  for (const r of rendered) {
+    if (r && typeof r.shotNumber === 'number' && Number.isFinite(r.durationS) && r.durationS > 0) {
+      bySn.set(r.shotNumber, r.durationS);
+    }
+  }
+  let n = 0;
+  for (const t of timeline) {
+    if (!t || typeof t.shotNumber !== 'number') continue;
+    const d = bySn.get(t.shotNumber);
+    if (d === undefined) continue;
+    t.duration = d;
+    n++;
+  }
+  return n;
+}

@@ -129,7 +129,7 @@ describe('v12.292 · 三条路径逐一验明', () => {
     const iApply = EDITOR.indexOf('simpleResult.renderedTransitions');
     expect(iRetry).toBeGreaterThan(0);
     expect(iApply).toBeGreaterThan(iRetry);
-    expect(EDITOR.slice(iRetry, iApply + 200)).toContain('catch');
+    expect(EDITOR.slice(iRetry, iApply + 700)).toContain('catch');
   });
 
   it('recompose:回写后必须把 timeline 资产写回去(只改内存没用)', () => {

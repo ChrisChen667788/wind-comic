@@ -227,6 +227,12 @@ export function computeTransitionPlan(args: {
   return { effectiveTds, transitionOf, renderedTransitions };
 }
 
+/** v12.298 成片实际逐镜时长(按 shotNumber 对齐,理由同 RenderedTransition) */
+export interface RenderedDuration {
+  shotNumber: number;
+  durationS: number;
+}
+
 export interface ComposeResult {
   outputPath: string;        // 本地成片路径
   totalDuration: number;     // 总时长
@@ -241,6 +247,12 @@ export interface ComposeResult {
   // (旧测试只数了 `renderedTransitions` 在文件里出现几次,删一处仍达标),
   // 而运行时回写会静默 no-op,导出又退回设计值。必填 → 删掉即 tsc 报错。
   renderedTransitions: RenderedTransition[];
+  /**
+   * v12.298 成片**实际**逐镜时长(秒)。与 renderedTransitions 同理:
+   * timeline 里存的是**设计时长**,而成片经过情绪调速、卡点吸附、逐镜变速后已经不是那个数,
+   * 导出的剪辑线因此逐镜对不上(10 镜项目实测可累计漂 6.6s)。必填 —— 删掉即 tsc 报错。
+   */
+  renderedDurations: RenderedDuration[];
 }
 
 // ═══════════════════════════════════════════
@@ -1195,6 +1207,9 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
             hasVoiceover: localVoiceovers.size > 0,
             highlights: highlightShots,
             renderedTransitions: [], // v12.289 单镜成片无转场
+            renderedDurations: typeof validClips[0]?.shotNumber === 'number'
+              ? [{ shotNumber: validClips[0].shotNumber as number, durationS: durations[0] }]
+              : [],            // v12.298 单镜也要回写终值时长
           });
         })
         .on('error', reject)
@@ -1269,6 +1284,11 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     const { effectiveTds, transitionOf, renderedTransitions } = computeTransitionPlan({
       clips: validClips, transitionNames, keyShots, highlights, durations, td,
     });
+    // v12.298:此刻 durations[] 已是终值(情绪调速 1067 / 卡点吸附 1090 / 逐镜变速 1253 都已生效),
+    // 一并回传给 editor-agent 写回 timeline —— 否则导出的每镜时长仍是设计值。
+    const renderedDurations: RenderedDuration[] = validClips
+      .map((c, i) => ({ shotNumber: c?.shotNumber as number, durationS: durations[i] }))
+      .filter((r) => typeof r.shotNumber === 'number' && Number.isFinite(r.durationS) && r.durationS > 0);
 
     // 压缩后时间轴:clipStartSec[i] = 第 i 镜画面真实起点(= 其 xfade offset),totalSec = 成片总时长
     const { clipStartSec, totalSec } = computeXfadeTimeline(durations, effectiveTds);
@@ -1602,6 +1622,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           beatEdit: beatEditInfo || undefined,
           emotionPacing: pacingInfo || undefined,
           renderedTransitions, // v12.289 成片实际转场 → 回写 timeline
+          renderedDurations,   // v12.298 成片实际逐镜时长 → 回写 timeline
         }));
       })
       .on('error', (err) => {

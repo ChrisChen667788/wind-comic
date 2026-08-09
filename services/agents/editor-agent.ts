@@ -335,6 +335,10 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
     }
 
     const totalDuration = timeline.reduce((sum, t) => sum + t.duration, 0);
+    // v12.298:上面这个是**设计**总时长 —— 配乐要在出片前生成,那一段用它是对的。
+    // 但对外报告与 final_video 元数据必须用**成片真值**:情绪调速 + xfade 压缩后
+    // 实测可差十几秒(8 镜 × 5s 设计 40s,实际 28.5s),发布预检据此判时长合规会误判。
+    let actualTotalDuration = totalDuration;
 
     // ═══ 第3步：AI 配音生成（MiniMax TTS）═══
     // v12.29.0(P1):runEditor 级别算「原生音频镜」集合,供 TTS 跳过 + composer 取真音轨共用。
@@ -867,6 +871,9 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         });
 
         finalVideoUrl = `${serveFilePathUrl(result.outputPath)}`;
+        if (Number.isFinite(result.totalDuration) && result.totalDuration > 0) {
+          actualTotalDuration = result.totalDuration;   // v12.298:成片真值覆盖设计值
+        }
         console.log(`[Editor] Final video: ${result.clipCount} clips, ${result.totalDuration}s, music=${result.hasMusic}, voiceover=${result.hasVoiceover}, highlights=${result.highlights.length}`);
 
         // v12.289:**成片实际转场回写 timeline**。
@@ -876,9 +883,12 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         // 剪辑线里写「溶解 0.5s」,成片里其实是硬切或 1.3× 长的 fade。与 v12.277 修的「设计时长 vs 成片时长」同一类。
         // 回写按 shotNumber 对齐(validClips 是过滤后的子集,下标会错位)。
         try {
-          const { applyRenderedTransitions } = await import('@/lib/edit-rhythm');
+          const { applyRenderedTransitions, applyRenderedDurations } = await import('@/lib/edit-rhythm');
           const _n = applyRenderedTransitions(timeline as any[], result.renderedTransitions);
           if (_n > 0) console.log(`[Editor] 转场回写 timeline: ${_n}/${timeline.length} 镜(导出剪辑线与成片对齐)`);
+          // v12.298:时长同理 —— 情绪调速/卡点吸附/逐镜变速之后,timeline 里的设计时长已经不作数
+          const _nd = applyRenderedDurations(timeline as any[], result.renderedDurations);
+          if (_nd > 0) console.log(`[Editor] 时长回写 timeline: ${_nd}/${timeline.length} 镜`);
         } catch (e) {
           console.warn('[Editor] 转场回写跳过(非阻塞):', e instanceof Error ? e.message : e);
         }
@@ -949,9 +959,11 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
             // 直接跳到这里,timeline 里留着的还是设计值(溶解),而降级成片是**全硬切**,
             // 导出的剪辑线会凭空多出几条实际不存在的溶解。这正是 v12.289 自己在修的那个病。
             try {
-              const { applyRenderedTransitions } = await import('@/lib/edit-rhythm');
+              const { applyRenderedTransitions, applyRenderedDurations } = await import('@/lib/edit-rhythm');
               const n2 = applyRenderedTransitions(timeline as any[], simpleResult.renderedTransitions);
               if (n2 > 0) console.log(`[Editor] 降级路径转场回写: ${n2}/${timeline.length} 镜`);
+              const n2d = applyRenderedDurations(timeline as any[], simpleResult.renderedDurations);
+              if (n2d > 0) console.log(`[Editor] 降级路径时长回写: ${n2d}/${timeline.length} 镜`);
             } catch (e3) {
               console.warn('[Editor] 降级路径转场回写跳过(非阻塞):', e3 instanceof Error ? e3.message : e3);
             }
@@ -1030,12 +1042,13 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
       : '';
     ctx.emit('agentTalk', {
       role: AgentRole.EDITOR,
-      text: `剪辑完成！总时长${totalDuration}秒${musicUrl ? '，已配乐' : ''}${highlightSummary}${voiceSummary}\n开场慢入→发展推进→高潮慢动作→结尾留白 🎞️`
+      text: `剪辑完成！总时长${Math.round(actualTotalDuration)}秒${musicUrl ? '，已配乐' : ''}${highlightSummary}${voiceSummary}\n开场慢入→发展推进→高潮慢动作→结尾留白 🎞️`
     });
 
     return {
       timeline,
-      totalDuration,
+      totalDuration: actualTotalDuration,   // v12.298:成片真值(设计值见 designedTotalDuration)
+      designedTotalDuration: totalDuration,
       videoCount: timeline.length,
       finalVideoUrl,
       musicUrl,

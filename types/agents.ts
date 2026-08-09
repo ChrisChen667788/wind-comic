@@ -392,9 +392,11 @@ export interface EditResult {
   timeline: Array<{
     shotNumber?: number;
     videoUrl: string;
-    duration: number;        // 会被高光引擎就地变速改写
+    duration: number;        // v12.298 起为**成片终值**(合成后由 applyRenderedDurations 回写)
     baseDuration: number;    // 原始设计时长
-    transition: string;
+    transition: string;      // v12.289 起为**成片实际**转场(合成后回写)
+    /** v12.289:成片实际转场时长(秒);EDL/AAF 导出读它 */
+    transitionDurationS?: number;
     effect: string;
     emotion: string;
     act: number;
@@ -404,6 +406,8 @@ export interface EditResult {
     tensionLevel: number;
   }>;
   totalDuration: number;
+  /** v12.298:出片前的**设计**总时长(配乐按它生成);totalDuration 已改为成片真值 */
+  designedTotalDuration?: number;
   videoCount: number;
   finalVideoUrl: string;     // 合成成功=/api/serve-file?path=…;三级兜底=首片 URL;无有效片=''
   musicUrl: string;
