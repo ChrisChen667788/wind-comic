@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
-import { buildEDL, buildFCPXML, pacingReportToMarkers, type EdlShot, type EdlAudio, type EdlMarker } from '@/lib/edl-export';
+import { buildEDL, buildFCPXML, pacingReportToMarkers, type EdlShot, type EdlAudio, type EdlMarker , xfadeRecordStartsSec } from '@/lib/edl-export';
 import { normalizeProjectFormat } from '@/lib/project-format';
 import { requireProjectAccess } from '@/lib/auth-guard';
 
@@ -80,9 +80,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // v12.277:音轨 —— 逐镜配音按其在成片时间轴上的起点排布;BGM 覆盖全片。
   const audio: EdlAudio[] = [];
   {
-    let cursor = 0;
+    // v12.297:**起点走 xfade 压缩后的时间轴**,不能纯累加。
+    // 原来 `cursor += sh.durationS` 忽略了每次溶解的重叠 —— 而 NLE 应用 D 事件后画面轨会压缩,
+    // 音频轨却停在绝对位置,于是配音相对画面逐镜滞后,n 镜项目最大偏 (n−1)×转场时长。
+    // 这与 v12.264/265 在成片里修过的病一模一样(见 lib/xfade-timeline 的注释)。
+    const recStarts = xfadeRecordStartsSec(shots);   // 秒,不取整(取整是 v12.277 栽过的坑)
     const startBySn = new Map<number, number>();
-    for (const sh of shots) { startBySn.set(Number(String(sh.name).replace(/^Shot 0*(\d+).*$/, '$1')), cursor); cursor += sh.durationS; }
+    shots.forEach((sh, i) => {
+      startBySn.set(Number(String(sh.name).replace(/^Shot 0*(\d+).*$/, '$1')), recStarts[i] ?? 0);
+    });
+    const cursor = (recStarts[shots.length - 1] ?? 0) + (shots[shots.length - 1]?.durationS ?? 0);
     for (const vo of (Array.isArray(tl?.voiceoverClips) ? tl.voiceoverClips : [])) {
       const sn = Number(vo?.shotNumber);
       if (!Number.isFinite(sn) || !vo?.audioUrl) continue;
@@ -105,10 +112,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // 需 script.pacingReport 已落库(v12.278 起 saveAsset 带上它;老项目无此字段则自然为空)。
   const markers: EdlMarker[] = (() => {
     try {
-      const starts: number[] = [];
-      let cur = 0;
-      for (const sh of shots) { starts.push(cur); cur += sh.durationS; }
-      return pacingReportToMarkers((script as any)?.pacingReport, starts);
+      // v12.297:标记位置同样走压缩时间轴 —— 否则「第 3~5 镜是拖沓段」会标到错误的时间码上
+      return pacingReportToMarkers((script as any)?.pacingReport, xfadeRecordStartsSec(shots));
     } catch { return []; }
   })();
 

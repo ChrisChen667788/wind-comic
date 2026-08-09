@@ -9,6 +9,8 @@
  *     已在 v9.2.0 由 lib/aaf-export 自实现 (无第三方库), 端点 /api/projects/[id]/export-aaf。
  */
 
+import { computeXfadeTimeline } from './xfade-timeline';
+
 export interface EdlShot {
   name: string;
   /** ⚠️ 必须是**成片终值时长**,不是剧本设计时长 —— 见文件头 v12.277 说明。 */
@@ -92,15 +94,52 @@ export function isDissolveTransition(t: string | undefined | null): boolean {
   return v !== 'cut' && v !== 'flash-cut' && v !== 'continuous';
 }
 
+
+/**
+ * v12.297:各镜在**压缩后**记录时间轴上的起始帧。
+ *
+ * 复用 `lib/xfade-timeline` 的 `computeXfadeTimeline` —— 与成片、与配音 adelay、与字幕起点
+ * 同一份真源(v12.265 立的规矩)。硬切(transition 为空/cut/flash-cut)重叠为 0。
+ */
+export function xfadeRecordStartsSec(
+  shots: Array<{ durationS: number; transition?: string; transitionDurationS?: number }>,
+): number[] {
+  const durations = shots.map((s) => (s?.durationS > 0 ? s.durationS : 0));
+  const tds = shots.map((s, i) => {
+    if (i === 0) return 0;                                  // 首镜无入场转场
+    if (!isDissolveTransition(s?.transition)) return 0;      // 硬切不重叠
+    const td = s?.transitionDurationS;
+    return typeof td === 'number' && td > 0 ? td : 0.5;      // 未回写时沿用旧兜底
+  });
+  return computeXfadeTimeline(durations, tds).clipStartSec;
+}
+
+/**
+ * 帧版本。**只在这里做一次秒→帧转换** —— 调用方不要先把秒取整再转帧,
+ * v12.277 就栽在 `Math.round(durationS)` 上(3.5s 导成 4s,20 镜累积漂十几秒)。
+ */
+export function xfadeRecordStarts(
+  shots: Array<{ durationS: number; transition?: string; transitionDurationS?: number }>,
+  fps = 24,
+): number[] {
+  return xfadeRecordStartsSec(shots).map((sec) => Math.max(0, Math.round(sec * fps)));
+}
+
 /** CMX3600 EDL */
 export function buildEDL(shots: EdlShot[], fps = 24, title = 'WIND COMIC TIMELINE', audio: EdlAudio[] = [], markers: EdlMarker[] = []): string {
   const norm = normShots(shots).map((s) => ({ ...s, frames: toFrames(s.durationS, fps) }));
   const lines: string[] = [`TITLE: ${title}`, 'FCM: NON-DROP FRAME', ''];
-  let rec = 0;
+  // v12.297:**记录时间轴要用 xfade 压缩后的那一份**,不能纯累加。
+  // 每个 D(溶解)事件在 NLE 里都是一段**重叠** —— 画面轨会因此压缩 Σ(转场时长),
+  // 而纯累加算出的 record-in 停在绝对位置,于是导入 Premiere/Avid 后画面与音频逐镜错开,
+  // n 镜项目最大偏 (n−1)×转场时长。这正是 v12.264/265 在**成片**里修过的病,
+  // v12.277 做**导出**时又原样犯了一遍;现在两边共用 `computeXfadeTimeline`。
+  const recStartFrames = xfadeRecordStarts(norm, fps);
   let evtNo = 0;
   const nextEvt = () => String(++evtNo).padStart(3, '0');
 
-  norm.forEach((s) => {
+  norm.forEach((s, i) => {
+    const rec = recStartFrames[i];
     const srcIn = framesToTimecode(0, fps);
     const srcOut = framesToTimecode(s.frames, fps);
     const recIn = framesToTimecode(rec, fps);
@@ -118,7 +157,6 @@ export function buildEDL(shots: EdlShot[], fps = 24, title = 'WIND COMIC TIMELIN
     lines.push(`* FROM CLIP NAME: ${s.name}`);
     if (s.sourceUrl) lines.push(`* SOURCE FILE: ${s.sourceUrl}`);
     lines.push('');
-    rec += s.frames;
   });
 
   // v12.277:音轨 —— 逐镜配音走 A(A1 语义),BGM 走 A2。
@@ -155,11 +193,13 @@ function xmlEscape(s: string): string {
 /** FCP7 XML (xmeml v5) — DaVinci / Premiere 可导入 */
 export function buildFCPXML(shots: EdlShot[], fps = 24, title = 'Wind Comic Sequence', audio: EdlAudio[] = [], markers: EdlMarker[] = []): string {
   const norm = normShots(shots).map((s) => ({ ...s, frames: toFrames(s.durationS, fps) }));
-  const total = norm.reduce((a, s) => a + s.frames, 0);
+  // v12.297:与 buildEDL 同理 —— 时间轴要用 xfade 压缩后的那份,纯累加会让画面与音轨错开。
+  const recStartFrames = xfadeRecordStarts(norm, fps);
+  const last = norm.length - 1;
+  const total = last >= 0 ? (recStartFrames[last] + norm[last].frames) : 0;
   const rate = `<rate><timebase>${fps}</timebase><ntsc>FALSE</ntsc></rate>`;
-  let rec = 0;
   const clips = norm.map((s, i) => {
-    const start = rec, end = rec + s.frames; rec = end;
+    const start = recStartFrames[i], end = start + s.frames;
     return [
       `        <clipitem id="clipitem-${i + 1}">`,
       `          <name>${xmlEscape(s.name)}</name>`,
