@@ -3239,15 +3239,17 @@ ${shots.map((s, i) => {
       if (this.klingService) availableEngines.push('kling');
       // v12.272:HappyHorse(阿里)—— 有 key 即登记;默认链序不含它,
       // 需 VIDEO_ENGINE_ORDER 显式列出或用户显式选择才会打头(不改变既有用户的出片结果)。
-      // v12.294:**画幅未确证就不登记**。v12.272 只在 README 里写了「竖屏别把它排链首」,
+      // v12.294/295:**画幅过不了门禁就不登记**。v12.272 只在 README 里写了「竖屏别把它排链首」,
       // 是 documented 但不 enforced —— 竖屏项目照样会被路由过来,静默拿到横屏素材。
-      // 病根实测于 2026-08-09:上游**不校验** size(非法值照样 200 建任务),然后静默回落默认画幅。
+      // 病根(v12.295 查证官方文档确认):上游根本没有 `size` 参数,我们一直发的是个不存在的字段,
+      // 而它对不认识的字段不报错、静默回落默认 16:9。正确字段是 `ratio`。
+      // 门禁现在拦两种:① 官方文档没列的比例;② 实测出过「请求 A 却出 B」的比例(本进程内停用)。
       if (this.happyhorseService) {
         const _aspect = this.videoAspect();
         if (happyHorseAspectSupported(_aspect)) {
           availableEngines.push('happyhorse');
         } else {
-          console.log(`[Hybrid] HappyHorse 跳过:画幅 ${_aspect} 未经实测确证(仅 16:9 已确证);如网关支持,设 HAPPYHORSE_SIZE 后可用`);
+          console.log(`[Hybrid] HappyHorse 跳过:画幅 ${_aspect} 不在官方 ratio 取值内,或本次运行中已实测不符`);
         }
       }
 

@@ -13,43 +13,100 @@
  *   `{"usage": {"SR": 1080, "ratio": "16:9", ...}, "output": {...}}`
  * 基线实测:非法 size → `ratio "16:9" / SR 1080`。核对画幅不必再下载视频量分辨率。
  *
- * 正确写法**至今仍未确证**:四个候选(size:'720*1280' / ratio / aspect_ratio / 三管齐下)
- * 逐个串行重试,上游通道从当日 14:37 起持续 429 —— 且代码是 `local:quota_not_enough`
- * 而文案写「分组上游负载已饱和」,两者不是一回事。
- *
  * 未确证不等于可以装作没事:v12.272 把限制只写进 README(documented 但不 enforced),
- * 竖屏项目照样被路由过来、静默拿到横屏素材。本版把它变成引擎链的硬门禁。
+ * 竖屏项目照样被路由过来、静默拿到横屏素材。v12.294 把它变成引擎链的硬门禁。
+ *
+ * ── v12.295:病根查到底了 ──────────────────────────────────────────
+ * 四个候选(size:'720*1280' / ratio / aspect_ratio / 三管齐下)串行重试约 88 分钟,
+ * 上游通道全程 429,一个任务都没建成 —— 实测这条路走不通。改查**官方 API 文档**
+ *(help.aliyun.com/zh/model-studio/happyhorse-text-to-video-api-reference),真相是:
+ *
+ *   **上游根本没有 `size` 这个参数。** parameters 只有
+ *   `resolution`(480P/720P/1080P,默认 1080P)、`ratio`(16:9 默认 / 9:16 / 1:1 / 4:3 / 3:4 / 4:5 / 5:4 / 9:21 / 21:9)、
+ *   `duration`、`watermark`、`seed`。
+ *
+ * 我们从 v12.272 起一直在发一个**不存在的字段**,而上游对不认识的字段不报错、静默忽略。
+ * 实测响应里的 `usage: {"SR": 1080, "ratio": "16:9"}` 正是 resolution 与 ratio 的回显 —— 早就摆在眼前。
+ *
+ * 顺带炸出一个没人注意到的问题:**`watermark` 默认 true**,右下角固定打「Happy Horse」水印
+ *(那条探测视频的文件名就是 `..._refiner_watermark.mp4`)。出片素材现在默认关掉。
+ *
+ * 门禁规则相应放宽:认全部文档取值,但**实测打脸即在本进程内停用该比例**,不再一镜一镜白烧。
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import {
   happyHorseAspectSupported,
   reportedHappyHorseAspect,
+  happyHorseVisualParams,
+  markHappyHorseRatioBroken,
+  _resetHappyHorseRatioState,
 } from '@/services/happyhorse.service';
 
 const ORCH = fs.readFileSync('services/hybrid-orchestrator.ts', 'utf-8');
 const SVC = fs.readFileSync('services/happyhorse.service.ts', 'utf-8');
 
-describe('v12.294 · 未确证的画幅一律不承认', () => {
-  it('只有 16:9 被实测确证 —— 其余全部判不支持', () => {
-    expect(happyHorseAspectSupported('16:9', {})).toBe(true);
-    for (const a of ['9:16', '1:1', '4:3', '3:4']) {
-      expect(happyHorseAspectSupported(a, {}), `${a} 未确证却被放行`).toBe(false);
+// v12.295 改写:v12.294 的规则是「只认实测确证过的 16:9」—— 那是**在不知道正确参数时**的保守做法。
+// 查证官方文档后确认正确字段是 `ratio`(而非我们一直在发的、根本不存在的 `size`),
+// 于是规则改为「认全部文档取值,但实测打脸就当场停用那个比例」。
+describe('v12.295 · 画幅门禁:认文档取值 + 打脸即停用', () => {
+  beforeEach(() => _resetHappyHorseRatioState());
+
+  it('官方文档列出的比例全部放行', () => {
+    for (const a of ['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '5:4', '9:21', '21:9']) {
+      expect(happyHorseAspectSupported(a), `${a} 是文档取值却被拦`).toBe(true);
+    }
+  });
+
+  it('文档没列的比例仍然拦下(不瞎传)', () => {
+    for (const a of ['2:1', '16:10', 'portrait', '720*1280']) {
+      expect(happyHorseAspectSupported(a), `${a} 不是合法取值`).toBe(false);
     }
   });
 
   it('没指定画幅 → 用上游默认,不拦', () => {
-    expect(happyHorseAspectSupported(undefined, {})).toBe(true);
-    expect(happyHorseAspectSupported('', {})).toBe(true);
+    expect(happyHorseAspectSupported(undefined)).toBe(true);
+    expect(happyHorseAspectSupported('')).toBe(true);
   });
 
-  it('运营者设了 HAPPYHORSE_SIZE = 自行担保,放行任意画幅', () => {
-    expect(happyHorseAspectSupported('9:16', { HAPPYHORSE_SIZE: '720*1280' })).toBe(true);
-    expect(happyHorseAspectSupported('3:4', { HAPPYHORSE_SIZE: '1088*832' })).toBe(true);
+  it('**实测打脸后,该比例本进程内停用**(不再一镜一镜白烧)', () => {
+    expect(happyHorseAspectSupported('9:16')).toBe(true);
+    markHappyHorseRatioBroken('9:16');
+    expect(happyHorseAspectSupported('9:16')).toBe(false);
+    expect(happyHorseAspectSupported('16:9'), '只停用出问题的那个比例').toBe(true);
+  });
+});
+
+describe('v12.295 · 按官方规格拼参数', () => {
+  it('画幅走 ratio;不再发不存在的 size / aspect_ratio', () => {
+    const p = happyHorseVisualParams('9:16', {});
+    expect(p.ratio).toBe('9:16');
+    expect(p.size).toBeUndefined();
+    expect(p.aspect_ratio).toBeUndefined();
   });
 
-  it('空白的 HAPPYHORSE_SIZE 不算担保(避免 `HAPPYHORSE_SIZE=` 这种半吊子配置放行)', () => {
-    expect(happyHorseAspectSupported('9:16', { HAPPYHORSE_SIZE: '   ' })).toBe(false);
+  it('**默认关水印** —— 上游默认 true,右下角固定打「Happy Horse」', () => {
+    expect(happyHorseVisualParams('16:9', {}).watermark).toBe(false);
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_WATERMARK: '1' }).watermark).toBe(true);
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_WATERMARK: 'true' }).watermark).toBe(true);
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_WATERMARK: '0' }).watermark).toBe(false);
+  });
+
+  it('resolution 只认文档档位,乱填不发', () => {
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_RESOLUTION: '720p' }).resolution).toBe('720P');
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_RESOLUTION: '4K' }).resolution).toBeUndefined();
+    expect(happyHorseVisualParams('16:9', {}).resolution, '不设则用上游默认').toBeUndefined();
+  });
+
+  it('seed 越界不发(上游范围 0..2147483647)', () => {
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_SEED: '42' }).seed).toBe(42);
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_SEED: '-1' }).seed).toBeUndefined();
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_SEED: '2147483648' }).seed).toBeUndefined();
+    expect(happyHorseVisualParams('16:9', { HAPPYHORSE_SEED: 'abc' }).seed).toBeUndefined();
+  });
+
+  it('非法比例不塞进请求(交给门禁拦,这里不兜底瞎发)', () => {
+    expect(happyHorseVisualParams('2:1', {}).ratio).toBeUndefined();
   });
 });
 
@@ -72,7 +129,9 @@ describe('v12.294 · 引擎链真的会跳过(不是只写在文档里)', () => 
     expect(i, '未找到门禁调用点').toBeGreaterThan(0);
     const block = ORCH.slice(i, i + 600);
     expect(block).toMatch(/console\.log|emit/);
-    expect(block).toContain('HAPPYHORSE_SIZE');
+    // v12.295:提示语不该再推荐已废弃的 HAPPYHORSE_SIZE(上游根本没这个参数)
+    expect(block).not.toContain('HAPPYHORSE_SIZE');
+    expect(block).toMatch(/ratio/);
   });
 });
 

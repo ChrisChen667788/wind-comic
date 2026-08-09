@@ -90,6 +90,46 @@ export function reportedHappyHorseAspect(payload: any): { ratio?: string; sr?: n
   return { ratio, sr };
 }
 
+/** 官方文档(happyhorse-text-to-video-api-reference)列的宽高比取值 */
+export const HAPPYHORSE_RATIOS = ['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '5:4', '9:21', '21:9'] as const;
+/** 官方文档列的分辨率档位 */
+export const HAPPYHORSE_RESOLUTIONS = ['480P', '720P', '1080P'] as const;
+
+/**
+ * v12.295:按**官方文档**拼画幅相关参数。
+ *
+ * 病根终于查到底了 —— 上游**根本没有 `size` 这个参数**。官方 API 参考里 parameters 只有:
+ *   `resolution`(480P/720P/1080P,默认 1080P)、`ratio`(16:9 默认 / 9:16 / 1:1 / 4:3 / 3:4 / 4:5 / 5:4 / 9:21 / 21:9)、
+ *   `duration`、`watermark`、`seed`。
+ * v12.272 起我们一直在传 `size`,而上游对不认识的字段**不报错、静默忽略**,于是永远出默认 16:9。
+ * 这也和实测响应里的 `usage: {"SR": 1080, "ratio": "16:9"}` 对上了 —— 那两个字段正是 resolution 与 ratio 的回显。
+ *
+ * 同时修掉一个此前没人注意到的问题:**`watermark` 默认 true**,右下角固定打「Happy Horse」水印
+ *(实测那条探测视频的文件名就是 `..._refiner_watermark.mp4`)。出片素材默认关掉;
+ * 需要保留时设 `HAPPYHORSE_WATERMARK=1`。
+ */
+export function happyHorseVisualParams(
+  aspect: string | undefined,
+  env: Record<string, string | undefined> = process.env,
+): Record<string, any> {
+  const out: Record<string, any> = {};
+  if (aspect && (HAPPYHORSE_RATIOS as readonly string[]).includes(aspect)) out.ratio = aspect;
+
+  const res = (env.HAPPYHORSE_RESOLUTION || '').trim().toUpperCase();
+  if ((HAPPYHORSE_RESOLUTIONS as readonly string[]).includes(res)) out.resolution = res;
+
+  // 默认去水印;显式设 1/true 才保留
+  out.watermark = /^(1|true)$/i.test((env.HAPPYHORSE_WATERMARK || '').trim());
+
+  const seed = Number((env.HAPPYHORSE_SEED || '').trim());
+  if (Number.isInteger(seed) && seed >= 0 && seed <= 2147483647) out.seed = seed;
+
+  if ((env.HAPPYHORSE_SIZE || '').trim()) {
+    console.warn('[HappyHorse] HAPPYHORSE_SIZE 已废弃并忽略:上游没有 size 参数(v12.295 查证官方文档),请改用 HAPPYHORSE_RESOLUTION + 项目画幅');
+  }
+  return out;
+}
+
 /**
  * 请求的画幅**是否已被确证可用**。
  *
@@ -102,13 +142,24 @@ export function reportedHappyHorseAspect(payload: any): { ratio?: string; sr?: n
  * v12.272 把这条限制只写在 README 里(documented 但不 enforced),于是竖屏项目照样会被路由过来、
  * 静默拿到横屏素材。运营者若知道自己网关要的确切字符串,设 `HAPPYHORSE_SIZE` 即表示自行担保。
  */
-export function happyHorseAspectSupported(
-  aspect: string | undefined,
-  env: Record<string, string | undefined> = process.env,
-): boolean {
-  if ((env.HAPPYHORSE_SIZE || '').trim()) return true;   // 运营者显式指定 → 自行担保
-  if (!aspect) return true;                              // 没指定画幅 → 用上游默认,无所谓
-  return aspect === '16:9';                              // 仅此一种被实测确证
+export function happyHorseAspectSupported(aspect: string | undefined): boolean {
+  if (!aspect) return true;                                        // 没指定 → 用上游默认
+  if (!(HAPPYHORSE_RATIOS as readonly string[]).includes(aspect)) return false;  // 文档没列的比例
+  return !_brokenRatios.has(aspect);                               // 实测打过脸的,本进程内不再用
+}
+
+/**
+ * 运行期自停用:上游 `usage.ratio` 与请求不符时,把该比例记进黑名单 ——
+ * 后续镜头不再路由到 HappyHorse,而不是一镜一镜地重复白烧。
+ * 只在**本进程**内生效(重启即重试),因为这可能只是上游一次性抽风。
+ */
+const _brokenRatios = new Set<string>();
+export function markHappyHorseRatioBroken(aspect: string): void {
+  if (aspect) _brokenRatios.add(aspect);
+}
+/** 仅供测试:清空运行期黑名单 */
+export function _resetHappyHorseRatioState(): void {
+  _brokenRatios.clear();
 }
 
 export class HappyHorseService {
@@ -138,20 +189,10 @@ export class HappyHorseService {
     const input: Record<string, any> = { prompt };
     if (hasImage) input.img_url = options!.imageUrl;
 
-    const parameters: Record<string, any> = { duration: clampHappyHorseDuration(options?.duration) };
-    // ⚠️ 画幅:live 实测(2026-08-07)传 `size: '9:16'` **未被采纳** —— 请求 9:16 实际出 1920×1080(16:9)。
-    // 正确参数形态未能当场确证(继续探测时网关返回 429 上游饱和),因此**不假装支持竖屏**:
-    // 默认仍把比例透传给 size + aspect_ratio 两个字段(网关取它认识的那个),
-    // 并留 `HAPPYHORSE_SIZE` 让运营者直接指定其网关要的确切字符串(如 '720*1280')。
-    // 在确证之前,竖屏短剧不要把 HappyHorse 排在链首 —— 详见 README 引擎矩阵的诚实标注。
-    const sizeOverride = (process.env.HAPPYHORSE_SIZE || '').trim();
-    if (sizeOverride) {
-      parameters.size = sizeOverride;
-    } else if (options?.aspectRatio) {
-      parameters.size = options.aspectRatio;
-      parameters.aspect_ratio = options.aspectRatio;
-    }
-
+    const parameters: Record<string, any> = {
+      duration: clampHappyHorseDuration(options?.duration),
+      ...happyHorseVisualParams(options?.aspectRatio),
+    };
     const res = await fetch(`${this.baseURL}${BAILIAN_CREATE}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
@@ -198,9 +239,12 @@ export class HappyHorseService {
         const { ratio, sr } = reportedHappyHorseAspect(j);
         const want = options?.aspectRatio;
         if (want && ratio && ratio !== want) {
+          // v12.295:不只是告警 —— 把这个比例记进运行期黑名单,后续镜头直接跳过 HappyHorse,
+          // 免得一镜一镜重复白烧。重启即重试(可能只是上游一次性抽风)。
+          markHappyHorseRatioBroken(want);
           console.warn(
             `[HappyHorse] ⚠️ 画幅不符:请求 ${want},上游实际出 ${ratio}(SR ${sr ?? '?'})。` +
-            `成因见 happyHorseAspectSupported 的注释(上游不校验 size,非法值静默回落)。task=${taskId}`,
+            `已在本进程内停用该比例,后续镜头改走其他引擎。task=${taskId}`,
           );
         }
         options?.onAspectReport?.({ requested: want, actual: ratio, sr, matched: !want || !ratio || ratio === want });

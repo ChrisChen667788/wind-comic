@@ -91,9 +91,12 @@ describe('v12.272 · 请求形态(锁实测出来的契约)', () => {
     expect(calls[0].body.parameters.duration).toBe(7);
   });
 
-  it('行为:HAPPYHORSE_SIZE 覆盖时只发它(画幅参数形态未确证,留给运营者兜底)', async () => {
+  // v12.295 改写:原断言锁的是「HAPPYHORSE_SIZE 覆盖时只发 size」——
+  // 而查证官方文档后确认**上游根本没有 size 这个参数**,那条断言锁住的是一个错误行为。
+  // 现在锁的是正确参数:ratio(+ resolution),且 HAPPYHORSE_SIZE 已废弃并忽略。
+  it('行为:画幅走官方的 ratio 参数,不再发不存在的 size', async () => {
     process.env.VECTORENGINE_API_KEY = 'sk-test';
-    process.env.HAPPYHORSE_SIZE = '720*1280';
+    process.env.HAPPYHORSE_SIZE = '720*1280';   // 废弃项:设了也不该影响请求
     const calls: any[] = [];
     globalThis.fetch = vi.fn(async (_u: any, init: any) => {
       calls.push(JSON.parse(String(init.body)));
@@ -101,8 +104,9 @@ describe('v12.272 · 请求形态(锁实测出来的契约)', () => {
     }) as any;
     const { HappyHorseService } = await import('@/services/happyhorse.service');
     await new HappyHorseService().submitTask('测试', { aspectRatio: '9:16' });
-    expect(calls[0].parameters.size).toBe('720*1280');
-    expect(calls[0].parameters.aspect_ratio).toBeUndefined();
+    expect(calls[0].parameters.ratio).toBe('9:16');
+    expect(calls[0].parameters.size, '上游没有 size 参数,发了只会被静默忽略').toBeUndefined();
+    expect(calls[0].parameters.aspect_ratio, '同样不是官方字段').toBeUndefined();
     delete process.env.HAPPYHORSE_SIZE;
   });
 
