@@ -4,6 +4,7 @@ import { getUserFromRequest } from '@/app/api/auth/lib';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { preflightAll } from '@/lib/publish-preflight';
 import { probeVideoIntegrity } from '@/services/video-composer';
+import { requireProjectAccess } from '@/lib/auth-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const payload = getUserFromRequest(request);
   if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  // v12.312:同 export-platform —— 只查登录态,任意登录用户可读他人成片的 ffprobe 硬指标(IDOR)。
+  const _g = await requireProjectAccess(request, id, 'view');
+  if (!_g.ok) return NextResponse.json({ message: _g.message }, { status: _g.status });
 
   const finals = await listAssetsByType(id, 'final_video');
   const fv = finals[0];

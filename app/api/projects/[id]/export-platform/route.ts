@@ -19,6 +19,7 @@ import { exportForPlatform } from '@/services/video-export-service';
 import { pickRemoteVideoUrl, downloadToTempFile } from '@/lib/remote-media';
 import type { ExportAspect, FitMode } from '@/lib/video-export';
 import type { SubtitlePlatform } from '@/lib/subtitle-burn';
+import { requireProjectAccess } from '@/lib/auth-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -62,6 +63,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const payload = getUserFromRequest(request);
   if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // v12.312:只查登录态 ≠ 查归属 —— 任意登录用户知道 projectId 即可导出**他人**私有成片(IDOR)。
+  const _g = await requireProjectAccess(request, id, 'view');
+  if (!_g.ok) return NextResponse.json({ error: _g.message }, { status: _g.status });
 
   let body: any = {};
   try { body = await request.json(); } catch {}

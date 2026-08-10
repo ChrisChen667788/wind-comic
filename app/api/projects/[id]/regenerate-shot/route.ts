@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isDemoMode } from '@/services/demo-orchestrator';
 import { db } from '@/lib/db';
+import { requireProjectAccess } from '@/lib/auth-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,13 @@ function getStoryboardImageUrl(projectId: string, shotNumber: number): string {
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
   const { shotNumber, duration, description, videoProvider, cameraMovement } = await request.json();
+
+  // v12.312:**此前完全无鉴权**。下面那段预算护栏写的是「有登录态才检查」——
+  // 于是匿名请求 uid 为空,**既跳过预算也没有任何归属校验**,可对任意 projectId
+  // 循环触发真实付费视频生成(单次 ¥0.5–3),烧平台配额且不计费到任何账户,项目属主毫无感知。
+  // 单镜重生属写操作,要 editor 权限。
+  const _g = await requireProjectAccess(request, projectId, 'edit');
+  if (!_g.ok) return NextResponse.json({ error: _g.message }, { status: _g.status });
 
   if (!shotNumber) {
     return NextResponse.json({ error: '请指定镜头编号' }, { status: 400 });

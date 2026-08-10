@@ -60,6 +60,25 @@ describe('v12.230 projects/[id]/** 鉴权不变量', () => {
     expect(gaps).toEqual([]);
   });
 
+  /**
+   * v12.312 豁免名单 —— 每条必须写 why。
+   * 规则本身没错(别拿 view 放行写操作),但存在**合理例外**:
+   * `commenter` 是本项目的一等角色,语义就是「可评论、不可编辑」。
+   * 评论写入若要求 edit 级,这个角色直接被废掉。
+   */
+  const WRITE_VIEW_EXEMPT: Array<{ route: string; method: string; why: string }> = [
+    {
+      route: 'app/api/projects/[id]/comments/route.ts',
+      method: 'POST',
+      why: 'commenter 角色的语义就是「可评论不可编辑」;用 edit 级会让该角色无法评论。view 档覆盖 viewer/commenter/editor 三种项目成员,非成员仍 403 —— 这正是评论该有的边界',
+    },
+    {
+      route: 'app/api/projects/[id]/export-platform/route.ts',
+      method: 'POST',
+      why: '形式是 POST、语义是读:把用户本就能观看的成片按指定画幅导出一份,不改任何项目数据。用 POST 只因要传画幅参数(16:9/9:16/1:1/4:5)。viewer 能看就该能导出,要 edit 级反而不合理',
+    },
+  ];
+
   it('写 handler 若用 requireProjectAccess,必须是 edit 级(不能拿 view 放行写操作)', () => {
     // 只针对「该写 handler 自己调了 requireProjectAccess」的情况判定 —— 
     // 有些老路由用 getUserFromRequest + 自有归属校验,那是另一套合法机制,不在此列。
@@ -74,10 +93,19 @@ describe('v12.230 projects/[id]/** 鉴权不变量', () => {
         const end = i + 1 < ms.length ? ms[i + 1].index! : src.length;
         const body = src.slice(start, end);
         if (/requireProjectAccess\(/.test(body) && /'view'/.test(body)) {
-          weak.push(method + ' ' + path.relative(ROOT, f));
+          const rel = path.relative(ROOT, f).replace(/\\/g, '/');
+          const exempt = WRITE_VIEW_EXEMPT.some((e) => e.route === rel && e.method === method);
+          if (!exempt) weak.push(method + ' ' + rel);
         }
       }
     }
-    expect(weak).toEqual([]);
+    expect(weak, `仍有写 handler 用 view 档:${weak.join(', ')}`).toEqual([]);
+  });
+
+  it('豁免名单每条都要写 why,且路由真实存在(防豁免名单腐烂)', () => {
+    for (const e of WRITE_VIEW_EXEMPT) {
+      expect(fs.existsSync(path.join(ROOT, e.route)), `豁免了不存在的路由 ${e.route}`).toBe(true);
+      expect(e.why.length, `${e.route} 的理由太短`).toBeGreaterThan(30);
+    }
   });
 });

@@ -82,6 +82,12 @@ export async function POST(
   const { id: projectId } = await params;
   const user = resolveUserId(request);
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
+  // v12.312:**只查登录态 ≠ 查成员**。此前任意登录用户都能往他人项目写评论(还会触发 @提及通知),
+  // 完全绕开项目共享控制 —— 而 comments 表本身就有 `commenter` 角色,专为「可评论不可编辑」而设。
+  // 讽刺的是本文件**早就 import 了 requireProjectAccess**,只是 POST 没调它(守卫就在手边没用)。
+  // 用 'view' 档:viewer / commenter / editor 都算项目成员,可评论;非成员一律 403。
+  const _g = await requireProjectAccess(request, projectId, 'view');
+  if (!_g.ok) return NextResponse.json({ error: _g.message }, { status: _g.status });
 
   let body: any = {};
   try { body = await request.json(); } catch { return NextResponse.json({ error: '非法 JSON' }, { status: 400 }); }
