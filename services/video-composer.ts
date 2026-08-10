@@ -842,16 +842,23 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   const localClips: string[] = [];
   const validClips: ComposerClip[] = [];
 
-  for (let i = 0; i < clips.length; i++) {
-    const clip = clips[i];
+  // ── v12.308:并发下载 + 复用完整性探测拿到的时长 ─────────────────────────────
+  // 病根之一:原来是**串行** for 循环,`await downloadFile` 逐个阻塞下一个。
+  //   6 个片段各 2-5MB,串行约 25-35s;这些 CDN URL 彼此完全独立,本可并发。
+  // 病根之二:`probeVideoIntegrity` **已经返回 durationSec**,却只取了 `.ok` 丢掉时长,
+  //   随后第 3 步又对同一批本地文件跑一遍 `getVideoDuration`(内部还是一次 ffprobe) ——
+  //   等于每个片段白探一次,6 镜多花 3-6s 本机 CPU/IO。
+  // 并发上限 4:再高对家用带宽无益,且同时开太多 ffprobe 子进程反而互相拖。
+  const DL_CONCURRENCY = 4;
+  const probed = new Array<{ path: string; clip: ComposerClip; durationSec?: number } | null>(clips.length).fill(null);
+  let doneCount = 0;
+  const tasks = clips.map((clip, i) => async () => {
     if (!clip.videoUrl || clip.videoUrl.startsWith('data:')) {
       console.log(`[Composer] Skip invalid clip ${clip.shotNumber}: no valid URL`);
-      continue;
+      return;
     }
-
     const ext = clip.videoUrl.match(/\.(mp4|webm|mov)/i)?.[1] || 'mp4';
     const localPath = path.join(tmpDir, `clip-${i}.${ext}`);
-
     try {
       await downloadFile(clip.videoUrl, localPath);
       // v12.71.0 完整性校验:引擎偶发返回坏 mp4(0 字节/截断/无视频流)会让 filter_complex 全片崩。
@@ -860,25 +867,40 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       if (!integ.ok) {
         console.warn(`[Composer] v12.71 镜 ${clip.shotNumber} 视频损坏(${integ.reason}),跳过`);
         try { fs.unlinkSync(localPath); } catch {}
-        continue;
+        return;
       }
-      localClips.push(localPath);
-      validClips.push(clip);
-      onProgress?.(5 + Math.round((i / clips.length) * 30), `下载片段 ${i + 1}/${clips.length}`);
+      probed[i] = { path: localPath, clip, durationSec: integ.durationSec };
     } catch (e) {
       console.error(`[Composer] Failed to download clip ${clip.shotNumber}:`, e);
+    } finally {
+      doneCount++;
+      onProgress?.(5 + Math.round((doneCount / clips.length) * 30), `下载片段 ${doneCount}/${clips.length}`);
     }
+  });
+  for (let start = 0; start < tasks.length; start += DL_CONCURRENCY) {
+    await Promise.all(tasks.slice(start, start + DL_CONCURRENCY).map((t) => t()));
+  }
+  // **按原始镜序装配** —— 并发完成顺序是乱的,下标错位会让整片镜头次序乱掉
+  const probedDurations: Array<number | undefined> = [];
+  for (const r of probed) {
+    if (!r) continue;
+    localClips.push(r.path);
+    validClips.push(r.clip);
+    probedDurations.push(r.durationSec);
   }
 
   if (localClips.length === 0) {
     throw new Error('No valid video clips to compose');
   }
 
-  // 3. 获取每个片段的实际时长
+  // 3. 每个片段的实际时长 —— v12.308:优先复用上面完整性探测已经拿到的 durationSec,
+  //    只有它缺失时才补一次 ffprobe(正常路径下这里是**零次**探测)。
   const durations: number[] = [];
-  for (const localPath of localClips) {
+  for (let i = 0; i < localClips.length; i++) {
+    const cached = probedDurations[i];
+    if (typeof cached === 'number' && cached > 0) { durations.push(cached); continue; }
     try {
-      const dur = await getVideoDuration(localPath);
+      const dur = await getVideoDuration(localClips[i]);
       durations.push(dur > 0 ? dur : 8);
     } catch {
       durations.push(8);
