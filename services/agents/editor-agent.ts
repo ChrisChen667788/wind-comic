@@ -968,6 +968,12 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         } catch (e) {
           console.warn('[Editor] 文字卡拼接失败(非阻塞,跳过):', e instanceof Error ? e.message : e);
         }
+        // v12.310:少了镜头必须说 —— 否则用户看到「合成完成」,拿到的却是少一整场戏的片子
+        if (Array.isArray(result.skippedShots) && result.skippedShots.length > 0) {
+          const warn = `⚠️ ${result.skippedShots.length} 个镜头未能进入成片(下载失败或视频损坏):第 ${result.skippedShots.join('、')} 镜 —— 成片比预期少这几场`;
+          audioWarnings.push(warn);
+          ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: warn });
+        }
         ctx.emit('agentTalk', {
           role: AgentRole.EDITOR,
           text: `🎬 FFmpeg 合成完成！${result.clipCount}个片段` +

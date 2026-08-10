@@ -3566,6 +3566,17 @@ ${shots.map((s, i) => {
             videos[i] = await generateSingleVideo(board, i);
           } catch (e) {
             console.error(`[Video] Shot ${board.shotNumber} generation error:`, e);
+            // v12.310:这条异常路径此前**只写空 URL、不发任何错误事件** —— 与 legacyVideoGen 的
+            // all-engines-failed 分支不对称(那边会 emit pipelineError)。于是进度条照常前进,
+            // UI 在二十多秒的重试扫描启动前**看不到任何异常**;若重试也落到这条路径,
+            // 就一直「静默失败」下去,最后还打印「视频全部生成完毕」。补上同样的错误事件。
+            try {
+              this.emit('pipelineError', {
+                shotNumber: board.shotNumber,
+                message: e instanceof Error ? e.message : String(e),
+                retryable: true,
+              });
+            } catch { /* 事件发送失败不该再拖垮生成循环 */ }
             videos[i] = { shotNumber: board.shotNumber, videoUrl: '', duration: 8, status: 'completed' as const };
           }
           completedCount++;

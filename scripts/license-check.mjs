@@ -68,9 +68,22 @@ function prodDependencyNames() {
     // npm ls 在有 peer 冲突时会非零退出但仍吐出 JSON,取 stdout 继续
     raw = e.stdout?.toString() || '';
   }
-  if (!raw.trim()) return [];
+  // v12.310:**门禁自己静默通过是最坏的一种失败**。
+  // 原来这两处都 `return []` —— npm ls 输出被截断/畸形(node_modules 装了一半、磁盘满、
+  // peer 冲突输出超 maxBuffer)时,扫描包数变 0,随后打印「✅ 未发现 copyleft 依赖」并 exit 0。
+  // 于是一个新引入的 GPL 依赖可以**带着一个假的 CI 绿灯**进主干。空扫描必须是硬失败。
+  if (!raw.trim()) {
+    console.error('[license-check] FATAL: npm ls 无输出 —— 无法确认依赖树,拒绝以「通过」收场');
+    process.exit(2);
+  }
   let tree;
-  try { tree = JSON.parse(raw); } catch { return []; }
+  try {
+    tree = JSON.parse(raw);
+  } catch (parseErr) {
+    console.error(`[license-check] FATAL: npm ls JSON 解析失败:${parseErr instanceof Error ? parseErr.message : parseErr}`);
+    console.error('           多半是 node_modules 不完整或输出被截断;修复安装后重跑,不要跳过本门禁。');
+    process.exit(2);
+  }
 
   const names = new Set();
   const walk = (node) => {
@@ -84,6 +97,11 @@ function prodDependencyNames() {
     }
   };
   walk(tree);
+  // 哨兵:生产依赖不可能是 0 个。扫到 0 说明上面的解析虽然没抛错,但拿到的不是有效依赖树。
+  if (names.size === 0) {
+    console.error('[license-check] FATAL: 解析出 0 个生产依赖 —— 依赖树异常,拒绝以「通过」收场');
+    process.exit(2);
+  }
   return [...names];
 }
 

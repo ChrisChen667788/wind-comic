@@ -253,6 +253,11 @@ export interface ComposeResult {
    * 导出的剪辑线因此逐镜对不上(10 镜项目实测可累计漂 6.6s)。必填 —— 删掉即 tsc 报错。
    */
   renderedDurations: RenderedDuration[];
+  /**
+   * v12.310 未能进入成片的镜号(下载失败/视频损坏)。**必填** —— 设成可选就会有人忘了看,
+   * 而「少一场戏」正是那种用户不看变更日志就永远不知道的静默失败。
+   */
+  skippedShots: number[];
 }
 
 // ═══════════════════════════════════════════
@@ -889,6 +894,18 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
     probedDurations.push(r.durationSec);
   }
 
+  // v12.310:**少了镜头要说出来**。此前下载失败/损坏的镜被静默丢掉,而 ComposeResult 只回
+  // `clipCount = 成功数`,调用方拿它直接报「合成完成!5个片段」—— 用户看到的是成功,
+  // 拿到的却是**少了一整场戏**的片子,且没有任何地方提过这件事。
+  // 这里不改成抛错:素材已经下好的部分仍然值得出片(与 v12.294「只报不拦」同一取舍),
+  // 但必须把丢掉的镜号带出去,由调用方显式告警。
+  const skippedShots: number[] = clips
+    .map((c, i) => (probed[i] ? null : (c?.shotNumber ?? i + 1)))
+    .filter((n): n is number => n !== null);
+  if (skippedShots.length > 0) {
+    console.warn(`[Composer] ⚠️ ${skippedShots.length} 个镜头未能进入成片(下载失败或视频损坏):${skippedShots.join(', ')}`);
+  }
+
   if (localClips.length === 0) {
     throw new Error('No valid video clips to compose');
   }
@@ -1229,6 +1246,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
             hasVoiceover: localVoiceovers.size > 0,
             highlights: highlightShots,
             renderedTransitions: [], // v12.289 单镜成片无转场
+            skippedShots,        // v12.310 单镜路径同样如实回传
             renderedDurations: typeof validClips[0]?.shotNumber === 'number'
               ? [{ shotNumber: validClips[0].shotNumber as number, durationS: durations[0] }]
               : [],            // v12.298 单镜也要回写终值时长
@@ -1645,6 +1663,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           emotionPacing: pacingInfo || undefined,
           renderedTransitions, // v12.289 成片实际转场 → 回写 timeline
           renderedDurations,   // v12.298 成片实际逐镜时长 → 回写 timeline
+          skippedShots,        // v12.310 少了哪几镜,调用方要说出来
         }));
       })
       .on('error', (err) => {
