@@ -137,22 +137,28 @@ export async function recordTemplateUse(id: string): Promise<boolean> {
 
 /** 用户对模板评分(1-5,去重 upsert)→ 重算聚合 → 返 {avg, count}。模板不存在 → null。 */
 export async function rateTemplate(templateId: string, userId: string, rating: number): Promise<{ avg: number; count: number } | null> {
-  const d = getDbDriver();
   if (!(await getTemplate(templateId))) return null;
   const r = Math.max(1, Math.min(5, Math.round(Number(rating) || 0)));
   const ts = new Date().toISOString();
-  await d.run(
-    `INSERT INTO template_ratings (template_id, user_id, rating, created_at) VALUES (?, ?, ?, ?)
-     ON CONFLICT (template_id, user_id) DO UPDATE SET rating = excluded.rating, created_at = excluded.created_at`,
-    [templateId, userId, r, ts],
-  );
-  const agg = await d.get<{ c: number; s: number }>(
-    `SELECT COUNT(*) AS c, COALESCE(SUM(rating), 0) AS s FROM template_ratings WHERE template_id = ?`, [templateId],
-  );
-  const count = Number(agg?.c) || 0;
-  const sum = Number(agg?.s) || 0;
-  await d.run(`UPDATE film_templates SET rating_sum = ?, rating_count = ? WHERE id = ?`, [sum, count, templateId]);
-  return { avg: count > 0 ? Math.round((sum / count) * 10) / 10 : 0, count };
+  // v12.307:**单条评分的 upsert 本来就是原子的**(ON CONFLICT),坏在后面的聚合回写 ——
+  // 「SELECT COUNT/SUM 之后再 UPDATE 冗余列」是典型的 lost update:
+  //   A 插入 → A 读到 c=6 → B 插入 → B 读到 c=7 → B 写 7 → **A 用 6 覆盖**
+  // 于是 B 那一票在模板市场展示的均分/人数里凭空消失(明细表里却有,对不上账)。
+  // 与 v12.303/306 同一招:插入 + 聚合 + 回写整体进事务,读也在事务内。
+  return getDbDriver().transaction(async (tx) => {
+    await tx.run(
+      `INSERT INTO template_ratings (template_id, user_id, rating, created_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT (template_id, user_id) DO UPDATE SET rating = excluded.rating, created_at = excluded.created_at`,
+      [templateId, userId, r, ts],
+    );
+    const agg = await tx.get<{ c: number; s: number }>(
+      `SELECT COUNT(*) AS c, COALESCE(SUM(rating), 0) AS s FROM template_ratings WHERE template_id = ?`, [templateId],
+    );
+    const count = Number(agg?.c) || 0;
+    const sum = Number(agg?.s) || 0;
+    await tx.run(`UPDATE film_templates SET rating_sum = ?, rating_count = ? WHERE id = ?`, [sum, count, templateId]);
+    return { avg: count > 0 ? Math.round((sum / count) * 10) / 10 : 0, count };
+  });
 }
 
 export async function getUserRating(templateId: string, userId: string): Promise<number | null> {
