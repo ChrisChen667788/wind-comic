@@ -2,7 +2,7 @@
  * 多集生成(阶段二十六)—— 系列剧落库(DbDriver,SQLite/PG 双驱)。
  * 剧集 = projects 行 + series_id/episode_number(v12.17.0 加列)。
  */
-import { getDbDriver } from '@/lib/db-driver';
+import { getDbDriver, isUniqueViolation } from '@/lib/db-driver';
 import type { EpisodeShellSpec } from '@/lib/series';
 
 export interface EpisodeRow {
@@ -150,6 +150,19 @@ export async function getSeriesAnchor(seriesId: string): Promise<SeriesAnchor | 
 export async function setSeriesAnchor(seriesId: string, anchor: SeriesAnchor): Promise<void> {
   const ts = new Date().toISOString();
   const json = JSON.stringify(anchor);
-  const r = await getDbDriver().run('UPDATE series_anchors SET data = ?, updated_at = ? WHERE series_id = ?', [json, ts, seriesId]);
-  if (!r.changes) await getDbDriver().run('INSERT INTO series_anchors (series_id, data, updated_at) VALUES (?, ?, ?)', [seriesId, json, ts]);
+  // v12.306:与 upsertAsset(v12.303)同一个病 —— UPDATE-then-INSERT 之间没有互斥。
+  // series_anchors.series_id 是主键,批量多集生成时两集几乎同时完成:
+  // 两次 UPDATE 都命中 0 行 → 两次 INSERT,后者**抛主键冲突** → 那一集的 job 被标 failed,
+  // 剧集管理页显示某集出错,而它的视频其实早就好了。
+  // 修法同上:两步进同一事务;真撞上冲突就说明另一方抢先插入了,改为更新它。
+  await getDbDriver().transaction(async (tx) => {
+    const r = await tx.run('UPDATE series_anchors SET data = ?, updated_at = ? WHERE series_id = ?', [json, ts, seriesId]);
+    if (r.changes) return;
+    try {
+      await tx.run('INSERT INTO series_anchors (series_id, data, updated_at) VALUES (?, ?, ?)', [seriesId, json, ts]);
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      await tx.run('UPDATE series_anchors SET data = ?, updated_at = ? WHERE series_id = ?', [json, ts, seriesId]);
+    }
+  });
 }

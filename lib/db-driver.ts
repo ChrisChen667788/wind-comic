@@ -172,3 +172,18 @@ export function getDbDriver(): DbDriver {
 export function resetDbDriver(): void {
   singleton = null;
 }
+
+/**
+ * v12.306:唯一/主键冲突的**跨驱动判定**。v12.303 时先写在 `repos/asset-repo`,
+ * 但 series-repo 也要用 —— 它是驱动级概念,收口到这里,repo 侧只 re-export 保持既有引用。
+ * SQLite: `SQLITE_CONSTRAINT_*`(better-sqlite3);Postgres: `23505` unique_violation。
+ */
+export function isUniqueViolation(e: unknown): boolean {
+  const any = e as any;
+  const code = String(any?.code || '');
+  if (code === '23505') return true;
+  if (code.startsWith('SQLITE_CONSTRAINT')) return true;
+  const msg = String(any?.message || e || '').toLowerCase();
+  return msg.includes('unique constraint') || msg.includes('duplicate key')
+    || msg.includes('primary key');
+}

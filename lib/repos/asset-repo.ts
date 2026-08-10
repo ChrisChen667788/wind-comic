@@ -8,7 +8,7 @@
  */
 
 import { nanoid } from 'nanoid';
-import { getDbDriver } from '../db-driver';
+import { getDbDriver, isUniqueViolation } from '../db-driver';
 import type { DbExecutor } from '@/lib/db-driver';
 
 export interface AssetRow {
@@ -40,8 +40,8 @@ export async function listProjectAssets(projectId: string): Promise<AssetRow[]> 
   );
 }
 
-export async function listAssetsByType(projectId: string, type: string): Promise<AssetRow[]> {
-  return getDbDriver().query<AssetRow>(
+export async function listAssetsByType(projectId: string, type: string, exec?: DbExecutor): Promise<AssetRow[]> {
+  return (exec ?? getDbDriver()).query<AssetRow>(
     `SELECT ${COLS} FROM project_assets WHERE project_id = ? AND type = ? ORDER BY shot_number`,
     [projectId, type],
   );
@@ -185,15 +185,8 @@ export async function upsertAsset(input: CreateAssetInput): Promise<'created' | 
   });
 }
 
-/** 唯一约束冲突的跨驱动判定(SQLite: SQLITE_CONSTRAINT_UNIQUE;Postgres: 23505)。 */
-export function isUniqueViolation(e: unknown): boolean {
-  const any = e as any;
-  const code = String(any?.code || '');
-  if (code === '23505') return true;                       // Postgres unique_violation
-  if (code.startsWith('SQLITE_CONSTRAINT')) return true;   // better-sqlite3
-  const msg = String(any?.message || e || '').toLowerCase();
-  return msg.includes('unique constraint') || msg.includes('duplicate key');
-}
+// v12.306:判定收口到 lib/db-driver(series-repo 也要用),此处 re-export 保持既有引用不变
+export { isUniqueViolation } from '../db-driver';
 
 export async function deleteAsset(id: string): Promise<boolean> {
   const r = await getDbDriver().run(`DELETE FROM project_assets WHERE id = ?`, [id]);
@@ -201,8 +194,9 @@ export async function deleteAsset(id: string): Promise<boolean> {
 }
 
 /** v9.0.1: 删除某 project 下某 type 的全部资产 (如 narration 重生前清空). 返回行数. */
-export async function deleteAssetsByType(projectId: string, type: string): Promise<number> {
-  const r = await getDbDriver().run(`DELETE FROM project_assets WHERE project_id = ? AND type = ?`, [projectId, type]);
+export async function deleteAssetsByType(projectId: string, type: string, exec?: DbExecutor): Promise<number> {
+  // v12.306:可传事务内 executor —— 「读-删-插」必须整体原子,否则并发提交会互相覆盖
+  const r = await (exec ?? getDbDriver()).run(`DELETE FROM project_assets WHERE project_id = ? AND type = ?`, [projectId, type]);
   return r.changes;
 }
 
