@@ -105,6 +105,7 @@ export const CONTRACTS: GateContract[] = [
     scope: ['lib/', 'services/', 'app/api/'],
     allow: [
       { file: 'lib/ssrf-guard.ts', why: 'safeFetch 的实现本体,它必须调裸 fetch' },
+      { file: 'lib/fetch-timeout.ts', why: 'v12.304:纯超时装饰器(AbortController + clearTimeout),不解析也不改写 URL —— SSRF 判断权留在调用方。刻意不内建 safeFetch:现有四个消费方(veo/minimax/kling/happyhorse)的 base URL 来自配置,自托管网关常在内网,套守卫会误拒真实部署。**新增调用方必须单独评估**是否该改走 safeFetch' },
       { file: 'lib/image-providers/openrouter-image.ts', why: 'v12.96 既有档,固定打 openrouter.ai 常量域名,不接受用户 URL' },
       { file: 'lib/llm-client.ts', why: 'LLM 网关地址来自 env 配置而非请求输入,且不跟随到用户可控目标' },
       // ── v12.241 清存量债时逐个核实后登记的例外 ──

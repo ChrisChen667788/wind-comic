@@ -1,12 +1,9 @@
 import { API_CONFIG } from '@/lib/config';
+import { fetchWithTimeout } from '@/lib/fetch-timeout';
 import { veoSizeFromAspect } from '@/lib/video-aspect'; // v12.14.0 横竖屏
 
 /** 带超时的 fetch */
-function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 30_000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
-}
+// v12.304:本地那份 fetchWithTimeout 已收口到 lib/fetch-timeout(两处曾是一字不差的复制)
 
 interface VeoCreateResponse {
   id?: string;

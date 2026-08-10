@@ -6,11 +6,7 @@ import os from 'os';
 import path from 'path';
 
 /** 带超时的 fetch —— 防止 API 无响应时无限挂起 */
-function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 30_000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
-}
+// v12.304:本地那份 fetchWithTimeout 已收口到 lib/fetch-timeout(两处曾是一字不差的复制)
 
 /**
  * 敏感词净化器 —— Minimax 1026 (input new_sensitive) 的通用改写层
@@ -69,6 +65,7 @@ function persistHexAudioToFile(hex: string, ext: 'mp3' | 'wav' = 'mp3'): string 
 
 // v2.17 P0.2: API 用量追踪 — 失败时落 api_usage_events + 升级 quota alerts
 import { recordApiCall as _trackApiCall } from '@/lib/api-usage-tracker';
+import { fetchWithTimeout } from '@/lib/fetch-timeout';
 
 /** 私有: 从 Minimax 错误消息里提取业务码 (如 "Minimax video-01 error (1008): xxx") */
 function _extractMinimaxStatusCode(msg: string): number | undefined {

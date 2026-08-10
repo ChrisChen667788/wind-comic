@@ -1,4 +1,5 @@
 import { API_CONFIG } from '@/lib/config';
+import { fetchWithTimeout } from '@/lib/fetch-timeout';
 
 interface KelingResponse {
   code: number;
@@ -35,7 +36,8 @@ export class KelingService {
   }): Promise<string> {
     try {
       // 启动视频生成任务
-      const response = await fetch(`${this.baseURL}/v1/videos/image2video`, {
+      // v12.304:裸 fetch 无超时 —— 网关接受 TCP 却不回 HTTP 时会挂到 OS socket 超时(数分钟)
+      const response = await fetchWithTimeout(`${this.baseURL}/v1/videos/image2video`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -78,7 +80,9 @@ export class KelingService {
     for (let i = 0; i < maxAttempts; i++) {
       await this.sleep(5000); // 等待 5 秒
 
-      const response = await fetch(`${this.baseURL}/v1/videos/image2video/${taskId}`, {
+      // v12.304:轮询同理 —— fetch 挂住会让整个 for 循环卡在第一次迭代,
+      // maxAttempts × 5s 那套「10 分钟上限」形同虚设
+      const response = await fetchWithTimeout(`${this.baseURL}/v1/videos/image2video/${taskId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,

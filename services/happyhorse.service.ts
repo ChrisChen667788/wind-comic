@@ -19,6 +19,8 @@
  * 诚实边界:未配 key 或 base 非该网关时 `hasHappyHorse()` 为 false,引擎链自动跳过 —— 不静默假装可用。
  */
 
+import { fetchWithTimeout } from '@/lib/fetch-timeout';
+
 export type HappyHorseAspect = '16:9' | '9:16' | '1:1' | '4:3' | '3:4';
 
 export interface HappyHorseGenerateOptions {
@@ -131,16 +133,15 @@ export function happyHorseVisualParams(
 }
 
 /**
- * 请求的画幅**是否已被确证可用**。
+ * 请求的画幅是否可用(引擎链登记前的门禁)。
  *
- * 病根(2026-08-09 实测):上游**不校验** `size` —— 传 `'ZZZ_INVALID_PROBE'` 照样 HTTP 200 建任务,
- * 然后静默回落默认画幅。所以「请求 9:16 出 16:9」不是网关吞了参数,而是**参数格式不对且上游不报错**。
- * 正确写法至今未能确证:探测期间上游通道持续 429(`local:quota_not_enough`,
- * 文案却写「分组上游负载已饱和」—— 两者不是一回事)。
+ * 病根(v12.295 查证官方文档):上游**根本没有 `size` 参数**,我们从 v12.272 起一直在发一个
+ * 不存在的字段,而它对不认识的字段**不报错、静默忽略** → 永远出默认 16:9。正确字段是 `ratio`。
  *
- * 在确证之前,只承认**已实测出过**的 16:9;其余一律视为不支持,由引擎链跳过 ——
- * v12.272 把这条限制只写在 README 里(documented 但不 enforced),于是竖屏项目照样会被路由过来、
- * 静默拿到横屏素材。运营者若知道自己网关要的确切字符串,设 `HAPPYHORSE_SIZE` 即表示自行担保。
+ * 现在拦两种:① 官方文档没列的比例;② 本次运行中实测出过「请求 A 却出 B」的比例
+ * (由 `markHappyHorseRatioBroken` 登记,重启即重试 —— 也可能只是上游一次性抽风)。
+ * v12.272 把限制只写在 README 里(documented 但不 enforced),于是竖屏项目照样被路由过来、
+ * 静默拿到横屏素材;现在是硬门禁。
  */
 export function happyHorseAspectSupported(aspect: string | undefined): boolean {
   if (!aspect) return true;                                        // 没指定 → 用上游默认
@@ -193,7 +194,8 @@ export class HappyHorseService {
       duration: clampHappyHorseDuration(options?.duration),
       ...happyHorseVisualParams(options?.aspectRatio),
     };
-    const res = await fetch(`${this.baseURL}${BAILIAN_CREATE}`, {
+    // v12.304:建任务加超时(此前裸 fetch,网关半死时无限等待)
+    const res = await fetchWithTimeout(`${this.baseURL}${BAILIAN_CREATE}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: happyHorseModelFor(hasImage), input, parameters }),
@@ -225,7 +227,8 @@ export class HappyHorseService {
     const maxTries = Math.ceil((timeoutSec * 1000) / intervalMs);
     for (let i = 0; i < maxTries; i++) {
       await new Promise((r) => setTimeout(r, intervalMs));
-      const res = await fetch(`${this.baseURL}${BAILIAN_TASK}/${encodeURIComponent(taskId)}`, {
+      // v12.304:轮询加超时 —— 否则 timeoutSec=600 的上限根本轮不到生效
+      const res = await fetchWithTimeout(`${this.baseURL}${BAILIAN_TASK}/${encodeURIComponent(taskId)}`, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
       });
       if (!res.ok) continue; // 瞬时错误不打断轮询

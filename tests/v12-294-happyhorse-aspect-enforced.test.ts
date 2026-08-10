@@ -184,10 +184,13 @@ describe('v12.294 · 429 的两种含义要分开报', () => {
     expect(SVC).toContain('HappyHorse 建任务失败 (${res.status})');
   });
 
-  it('保留病因说明:上游不校验 size(防后人再把方向判成「网关不采纳」)', () => {
-    const i = SVC.indexOf('happyHorseAspectSupported');
-    const doc = SVC.slice(Math.max(0, i - 1200), i);
-    expect(doc).toMatch(/不校验/);
-    expect(doc).toMatch(/静默回落|静默/);
+  // v12.304 更新:v12.295 查证官方文档后,病因说明已从「上游不校验 size」
+  // 改写为更准确的「上游根本没有 size 这个参数」—— 断言跟着改口径。
+  it('保留病因说明:上游没有 size 参数(防后人再把方向判成「网关不采纳」)', () => {
+    const i = SVC.indexOf('export function happyHorseAspectSupported');
+    const doc = SVC.slice(Math.max(0, i - 1000), i);
+    expect(doc).toMatch(/根本没有 `size` 参数|没有 `size` 参数/);
+    expect(doc).toMatch(/静默忽略|静默/);
+    expect(doc, '正确字段要写明').toMatch(/ratio/);
   });
 });
