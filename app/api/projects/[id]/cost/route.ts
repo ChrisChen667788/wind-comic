@@ -8,6 +8,7 @@ import { rollupByEngine } from '@/lib/cost-rollup';
 import { buildCogsReport } from '@/lib/cogs-report';
 import { NextResponse } from 'next/server';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { attributeCost, costEventsFromCostLog } from '@/lib/cost-attribution';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,5 +56,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json(report);
   }
 
-  return NextResponse.json({ projectId: id, totalCny, entries: rows.length, byEngine });
+  // v12.311:**接上成本归因** —— `lib/cost-attribution` 的 costEventsFromCostLog/attributeCost
+  // 一直存在且可用,但这个端点从没调过它,于是前端 `CostAttributionPanel` 读的
+  // `body.attribution` 永远是 undefined:面板对**所有用户**恒显「暂无成本数据」,
+  // 类目条形、省钱提示、预算护栏三块功能整体失效 —— 又一处「造好没接线」。
+  const attribution = attributeCost(costEventsFromCostLog(rows));
+
+  return NextResponse.json({ projectId: id, totalCny, entries: rows.length, byEngine, attribution });
 }

@@ -104,8 +104,10 @@ export async function synthesizeRetake(input: RetakeInput): Promise<RetakeResult
 
     await import('./tts-providers/builtins'); // 副作用:注册内置 TTS provider
     const { dispatchTTSGenerate } = await import('./tts-providers/registry');
+    // v12.311:同上 —— 已本地化项目点「重录」时,硬编码 zh-CN 会让输出语音与台词语种不符
+    const { detectLanguage, ttsLangCode } = await import('./language-detect');
     const r = await dispatchTTSGenerate({
-      text: shot.text, voiceId, language: 'zh-CN', speed: prosody.speed, pitch: prosody.pitch,
+      text: shot.text, voiceId, language: ttsLangCode(detectLanguage(shot.text)), speed: prosody.speed, pitch: prosody.pitch,
     });
     if (!r.result) return { ok: false, shotNumber, error: 'TTS 无可用引擎(需配 MINIMAX_API_KEY)' };
 

@@ -17,6 +17,7 @@ import { getUserFromRequest } from '../../../auth/lib';
 import { recordCostLog, estimateTtsCostCny } from '@/lib/repos/cost-log-repo';
 import type { ScriptShot } from '@/types/agents';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { detectLanguage, ttsLangCode } from '@/lib/language-detect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -84,7 +85,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const speaker = ((s.characters?.[0] || (s as any).character || '') as string).trim();
       const voiceId = effectiveVoice(speaker, { force: forceVoice || undefined, overrides, routing: routing || undefined });
       const prosody = deriveProsody({ emotion: s.emotion, emotionTemperature: s.emotionTemperature });
-      const r = await dispatchTTSGenerate({ text: s.dialogue!, voiceId, language: 'zh-CN', speed: prosody.speed, pitch: prosody.pitch });
+      // v12.311:此前硬编码 'zh-CN' —— 项目经 /localize 翻成日/英/韩后,
+      // 「合成配音」仍以中文语种模式发给 TTS,发音混乱。按台词自检语种,
+      // 与 lib/narration-synth.ts:129 同一口径(那处 v12.6.1 就修过,这条路径漏了)。
+      const _lang = ttsLangCode(detectLanguage(s.dialogue!));
+      const r = await dispatchTTSGenerate({ text: s.dialogue!, voiceId, language: _lang, speed: prosody.speed, pitch: prosody.pitch });
       if (!r.result) { results.push({ shotNumber: s.shotNumber, ok: false, error: 'no-engine' }); continue; }
       const p = await persistAsset(r.result.audioUrl, { ext: '.mp3', contentType: 'audio/mpeg' });
       if (!p) { results.push({ shotNumber: s.shotNumber, ok: false, error: 'persist-failed' }); continue; }
