@@ -5,6 +5,7 @@ import { listProjectAssets, getAsset, updateAssetDataInProject } from '@/lib/rep
 import { getOwnedProject, deleteProjectCascade, setProjectArchived } from '@/lib/repos/project-repo';
 import { NextResponse } from 'next/server';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { safeJsonParse } from '@/lib/safe-json';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,7 +43,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     user_id: row.user_id,
     title: row.title,
     description: row.description,
-    covers: JSON.parse(row.cover_urls || '[]'),
+    // v12.305:同理 —— 坏数据降级,不让单个字段把整个项目详情打成 500
+    covers: safeJsonParse<string[]>(row.cover_urls, [], { context: `projects.cover_urls#${row.id}` }),
     status: row.status,
     // v2.9: 把 style_id / primary_character_ref 吐给前端,UI 能按项目锁死风格与主角脸
     styleId: row.style_id || null,
@@ -52,8 +54,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     lockedCharacters: (() => {
       try { return JSON.parse(row.locked_characters || '[]'); } catch { return []; }
     })(),
-    scriptData: row.script_data ? JSON.parse(row.script_data) : null,
-    directorNotes: row.director_notes ? JSON.parse(row.director_notes) : null,
+    scriptData: safeJsonParse<any>(row.script_data, null, { context: `projects.script_data#${row.id}` }),
+    directorNotes: safeJsonParse<any>(row.director_notes, null, { context: `projects.director_notes#${row.id}` }),
     assets: parsedAssets,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
