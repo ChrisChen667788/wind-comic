@@ -9,6 +9,7 @@
 
 import { nanoid } from 'nanoid';
 import { getDbDriver } from '../db-driver';
+import type { DbExecutor } from '@/lib/db-driver';
 
 export interface AssetRow {
   id: string;
@@ -46,8 +47,10 @@ export async function listAssetsByType(projectId: string, type: string): Promise
   );
 }
 
-export async function getAsset(id: string): Promise<AssetRow | null> {
-  return getDbDriver().get<AssetRow>(`SELECT ${COLS} FROM project_assets WHERE id = ?`, [id]);
+export async function getAsset(id: string, exec?: DbExecutor): Promise<AssetRow | null> {
+  // v12.303:可传 executor —— 事务内插入后要用**同一连接**回读,
+  // 否则 PG 会从池里另取 client,看不到未提交的行(SQLite 同连接侥幸能过,双驱动下就是坑)。
+  return (exec ?? getDbDriver()).get<AssetRow>(`SELECT ${COLS} FROM project_assets WHERE id = ?`, [id]);
 }
 
 export interface CreateAssetInput {
@@ -64,8 +67,8 @@ export interface CreateAssetInput {
   persistentUrl?: string | null;
 }
 
-export async function createAsset(input: CreateAssetInput): Promise<AssetRow> {
-  const driver = getDbDriver();
+export async function createAsset(input: CreateAssetInput, exec?: DbExecutor): Promise<AssetRow> {
+  const driver = exec ?? getDbDriver();
   const id = input.id || nanoid();
   const ts = new Date().toISOString();
   await driver.run(
@@ -77,7 +80,7 @@ export async function createAsset(input: CreateAssetInput): Promise<AssetRow> {
       input.persistentUrl ?? null, input.shotNumber ?? null, input.version ?? 1, ts, ts,
     ],
   );
-  const row = await getAsset(id);
+  const row = await getAsset(id, exec);
   if (!row) throw new Error('createAsset: 插入后读取失败');
   return row;
 }
@@ -114,6 +117,8 @@ export async function updateAssetBySelector(
   projectId: string,
   sel: { type: string; shotNumber?: number | null; name?: string },
   patch: { mediaUrls?: string[]; persistentUrl?: string | null; data?: unknown; bumpVersion?: boolean },
+  /** v12.303:可传入事务内的 executor —— upsert 要把「更新+插入」两步放进同一事务 */
+  exec?: DbExecutor,
 ): Promise<number> {
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -127,7 +132,7 @@ export async function updateAssetBySelector(
   params.push(projectId, sel.type);
   if (sel.shotNumber != null) { where += ' AND shot_number = ?'; params.push(sel.shotNumber); }
   else { where += ' AND name = ?'; params.push(sel.name); }
-  const r = await getDbDriver().run(`UPDATE project_assets SET ${sets.join(', ')} WHERE ${where}`, params);
+  const r = await (exec ?? getDbDriver()).run(`UPDATE project_assets SET ${sets.join(', ')} WHERE ${where}`, params);
   return r.changes;
 }
 
@@ -148,10 +153,46 @@ export async function upsertAsset(input: CreateAssetInput): Promise<'created' | 
   if (input.mediaUrls && input.mediaUrls.length > 0) patch.mediaUrls = input.mediaUrls;
   // v12.26.0(评审):透传 persistentUrl(原 upsert 更新路径漏传 → 重导/重生不更新持久 URL)
   if (input.persistentUrl !== undefined) patch.persistentUrl = input.persistentUrl;
-  const changes = await updateAssetBySelector(input.projectId, sel, patch);
-  if (changes > 0) return 'updated';
-  await createAsset(input);
-  return 'created';
+  // 整个「先更新、没命中再插入」必须在**同一个事务**里,否则两步之间没有互斥。
+  return getDbDriver().transaction(async (tx) => {
+  const changes = await updateAssetBySelector(input.projectId, sel, patch, tx);
+  if (changes > 0) return 'updated' as const;
+
+  // ── v12.303:check-then-insert 竞态 ──────────────────────────────────────
+  // 病根:上面「查到就更新、查不到就插入」两步之间没有任何互斥,表上也没有唯一约束。
+  // pipeline job 被 requeue(心跳超时/手动重试)时两个 worker 会同时走到这里:
+  // 两次 UPDATE 都命中 0 行 → 两次 INSERT 都成功 → **同一镜号出现两条资产行**。
+  // 后果:render-loop 把 version 当 attempts 计数,取到错误行后 attempts 虚高;
+  // export 与下游 `LIMIT 1` 子查询可能拿到旧行而不是最新产物。
+  //
+  // 修法:**把两步放进同一个事务**(驱动本来就有 transaction(),SQLite 走 BEGIN/COMMIT 同连接,
+  // PG 从池里 checkout 单 client 全程跑)。另加冲突兜底,为将来可能的唯一约束留后路。
+  //
+  // ⚠️ 一开始我加的是「(project_id, type, shot_number) 部分唯一索引」—— **那是错的**,
+  // 被测试当场抓住:voice-retake 的 take 历史**故意**为同一镜存多行(追加式历史),
+  // 唯一索引会让「重录第二次」直接失败。同一张表上既有 upsert 语义又有 append 语义,
+  // 用表级约束是选错了工具。
+  try {
+    await createAsset(input, tx);
+    return 'created' as const;
+  } catch (e) {
+    // 若将来给某些 type 加了唯一约束,这里兜住冲突:说明另一方抢先插入了,改为更新它
+    if (!isUniqueViolation(e)) throw e;
+    const retried = await updateAssetBySelector(input.projectId, sel, patch, tx);
+    if (retried > 0) return 'updated' as const;
+    throw e;
+  }
+  });
+}
+
+/** 唯一约束冲突的跨驱动判定(SQLite: SQLITE_CONSTRAINT_UNIQUE;Postgres: 23505)。 */
+export function isUniqueViolation(e: unknown): boolean {
+  const any = e as any;
+  const code = String(any?.code || '');
+  if (code === '23505') return true;                       // Postgres unique_violation
+  if (code.startsWith('SQLITE_CONSTRAINT')) return true;   // better-sqlite3
+  const msg = String(any?.message || e || '').toLowerCase();
+  return msg.includes('unique constraint') || msg.includes('duplicate key');
 }
 
 export async function deleteAsset(id: string): Promise<boolean> {

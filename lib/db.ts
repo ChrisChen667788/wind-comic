@@ -186,6 +186,7 @@ CREATE TABLE IF NOT EXISTS global_assets (
 -- 索引列顺序按真实谓词来:(project_id, type) 复合索引可同时服务「只按 project_id」的查询。
 CREATE INDEX IF NOT EXISTS idx_project_assets_project_type ON project_assets(project_id, type);
 CREATE INDEX IF NOT EXISTS idx_project_assets_project_shot ON project_assets(project_id, shot_number);
+
 CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_user_created ON projects(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_generations_user ON generations(user_id);
@@ -422,6 +423,7 @@ addColumnIfMissing('projects', 'global_asset_ids', "TEXT DEFAULT '[]'");      //
 addColumnIfMissing('projects', 'output_config', 'TEXT');                      // JSON object
 addColumnIfMissing('projects', 'series_id', 'TEXT');
 // v12.181 跨集一致性传播:series 级锚点(角色图/styleBible/上集末帧),集完成写入、下集启动注入
+
 db.exec(`CREATE TABLE IF NOT EXISTS series_anchors (
   series_id TEXT PRIMARY KEY,
   data TEXT NOT NULL DEFAULT '{}',
