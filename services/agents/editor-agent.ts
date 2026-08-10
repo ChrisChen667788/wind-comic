@@ -371,140 +371,189 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         ctx.update(AgentRole.EDITOR, { progress: 30, currentTask: `生成 ${dialogueShots.length} 段 AI 配音...` });
         ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: `正在为 ${dialogueShots.length} 个有台词的镜头生成 AI 配音 🎙️` });
 
-        for (let i = 0; i < dialogueShots.length; i++) {
-          const t = dialogueShots[i];
-          try {
-            // ── 语言统一：过滤纯英文对白 → 仅为中文/含中文对白生成配音 ──
-            // v12.41:\u5148\u5254\u9664\u97f3\u6548/\u914d\u4e50/\u52a8\u4f5c\u62ec\u53f7\u63d0\u793a(\u4e0e\u5b57\u5e55\u540c\u6e90),\u907f\u514d TTS \u5ff5\u51fa\u300c\u91d1\u5c5e\u8f70\u54cd\u300d\u8fd9\u7c7b\u63d0\u793a
-            const { stripNonDialogueBrackets } = await import('@/lib/text-control');
-            const spokenDialogue = stripNonDialogueBrackets(t.dialogue);
-            if (!spokenDialogue) { console.log(`[Editor] TTS skip (\u4ec5\u97f3\u6548/\u821e\u53f0\u63d0\u793a): "${t.dialogue.slice(0, 30)}"`); continue; }
-            const hasChinese = /[\u4e00-\u9fa5]/.test(spokenDialogue);
-            if (!hasChinese) {
-              console.log(`[Editor] TTS skip (non-Chinese): "${t.dialogue.slice(0, 30)}"`);
-              continue;
-            }
-            // 替换对白中的英文片段为中文发音提示（避免 TTS 中英文混杂）
-            const cleanedDialogue = spokenDialogue
-              .replace(/[a-zA-Z]+/g, (match: string) => match.length <= 3 ? match : '')  // 保留短缩写如 AI、OK
-              .replace(/\s{2,}/g, ' ')
-              .trim();
-            if (!cleanedDialogue) continue;
+        // ── v12.309:TTS 由**串行**改为**有界并发** ──────────────────────────────
+        // 病根:每段配音 `await` 上一段跑完才发下一个。6 个有台词的镜头 × 3-5s/次 = 18-30s 纯等待,
+        // 而这些调用彼此完全独立(不同文本、不同 voiceId)。串行不省钱(按次计费),只白耗时。
+        //
+        // **并发化最容易出的事故是输出不再确定**:完成顺序是乱的,若各自直接 push 共享数组,
+        // voiceoverClips / audioWarnings 的次序就会随网络抖动而变 —— 同样的输入两次跑出不同的片子。
+        // 所以这里是「**生成并发、装配串行**」:每镜只返回结果对象,全部结束后**按原下标顺序**
+        // 统一写回。并发只影响耗时,产物逐字节确定。
+        //
+        // 并发上限刻意保守(默认 3):TTS 侧普遍有速率限制,开太大只会换来一片 429 再走静音兜底 ——
+        // 那比串行更糟。可用 TTS_CONCURRENCY 调,夹在 1..6。
+        type TtsOut = {
+          clip?: { shotNumber: number; audioUrl: string };
+          duration?: number;
+          warnings: string[];
+          emits: string[];
+        };
+        const _ttsLimit = (() => {
+          const n = Number(process.env.TTS_CONCURRENCY);
+          return Number.isFinite(n) && n >= 1 ? Math.min(6, Math.floor(n)) : 3;
+        })();
+        const _slots: Array<TtsOut> = new Array(dialogueShots.length);
+        let _done = 0;
+        let _next = 0;
 
-            // v2.9 Bug 3: 从 emotion + emotionTemperature 推导 speed/pitch/vol
-            // 之前所有配音都是 1.0/0/0.85 的死板默认,声画脱节;现在画面走情绪,配音也跟着走
-            const prosody = deriveProsody({
-              emotion: t.emotion,
-              emotionTemperature: t.emotionTemperature,
-              character: (t as any).speaker, // v12.203:角色名性别/年龄纠偏(legacy #5 落地)
-            });
-            // v12.87.0 台词-镜长适配:说不完就在合法区间提速(≤1.3),仍溢出记账告警(不擅自删词)
-            {
-              const { fitSpeechToShot } = await import('@/lib/tts-prosody');
-              const fit = fitSpeechToShot(cleanedDialogue, t.duration || 4, prosody.speed);
-              if (fit.speed > prosody.speed) {
-                console.log(`[Editor] v12.87 台词适配 shot ${t.shotNumber}: speed ${prosody.speed}→${fit.speed}(估 ${fit.estimatedSec.toFixed(1)}s / 镜 ${t.duration || 4}s)`);
-                prosody.speed = fit.speed;
+        const runShot = async (t: any, i: number): Promise<TtsOut> => {
+          const out: TtsOut = { warnings: [], emits: [] };
+            try {
+              // ── 语言统一：过滤纯英文对白 → 仅为中文/含中文对白生成配音 ──
+              // v12.41:\u5148\u5254\u9664\u97f3\u6548/\u914d\u4e50/\u52a8\u4f5c\u62ec\u53f7\u63d0\u793a(\u4e0e\u5b57\u5e55\u540c\u6e90),\u907f\u514d TTS \u5ff5\u51fa\u300c\u91d1\u5c5e\u8f70\u54cd\u300d\u8fd9\u7c7b\u63d0\u793a
+              const { stripNonDialogueBrackets } = await import('@/lib/text-control');
+              const spokenDialogue = stripNonDialogueBrackets(t.dialogue);
+              if (!spokenDialogue) { console.log(`[Editor] TTS skip (\u4ec5\u97f3\u6548/\u821e\u53f0\u63d0\u793a): "${t.dialogue.slice(0, 30)}"`); return out; }
+              const hasChinese = /[\u4e00-\u9fa5]/.test(spokenDialogue);
+              if (!hasChinese) {
+                console.log(`[Editor] TTS skip (non-Chinese): "${t.dialogue.slice(0, 30)}"`);
+                return out;
               }
-              if (fit.overflow) {
-                ctx.qualityLedger.push({ shot: t.shotNumber ?? 0, kind: 'dialogue-overflow', detail: `${fit.estimatedSec.toFixed(1)}s>${t.duration || 4}s` });
-                ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 第 ${t.shotNumber} 镜台词偏长(约 ${fit.estimatedSec.toFixed(1)}s > 镜 ${t.duration || 4}s),已提速仍可能溢出` });
-              }
-            }
-            console.log(`[Editor] TTS prosody shot ${t.shotNumber}: emotion="${t.emotion}" temp=${t.emotionTemperature ?? 0} → speed=${prosody.speed} pitch=${prosody.pitch} vol=${prosody.vol}`);
-            // ── v12.288:角色音色按**角色**定,不再按**台词情绪**猜 ────────────────────
-            // 病根(本版最要命的一条):原来是 `t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male'`
-            //   ① 性别从**这句台词的情绪**推断 —— 于是**同一个角色会在镜与镜之间换嗓**:
-            //      这句「温柔」用女声、下句「愤怒」变男声;男主哭一场就变成女声。
-            //   ② 全片只有 `female-zh` / `male-zh` **两个写死 id**,且**不在 VOICE_CATALOG 内**;
-            //      v12.229 扩到 22 档、v12.274 逐档配韵律、v12.287 打开选路 —— 主出片链路一个都没用上。
-            //   ③ `t.speaker`(角色名)其实**就在手边**:上面第 383 行的 prosody 纠偏已经在用它了。
-            // 现在:按角色名走 `assignVoiceToCharacter`(v12.287 已让它认性别年龄并散开到全目录),
-            // 同一角色全片恒定同音色;无角色名(旁白等)才退回情绪猜测的旧行为。
-            const _speaker = String((t as any).speaker || '').trim();
-            const _gender = t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male';
-            let _voiceId = _gender === 'female' ? 'female-zh' : 'male-zh';
-            if (_speaker) {
-              // v12.296:直接取上面**整组一次性定好**的音色表。
-              // 逐句现挑会看不到全片阵容,与「重配单镜」那条路径对不齐(详见 _voiceCast 处的说明)。
-              const _fromCast = _voiceCast.get(_speaker);
-              if (_fromCast) _voiceId = _fromCast;
-              else {
-                try {
-                  // 阵容表里没有(理论上不该发生)→ 退回单角色入口,仍走同一套选路
-                  const { resolveCharacterVoice } = await import('@/lib/character-studio');
-                  const _picked = resolveCharacterVoice(_speaker);
-                  if (_picked) _voiceId = _picked;
-                } catch { /* 取不到就沿用旧的性别兜底,不阻塞配音 */ }
-              }
-            }
-            // v3.2 P4.3: TTS 走 withTTSPlugin. off → 直接 generateSpeech (行为不变),
-            // primary → 先 plugin chain 失败落老 generateSpeech, shadow → 老逻辑出结果 + plugin 采样比对.
-            const { withTTSPlugin } = await import('@/lib/plugin-chain-router');
-            const _ttsResult = await withTTSPlugin(
-              {
-                text: cleanedDialogue,
-                voiceId: _voiceId, // v12.288:按角色恒定,不再逐句按情绪猜
+              // 替换对白中的英文片段为中文发音提示（避免 TTS 中英文混杂）
+              const cleanedDialogue = spokenDialogue
+                .replace(/[a-zA-Z]+/g, (match: string) => match.length <= 3 ? match : '')  // 保留短缩写如 AI、OK
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+              if (!cleanedDialogue) return out;
+
+              // v2.9 Bug 3: 从 emotion + emotionTemperature 推导 speed/pitch/vol
+              // 之前所有配音都是 1.0/0/0.85 的死板默认,声画脱节;现在画面走情绪,配音也跟着走
+              const prosody = deriveProsody({
                 emotion: t.emotion,
-                speed: prosody.speed,
-                pitch: prosody.pitch,
-                volume: prosody.vol,
-                language: ttsLangCode(ctx.targetLanguage()), // v12.6.1: 按目标语种(zh-CN/en-US)
-                label: `shot-${t.shotNumber}`,
-              },
-              async () => {
-                // v12.7.0: 先走注册表(vectorengine-tts 50 → minimax-tts 100,按 priority);
-                // 注册表全失败再退回直连 minimax(保旧行为为最后兜底);都没有 → 抛错走静音兜底。
-                const d = await dispatchTTSGenerate({
+                emotionTemperature: t.emotionTemperature,
+                character: (t as any).speaker, // v12.203:角色名性别/年龄纠偏(legacy #5 落地)
+              });
+              // v12.87.0 台词-镜长适配:说不完就在合法区间提速(≤1.3),仍溢出记账告警(不擅自删词)
+              {
+                const { fitSpeechToShot } = await import('@/lib/tts-prosody');
+                const fit = fitSpeechToShot(cleanedDialogue, t.duration || 4, prosody.speed);
+                if (fit.speed > prosody.speed) {
+                  console.log(`[Editor] v12.87 台词适配 shot ${t.shotNumber}: speed ${prosody.speed}→${fit.speed}(估 ${fit.estimatedSec.toFixed(1)}s / 镜 ${t.duration || 4}s)`);
+                  prosody.speed = fit.speed;
+                }
+                if (fit.overflow) {
+                  ctx.qualityLedger.push({ shot: t.shotNumber ?? 0, kind: 'dialogue-overflow', detail: `${fit.estimatedSec.toFixed(1)}s>${t.duration || 4}s` });
+                  out.emits.push(`⚠️ 第 ${t.shotNumber} 镜台词偏长(约 ${fit.estimatedSec.toFixed(1)}s > 镜 ${t.duration || 4}s),已提速仍可能溢出`);
+                }
+              }
+              console.log(`[Editor] TTS prosody shot ${t.shotNumber}: emotion="${t.emotion}" temp=${t.emotionTemperature ?? 0} → speed=${prosody.speed} pitch=${prosody.pitch} vol=${prosody.vol}`);
+              // ── v12.288:角色音色按**角色**定,不再按**台词情绪**猜 ────────────────────
+              // 病根(本版最要命的一条):原来是 `t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male'`
+              //   ① 性别从**这句台词的情绪**推断 —— 于是**同一个角色会在镜与镜之间换嗓**:
+              //      这句「温柔」用女声、下句「愤怒」变男声;男主哭一场就变成女声。
+              //   ② 全片只有 `female-zh` / `male-zh` **两个写死 id**,且**不在 VOICE_CATALOG 内**;
+              //      v12.229 扩到 22 档、v12.274 逐档配韵律、v12.287 打开选路 —— 主出片链路一个都没用上。
+              //   ③ `t.speaker`(角色名)其实**就在手边**:上面第 383 行的 prosody 纠偏已经在用它了。
+              // 现在:按角色名走 `assignVoiceToCharacter`(v12.287 已让它认性别年龄并散开到全目录),
+              // 同一角色全片恒定同音色;无角色名(旁白等)才退回情绪猜测的旧行为。
+              const _speaker = String((t as any).speaker || '').trim();
+              const _gender = t.emotion.match(/温柔|哭|委屈|姐|妹|母/) ? 'female' : 'male';
+              let _voiceId = _gender === 'female' ? 'female-zh' : 'male-zh';
+              if (_speaker) {
+                // v12.296:直接取上面**整组一次性定好**的音色表。
+                // 逐句现挑会看不到全片阵容,与「重配单镜」那条路径对不齐(详见 _voiceCast 处的说明)。
+                const _fromCast = _voiceCast.get(_speaker);
+                if (_fromCast) _voiceId = _fromCast;
+                else {
+                  try {
+                    // 阵容表里没有(理论上不该发生)→ 退回单角色入口,仍走同一套选路
+                    const { resolveCharacterVoice } = await import('@/lib/character-studio');
+                    const _picked = resolveCharacterVoice(_speaker);
+                    if (_picked) _voiceId = _picked;
+                  } catch { /* 取不到就沿用旧的性别兜底,不阻塞配音 */ }
+                }
+              }
+              // v3.2 P4.3: TTS 走 withTTSPlugin. off → 直接 generateSpeech (行为不变),
+              // primary → 先 plugin chain 失败落老 generateSpeech, shadow → 老逻辑出结果 + plugin 采样比对.
+              const { withTTSPlugin } = await import('@/lib/plugin-chain-router');
+              const _ttsResult = await withTTSPlugin(
+                {
                   text: cleanedDialogue,
-                  voiceId: _voiceId, // v12.288:同上,注册表通道也用同一把嗓
+                  voiceId: _voiceId, // v12.288:按角色恒定,不再逐句按情绪猜
                   emotion: t.emotion,
                   speed: prosody.speed,
                   pitch: prosody.pitch,
                   volume: prosody.vol,
-                  language: ttsLangCode(ctx.targetLanguage()),
-                });
-                if (d.result?.audioUrl) {
-                  return { audioUrl: d.result.audioUrl, duration: d.result.duration ?? 0, subtitle: d.result.subtitle ?? [], provider: d.result.provider ?? 'registry' };
-                }
-                if (ctx.minimaxService) {
-                  const audioUrl = await ctx.minimaxService.generateSpeech(cleanedDialogue, {
-                    emotion: t.emotion, gender: _gender, speed: prosody.speed, pitch: prosody.pitch, vol: prosody.vol,
+                  language: ttsLangCode(ctx.targetLanguage()), // v12.6.1: 按目标语种(zh-CN/en-US)
+                  label: `shot-${t.shotNumber}`,
+                },
+                async () => {
+                  // v12.7.0: 先走注册表(vectorengine-tts 50 → minimax-tts 100,按 priority);
+                  // 注册表全失败再退回直连 minimax(保旧行为为最后兜底);都没有 → 抛错走静音兜底。
+                  const d = await dispatchTTSGenerate({
+                    text: cleanedDialogue,
+                    voiceId: _voiceId, // v12.288:同上,注册表通道也用同一把嗓
+                    emotion: t.emotion,
+                    speed: prosody.speed,
+                    pitch: prosody.pitch,
+                    volume: prosody.vol,
+                    language: ttsLangCode(ctx.targetLanguage()),
                   });
-                  return { audioUrl, duration: 0, subtitle: [], provider: 'minimax-legacy' };
-                }
-                throw new Error('TTS 全 provider 失败: ' + d.tried.map((x) => x.error).join(' | ').slice(0, 80));
-              },
-            );
-            const audioUrl = _ttsResult.audioUrl;
-            voiceoverClips.push({ shotNumber: t.shotNumber || 0, audioUrl });
-            if (_ttsResult.duration && _ttsResult.duration > 0) voiceoverDurations[t.shotNumber || 0] = _ttsResult.duration; // v12.68
-            ctx.emit('agentTalk', {
-              role: AgentRole.EDITOR,
-              text: `🎙️ 配音 ${i + 1}/${dialogueShots.length}: "${t.dialogue.slice(0, 15)}..." ✓`
-            });
-          } catch (e) {
-            // v2.11 #B1: TTS 失败不再 skip, 生成等长静音兜底, 保证时间轴对齐 + 下游 adelay 不错位
-            const errMsg = e instanceof Error ? e.message : String(e);
-            console.error(`[Editor] TTS failed for shot ${t.shotNumber}:`, errMsg);
-            try {
-              const { createSilenceMp3, estimateSpeechDuration } = await import('@/lib/audio-silence');
-              const dur = estimateSpeechDuration(t.dialogue);
-              const silenceFile = await createSilenceMp3(dur);
-              // 包装成 serve-file url, 让下游 ffmpeg 能读到
-              const silenceUrl = `${serveFilePathUrl(silenceFile)}`;
-              voiceoverClips.push({ shotNumber: t.shotNumber || 0, audioUrl: silenceUrl });
-              const warn = `🔇 第 ${t.shotNumber} 镜 TTS 失败, 用 ${dur.toFixed(1)}s 静音兜底 (原因: ${errMsg.slice(0, 60)})`;
-              audioWarnings.push(warn);
-              ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: warn });
-            } catch (se) {
-              const warn = `⚠️ 第 ${t.shotNumber} 镜 TTS 和静音兜底都失败, 成片会少一段配音`;
-              audioWarnings.push(warn);
-              console.error('[Editor] silence fallback also failed:', se);
-              ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: warn });
+                  if (d.result?.audioUrl) {
+                    return { audioUrl: d.result.audioUrl, duration: d.result.duration ?? 0, subtitle: d.result.subtitle ?? [], provider: d.result.provider ?? 'registry' };
+                  }
+                  if (ctx.minimaxService) {
+                    const audioUrl = await ctx.minimaxService.generateSpeech(cleanedDialogue, {
+                      emotion: t.emotion, gender: _gender, speed: prosody.speed, pitch: prosody.pitch, vol: prosody.vol,
+                    });
+                    return { audioUrl, duration: 0, subtitle: [], provider: 'minimax-legacy' };
+                  }
+                  throw new Error('TTS 全 provider 失败: ' + d.tried.map((x) => x.error).join(' | ').slice(0, 80));
+                },
+              );
+              const audioUrl = _ttsResult.audioUrl;
+              out.clip = { shotNumber: t.shotNumber || 0, audioUrl };
+              if (_ttsResult.duration && _ttsResult.duration > 0) out.duration = _ttsResult.duration; // v12.68
+              out.emits.push(`🎙️ 配音 ${i + 1}/${dialogueShots.length}: "${t.dialogue.slice(0, 15)}..." ✓`);
+            } catch (e) {
+              // v2.11 #B1: TTS 失败不再 skip, 生成等长静音兜底, 保证时间轴对齐 + 下游 adelay 不错位
+              const errMsg = e instanceof Error ? e.message : String(e);
+              console.error(`[Editor] TTS failed for shot ${t.shotNumber}:`, errMsg);
+              try {
+                const { createSilenceMp3, estimateSpeechDuration } = await import('@/lib/audio-silence');
+                const dur = estimateSpeechDuration(t.dialogue);
+                const silenceFile = await createSilenceMp3(dur);
+                // 包装成 serve-file url, 让下游 ffmpeg 能读到
+                const silenceUrl = `${serveFilePathUrl(silenceFile)}`;
+                out.clip = { shotNumber: t.shotNumber || 0, audioUrl: silenceUrl };
+                const warn = `🔇 第 ${t.shotNumber} 镜 TTS 失败, 用 ${dur.toFixed(1)}s 静音兜底 (原因: ${errMsg.slice(0, 60)})`;
+                out.warnings.push(warn);
+                out.emits.push(warn);
+              } catch (se) {
+                const warn = `⚠️ 第 ${t.shotNumber} 镜 TTS 和静音兜底都失败, 成片会少一段配音`;
+                out.warnings.push(warn);
+                console.error('[Editor] silence fallback also failed:', se);
+                out.emits.push(warn);
+              }
             }
-          }
-          ctx.update(AgentRole.EDITOR, { progress: 30 + Math.round((i / dialogueShots.length) * 15) });
+          return out;
+        };
+
+        await Promise.all(
+          Array.from({ length: Math.min(_ttsLimit, dialogueShots.length) }, async () => {
+            for (;;) {
+              const i = _next++;
+              if (i >= dialogueShots.length) return;
+              // 单镜异常已在 runShot 内部兜住;这里再兜一层,保证一个镜炸掉不拖垮整批
+              try {
+                _slots[i] = await runShot(dialogueShots[i], i);
+              } catch (e) {
+                _slots[i] = { warnings: [`⚠️ 第 ${dialogueShots[i]?.shotNumber} 镜配音异常: ${e instanceof Error ? e.message : e}`], emits: [] };
+              }
+              _done++;
+              ctx.update(AgentRole.EDITOR, { progress: 30 + Math.round((_done / dialogueShots.length) * 15) });
+            }
+          }),
+        );
+
+        // 装配严格按原下标顺序 —— 与串行版逐字节一致
+        for (let i = 0; i < dialogueShots.length; i++) {
+          const r = _slots[i];
+          if (!r) continue;
+          if (r.clip) voiceoverClips.push(r.clip);
+          if (r.clip && r.duration && r.duration > 0) voiceoverDurations[r.clip.shotNumber] = r.duration;
+          for (const w of r.warnings) audioWarnings.push(w);
+          for (const m of r.emits) ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: m });
         }
 
         if (voiceoverClips.length > 0) {
