@@ -7,10 +7,12 @@ import { PipelineCanvas, buildInitialNodes, initialEdges } from '@/components/pi
 import { Mascot } from '@/components/mascot';
 import { useProjectWorkspaceStore } from '@/lib/store';
 import { type Project } from '@/types/agents';
-import { ArrowLineLeft as PanelLeftClose, ArrowLineRight as PanelLeftOpen, DotsThree as MoreHorizontal, ShareNetwork as Share2, Play, FilmStrip as Film, CaretDown as ChevronDown, CaretUp as ChevronUp, Download } from '@phosphor-icons/react';
+import { ArrowLineLeft as PanelLeftClose, ArrowLineRight as PanelLeftOpen, DotsThree as MoreHorizontal, Play, FilmStrip as Film, CaretDown as ChevronDown, CaretUp as ChevronUp, Download } from '@phosphor-icons/react';
 import { VideoModal } from '@/components/ui/video-modal';
 import { OverallProgressBar } from '@/components/ui/overall-progress';
 import { WorkspaceHotkeys } from '@/components/workspace-hotkeys';
+import { InviteProjectButton } from '@/components/project/invite-project-button';
+import { useAuth } from '@/components/auth-provider';
 
 interface Props {
   project: Project;
@@ -27,6 +29,7 @@ export function CreationWorkspace({ project }: Props) {
   const [selectedVideoTitle, setSelectedVideoTitle] = useState('');
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const { setCurrentProject, setNodes, setEdges, assets, isProducing } = useProjectWorkspaceStore();
+  const { user } = useAuth();   // v12.302:分享按钮要判断是否项目所有者
 
   useEffect(() => {
     setCurrentProject(project);
@@ -82,10 +85,16 @@ export function CreationWorkspace({ project }: Props) {
         </div>
         <div className="flex items-center gap-1.5">
           <Mascot mood={mascotMood} />
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] text-[12px] text-white/50 hover:text-white/70 transition-all border border-transparent hover:border-white/[0.06]">
-            <Share2 className="w-3 h-3" />
-            分享
-          </button>
+          {/*
+            v12.302:此前这里是一个**没有 onClick 的死按钮** —— 有 hover 高亮、点了毫无反应,
+            用户会以为分享坏了或项目不可分享。而仓里**早就有**完整可用的
+            `InviteProjectButton`(建邀请 token、出链接、管协作者角色),
+            只是项目详情页在用、创作工坊这条主路径没接。接现成的,不新造一套。
+          */}
+          <InviteProjectButton
+            projectId={project.id}
+            isOwner={!!user && project.userId === user.id}
+          />
           <button className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors text-white/30 hover:text-white/60">
             <MoreHorizontal className="w-4 h-4" />
           </button>

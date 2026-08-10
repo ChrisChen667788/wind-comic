@@ -21,6 +21,7 @@ import { X, ClockCounterClockwise as History, Stethoscope, Gauge, ArrowsLeftRigh
 import type { PolishAudit } from './IndustryAuditCard';
 import { readinessLevel } from '@/lib/polish-prompts';
 import { Sparkline } from '@/components/cinema/dataviz';
+import { timeAgoZh } from '@/lib/relative-time';
 
 export interface PolishHistoryEntry {
   at?: string;
@@ -187,11 +188,8 @@ function HistoryRow({
     try {
       const d = new Date(entry.at);
       const diff = Date.now() - d.getTime();
-      const m = Math.floor(diff / 60000);
-      if (m < 1) return '刚刚';
-      if (m < 60) return `${m} 分钟前`;
-      if (m < 60 * 24) return `${Math.floor(m / 60)} 小时前`;
-      return d.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      // v12.301:收口到 lib/relative-time(此前本文件与 LatestPolishBanner 各一份,口径还不一致)
+      return timeAgoZh(d, Date.now(), { withTime: true });
     } catch {
       return entry.at;
     }

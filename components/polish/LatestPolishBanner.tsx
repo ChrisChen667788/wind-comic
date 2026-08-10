@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { Stethoscope, CaretDown as ChevronDown, CaretUp as ChevronUp, Pulse as Activity, Clock, Sparkle as Sparkles, ArrowSquareOut as ExternalLink } from '@phosphor-icons/react';
 import IndustryAuditCard, { type PolishAudit } from './IndustryAuditCard';
 import { readinessLevel } from '@/lib/polish-prompts';
+import { timeAgoZh } from '@/lib/relative-time';
 
 interface LatestPolishEntry {
   at?: string;
@@ -45,12 +46,8 @@ export default function LatestPolishBanner({
   const when = useMemo(() => {
     if (!entry?.at) return '';
     try {
-      const d = new Date(entry.at);
-      const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
-      if (diffMin < 1) return '刚刚';
-      if (diffMin < 60) return `${diffMin} 分钟前`;
-      if (diffMin < 60 * 24) return `${Math.floor(diffMin / 60)} 小时前`;
-      return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+      // v12.301:收口到 lib/relative-time
+      return timeAgoZh(entry.at);
     } catch {
       return '';
     }

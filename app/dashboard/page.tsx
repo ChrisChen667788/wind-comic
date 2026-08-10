@@ -10,6 +10,7 @@ import { Sparkle, Kanban, Lightning, BookOpen, ArrowRight, Clock, FilmReel, Tren
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { useLocale } from '@/hooks/use-locale';
 import { ContinueCard } from '@/components/dashboard/continue-card';
+import { timeAgoZh } from '@/lib/relative-time';
 
 export default function DashboardPage() {
   const { t } = useLocale();
@@ -20,6 +21,24 @@ export default function DashboardPage() {
     api.metrics().then((d: any) => setMetrics(d)).catch(() => {});
     api.generations().then((d: any) => setGenerations(d.slice(0, 4))).catch(() => {});
   }, []);
+
+  /**
+   * v12.301:最近动态改为**该用户的真实生成记录**。
+   * generations 接口本身按 user_id 过滤,所以这里不会串用户。
+   * 状态色沿用原来的三色语义:成功=绿、进行中=黄、失败=红。
+   */
+  const activity = generations.map((g: any, i: number) => {
+    const st = String(g?.status || '');
+    const ok = st === 'completed' || st === 'success';
+    const failed = st === 'failed' || st === 'error';
+    const label = String(g?.style || g?.prompt || '生成任务').slice(0, 18);
+    return {
+      key: String(g?.id ?? i),
+      text: `${label} · ${failed ? '生成失败' : ok ? '生成完成' : '进行中'}`,
+      time: timeAgoZh(g?.createdAt) || '',
+      dot: failed ? 'bg-red-400' : ok ? 'bg-emerald-400' : 'bg-[#E8C547]',
+    };
+  });
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -174,19 +193,25 @@ export default function DashboardPage() {
               <h3 className="font-semibold text-white text-sm">{t.dashboard.recentActivity}</h3>
             </div>
             <div className="space-y-2">
-              {[
-                { text: '剧本智能拆解完成', time: '5 分钟前', dot: 'bg-emerald-400' },
-                { text: '镜头 12 渲染成功', time: '25 分钟前', dot: 'bg-[#E8C547]' },
-                { text: '分镜一致性检查通过', time: '1 小时前', dot: 'bg-cyan-400' },
-              ].map((a) => (
-                <div key={a.text} className="flex items-start gap-3 py-2">
+              {/*
+                v12.301:此前这里是**三条写死的假事件**(「剧本智能拆解完成 5 分钟前」等)——
+                所有用户、包括刚注册还没跑过任何任务的新用户,看到的都是同一份,
+                严重破坏产品可信度。现改为读该用户真实的生成记录(generations 按 user_id 过滤)。
+                没有记录时给诚实空态,而不是编三条。
+              */}
+              {activity.length > 0 ? activity.map((a) => (
+                <div key={a.key} className="flex items-start gap-3 py-2">
                   <div className={`w-2 h-2 rounded-full ${a.dot} mt-1.5 shrink-0`} />
                   <div className="flex-1">
                     <span className="text-[13px] text-white">{a.text}</span>
                     <div className="text-[11px] text-[var(--soft)] mt-0.5">{a.time}</div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="py-4 text-center text-[12px] text-[var(--soft)]">
+                  还没有动态 —— 创建第一个项目后,这里会显示你的真实进度
+                </div>
+              )}
             </div>
           </GlassCard>
         </div>
