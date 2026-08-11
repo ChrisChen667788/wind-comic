@@ -495,6 +495,23 @@ function getVideoDuration(filePath: string): Promise<number> {
  * v12.16.0(Phase 3 双版本):把成片重构图成另一比例(不重生,省 2x)。
  * 输入可为 http(s) URL / /api/serve-file / 本地路径;输出本地 mp4 路径。音轨原样拷贝。
  */
+
+/**
+ * v12.313:失败路径上清掉**我们自己建的**临时目录。
+ *
+ * 关键区别(审计的修法建议里没有提,但不区分就会删掉别人的东西):
+ * 这些函数的 tmpDir 形如 `outputDir || mkdtempSync(...)` —— **调用方传进来的目录归调用方所有**,
+ * 我们无权删;只有自己 mkdtemp 出来的才该清。且成功时产物就在目录里,也只能在失败时清。
+ */
+function cleanupOwnedTmp(dir: string, owned: boolean, tag: string): void {
+  if (!owned || !dir) return;
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch (e) {
+    console.warn(`[Composer] ${tag} 临时目录清理失败(不阻塞):${e instanceof Error ? e.message : e}`);
+  }
+}
+
 export async function reframeVideo(
   inputUrlOrPath: string,
   targetAspect: string,
@@ -502,6 +519,7 @@ export async function reframeVideo(
   outputDir?: string,
 ): Promise<{ outputPath: string; w: number; h: number }> {
   const { buildReframeFilterComplex } = await import('@/lib/video-reframe');
+  const _ownsTmp = !outputDir;   // v12.313:只有自己建的目录才该清
   const tmpDir = outputDir || fs.mkdtempSync(path.join(os.tmpdir(), 'reframe-'));
   fs.mkdirSync(tmpDir, { recursive: true });
   // 取本地源
@@ -510,6 +528,7 @@ export async function reframeVideo(
     localInput = path.join(tmpDir, 'src.mp4');
     await downloadFile(inputUrlOrPath, localInput);
   } else if (!fs.existsSync(inputUrlOrPath)) {
+    cleanupOwnedTmp(tmpDir, _ownsTmp, 'reframe(源不存在)');
     throw new Error(`reframeVideo: 源不存在: ${inputUrlOrPath.slice(0, 80)}`);
   }
   const { filter, w, h } = buildReframeFilterComplex(targetAspect, mode);
@@ -526,7 +545,9 @@ export async function reframeVideo(
       ])
       .output(outputPath)
       .on('end', () => resolve({ outputPath, w, h }))
-      .on('error', reject)
+      // v12.313:此前 ffmpeg 报错直接 reject —— 目录里躺着刚下载的源视频(5-50MB)永远没人删。
+      // 每次失败泄漏一份;跑久了磁盘满,而失败本身(网络抖动/源损坏/滤镜崩)并不罕见。
+      .on('error', (err: unknown) => { cleanupOwnedTmp(tmpDir, _ownsTmp, 'reframe'); reject(err); })
       .run();
   });
 }
@@ -544,6 +565,7 @@ export async function concatVideos(
   if (!urls || urls.length === 0) throw new Error('concatVideos: 无输入');
   const { dimsForAspect } = await import('@/lib/video-reframe');
   const { w, h } = dimsForAspect(targetAspect);
+  const _ownsTmp = !outputDir;   // v12.313:同 reframeVideo —— 只清自己建的
   const tmpDir = outputDir || fs.mkdtempSync(path.join(os.tmpdir(), 'season-'));
   fs.mkdirSync(tmpDir, { recursive: true });
 
@@ -594,7 +616,9 @@ export async function concatVideos(
       .outputOptions(['-map', '[vout]', '-map', '[aout]', '-c:v', 'libx264', '-preset', 'fast', '-crf', crfValue(), '-c:a', 'aac', '-b:a', audioBitrateForPlatform(undefined), '-movflags', '+faststart'])
       .output(outputPath)
       .on('end', () => resolve({ outputPath, count: locals.length }))
-      .on('error', reject)
+      // v12.313:整季拼接失败时,目录里躺着**所有已下载的分集** —— 10 集 × 100MB ≈ 1GB,
+      // 一次失败就泄漏这么多,且整季拼接本来就是最容易因某一集损坏而失败的操作。
+      .on('error', (err: unknown) => { cleanupOwnedTmp(tmpDir, _ownsTmp, 'season-concat'); reject(err); })
       .run();
   });
 }
@@ -1982,6 +2006,10 @@ export async function concatVideosSimple(
   musicUrl?: string,
   outputDir?: string,
 ): Promise<string> {
+  // v12.313:成品写在 persistentOutputDir,**tmpDir 里全是中间产物**(下载的分片 + list + bgm),
+  // 所以无论成功失败都该清 —— 此前**每次调用都泄漏**:8 片 × 20-50MB,
+  // 跑 50-100 次整季拼接就能把宿主磁盘填满。仍只清自己建的目录。
+  const _ownsTmp = !outputDir;
   const tmpDir = outputDir || path.join(os.tmpdir(), `qf-concat-${Date.now()}`);
   if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir, { recursive: true });
@@ -2055,8 +2083,8 @@ export async function concatVideosSimple(
 
     cmd
       .output(outputPath)
-      .on('end', () => resolve(outputPath))
-      .on('error', reject)
+      .on('end', () => { cleanupOwnedTmp(tmpDir, _ownsTmp, 'concat-simple'); resolve(outputPath); })
+      .on('error', (err: unknown) => { cleanupOwnedTmp(tmpDir, _ownsTmp, 'concat-simple'); reject(err); })
       .run();
   });
 }
