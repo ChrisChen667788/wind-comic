@@ -3084,6 +3084,19 @@ ${shots.map((s, i) => {
         enhancedPrompt = sceneDescription;
       }
 
+      // v12.316:导演台站位注入 —— 用户在导演台摆过位的镜,把**精确站位**接进提示词。
+      // 位置刻意选在角色外观/动作/台词**之前**:视频模型对靠前的 token 注意力最高,
+      // 而「谁站哪、谁挡谁」恰恰是提示词最说不清、生成最容易翻车的一项。
+      // 没摆过位的镜返回空串 —— 绝大多数镜都没摆,必须零影响(向后兼容)。
+      try {
+        const { getStageScene, stageDirectiveForShot } = await import('@/lib/stage-scene-store');
+        const stageScene = await getStageScene(this.projectId, Number(board.shotNumber));
+        const staging = stageDirectiveForShot(stageScene);
+        if (staging) enhancedPrompt += staging;
+      } catch {
+        // 读舞台失败不该把出片打挂 —— 这是增强项,不是必需项
+      }
+
       // v12.9.1(#2):记下「角色外观描述」片段。S2V-01 已从 subject_reference 提取身份,
       // prompt 再重复外观会与参考图冲突 → 跨镜漂移(官方实测)。下面给 minimax S2V 用「去外观」版。
       let charDescSegment = '';
