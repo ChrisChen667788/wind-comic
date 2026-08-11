@@ -66,6 +66,15 @@ export interface ProjectedActor {
   occludedBy: string[];
   /** 三分法位置描述(给提示词用) */
   thirds: 'left' | 'center-left' | 'center' | 'center-right' | 'right' | 'off-frame';
+  /**
+   * 纵向投影(v12.317):归一化,+1 = 画面顶,-1 = 画面底。
+   * `screenTop` 是头顶,`screenBottom` 是脚底。
+   *
+   * 放在这里而不是让草图层自己算 —— 草图要画得对就必须**与提示词描述同一套几何**,
+   * 两边各算一套就是「同一语义两套口径」(本仓已栽过五次)。
+   */
+  screenTop: number;
+  screenBottom: number;
 }
 
 const LENS_MM: Record<string, number> = {
@@ -73,11 +82,18 @@ const LENS_MM: Record<string, number> = {
 };
 
 const SENSOR_W = 36;   // 35mm 全画幅
+const SENSOR_H = 24;
 
 /** 水平视角(度) */
 export function horizontalFovDeg(lens: LensId | undefined): number {
   const f = LENS_MM[String(lens || '35')] ?? 35;
   return (2 * Math.atan(SENSOR_W / (2 * f)) * 180) / Math.PI;
+}
+
+/** 垂直视角(度)—— 画幅高 24mm。v12.317 草图要按真实透视画,故须分开算。 */
+export function verticalFovDeg(lens: LensId | undefined): number {
+  const f = LENS_MM[String(lens || '35')] ?? 35;
+  return (2 * Math.atan(SENSOR_H / (2 * f)) * 180) / Math.PI;
 }
 
 const norm180 = (deg: number) => {
@@ -139,9 +155,17 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
     const behind = Math.abs(rel) > 90;
     const screenX = behind ? (rel > 0 ? 2 : -2) : rel / half;
     const inFrame = !behind && Math.abs(screenX) <= 1;
+    // 纵向:真透视。脚在 y=0、头在 y=heightM,按与机位高度的落差取俯仰角,
+    // 再除以半个垂直视角归一化 —— 于是低机位人物压迫、高机位俯看,草图能画对。
+    const h = a.heightM ?? 1.7;
+    const camH = cam.heightM ?? 1.6;
+    const halfV = verticalFovDeg(cam.lens) / 2;
+    const yAngle = (yy: number) => (Math.atan2(yy - camH, Math.max(distanceM, 1e-6)) * 180) / Math.PI;
+    const screenBottom = yAngle(0) / halfV;
+    const screenTop = yAngle(h) / halfV;
     return {
       id: a.id, name: a.name, distanceM, rel, screenX, inFrame,
-      heightM: a.heightM ?? 1.7,
+      heightM: h, screenTop, screenBottom,
     };
   });
 
@@ -159,6 +183,8 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
       shotSize: inferShotSize(r.distanceM, cam.lens, r.heightM),
       occludedBy,
       thirds: thirdsOf(r.screenX, r.inFrame),
+      screenTop: Number(r.screenTop.toFixed(4)),
+      screenBottom: Number(r.screenBottom.toFixed(4)),
     };
   });
 }

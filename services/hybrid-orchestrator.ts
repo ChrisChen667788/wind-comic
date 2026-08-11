@@ -1094,7 +1094,13 @@ export class HybridOrchestrator {
     if (opts?.sketchUrl) {
       const { shouldSketchLock, buildSketchDirective, mergeSketchIntoRefs } = await import('@/lib/storyboard-sketch');
       if (shouldSketchLock(process.env, opts.sketchLock)) {
-        opts = { ...opts, referenceImages: mergeSketchIntoRefs(opts.sketchUrl, opts.referenceImages) };
+        // v12.317:草图也要过 toEngineImage。原先两种来源(AI 生成 / 用户上传)恰好都是 http,
+        // 所以一直没暴露;而本地存储给的是 `/api/serve-file?key=…` —— 引擎够不着,
+        // 草图锁会**静默失效**(提示词照样加了 [STORYBOARD LOCK],图却没送到)。
+        // 补在草图进引擎的唯一入口,所有来源一并受益。
+        const { toEngineImage } = await import('@/lib/first-frame');
+        const engSketch = toEngineImage(opts.sketchUrl) || opts.sketchUrl;
+        opts = { ...opts, referenceImages: mergeSketchIntoRefs(engSketch, opts.referenceImages) };
         prompt = `${prompt}${buildSketchDirective(opts.sketchMeta)}`;
         console.log(`[SketchLock] v12.135 草图构图约束启用: ${opts.label || 'image'}`);
       }
