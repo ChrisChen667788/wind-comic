@@ -75,7 +75,7 @@ GitHub: https://github.com/ChrisChen667788/wind-comic
 
 我想要的: **开源 + 多 Agent 协同 + 中文优先 + 自带 LLM + 实时多人协作**. 都没有. 自己造一个.
 
-8 个月, v2.0 → v12.319, 4131 个单测, MIT 开源. 这就是 **Wind Comic**.
+8 个月, v2.0 → v12.320, 4131 个单测, MIT 开源. 这就是 **Wind Comic**.
 
 ## 核心架构
 
@@ -154,7 +154,7 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 ## 数据
 
 - 8 个月 21 个 sprint
-- v2.0 → v12.319
+- v2.0 → v12.320
 - **4131 个单测全过**
 - **TypeScript 严格模式, 0 错误**
 - **MIT 开源**
@@ -204,7 +204,7 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 > 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 / 锁画风 / 中文字幕真烧入 / 实时多人协作 / 接你自己的 LLM. MIT 开源.
 >
 > GitHub: github.com/ChrisChen667788/wind-comic
-> v12.319 · 4131 单测全过 · 0 API key 强制依赖.
+> v12.320 · 4131 单测全过 · 0 API key 强制依赖.
 
 详细全文 → 看 [`docs/modelscope-profile.md`](modelscope-profile.md).
 

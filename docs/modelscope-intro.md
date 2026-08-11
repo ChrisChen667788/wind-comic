@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.319</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.320</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -30,7 +30,7 @@
 
 <p align="center">
   <a href="https://github.com/ChrisChen667788/wind-comic/raw/main/assets/promo/wind-comic-promo-en.mp4">
-    <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/promo/wind-comic-promo.gif" alt="Wind Comic — 39-second promo (click to watch with voiceover &amp; sound)" width="100%" />
+    <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/promo/wind-comic-promo.gif" alt="Wind Comic — the full 39-second promo, condensed into a silent 15-second loop (click to watch with voiceover &amp; sound)" width="100%" />
   </a>
 </p>
 <p align="center">
