@@ -5,7 +5,7 @@ import { SafeAreaOverlay } from '@/components/ui/safe-area-overlay';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand, SpeakerHigh, ArrowsOut as Maximize, ArrowsIn as Minimize } from '@phosphor-icons/react';
+import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand, SpeakerHigh, ArrowsOut as Maximize, ArrowsIn as Minimize, UsersThree } from '@phosphor-icons/react';
 import { CameoPanel } from '@/components/CameoPanel';
 import { CharacterCastPanel } from '@/components/project/character-cast-panel';
 import { DistributionPanel } from '@/components/project/distribution-panel';
@@ -35,6 +35,8 @@ import { DecisionLogPanel } from '@/components/project/decision-log-panel';
 import { SaveTemplateButton } from '@/components/project/save-template-button';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
+import { DirectorStageModal } from '@/components/project/director-stage-modal';
+import type { StageScene } from '@/lib/stage-blocking';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
 import { HealShotsButton } from '@/components/project/heal-shots-button';
@@ -157,6 +159,9 @@ export default function ProjectDetailPage() {
   const [cinemaShot, setCinemaShot] = useState<{ shotNumber: number; title?: string; spec: ShotSpec; emotion?: string } | null>(null);
   const [inspectShot, setInspectShot] = useState<InspectShot | null>(null);
   const [specOverrides, setSpecOverrides] = useState<Record<number, ShotSpec>>({});
+  // v12.318 导演台:当前打开的镜 + 已摆过位的镜号(chip 高亮用,省一次全量刷新)
+  const [stageShot, setStageShot] = useState<{ shotNumber: number; title?: string; scene?: StageScene | null; characters?: string[] } | null>(null);
+  const [stagedShots, setStagedShots] = useState<Record<number, true>>({});
 
   useEffect(() => {
     fetch(`/api/projects/${id}`)
@@ -826,6 +831,29 @@ export default function ProjectDetailPage() {
                             {describeShotSpec(curSpec)}
                           </span>
                         </button>
+                        {/* v12.318 导演台 — 摆位/机位/构图体检 */}
+                        <button
+                          onClick={async () => {
+                            let scene: StageScene | null = null;
+                            try {
+                              const r = await fetch(`/api/projects/${id}/stage?shot=${sb.shotNumber}`);
+                              if (r.ok) scene = (await r.json())?.scene ?? null;
+                            } catch { /* 读不到就当没摆过,不拦开台 */ }
+                            setStageShot({
+                              shotNumber: sb.shotNumber,
+                              title: sb.data?.description?.slice(0, 60),
+                              scene,
+                              characters: scriptShot?.characters,
+                            });
+                          }}
+                          title="导演台 — 拖人摆位、定机位、实时构图体检"
+                          className="mt-1 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--cinema-border)] hover:border-[var(--cinema-amber)] transition"
+                        >
+                          <UsersThree size={11} className={stagedShots[sb.shotNumber] ? 'text-[var(--cinema-amber)]' : 'text-[var(--cinema-text-3)]'} />
+                          <span className="cinema-mono text-[9px] truncate opacity-75">
+                            {stagedShots[sb.shotNumber] ? '已摆位 · 导演台' : '导演台 · 摆位'}
+                          </span>
+                        </button>
                       </div>
                     </div>
                   );
@@ -1271,6 +1299,19 @@ export default function ProjectDetailPage() {
           emotion={cinemaShot.emotion}
           onClose={() => setCinemaShot(null)}
           onSaved={(spec) => setSpecOverrides((m) => ({ ...m, [cinemaShot.shotNumber]: spec }))}
+        />
+      )}
+
+      {/* v12.318 导演台弹窗 */}
+      {stageShot && (
+        <DirectorStageModal
+          projectId={id}
+          shotNumber={stageShot.shotNumber}
+          shotTitle={stageShot.title}
+          initialScene={stageShot.scene}
+          characterNames={stageShot.characters}
+          onClose={() => setStageShot(null)}
+          onSaved={() => setStagedShots((m) => ({ ...m, [stageShot.shotNumber]: true }))}
         />
       )}
 

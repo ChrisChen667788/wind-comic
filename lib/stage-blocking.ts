@@ -267,3 +267,33 @@ export function describeStaging(scene: StageScene): string {
 
   return `${ANGLE_CN[angle]}机位,${horizontalFovDeg(cam.lens).toFixed(0)}° 水平视角;${parts.join(';')}。`;
 }
+
+/**
+ * 该镜的**站位指令** —— 唯一注入口径。
+ *
+ * 刻意返回英文:`visualPrompt` 全链路是英文(v12.6.1 定的口径,中文只锁台词/旁白/TTS/口型),
+ * 混中文进去会让非中文引擎把它当画面文字渲染 —— 与 v2.22 那次 CJK 乱码同一类坑。
+ */
+export function stageDirectiveForShot(scene: StageScene | null | undefined): string {
+  if (!scene?.camera || !Array.isArray(scene.actors) || scene.actors.length === 0) return '';
+  const projected = projectScene(scene);
+  const inFrame = projected.filter((p) => p.inFrame);
+  if (inFrame.length === 0) return '';
+
+  const POS: Record<string, string> = {
+    left: 'at frame left', 'center-left': 'left of center', center: 'at frame center',
+    'center-right': 'right of center', right: 'at frame right', 'off-frame': '',
+  };
+  const SIZE: Record<string, string> = {
+    ECU: 'extreme close-up', CU: 'close-up', MS: 'medium shot',
+    LS: 'full shot', WS: 'wide shot', ELS: 'extreme wide shot',
+  };
+  const parts = inFrame
+    .slice()
+    .sort((a, b) => a.distanceM - b.distanceM)
+    .map((p) => {
+      const occ = p.occludedBy.length ? `, partially occluded by ${p.occludedBy.join(' and ')}` : '';
+      return `${p.name || p.id} ${POS[p.thirds]} in ${SIZE[p.shotSize]}${occ}`;
+    });
+  return `. Staging: ${parts.join('; ')}`;
+}

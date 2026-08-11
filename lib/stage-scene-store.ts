@@ -64,34 +64,16 @@ export async function saveStageScene(projectId: string, scene: StoredStageScene)
 }
 
 /**
- * 该镜的**站位指令** —— 唯一注入口径。
+ * v12.318:`stageDirectiveForShot` 已移进 `stage-blocking`(纯几何层)。
  *
- * 刻意返回英文:`visualPrompt` 全链路是英文(v12.6.1 定的口径,中文只锁台词/旁白/TTS/口型),
- * 混中文进去会让非中文引擎把它当画面文字渲染 —— 与 v2.22 那次 CJK 乱码同一类坑。
+ * 原因是踩出来的:本文件动态 `import('./db-driver')` 看似 client-safe,
+ * **但 webpack 仍会静态分析动态 import 并把 better-sqlite3 打进客户端包** ——
+ * 导演台界面一引用本文件,整个项目页就 `Module not found: fs` 直接 500。
+ * 而当时 17 条源码断言全绿:UI 只靠 tsc + 读源码断言,证明不了它能打开。
+ *
+ * 保留再导出,让服务端调用方(编排器)不必改导入路径,注入口径仍只有一处。
  */
-export function stageDirectiveForShot(scene: StageScene | null | undefined): string {
-  if (!scene?.camera || !Array.isArray(scene.actors) || scene.actors.length === 0) return '';
-  const projected = projectScene(scene);
-  const inFrame = projected.filter((p) => p.inFrame);
-  if (inFrame.length === 0) return '';
-
-  const POS: Record<string, string> = {
-    left: 'at frame left', 'center-left': 'left of center', center: 'at frame center',
-    'center-right': 'right of center', right: 'at frame right', 'off-frame': '',
-  };
-  const SIZE: Record<string, string> = {
-    ECU: 'extreme close-up', CU: 'close-up', MS: 'medium shot',
-    LS: 'full shot', WS: 'wide shot', ELS: 'extreme wide shot',
-  };
-  const parts = inFrame
-    .slice()
-    .sort((a, b) => a.distanceM - b.distanceM)
-    .map((p) => {
-      const occ = p.occludedBy.length ? `, partially occluded by ${p.occludedBy.join(' and ')}` : '';
-      return `${p.name || p.id} ${POS[p.thirds]} in ${SIZE[p.shotSize]}${occ}`;
-    });
-  return `. Staging: ${parts.join('; ')}`;
-}
+export { stageDirectiveForShot } from './stage-blocking';
 
 /** 给界面用的中文说明 + 体检结果(不进提示词) */
 export function stageReport(scene: StageScene) {
