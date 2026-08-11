@@ -148,18 +148,21 @@ async function loginIfNeeded(page) {
   console.log('[capture] logging in as demo user (via API + localStorage inject)...');
   // 先访问一个本站 URL 让 localStorage 域名对上
   await page.goto(`${BASE}/auth`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  const loginResp = await page.evaluate(async () => {
+  // 口令只能来自环境变量 —— evaluate 的函数体跑在**浏览器里**,那里没有 process,
+  // 原先写 process.env.DEMO_PASSWORD 会直接 ReferenceError 把整个脚本打挂。
+  const pwd = process.env.DEMO_PASSWORD || '';
+  const loginResp = await page.evaluate(async (password) => {
     const r = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'demo@qfmanju.ai', password: process.env.DEMO_PASSWORD || '' }),
+      body: JSON.stringify({ email: 'demo@qfmanju.ai', password }),
     });
     if (!r.ok) return { ok: false, status: r.status };
     const data = await r.json();
     localStorage.setItem('qfmj-token', data.token);
     localStorage.setItem('qfmj-user', JSON.stringify(data.user));
     return { ok: true, userId: data.user?.id, name: data.user?.name };
-  });
+  }, pwd);
   console.log('[capture] login result:', loginResp);
 }
 
@@ -211,8 +214,18 @@ async function clickTab(page, tabKey) {
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
 
-  // Login once, cookie persists across page.goto
-  await loginIfNeeded(page);
+  // 只在**确实有需要鉴权的目标**时才登录。首页(auth:false)不该因为拿不到
+  // demo 口令就整条抓不了 —— 原先无条件登录,一个免登页也被连累。
+  const selected = TASKS.filter((t) => !ONLY || t.name === ONLY);
+  if (selected.some((t) => t.auth)) {
+    if (!process.env.DEMO_PASSWORD) {
+      console.error('[capture] FATAL: 需要鉴权的目标要求 DEMO_PASSWORD 环境变量');
+      process.exit(2);
+    }
+    await loginIfNeeded(page);
+  } else {
+    console.log('[capture] 本次目标均无需登录,跳过鉴权');
+  }
 
   for (const task of TASKS) {
     if (ONLY && task.name !== ONLY) continue;
@@ -224,6 +237,10 @@ async function clickTab(page, tabKey) {
       const waitUntil = task.lazyImages ? 'domcontentloaded' : 'networkidle2';
       const timeout = task.lazyImages ? 15000 : 45000;
       await page.goto(target, { waitUntil, timeout });
+      // 屏蔽 Next 开发工具徽标 —— 它只在 dev 出现,却会印进对外的产品图里(v12.319)
+      await page.addStyleTag({
+        content: 'nextjs-portal,[data-nextjs-dev-tools-button],#__next-build-watcher{display:none !important}',
+      }).catch(() => {});
       await new Promise((r) => setTimeout(r, task.wait || 1500));
       if (task.tabKey) {
         const ok = await clickTab(page, task.tabKey);

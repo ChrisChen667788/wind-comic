@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.318</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.319</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
