@@ -8,7 +8,7 @@ import {
   type EmotionShotInput,
 } from '@/lib/emotion-curve';
 import {
-  COMPOSITION_GUIDES, compileCompositionPrompt, computeCompositionHints, cameraPathPoints,
+  computeCompositionHints, cameraPathPoints,
 } from '@/lib/composition';
 
 describe('emotionScore', () => {
@@ -81,10 +81,13 @@ describe('computeEmotionCurve + stats', () => {
 });
 
 describe('composition', () => {
-  it('COMPOSITION_GUIDES + compileCompositionPrompt', () => {
-    expect(COMPOSITION_GUIDES.length).toBeGreaterThanOrEqual(4);
-    expect(compileCompositionPrompt('thirds')).toContain('rule of thirds');
-    expect(compileCompositionPrompt('nope' as any)).toBe('');
+  it('v12.324:构图词表只留一套 —— 不许再引入平行的 4 值表', () => {
+    // 原先这里断言的 COMPOSITION_GUIDES / compileCompositionPrompt 是只有测试在用的
+    // 死词表。Writer 的 `composition` 字段(8 取值)才是真正进 visualPrompt 的那套。
+    // 两套并存 = 本仓栽过五次的「同一语义两套口径」,故删除并在此设防。
+    const src = require('node:fs').readFileSync('lib/composition.ts', 'utf-8') as string;
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(code, '平行构图词表又回来了').not.toMatch(/COMPOSITION_GUIDES|compileCompositionPrompt/);
   });
   it('computeCompositionHints: CU 紧头部空间, WS 充足 + 负空间', () => {
     const cu = computeCompositionHints({ shotSize: 'CU', angle: 'eye' });

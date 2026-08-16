@@ -9,20 +9,20 @@
 
 import type { ShotSize, CameraAngle, MovementId } from './cinematography';
 
-export type CompositionId = 'thirds' | 'golden' | 'center' | 'symmetry';
-
-export const COMPOSITION_GUIDES: { id: CompositionId; label: string; prompt: string }[] = [
-  { id: 'thirds',   label: '三分法',   prompt: 'rule of thirds composition' },
-  { id: 'golden',   label: '黄金分割', prompt: 'golden ratio / fibonacci spiral composition' },
-  { id: 'center',   label: '中心构图', prompt: 'centered composition' },
-  { id: 'symmetry', label: '对称构图', prompt: 'symmetrical balanced composition' },
-];
-
-export const getComposition = (id: CompositionId) => COMPOSITION_GUIDES.find((c) => c.id === id);
-
-export function compileCompositionPrompt(id: CompositionId): string {
-  return getComposition(id)?.prompt || '';
-}
+/*
+ * v12.324:此处原有 `CompositionId` / `COMPOSITION_GUIDES` / `getComposition` /
+ * `compileCompositionPrompt` —— 一个 4 取值的构图词表,**只有测试引用,没有任何
+ * UI 或提示词路径消费**。
+ *
+ * 删而不接,是刻意的:Writer 已经在产出 `composition` 字段(8 个取值:rule-of-thirds /
+ * centered / symmetrical / leading-lines / frame-within-frame / negative-space /
+ * golden-ratio / diagonal),并且**已经经 `renderVeoProsePrefix` 进了 visualPrompt**。
+ * 把这个 4 值表接上去,等于让两套构图词表并存打架 —— 正是本仓在转场、音色、称谓词表、
+ * 相对时间、fetchWithTimeout 上栽过五次的那个病。留着它,迟早有人「顺手接一下」。
+ *
+ * 仍然保留的是下面 `computeCompositionHints` / `cameraPathPoints` —— 它们有真实
+ * 消费方(components/project/composition-guide.tsx 的构图指引面板)。
+ */
 
 export interface CompositionHints {
   facePosition: string;  // 主体/视觉焦点位置

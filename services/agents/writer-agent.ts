@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { buildDirectorShotSpecHint } from '@/lib/shot-spec-bridge';
 import { resolveVerifiedServeFilePath } from '@/lib/serve-file-sign';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { API_CONFIG } from '@/lib/config';
@@ -253,12 +254,16 @@ export async function runWriter(ctx: WriterAgentCtx, plan: DirectorPlan): Promis
           : '';
 
         // 原始剧本文本占据绝大部分上下文，视觉风格仅作为附录
-        userContext = `${scriptContext}\n\n═══ 附录：视觉风格参考（仅用于 visualPrompt 的风格关键词和角色外貌，不要参考这里的任何剧情信息）═══\n${JSON.stringify(visualStyleRef)}${templateContext}`;
+        // v12.324:覆盖计划属**视觉**决策(景别/机位/剪辑语法),不含剧情,
+        // 因此放进视觉附录不违反「原剧本是唯一权威」这条改编铁律。
+        userContext = `${scriptContext}\n\n═══ 附录：视觉风格参考（仅用于 visualPrompt 的风格关键词和角色外貌，不要参考这里的任何剧情信息）═══\n${JSON.stringify(visualStyleRef)}${templateContext}${buildDirectorShotSpecHint(plan)}`;
       } else {
         const templateContext = ctx.template
           ? `\n\n【故事模板指引】\n结构提示：${ctx.template.structureHint}\n情感曲线：${ctx.template.emotionCurve}\n关键元素：${ctx.template.keyElements.join('、')}\n色彩建议：${ctx.template.colorPalette}`
           : '';
-        userContext = `导演计划：${JSON.stringify(plan)}${templateContext}`;
+        // v12.324:整份 plan 里本就含 shotSpec,但那是一坨无标签 JSON —— 模型无从
+        // 知道该遵守它。补一个有标签、写明优先级的基线块。
+        userContext = `导演计划：${JSON.stringify(plan)}${templateContext}${buildDirectorShotSpecHint(plan)}`;
       }
 
       // ── 编剧增强块: Voice Fingerprints + Budget Plan ──
