@@ -27,6 +27,53 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>();
 
+/**
+ * v12.323:桶表**必须有上限**。
+ *
+ * 原先 `buckets` 只增不减 —— 而 key 里含**攻击者可控的无界字段**:
+ * `login:<ip>:<email>` 的 email 是请求体里随便填的。POST 一百万个不同邮箱,
+ * 就在被限流的进程里种下一百万个永不回收的桶。**用来防滥用的限流器,
+ * 自己成了内存耗尽的入口**(v12.239 刚把这个函数加固过 XFF 伪造,
+ * 却把无界 key 空间留在了原地)。
+ *
+ * 不用定时器:`setInterval` 会吊住事件循环、在 serverless 上没有稳定归宿,
+ * 还让单测被迫依赖真实时间。改为**写入时摊还清扫**,纯函数、`now` 可注入。
+ */
+const MAX_BUCKETS = 10_000;
+/** 每写入这么多次做一次过期清扫(摊还成本 O(1)) */
+const SWEEP_EVERY = 256;
+let writeCount = 0;
+
+/** 清掉所有已过期的桶。返回清掉的数量。 */
+function sweepExpired(now: number): number {
+  let n = 0;
+  for (const [k, v] of buckets) {
+    if (now >= v.resetAt) { buckets.delete(k); n++; }
+  }
+  return n;
+}
+
+/**
+ * 表满时的淘汰:**正在封禁中的桶最后才动**。
+ *
+ * 这一条是这次修复的关键。若按「最早插入」之类的顺序淘汰,攻击者只要用垃圾 key
+ * 把表刷满,就能把**自己那条已经打满的封禁桶**挤掉,换回一个干净窗口 ——
+ * 那等于给了他一个「花钱洗白」的开关,限流形同虚设。
+ * 所以顺序是:① 已过期 → ② 未达上限(还能放行,丢了只损失一点计数)
+ * → ③ 正在封禁(万不得已才丢),同档内先丢最接近到期的(剩余价值最小)。
+ */
+function evictOne(limitOf: number): void {
+  let victim: string | null = null;
+  let best: [number, number] = [Infinity, Infinity];   // [档位, resetAt] 取最小
+  for (const [k, v] of buckets) {
+    const rank = v.count >= limitOf ? 1 : 0;
+    if (rank < best[0] || (rank === best[0] && v.resetAt < best[1])) {
+      victim = k; best = [rank, v.resetAt];
+    }
+  }
+  if (victim !== null) buckets.delete(victim);
+}
+
 export function rateLimit(
   key: string,
   opts: { limit: number; windowMs: number },
@@ -35,6 +82,14 @@ export function rateLimit(
   const b = buckets.get(key);
   // 无桶 或 窗口已过 → 开新窗口
   if (!b || now >= b.resetAt) {
+    // v12.323:只在**新建桶**时付回收成本 —— 命中已有桶的热路径一分钱不花。
+    if (!b) {
+      if (++writeCount % SWEEP_EVERY === 0) sweepExpired(now);
+      if (buckets.size >= MAX_BUCKETS) {
+        // 先清过期(通常够了),仍满才淘汰一个
+        if (sweepExpired(now) === 0) evictOne(opts.limit);
+      }
+    }
     buckets.set(key, { count: 1, resetAt: now + opts.windowMs });
     return { allowed: true, remaining: Math.max(0, opts.limit - 1), retryAfterSec: 0 };
   }
@@ -76,4 +131,10 @@ export function isRateLimitActive(): boolean {
 /** 测试辅助:清空所有桶。 */
 export function _resetRateLimits(): void {
   buckets.clear();
+  writeCount = 0;
+}
+
+/** 测试/可观测:当前桶数量与上限(用于断言回收确实发生,而不是「看起来没崩」)。 */
+export function _rateLimitStats(): { size: number; max: number } {
+  return { size: buckets.size, max: MAX_BUCKETS };
 }
