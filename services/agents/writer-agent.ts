@@ -166,6 +166,7 @@ export async function runWriter(ctx: WriterAgentCtx, plan: DirectorPlan): Promis
         characterAppearances: Object.keys(ctx.characterAppearanceMap).length > 0 ? ctx.characterAppearanceMap : undefined,
         sceneCount: ctx.parsedScript?.stats.sceneCount,
         directorTotalShots: directorTotalShotsX,
+        language: ctx.targetLanguage(),   // v12.322:与自家 LLM 那条同一口径
         onHeartbeat: (msg) => {
           ctx.emit('heartbeat', { message: msg });
           ctx.update(AgentRole.WRITER, { currentTask: msg });
@@ -403,6 +404,7 @@ export async function runWriter(ctx: WriterAgentCtx, plan: DirectorPlan): Promis
             characterAppearances: Object.keys(ctx.characterAppearanceMap).length > 0 ? ctx.characterAppearanceMap : undefined,
             sceneCount: ctx.parsedScript?.stats.sceneCount,
             directorTotalShots,
+            language: ctx.targetLanguage(),   // v12.322
             onHeartbeat: (msg) => ctx.emit('heartbeat', { message: msg }),
           });
           if (xRes.ok && xRes.script) {
@@ -563,6 +565,7 @@ ${raw.slice(0, 2000)}
         characterNames: plan.characters?.map(c => c.name),
         directorTotalShots: plan.storyStructure?.totalShots || 0,
         sceneCount: ctx.parsedScript?.stats.sceneCount,
+        language: ctx.targetLanguage(),   // v12.322
         onHeartbeat: (msg) => ctx.emit('heartbeat', { message: msg }),
       });
       script = (xRes.ok && xRes.script) ? xRes.script : ctx.fallbackScript(plan);

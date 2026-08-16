@@ -1425,11 +1425,14 @@ export class HybridOrchestrator {
       }
 
       // 构建导演 system prompt（传入适配模式参数）
+      // v12.322:导演也要知道目标语种。此前只有 Writer 收到语种指令,而**导演产出的
+      // 场景描述/故事结构正是 Writer 的素材** —— 素材是中文、却要求 Writer 写英文,
+      // 等于让它边翻译边创作,质量与一致性都受损(事后语种守门也因此更常触发)。
       const directorSystemPrompt = getDirectorSystemPrompt(this.parsedScript ? {
         isScriptAdaptation: true,
         parsedCharacterCount: this.parsedScript.stats.characterCount,
         parsedSceneCount: this.parsedScript.stats.sceneCount,
-      } : undefined);
+      } : undefined) + buildLanguageDirective(this.targetLanguage());
 
       // v2.18.4: Director 是 known-heavy call (5 角色 + 8 场景 + 8 shotSpec nested) — 12-19K chars 输出
       // 实测必须给 16384 cap 否则 8192 default 必截断. Writer Pass-2 同理.

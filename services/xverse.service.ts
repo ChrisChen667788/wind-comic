@@ -28,6 +28,7 @@
 
 import { execFile } from 'child_process';
 import path from 'path';
+import { buildLanguageDirective, SUPPORTED_LANGUAGES, type TargetLanguage } from '@/lib/language-detect';
 import { API_CONFIG } from '@/lib/config';
 import {
   getDirectorSystemPrompt,
@@ -87,6 +88,16 @@ export interface WriteScriptOptions {
   characterAppearances?: Record<string, string>;
   /** 场景数 */
   sceneCount?: number;
+  /**
+   * v12.322:目标语种。**缺了这个字段是本仓最久的一处 i18n 漏洞** ——
+   * 自家 LLM 那条路从 v12.6.1 起就传语种(writer-agent 传 `language` + 附
+   * `buildLanguageDirective`),而 XVerse 这条**从没被告知**,提示词里连角色
+   * 都写死成「精通分镜的**中文**编剧」。于是非中文项目走 XVerse 时必出中文剧本,
+   * 只能靠 v12.166 的事后守门再调一次 LLM 整篇回译 —— 多花一次全量调用,
+   * 且「修复失败保留原稿」意味着**英文项目可能就这么带着中文剧本发出去**。
+   * 缺省 'zh' 保持老行为不变。
+   */
+  language?: TargetLanguage;
   /** 心跳回调 */
   onHeartbeat?: (msg: string) => void;
 }
@@ -266,13 +277,14 @@ export class XVerseService {
   /** 调用导演 plan（创意模型 A5.7B） */
   async runDirector(
     userPrompt: string,
-    options: { isAdaptation?: boolean; characterCount?: number; sceneCount?: number; onHeartbeat?: () => void } = {},
+    options: { isAdaptation?: boolean; characterCount?: number; sceneCount?: number; language?: TargetLanguage; onHeartbeat?: () => void } = {},
   ): Promise<{ ok: boolean; plan?: DirectorPlan; raw: string; error?: string; elapsed: number }> {
+    // v12.322:同 hybrid-orchestrator —— 导演输出即编剧素材,语种必须一路传到这里。
     const sysPrompt = getDirectorSystemPrompt({
       isScriptAdaptation: options.isAdaptation,
       parsedCharacterCount: options.characterCount,
       parsedSceneCount: options.sceneCount,
-    });
+    }) + buildLanguageDirective(options.language || 'zh');
 
     const result = await this.chat(sysPrompt, userPrompt, {
       fast: false,
@@ -321,6 +333,8 @@ export class XVerseService {
     passes: { pass1Ms: number; pass2Ms: number; fixMs?: number };
   }> {
     const { plan, userContext } = opts;
+    const lang: TargetLanguage = opts.language || 'zh';
+    const langMeta = SUPPORTED_LANGUAGES[lang] ?? SUPPORTED_LANGUAGES.zh;
     const t0 = Date.now();
 
     const directorTotalShots = plan.storyStructure?.totalShots || opts.directorTotalShots || 0;
@@ -329,7 +343,8 @@ export class XVerseService {
 
     // ── Pass 1: 镜头规划（A4.2B 快速模型 + 纯文本）
     opts.onHeartbeat?.('XVerse 编剧 Pass 1：规划镜头分配...');
-    const planningPrompt = `你是一位精通分镜的中文编剧。请先分析素材，规划镜头拆分方案。
+    // v12.322:角色设定原先写死「中文编剧」—— 连身份都在把模型往中文带。
+    const planningPrompt = `你是一位精通分镜的编剧，输出语种为 ${langMeta.nativeName}。请先分析素材，规划镜头拆分方案。
 
 【硬性规则】
 - 你必须规划 ${minShots} 到 ${maxShots} 个镜头
@@ -365,7 +380,7 @@ export class XVerseService {
       minShots,
       maxShots,
       directorTotalShots,
-    });
+    }) + buildLanguageDirective(lang);
 
     const trimmedUserCtx = userContext.length > 8000 ? userContext.slice(0, 8000) + '\n[...已截断...]' : userContext;
     const pass2Context = shotPlanText
