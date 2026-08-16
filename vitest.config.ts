@@ -8,7 +8,10 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     // e2e/ 是 Playwright 规约(.spec.ts),用 playwright test 跑,排除出 vitest。
-    exclude: [...configDefaults.exclude, 'e2e/**'],
+    // v12.321:`.claude/**` 必须排除 —— 装进来的技能包自带 *.test.mjs,被收进来后
+    // 收集期就抛 ERR_INVALID_URL_SCHEME,**把整份清单截断**(实测 4131 → 683),
+    // 而 sync-doc-stats 会把这个数字写进 README 徽章。第三方技能的测试不是本仓门禁。
+    exclude: [...configDefaults.exclude, 'e2e/**', '.claude/**'],
     setupFiles: ['./tests/setup.ts'],
     // 整批测试前在主进程一次性清掉上一次 run 残留的测试库文件 (见 tests/global-setup.ts).
     // lib/db.ts 测试时每个文件用一个独占随机库文件, 不自我清理, 残留集中在此一次性清.

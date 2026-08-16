@@ -91,3 +91,18 @@ next-env.d.ts
 data/qfmj.test.db
 data/qfmj.test.db-*
 data/qfmj.db.bak-*
+
+# v12.321:宣传片工程的重型产物不入库 —— 渲染产物可重生,成片素材是从
+# videos/wc-promo 复制来的副本,重复入库只是让仓库变胖。
+videos/wind-comic-promo/renders/
+videos/wind-comic-promo/assets/footage-*.mp4
+videos/wind-comic-promo/assets/*.jpg
+# 这几张是 assets/ 下产品截图的副本(product-hero 就是 banner.png),别重复入库
+videos/wind-comic-promo/assets/product-hero.png
+videos/wind-comic-promo/assets/publish-gate.png
+videos/wind-comic-promo/assets/final-film.png
+videos/wind-comic-promo/assets/full-chain-control.png
+videos/wind-comic-promo/assets/cinema-timeline.png
+videos/wind-comic-promo/assets/voice/
+videos/wind-comic-promo/capture/
+videos/wind-comic-promo/compositions/frames/assets/

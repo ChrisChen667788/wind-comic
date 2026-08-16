@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.320**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.321**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.320**:**vitest 4131 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.321**:**vitest 4141 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,32 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.320.0** | 2026-08-11 | `待填` | **🎞 首页宣传 GIF 从「只有前 7 秒」改成覆盖全片**。
+| **v12.321.0** | 2026-08-12 | `待填` | **🔤 字体自托管 —— 根治「构建期拉 Google Fonts」导致的 CI 假红**。
+
+CI 的 Build job 在同一个会话里**连红两次**(v12.316、v12.319),报的都是:
+
+```
+Error while requesting resource
+[next]/internal/font/google/…module.css: Module not found:
+  Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+Turbopack build failed with 18 errors
+```
+
+两次都不是代码问题,是 runner 拉 Google Fonts 抖了一下。**值得单独修的原因不是它偶发,而是它的失败形态和真的模块解析回归一模一样** —— 两次我都先怀疑了自己的改动,查了十分钟才确认是网络。一个会周期性误报、且误报酷似真故障的门禁,比没有门禁更费人。
+
+病根在一个容易被误读的承诺:`next/font/google` 的「自托管、0 运行时 Google 请求」只覆盖**运行时**,下载发生在**构建期**(原注释写的没错,但只写了一半)。改用 `next/font/local`,字体文件进仓。
+
+取的是官方**可变字体**的 latin 子集,一族一个文件覆盖全字重(Jakarta wght 200–800、Mono 100–800,合计 67 KB),替掉原先逐字重下载的五档 + 三档。
+
+配套:测试环境的 stub 从 `next/font/google` 换成 `next/font/local` —— 前者已无人 import,留一个没人用的 mock 是会烂掉的死代码。
+
+新增门禁 7 条,其中关键一条是**全仓扫描不得再 import `next/font/google`**:改一次没用,得防住有人再引回去,那会让 CI 重新变成看天吃饭。另有两条锁「字体文件真的在仓里」「签名是 wOF2 而不是下歪的 HTML 错误页」—— 声明了路径却没文件,构建照样炸。
+
+**同批修掉一个我自己制造的门禁静默失效**:上一轮为做宣传片把 hyperframes 技能包装进了 `.claude/skills/`,那些技能**自带 `*.test.mjs`**。vitest 把它们收了进来,收集期抛 `ERR_INVALID_URL_SCHEME`,**整份测试清单从 4131 被截断成 683** —— 而 `sync-doc-stats` 会拿这个数字去写 README 徽章,差一步就把「683/683 通过」发到对外门面上。已在 `vitest.config.ts` 排除 `.claude/**` 并加门禁锁住:第三方技能的测试不是本仓门禁,而**「跑了多少条」这个数字本身必须可信**,否则所有绿灯都失去意义。
+
+同批:合并 4 个全绿的 dependabot 依赖升级(#23–#26);#22 仅 Build 挂,正是本版所修,留待重跑。宣传片工程(`videos/wind-comic-promo`)入库,但渲染产物与从 `wc-promo`/`assets` 复制来的重型素材走 .gitignore —— 副本重复入库只会让仓库变胖。
+
+| **v12.320.0** | 2026-08-11 | `c83e1cf` | **🎞 首页宣传 GIF 从「只有前 7 秒」改成覆盖全片**。
 
 原来的 GIF 是 6 月 22 日的,而两支 promo mp4 是 7 月 12 日的 —— **动图比视频还旧一版**;更要命的是它只有 **7.3 秒 / 95 帧**,即全片 38.9 秒里的 **19%**,却已占掉 4.9 MB。README 首屏那张会动的图,展示的是一支片子的前五分之一。
 

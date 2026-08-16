@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "preferences": {
+    "destination": {
+      "value": "youtube",
+      "confirmed_in": [
+        "wind-comic-promo"
+      ],
+      "updated_at": "2026-08-11T21:23:09.014Z"
+    },
+    "aspect": {
+      "value": "1920x1080",
+      "confirmed_in": [
+        "wind-comic-promo"
+      ],
+      "updated_at": "2026-08-11T21:23:09.094Z"
+    },
+    "language": {
+      "value": "en",
+      "confirmed_in": [
+        "wind-comic-promo"
+      ],
+      "updated_at": "2026-08-11T21:23:09.175Z"
+    },
+    "flow": {
+      "value": "automation",
+      "confirmed_in": [
+        "wind-comic-promo"
+      ],
+      "updated_at": "2026-08-11T21:23:09.253Z"
+    },
+    "storyboard": {
+      "value": "yes",
+      "confirmed_in": [
+        "wind-comic-promo"
+      ],
+      "updated_at": "2026-08-11T21:23:09.335Z"
+    },
+    "style_preset.product-launch-video": {
+      "value": "biennale-yellow",
+      "confirmed_in": [
+        "wind-comic-promo"
+      ],
+      "updated_at": "2026-08-11T21:26:28.192Z"
+    }
+  },
+  "sightings": {}
+}
