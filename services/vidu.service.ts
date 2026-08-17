@@ -1,3 +1,4 @@
+import { classifyPollStatus, terminalPollMessage } from '@/lib/poll-policy';
 import { API_CONFIG } from '@/lib/config';
 
 interface ViduResponse {
@@ -66,8 +67,12 @@ export class ViduService {
         },
       });
 
+      // v12.329:同 Keling —— 瞬时抖动不该丢掉已在生成的任务
       if (!response.ok) {
-        throw new Error(`Vidu query error: ${response.statusText}`);
+        if (classifyPollStatus(response.status) === 'terminal') {
+          throw new Error(terminalPollMessage('Vidu', response.status));
+        }
+        continue;
       }
 
       const data: ViduResponse = await response.json();

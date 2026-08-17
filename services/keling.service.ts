@@ -1,3 +1,4 @@
+import { classifyPollStatus, terminalPollMessage } from '@/lib/poll-policy';
 import { API_CONFIG } from '@/lib/config';
 import { fetchWithTimeout } from '@/lib/fetch-timeout';
 
@@ -89,8 +90,13 @@ export class KelingService {
         },
       });
 
+      // v12.329:原先任何非 200 都 throw —— 轮询中一次瞬时 429/502 就把**上游其实
+      // 还在跑**的任务整个丢掉,钱已经花了、结果扔了。改为区分永久与瞬时。
       if (!response.ok) {
-        throw new Error(`Keling query error: ${response.statusText}`);
+        if (classifyPollStatus(response.status) === 'terminal') {
+          throw new Error(terminalPollMessage('Keling', response.status));
+        }
+        continue;   // 瞬时:上游忙或抖了一下,任务多半还在跑
       }
 
       const data: KelingResponse = await response.json();

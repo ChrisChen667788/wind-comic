@@ -19,6 +19,7 @@
  * 诚实边界:未配 key 或 base 非该网关时 `hasHappyHorse()` 为 false,引擎链自动跳过 —— 不静默假装可用。
  */
 
+import { classifyPollStatus, terminalPollMessage } from '@/lib/poll-policy';
 import { fetchWithTimeout } from '@/lib/fetch-timeout';
 
 export type HappyHorseAspect = '16:9' | '9:16' | '1:1' | '4:3' | '3:4';
@@ -231,7 +232,14 @@ export class HappyHorseService {
       const res = await fetchWithTimeout(`${this.baseURL}${BAILIAN_TASK}/${encodeURIComponent(taskId)}`, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
       });
-      if (!res.ok) continue; // 瞬时错误不打断轮询
+      // v12.329:原先「一律 continue」是相反的错 —— 401(key 失效)/404(任务不存在)
+      // 这类永远不会好的情况也要把整个超时白等满,本可立刻给出的报错拖十分钟才说。
+      if (!res.ok) {
+        if (classifyPollStatus(res.status) === 'terminal') {
+          throw new Error(terminalPollMessage('HappyHorse', res.status));
+        }
+        continue; // 瞬时错误不打断轮询
+      }
       const j: any = await res.json().catch(() => ({}));
       const status = j?.output?.task_status;
       if (status === 'SUCCEEDED') {
