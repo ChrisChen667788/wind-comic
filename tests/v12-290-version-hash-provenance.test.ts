@@ -120,12 +120,29 @@ describe('v12.290 · 修复脚本本身', () => {
     expect(pkg.scripts['check:version-hashes']).toContain('--check');
   });
 
-  it('只改哈希列 —— 正则锚定了「| **vX** | 日期 | `哈希`」整个前缀', () => {
+  // v12.333 改写:原断言逐字比对**正则源码字符串**(要求它含 `[0-9-]+`),于是把日期段收紧成
+  // `[0-9]{4}-[0-9]{2}-[0-9]{2}`(严格更好)也会判红 —— 锁的是写法而不是行为。
+  // 现在按行为锁它真正要保证的那件事:**只动表格行的哈希格,不误伤正文里的反引号短串**。
+  it('只改哈希列 —— 正文里的反引号短串不受影响', () => {
+    const table = [
+      '| 版本 | 日期 | commit | 说明 |', '| --- | --- | --- | --- |',
+      // 错误哈希须是合法十六进制,否则 ROW_RE 根本不匹配、这条用例等于没测(第一版就踩了)
+      '| **v12.288.0** | 2026-08-09 | `ffffff` | 改了 `bbbbbb` 这个函数,另见 `cccccc` |',
+    ].join('\n');
+    const r = auditVersionRows(table, new Map([['12.288.0', 'aaaaaa']]), '12.999.0');
+    expect(r.out).toContain('| `aaaaaa` |');           // 哈希格被修正
+    expect(r.out).not.toContain('ffffff');             // 原错误哈希已消失
+    expect(r.out).toContain('改了 `bbbbbb` 这个函数');  // 正文原样
+    expect(r.out).toContain('另见 `cccccc`');           // 正文里的另一个短串也没被动
+    expect(r.fixed).toBe(1);
+  });
+
+  it('日期段仍在锚里(缺了它会误伤正文的反引号短串)', () => {
     const src = fs.readFileSync('scripts/sync-version-hashes.mjs', 'utf-8');
     const m = src.match(/const ROW_RE = (.+)/);
     expect(m).toBeTruthy();
     expect(m![1]).toContain('\\*\\*v');
-    expect(m![1]).toContain('[0-9-]+'); // 日期段必须在锚里,否则会误伤正文中的反引号短串
+    expect(m![1], '日期段必须参与锚定').toMatch(/\[0-9\]\{4\}|\[0-9-\]\+/);
   });
 
   it.skipIf(shallow)('--check 真跑一遍:计数覆盖全部行,且「本版待填」与「无法解析」分开报', () => {

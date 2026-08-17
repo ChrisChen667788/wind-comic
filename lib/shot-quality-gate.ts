@@ -9,6 +9,7 @@
  * 纯逻辑(解析 + 判定)可单测;真正调 VLM 在 scoreShotStyle(复用 cameo-vision 的 vision 入口)。
  */
 import { API_CONFIG } from '@/lib/config';
+import { normalizeBaseURL } from '@/lib/base-url';
 
 export interface ShotStyleScore {
   photoreal: number;      // 0-100:真人实拍照片质感=90+;3D/CGI/卡通/插画/塑料感=40 以下
@@ -124,7 +125,11 @@ export function resolveVisionFallbacks(env: NodeJS.ProcessEnv = process.env): Ar
   if (env.MINIMAX_API_KEY) {
     // v12.119:尊重 VISION_FALLBACK_MODEL 覆盖(v12.83 语义;v12.101 数组化时误丢,
     // 只设 MODEL 无 BASE/KEY 的用户意图就是「兜底用这个模型」)
-    out.push({ baseURL: 'https://api.minimaxi.com/v1', apiKey: env.MINIMAX_API_KEY, model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview' });
+    // v12.333:此前把地址**硬编码**成官方 host,于是 MINIMAX_BASE_URL 指向聚合网关的人,
+    // 视觉兜底会拿网关的 key 去敲官方门 —— 稳定 401,而日志只说「视觉兜底失败」。
+    // key 与 host 必须成对:base 跟着配置走,模型仍可用 VISION_FALLBACK_MODEL 覆盖。
+    const mmBase = normalizeBaseURL(env.MINIMAX_BASE_URL || 'https://api.minimaxi.com', { stripApiVersion: true });
+    out.push({ baseURL: `${mmBase}/v1`, apiKey: env.MINIMAX_API_KEY, model: env.VISION_FALLBACK_MODEL || 'abab7-chat-preview' });
   }
   return out;
 }

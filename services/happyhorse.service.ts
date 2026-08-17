@@ -9,18 +9,34 @@
  *   1. 该模型**禁止**走网关通用视频口 —— `/v1/video/create` 与 `/v1/videos` 均返回 400 并明确指路:
  *      「模型 happyhorse-1.1-t2v 属于 阿里百炼(happyhorse/wan) 专属接口,禁止通过通用视频接口调用」。
  *   2. 专属端点为百炼原生异步格式:
- *        POST {base}/alibailian/api/v1/services/aigc/video-generation/video-synthesis
+ *        POST {base}{前缀}/api/v1/services/aigc/video-generation/video-synthesis
  *        body: { model, input: { prompt, img_url? }, parameters? }
  *        → 200 { request_id, output: { task_id, task_status: 'PENDING' } }
  *      **不需要** X-DashScope-Async 头(实测不带也返回 task_id)。
- *   3. 轮询:GET {base}/alibailian/api/v1/tasks/{task_id}
+ *   3. 轮询:GET {base}{前缀}/api/v1/tasks/{task_id}
  *        → { output: { task_status: PENDING|RUNNING|SUCCEEDED|FAILED, video_url? , results? } }
  *
- * 诚实边界:未配 key 或 base 非该网关时 `hasHappyHorse()` 为 false,引擎链自动跳过 —— 不静默假装可用。
+ * ── v12.333:两条通道,key 与 host 必须成对 ─────────────────────────
+ * 上面的 `{前缀}` 是 v12.333 才拆出来的,原先硬编码成 `/alibailian` —— 那是
+ * **VectorEngine 网关的路由前缀**,不是百炼原生路径。于是留下一颗延时地雷:
+ * 谁哪天买了**阿里云百炼直连** key 填进 `HAPPYHORSE_API_KEY`,base 仍缺省继承
+ * VectorEngine,请求会带着百炼的 key 去打网关的地址和网关的前缀 —— 必然失败,
+ * 而报错只会说 401/404,完全指不到「通道配错了」。
+ *
+ * 所以现在通道是显式的(见 `happyHorseChannel()`):
+ *   · gateway —— VectorEngine 等网关承载的百炼专属口,前缀 `/alibailian`
+ *   · direct  —— 阿里云百炼(DashScope)直连,**无前缀**,原生 `/api/v1/...`
+ * 前缀由 **host** 推出,不由「key 放在哪个变量里」推出 —— 否则同一个 host 会因为
+ * key 换了个变量名就走到不存在的路径上去。
+ *
+ * 诚实边界:`hasHappyHorse()` 只看 key 在不在(**不校验 base**);base 配错属于
+ * 「配了但打不通」,由 `npm run audit:api` 的 HappyHorse 探针报出来,不在这里假装拦住。
  */
 
 import { classifyPollStatus, terminalPollMessage } from '@/lib/poll-policy';
 import { fetchWithTimeout } from '@/lib/fetch-timeout';
+import { normalizeBaseURL } from '@/lib/base-url';
+import { isPlaceholder } from '@/lib/provider-health';
 
 export type HappyHorseAspect = '16:9' | '9:16' | '1:1' | '4:3' | '3:4';
 
@@ -42,8 +58,59 @@ export interface HappyHorseTaskResult {
   taskId: string;
 }
 
-const BAILIAN_CREATE = '/alibailian/api/v1/services/aigc/video-generation/video-synthesis';
-const BAILIAN_TASK = '/alibailian/api/v1/tasks';
+/** 百炼原生路径(不含通道前缀)—— 前缀见 `happyHorseChannel().pathPrefix`。 */
+const BAILIAN_CREATE = '/api/v1/services/aigc/video-generation/video-synthesis';
+const BAILIAN_TASK = '/api/v1/tasks';
+
+/** 网关承载百炼专属口时的路由前缀(实测 VectorEngine 用这个);直连百炼时为空。 */
+const GATEWAY_PREFIX = '/alibailian';
+const GATEWAY_BASE = 'https://api.vectorengine.ai';
+/** 阿里云百炼(DashScope)直连地址 —— 买了官方 key 就填这个。 */
+export const HAPPYHORSE_DIRECT_BASE = 'https://dashscope.aliyuncs.com';
+
+export type HappyHorseChannelKind = 'direct' | 'gateway' | 'none';
+
+export interface HappyHorseChannelInfo {
+  /** none = 没有可用 key(引擎链跳过) */
+  channel: HappyHorseChannelKind;
+  baseURL: string;
+  /** 拼在 baseURL 之后、百炼原生路径之前 */
+  pathPrefix: string;
+  /** key 取自哪个变量 —— 「我现在到底走的哪条通道」不该靠猜 */
+  keyVar: 'HAPPYHORSE_API_KEY' | 'VECTORENGINE_API_KEY' | null;
+  /** 跨厂混搭警告(key 一家、host 另一家),仅提示不拦 */
+  warning?: string;
+}
+
+/**
+ * 解析当前生效的 HappyHorse 通道。**唯一出处** —— 服务构造、健康探针、文档示例都读它,
+ * 免得「服务实际打哪个地址」和「探针探哪个地址」各算一套(那样探针绿了也说明不了什么)。
+ */
+export function happyHorseChannel(env: Record<string, string | undefined> = process.env): HappyHorseChannelInfo {
+  const hhKey = (env.HAPPYHORSE_API_KEY || '').trim();
+  const veKey = (env.VECTORENGINE_API_KEY || '').trim();
+  const usable = (k: string) => !!k && !isPlaceholder(k);
+  const keyVar = usable(hhKey) ? 'HAPPYHORSE_API_KEY' : usable(veKey) ? 'VECTORENGINE_API_KEY' : null;
+
+  const explicitBase = (env.HAPPYHORSE_BASE_URL || '').trim();
+  const inheritedBase = (env.VECTORENGINE_BASE_URL || '').trim();
+  const baseURL = normalizeBaseURL(explicitBase || inheritedBase || GATEWAY_BASE, { stripApiVersion: true });
+
+  const isDirect = /dashscope[-.]/i.test(baseURL);
+  const pathPrefix = isDirect ? '' : GATEWAY_PREFIX;
+  const channel: HappyHorseChannelKind = keyVar === null ? 'none' : isDirect ? 'direct' : 'gateway';
+
+  // 最可能的误配:买了百炼直连 key、只填了 HAPPYHORSE_API_KEY,base 却悄悄继承了网关。
+  // 行为与 v12.332 保持一致(仍打继承来的 host),但**把这份含糊说出来**。
+  const warning =
+    keyVar === 'HAPPYHORSE_API_KEY' && !explicitBase
+      ? `HAPPYHORSE_API_KEY 已配但 HAPPYHORSE_BASE_URL 未配 —— 当前把它发往 ${baseURL}` +
+        `(${inheritedBase ? '继承 VECTORENGINE_BASE_URL' : '网关缺省值'})。key 与 host 必须成对:` +
+        `阿里云百炼直连请设 HAPPYHORSE_BASE_URL=${HAPPYHORSE_DIRECT_BASE}。`
+      : undefined;
+
+  return { channel, baseURL, pathPrefix, keyVar, warning };
+}
 
 /** 3~15s 是 HappyHorse 1.1 的公开规格,越界夹取(不把非法值甩给上游)。 */
 export function clampHappyHorseDuration(sec: number | undefined): number {
@@ -59,10 +126,9 @@ export function happyHorseModelFor(hasImage: boolean, env: Record<string, string
   return hasImage ? 'happyhorse-1.1-i2v' : 'happyhorse-1.1-t2v';
 }
 
-/** 仅在配了 key 时可用;base 缺省复用 VectorEngine(实测承载该专属端点的网关)。 */
+/** 仅在配了 key 时可用(base 配错不在这里拦 —— 见文件头「诚实边界」)。 */
 export function hasHappyHorse(env: Record<string, string | undefined> = process.env): boolean {
-  const key = env.HAPPYHORSE_API_KEY || env.VECTORENGINE_API_KEY || '';
-  return !!key && !key.startsWith('your_') && env.HAPPYHORSE_DISABLE !== '1';
+  return happyHorseChannel(env).channel !== 'none' && env.HAPPYHORSE_DISABLE !== '1';
 }
 
 /** 从百炼 output 里挖视频地址 —— 网关/版本间字段名不统一,逐个兜。 */
@@ -167,12 +233,18 @@ export function _resetHappyHorseRatioState(): void {
 export class HappyHorseService {
   private apiKey: string;
   private baseURL: string;
+  private pathPrefix: string;
 
   constructor() {
-    this.apiKey = process.env.HAPPYHORSE_API_KEY || process.env.VECTORENGINE_API_KEY || '';
-    this.baseURL = (process.env.HAPPYHORSE_BASE_URL || process.env.VECTORENGINE_BASE_URL || 'https://api.vectorengine.ai')
-      .replace(/\/+$/, '')
-      .replace(/\/v1$/, '');
+    // 全部取自 happyHorseChannel():key 也按它选出的变量取,而不是自己再排一遍优先级 ——
+    // 此前构造函数直接 `HAPPYHORSE_API_KEY || VECTORENGINE_API_KEY`,连占位符都会照发,
+    // 于是 `isAvailable()` 说不可用、`submitTask()` 却能带着 `your_xxx` 出门。
+    const ch = happyHorseChannel();
+    this.apiKey = ch.keyVar ? (process.env[ch.keyVar] || '').trim() : '';
+    this.baseURL = ch.baseURL;
+    this.pathPrefix = ch.pathPrefix;
+    if (ch.warning) console.warn(`[HappyHorse] ${ch.warning}`);
+    else if (ch.channel !== 'none') console.log(`[HappyHorse] 通道 ${ch.channel} · ${this.baseURL}${this.pathPrefix} · key 来自 ${ch.keyVar}`);
   }
 
   isAvailable(): boolean {
@@ -196,7 +268,7 @@ export class HappyHorseService {
       ...happyHorseVisualParams(options?.aspectRatio),
     };
     // v12.304:建任务加超时(此前裸 fetch,网关半死时无限等待)
-    const res = await fetchWithTimeout(`${this.baseURL}${BAILIAN_CREATE}`, {
+    const res = await fetchWithTimeout(`${this.baseURL}${this.pathPrefix}${BAILIAN_CREATE}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: happyHorseModelFor(hasImage), input, parameters }),
@@ -229,7 +301,7 @@ export class HappyHorseService {
     for (let i = 0; i < maxTries; i++) {
       await new Promise((r) => setTimeout(r, intervalMs));
       // v12.304:轮询加超时 —— 否则 timeoutSec=600 的上限根本轮不到生效
-      const res = await fetchWithTimeout(`${this.baseURL}${BAILIAN_TASK}/${encodeURIComponent(taskId)}`, {
+      const res = await fetchWithTimeout(`${this.baseURL}${this.pathPrefix}${BAILIAN_TASK}/${encodeURIComponent(taskId)}`, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
       });
       // v12.329:原先「一律 continue」是相反的错 —— 401(key 失效)/404(任务不存在)

@@ -9,10 +9,12 @@
 import { buildVoiceCloneBody, parseVoiceCloneResponse, parseFileUploadResponse, isValidVoiceId } from '@/lib/voice-clone';
 import fs from 'fs';
 import { safeFetch } from '@/lib/ssrf-guard';
+import { normalizeBaseURL } from '@/lib/base-url';
 import { resolveVerifiedServeFilePath } from '@/lib/serve-file-sign';
 
 function key(): string { return process.env.MINIMAX_API_KEY || ''; }
-function base(): string { return (process.env.MINIMAX_BASE_URL || 'https://api.minimaxi.com').replace(/\/+$/, ''); }
+// v12.333:调用点自己拼 `/v1/...`,所以 base 要剪掉末尾版本段(与 lib/config.ts 同一条约定)
+function base(): string { return normalizeBaseURL(process.env.MINIMAX_BASE_URL || 'https://api.minimaxi.com', { stripApiVersion: true }); }
 
 /** 仅官方 minimaxi.com/io 端点 + 有 key 才可用(聚合网关不暴露 voice_clone)。 */
 export function hasVoiceClone(): boolean {

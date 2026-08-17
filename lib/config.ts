@@ -1,4 +1,6 @@
 // API 配置
+import { normalizeBaseURL } from './base-url';
+
 export const API_CONFIG = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
@@ -34,7 +36,10 @@ export const API_CONFIG = {
   minimax: {
     apiKey: process.env.MINIMAX_API_KEY || '',
     groupId: process.env.MINIMAX_GROUP_ID || '',
-    baseURL: process.env.MINIMAX_BASE_URL || 'https://api.minimaxi.com',
+    // v12.333:归一化。minimax.service 的**每一个**调用点都自己拼 `/v1/...`,所以 base 必须不带
+    // 版本段;而几乎所有网关文档给的地址都以 `/v1` 结尾,照抄进来就全线 `/v1/v1/...` 404,
+    // 且没有任何一行报错说得清原因(我自己就被同一颗地雷误导过一次)。
+    baseURL: normalizeBaseURL(process.env.MINIMAX_BASE_URL || 'https://api.minimaxi.com', { stripApiVersion: true }),
     pricing: 0.15  // ¥/秒
   },
 

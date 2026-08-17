@@ -385,15 +385,42 @@ fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 | `VEO_BASE_URL` | 可选 | `https://api.qingyuntop.top` | Veo/Sora 网关地址 |
 | `VEO_MODEL` | 可选 | `veo3.1-pro` | 主视频模型 ID；可被 `model_overrides` 表覆盖 |
 | `VEO_API_FORMAT` | 可选 | `unified` | API 调用格式：`unified`（/v1/video/create）或 `openai`（/v1/videos） |
-| `VEO_FALLBACK_MODELS` | 可选 | `veo3.1,sora-2-pro` | 主模型失败时的降级模型列表（逗号分隔） |
+| `VEO_FALLBACK_MODELS` | 可选 | `veo3.1` | 主模型失败时的降级模型列表（逗号分隔）。v12.333 更正文档：此前写作 `veo3.1,sora-2-pro`，而 Sora-2 API 已于 2026-09-24 停服、v12.173 起就从代码默认值里摘掉了 |
 | `QINGYUNTOP_API_KEY` | 可选 | `VEO_API_KEY` | qingyuntop 聚合网关统一密钥（可被视频+图像服务共用） |
 | `QINGYUNTOP_BASE_URL` | 可选 | `https://api.qingyuntop.top` | qingyuntop 网关端点 |
 | `ENABLE_RUNWAY` | 可选 | — | `1` 启用 Runway 视频提供商插件 |
 | `RUNWAY_API_KEY` | 可选 | — | Runway ML 视频生成密钥（需同时设 `ENABLE_RUNWAY=1`） |
 | `RUNWAY_BASE_URL` | 可选 | `https://api.runwayml.com` | Runway API 端点 |
 | `VIDEO_PROVIDERS_DIR` | 可选 | — | 自定义视频提供商插件目录路径 |
+| `HAPPYHORSE_API_KEY` | 可选 | `VECTORENGINE_API_KEY` | HappyHorse（阿里 通义/百炼）密钥。**填了它就必须同时填 `HAPPYHORSE_BASE_URL`** —— 见下方「两条通道」 |
+| `HAPPYHORSE_BASE_URL` | 可选 | `VECTORENGINE_BASE_URL` → `https://api.vectorengine.ai` | 百炼直连填 `https://dashscope.aliyuncs.com`；留空则走网关 |
+| `HAPPYHORSE_MODEL` | 可选 | 按有无首帧自动选 `happyhorse-1.1-i2v` / `-t2v` | 模型名覆盖 |
+| `HAPPYHORSE_RESOLUTION` | 可选 | 上游默认 | `480P` / `720P` / `1080P`；非法值忽略 |
+| `HAPPYHORSE_WATERMARK` | 可选 | `false`（本项目主动关） | 上游默认 **true** 会打「Happy Horse」水印；设 `1`/`true` 才保留 |
+| `HAPPYHORSE_SEED` | 可选 | — | 固定随机种子（0~2147483647），用于复现同一镜 |
+| `HAPPYHORSE_DISABLE` | 可选 | — | `1` 彻底停用该引擎（即使 key 可用） |
 
 *`MINIMAX_API_KEY` 在最小可跑集中作为 LLM 兜底也被引用。
+`MINIMAX_BASE_URL` **不要带 `/v1`**：代码里每个调用点自己拼 `/v1/xxx`，带了会变成 `/v1/v1/...` 全线 404
+（v12.333 起会自动剪掉，但仍以不带为准）。
+
+### HappyHorse 的两条通道（v12.333）
+
+这是全项目唯一「key 与 host 可能来自两家」的引擎，且**路径前缀随 host 变**，所以单独说明：
+
+| 通道 | 怎么配 | 实际请求 |
+|---|---|---|
+| `direct`（阿里云百炼直连） | `HAPPYHORSE_API_KEY` + `HAPPYHORSE_BASE_URL=https://dashscope.aliyuncs.com` | `{base}/api/v1/...`（百炼原生，**无前缀**） |
+| `gateway`（经 VectorEngine 等网关） | 不填任何 `HAPPYHORSE_*`，自动复用 `VECTORENGINE_API_KEY` / `VECTORENGINE_BASE_URL` | `{base}/alibailian/api/v1/...` |
+
+- **最常见的误配**：只填 `HAPPYHORSE_API_KEY`、不填 `HAPPYHORSE_BASE_URL`。host 会静默继承网关，
+  于是百炼的 key 去敲网关的门 —— 必然 401/404，而报错指不到「通道配错了」。服务启动时会
+  `console.warn` 提醒，行为保持与 v12.332 一致（不偷偷改你的请求目标）。
+- **通道由 host 推出，不由「key 放在哪个变量」推出**：否则同一个 host 换个变量名就会走到不存在的路径上。
+- **网关通道的代价**：与网关上所有人共享上游配额，饱和时返回 429 `quota_not_enough`
+  （文案写「负载已饱和」但代码是额度问题，干等无效 —— 需网关侧补额度或换直连）。
+- **验证方式（不触发任何计费生成）**：`npm run audit:api`，看 HappyHorse 那行打印的「通道 …」。
+  探针只 GET 一个不存在的 task id：404 = 鉴权与路径都对了。
 
 ## 模块四：TTS（文字转语音）
 
