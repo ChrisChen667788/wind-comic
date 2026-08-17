@@ -1,0 +1,63 @@
+name: Star history
+
+# v12.334 — 自采 star 曲线,替掉已失效的第三方图。
+#
+# GitHub 2026-06-30 的 changelog 把 /repos/{owner}/{repo}/stargazers 收窄为
+# **仅 admin 与 collaborator 可访问**(理由:该名单被大量用于采集用户数据发垃圾邮件)。
+# 于是 star-history.com 这类第三方服务对任何仓库都是 404 —— README 里原来那张图
+# 现在返回的是一条公告而不是曲线。
+#
+# 但 GitHub 关的是「看别人家的」。本 workflow 的 GITHUB_TOKEN 天然持有**本仓库**身份,
+# 所以能取到自家完整的 star 时间戳 —— 图生成后提交进仓库,README 引本地文件,零外部依赖。
+
+on:
+  schedule:
+    # 每天一次(UTC 03:17,错开整点高峰)。star 曲线不需要更实时。
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+  # 备选:打开下面两行可让「每次被 star」都立刻刷新。默认不开 ——
+  # 419 star 的仓库意味着每颗星一次提交,历史会被资产提交淹没。
+  # watch:
+  #   types: [started]
+
+# 只给这一个 job 写权限:它要把生成的 SVG 提交回仓库。
+permissions:
+  contents: write
+
+# 同一时刻只跑一个,避免两次运行同时改 assets/ 撞车
+concurrency:
+  group: star-history
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Collect + render
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      # 不装依赖:脚本只用 Node 内置模块 + 全局 fetch(所以也不需要 npm ci,省一分半)
+      - name: Collect star history
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/gen-star-history.mjs
+
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- assets/star-history.json assets/star-history-dark.svg assets/star-history-light.svg; then
+            echo "无变化,不提交"
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/star-history.json assets/star-history-dark.svg assets/star-history-light.svg
+          # [skip ci] 是双保险:用 GITHUB_TOKEN 推的提交本就不会触发其它 workflow
+          # (GitHub 防递归),但万一将来换成 PAT,这行能挡住每天白跑一轮 CI。
+          git commit -m "chore(assets): 刷新 star 历史曲线 [skip ci]"
+          git push

@@ -33,8 +33,13 @@ const before = md;
 // 0) 架构图 SVG → PNG: raw 把 .svg 当 text/plain 发, ModelScope 渲染不出 → 映射到同名已导出 PNG (image/png 可渲染)
 md = md.replace(/src="assets\/diagrams\/([^"]+)\.svg"/g, `src="${RAW}/assets/diagrams/$1.png"`);
 
-// 1) 图片/资源相对路径 → raw 绝对链 (HTML <img src> 与 markdown ![](...))
+// 1) 图片/资源相对路径 → raw 绝对链 (HTML <img src>、<source srcset> 与 markdown ![](...))
+// ⚠️ v12.334:`srcset` 此前**被漏掉**。README 用 <picture> 做亮/暗双主题图后,
+// 深色那张写在 <source srcset="assets/...">,于是在 ModelScope 上仍是相对路径解析不了 ——
+// 而 <picture> 的 source 命中却加载失败时**不会**回退到 <img>,直接裂图。
+// 下面的自检也一并加上 srcset,否则它会继续报「残留相对图: 0」。
 md = md.replace(/src="assets\//g, `src="${RAW}/assets/`);
+md = md.replace(/srcset="assets\//g, `srcset="${RAW}/assets/`);
 md = md.replace(/\]\(assets\//g, `](${RAW}/assets/`);
 
 // 2) HTML href 相对链 → blob 绝对链 (排除 http(s)://, #锚点, mailto:)
@@ -51,7 +56,9 @@ const header =
 fs.writeFileSync(outPath, header + md);
 
 // 自检: 输出里不应再有 README 相对资源/链接残留
-const leftoverImg = (md.match(/src="assets\//g) || []).length + (md.match(/\]\(assets\//g) || []).length;
+const leftoverImg = (md.match(/src="assets\//g) || []).length
+  + (md.match(/srcset="assets\//g) || []).length
+  + (md.match(/\]\(assets\//g) || []).length;
 const rawCount = (md.match(/raw\.githubusercontent\.com/g) || []).length;
 const blobCount = (md.match(/github\.com\/[^/]+\/[^/]+\/blob\/main/g) || []).length;
 console.log(`✅ 写入 docs/modelscope-intro.md (${md.length} chars, README ${before.length} chars)`);

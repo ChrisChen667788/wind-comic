@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.333**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.334**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.333**:**vitest 4269 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.334**:**vitest 4299 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,27 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.333.0** | 2026-08-17 | `待填` | **🔌 配置面防呆:key 与 host 必须成对 + 每个配置项都得有记录**。
+| **v12.334.0** | 2026-08-17 | `待填` | **⭐ 自采 star 曲线 —— GitHub 关掉了第三方拿 star 数据的门**。
+
+**起因是 owner 发现首页那条 star 曲线「被官方限制了」,问是作者的问题还是自己项目的问题 —— 两个都不是。** 实测:`api.star-history.com/svg?repos=…` 现在返回 **HTTP 200、60KB 合法 SVG**,GitHub 的 camo 代理也正常取到(所以不是图裂),但 SVG 里画的**不是曲线而是三行公告**(`GitHub restricted access to star data`),数据点 `circle` **0 个**。
+
+**限制边界是亲手探出来的**(用 owner 的 token):自己的仓库 `GET /stargazers` 200 且带 `starred_at`;**facebook/react、vuejs/core、sindresorhus/awesome、tj/n、star-history 自己的仓库全部 404**;GraphQL 的 `stargazers{starredAt}` 同样只有自家能查(他人仓库返回泛化错误);**未认证请求一律 401**;而 `stargazers_count` 总数完全没动(react 仍读到 247325)。与仓库大小无关、与 `Accept` 头无关。
+
+**GitHub 官方原文**(2026-06-30 changelog,Notifications 团队):`/repos/{owner}/{repo}/stargazers` 与 `/subscribers` 被 "limited to admins and collaborators",理由是 "this information has increasingly been **misused to collect user data for spam activities**"。公告只说 "will soon"、**没给确切生效日** —— 这也解释了各方对生效时间说法不一。
+
+**做法**:GitHub 关的是「看别人家的」,没关「看自己家的」。Actions 的 `GITHUB_TOKEN` 天然持有本仓库身份 → `scripts/gen-star-history.mjs` 每天自采、渲染亮/暗两套 SVG 提交进仓库,README 引本地文件,**从此零外部依赖**。顺带把序列存成 `assets/star-history.json` 当历史备份:万一 GitHub 哪天连 owner 也一并限制,最后一次的曲线仍在仓库里。
+
+**否掉了一个看起来可行的替代品**:研究给出的 OSSInsight widget 确实能出图(HTTP 200、PNG 1442×812),**但我把图打开看了 —— 它画的是 7 stars、时间停在 6 月底**,而本仓是 419。它基于 GH Archive,而 GH Archive 的 WatchEvent 自 2025 年中起严重欠采集。**挂上去等于公开宣称自己只有 7 个 star,比不放更糟**。「已核实可行」只核实了「图能渲染」,没核实「数据对不对」。
+
+**两个 bug 是「真去看图」和「单测」各抓一个**:① 首版 x 轴标签写成 `Jun 26`(本意 2026 年 6 月)会被读成「6 月 26 日」,且 5 月因 `05-01` 落在数据之外而**一个刻度都没有** —— 看图才发现;② `niceTicks(419)` 顶格只到 **400**,而 renderSvg 拿最大刻度当 `yMax`,于是 `py(419)` 落到绘图区**上方**、曲线末端冲进标题区 —— 源码里完全看不出来(刻度数组本身「很整齐」),单测抓出来的。修完又发现 `niceTicks(1)` 给出 `0,0,0,1,1,1` 六个重复标签(step 算成 0.2),对**新仓库套用本脚本是必经路径**,已强制步长 ≥ 1。
+
+**曲线是阶梯而不是折线**:star 是离散事件,累计值在事件之间是平的,直线连点会画出不存在的平滑增长。
+
+**排雷**:workflow 只申请 `contents: write`;加 `concurrency` 防两次运行同时改 `assets/`;提交带 `[skip ci]`(用 `GITHUB_TOKEN` 推的提交本就不触发其它 workflow,这是换成 PAT 后的双保险);抓取失败或总数跌破已提交的 80% 时**拒绝覆盖**历史并以 0 退出(不让 Actions 因此变红)。`GITHUB_TOKEN`/`GH_TOKEN` 已按 v12.333 的门禁要求写进 `.env.example`。
+
+**验证**:本机真跑取到 **419/419** 条时间戳、64 个数据点;两套主题都转成 PNG **人工看过**;像素级测量确认内容止于 x=772(viewBox 800),最右侧像素 799 是刻意画的边框。 |
+
+| **v12.333.0** | 2026-08-17 | `f809444` | **🔌 配置面防呆:key 与 host 必须成对 + 每个配置项都得有记录**。
 
 **起因是连踩两颗同类地雷**。排查 MiniMax 时:① 我的探测脚本少拼了 `/v1` → 404 → 把「路径拼错」误判成「端点不存在」;② 更早还断言过「`sk-` 前缀 = 中转商 key,与官方地址不配套」—— 拿新 key 实测直接 `status_code: 0`(成功),**前缀推断根本不成立**,真相只是原先配的那把 key 无效。两颗都属于同一类:**key 与 host 走散了,而报错(401/404)永远指不到真因**。
 
