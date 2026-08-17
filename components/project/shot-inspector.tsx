@@ -31,12 +31,15 @@ export function ShotInspector({
   onClose,
   onCinema,
   onWorkshop,
+  onFrameInspect,
 }: {
   shot: InspectShot;
   frameClass: string;
   onClose: () => void;
   /** 单镜头摄影台(景别/机位/运镜/焦点) */
   onCinema: () => void;
+  /** v12.330:逐帧检视 —— 翻帧定位坏的那一段,并可直接交给片段重拍 */
+  onFrameInspect: () => void;
   /** 去镜头工坊(九宫格选帧 / 4K 重渲 / 改 prompt 重生) */
   onWorkshop: () => void;
 }) {
@@ -101,6 +104,10 @@ export function ShotInspector({
             <div className="cinema-eyebrow !text-[9px] opacity-50">单镜操作</div>
             <button onClick={onCinema} className="cinema-btn-ghost !text-xs w-full !justify-start">
               <FilmSlate className="w-3.5 h-3.5" />单镜头摄影台 · 景别 / 机位 / 运镜 / 焦点
+            </button>
+            {/* v12.330:此前 v12.315 的片段重拍与 v12.328 的逐帧检视都只有 API、没有入口 */}
+            <button onClick={onFrameInspect} className="cinema-btn-ghost !text-xs w-full !justify-start">
+              <FilmSlate className="w-3.5 h-3.5" />逐帧检视 · 找到坏的那一段 → 只重拍那两秒
             </button>
             <button onClick={onWorkshop} className="cinema-btn-ghost !text-xs w-full !justify-start">
               <SquaresFour className="w-3.5 h-3.5" />九宫格选帧 / 4K 重渲 / 改 prompt 重生 →

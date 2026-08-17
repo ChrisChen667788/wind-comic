@@ -36,6 +36,7 @@ import { SaveTemplateButton } from '@/components/project/save-template-button';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
 import { DirectorStageModal } from '@/components/project/director-stage-modal';
+import { FrameInspectModal } from '@/components/project/frame-inspect-modal';
 import type { StageScene } from '@/lib/stage-blocking';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
@@ -161,6 +162,8 @@ export default function ProjectDetailPage() {
   const [specOverrides, setSpecOverrides] = useState<Record<number, ShotSpec>>({});
   // v12.318 导演台:当前打开的镜 + 已摆过位的镜号(chip 高亮用,省一次全量刷新)
   const [stageShot, setStageShot] = useState<{ shotNumber: number; title?: string; scene?: StageScene | null; characters?: string[] } | null>(null);
+  // v12.330:逐帧检视 —— v12.315 的片段重拍与 v12.328 的逐帧检视此前都只有 API、没有入口
+  const [frameShot, setFrameShot] = useState<{ shotNumber: number; title?: string } | null>(null);
   const [stagedShots, setStagedShots] = useState<Record<number, true>>({});
 
   useEffect(() => {
@@ -1315,12 +1318,49 @@ export default function ProjectDetailPage() {
         />
       )}
 
+      {/* v12.330 逐帧检视弹窗 —— 选中的帧区间直接交给片段重拍 */}
+      {frameShot && (
+        <FrameInspectModal
+          projectId={id}
+          shotNumber={frameShot.shotNumber}
+          shotTitle={frameShot.title}
+          onClose={() => setFrameShot(null)}
+          onRetake={async ({ fromS, toS }) => {
+            // 区间由服务端算好(与 planSegmentRetake 同一帧吸附口径),前端只负责转交。
+            // 先 dryRun 预演:计划不通过就把人话原因显示出来,不去花钱调引擎。
+            try {
+              const r = await fetch(`/api/projects/${id}/segment-retake`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shotNumber: frameShot.shotNumber, fromS, toS, dryRun: true }),
+              });
+              const j = await r.json();
+              if (!r.ok || j?.plan?.ok === false) {
+                showToast({ title: '这段不能单独重拍', description: String(j?.error || j?.plan?.reason || '').slice(0, 140), type: 'error', duration: 5000 });
+                return;
+              }
+              showToast({
+                title: '可以重拍',
+                description: `生成 ${Number(j.plan?.generateDurationS ?? 0).toFixed(3)}s、补 ${(toS - fromS).toFixed(3)}s,该镜总时长不变`,
+                type: 'success', duration: 5000,
+              });
+            } catch (e) {
+              showToast({ title: '预演失败', description: (e instanceof Error ? e.message : '请检查网络后重试').slice(0, 120), type: 'error', duration: 4000 });
+            }
+          }}
+        />
+      )}
+
       {/* v12.44 统一镜头检查器 — 点分镜图弹出,聚合单镜预览/元数据/操作 */}
       {inspectShot && (
         <ShotInspector
           shot={inspectShot}
           frameClass={frameClass}
           onClose={() => setInspectShot(null)}
+          onFrameInspect={() => {
+            setFrameShot({ shotNumber: inspectShot.shotNumber, title: (inspectShot as any)?.title });
+            setInspectShot(null);
+          }}
           onCinema={() => {
             const sn = inspectShot.shotNumber;
             const sbx = (storyboards as any[]).find((s) => s.shotNumber === sn);
