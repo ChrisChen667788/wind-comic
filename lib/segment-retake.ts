@@ -59,7 +59,13 @@ export interface SegmentRetakePlan {
   padSeconds: number;
 }
 
-const snap = (sec: number, fps: number) => Math.round(sec * fps) / fps;
+/**
+ * 帧吸附。**v12.328 起导出** —— 逐帧检视要把「用户看到的那一帧」的时间戳交给重拍,
+ * 两边若各写一份 `Math.round(sec*fps)/fps`,迟早在边界上差一帧:用户点了第 47 帧,
+ * 却从 46 帧半切下去。同一语义只留一处。
+ */
+export const snapToFrame = (sec: number, fps: number) => Math.round(sec * fps) / fps;
+const snap = snapToFrame;
 
 export function planSegmentRetake(input: SegmentRetakePlanInput): SegmentRetakePlan {
   const fps = Number.isFinite(input.fps) && (input.fps as number) > 0 ? (input.fps as number) : 24;

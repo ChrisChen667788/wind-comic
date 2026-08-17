@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.327**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.328**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.327**:**vitest 4214 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.328**:**vitest 4238 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,22 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.327.0** | 2026-08-12 | `待填` | **🔐 审计透镜②:一句类型断言抹掉了信任边界 —— 协作评论可被冒名与篡改**。
+| **v12.328.0** | 2026-08-12 | `待填` | **🔍 逐帧检视 —— 把「坏在哪一帧」找出来,并直接交给片段重拍**。
+
+**先说没做什么**:竞品对标里写的是「逐帧拉片」。但本仓 **v11.1.1 就有拉片能力**(`lib/pull-sheet-job`:场景切分 → 逐镜抽中帧 → 可选 Vision 打标 → 无 key 时诚实降级骨架)。**再造一个「分析参考片」纯属重复**。真正缺的是另一头:v12.315 的片段重拍要用户给 `fromS`/`toS`,而界面上**没有任何东西让他看清坏在哪一帧** —— 只能凭记忆估个秒数。这一版补的是这条链。
+
+**全版最关键的一条不变量:用户看到的那一帧,必须就是重拍会切的那一帧。** 它有两个前提,任缺其一都会**静默**出错(错得看不出来,只体现为成片在那处抖一下):
+
+1. **同一套帧吸附** —— 把 `segment-retake` 里私有的 `snap` 导出为 `snapToFrame`,本模块直接复用。若各写一份 `Math.round(sec*fps)/fps`,两处迟早在边界差一帧:用户点了第 47 帧,却从 46 帧半切下去。
+2. **精确 seek** —— 抽帧的 `-ss` 必须放在 `-i` **之后**。既有 `scene-split.extractFrameAt` 用的是 `seekInput()`(`-ss` 在 `-i` **之前**),只能定位到**关键帧**:做拉片中帧够用,逐帧检视绝对不行 —— 用户看到的画面与标注的时间戳不是同一帧,据此选的区间就是错的。这与 v12.315 `cutSegment` 是同一个坑。
+
+分层沿用既有纪律:`lib/frame-strip` 纯规划(可测、零依赖),服务层**不做任何时间计算**,只照时间戳抽帧。API 读取用 **view 级**(不调引擎、不花钱 —— 对照 segment-retake 的 POST 需 edit)。
+
+诚实性上做了三件事:超过上限时**抽稀并明说**(否则用户以为看到的是每一帧,且末帧一定保留 —— 人常要选到区间末尾);**逐帧失败只丢那一帧**并回报帧号,不整批失败也不假装完整;并发抽帧**按下标落位**,保证帧序与时间戳严格对应,而不是靠回调先后。
+
+响应直接给出 `retakeHint`,把选中的帧区间换算成重拍可直接吃的秒区间 —— 测试里专门验了这条:换算结果喂给 `planSegmentRetake` 能过,且 `patchFromS/patchToS` 分毫不差、总时长不变。
+
+| **v12.327.0** | 2026-08-12 | `502bfb1` | **🔐 审计透镜②:一句类型断言抹掉了信任边界 —— 协作评论可被冒名与篡改**。
 
 **怎么找到的**:全仓 406 处 `as any`、615 处 `: any`,一把梭清理既不现实也没价值。有价值的是**挑出骑在信任边界上的那几处**,所以只看信号最强的两类:`as unknown as`(TS 拒绝直接转换才会写的双重断言,23 处)与唯一那个 `@ts-ignore`。其中绝大多数是惯用写法(`webkitAudioContext` 兼容、React Flow 的 `PipelineNodeData`、ffmpeg-static 类型与实际导出不符)。真正有问题的是一处。
 
