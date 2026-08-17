@@ -198,12 +198,17 @@ describe('v3.0 P0.2 · WS server e2e', () => {
   }, 30_000);
 
   it('rejects invalid doc names', async () => {
-    return new Promise<void>((resolve) => {
+    // v12.326:这条原先**一个断言都没有** —— 它在 'close' 或 1500ms 超时时都 resolve,
+    // 于是服务端即便**不拒绝**非法 doc name,测试照样绿。一条守护白名单的用例,
+    // 从写下起就没验过任何东西。改成:记录是否真的被踢,超时路径也要给出判定。
+    const closed = await new Promise<boolean>((resolve) => {
       // doc name 含 '/' 不在白名单, server 应直接 close
       const ws = new NodeWebSocket(`ws://localhost:${TEST_PORT}/bad/path/here`);
-      ws.on('close', () => resolve());
-      ws.on('open', () => { /* still close fires after server kicks */ });
-      setTimeout(resolve, 1500);
+      const done = (v: boolean) => { try { ws.close(); } catch { /* already closed */ } resolve(v); };
+      ws.on('close', () => done(true));
+      ws.on('error', () => done(true));   // 连都连不上也算被拒
+      setTimeout(() => done(false), 1500);
     });
+    expect(closed, '非法 doc name 未被服务端拒绝(连接在 1.5s 内一直开着)').toBe(true);
   }, 3_000);
 });

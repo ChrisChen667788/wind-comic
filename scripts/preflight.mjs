@@ -22,6 +22,8 @@ const STEPS = [
   { ci: 'License check (copyleft gate)', cmd: 'node scripts/license-check.mjs' },
   { ci: 'Consumer gate (唯一入口不得被绕过)', cmd: 'npx tsx scripts/consumer-gate.mjs' },
   { ci: 'Version hash provenance (变更日志可溯源)', cmd: 'npm run check:version-hashes' },
+  // v12.326:本地额外多跑一条 —— CI 尚未纳入,但「测试自己是不是摆设」值得每次发版前问一句。
+  { ci: '(local only) fake-green 测试门禁', cmd: 'node scripts/fake-green-gate.mjs' },
 ];
 
 let failed = 0;

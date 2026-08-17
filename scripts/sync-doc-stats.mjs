@@ -29,15 +29,40 @@ const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
 const version = pkg.version;                       // 12.276.0
 const vShort = `v${version.replace(/\.0$/, '')}`;  // v12.276
 
+/**
+ * v12.326:骤降防护。
+ *
+ * 原先只挡 `<= 0`。但真正咬过人的是**骤降但仍为正**:v12.321 时 `.claude/` 里
+ * 装进来的第三方技能自带 `*.test.mjs`,`vitest list` 收集期抛错把清单从 **4131
+ * 截断成 683**,而 683 是个正数,一路畅通差点把「683/683 通过」写进对外徽章。
+ * 徽章是对外承诺,**数字本身必须可信**,否则所有绿灯都失去意义。
+ * 阈值取 20%:正常删测试不会一次少两成;真要大改用 --force 明示。
+ */
+function assertPlausible(n) {
+  let prev = 0;
+  try {
+    const m = fs.readFileSync('README.md', 'utf-8').match(/Tests-(\d+)%2F/);
+    if (m) prev = parseInt(m[1], 10);
+  } catch { /* README 读不到就没得比,放行 */ }
+  if (prev > 0 && n < prev * 0.8 && !args.includes('--force')) {
+    throw new Error(
+      `测试数骤降:${prev} → ${n}(少了 ${(100 - (n / prev) * 100).toFixed(1)}%)。\n`
+      + `  这通常不是真的删了测试,而是收集期出错把清单截断了(v12.321 就是这么来的)。\n`
+      + `  先跑 \`npx vitest list | tail\` 看有没有收集错误;确属预期请加 --force。`,
+    );
+  }
+  return n;
+}
+
 function resolveTestCount() {
   if (testsArg) {
     const n = parseInt(testsArg.split('=')[1], 10);
     if (!Number.isFinite(n) || n <= 0) throw new Error(`--tests 非法: ${testsArg}`);
-    return n;
+    return assertPlausible(n);
   }
   // vitest list 只列举不执行;每行一个用例
   const out = execSync('npx vitest list', { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
-  return out.split('\n').filter((l) => l.trim().length > 0).length;
+  return assertPlausible(out.split('\n').filter((l) => l.trim().length > 0).length);
 }
 
 const tests = resolveTestCount();
