@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.330</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.331</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -82,6 +82,20 @@ Three views of the same engine. **Open on GitHub to watch them animate** — flo
 <sub>**Data flow** — the artifact refinery. One line of text is refined stage-by-stage (`TEXT → JSON → PNG → IMG → MP4`); every artifact is persisted to the dual-driver DB + asset store and is independently reusable, so any stage can be re-run in isolation.</sub>
 
 > 🎞️ Diagrams are **animated SVG, authored as code** in [`assets/diagrams/`](https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/diagrams/) — crisp at any zoom, versioned with the source. *(Animation renders on GitHub; the ModelScope mirror shows static PNG.)*
+
+---
+
+## 🆕 New in v12.315 – v12.330 — direct the shot, don't re-roll the dice
+
+Every tool can generate a clip. These three let you **direct** one — and they compose into a single loop: *inspect → locate → retake only what's broken*.
+
+**Director's console** *(v12.316–318)* — place the actors and the camera on a top-down stage; the exact blocking becomes two things a model can actually use: a **precise staging directive** appended to the prompt (`"Lin Wan at frame left in full shot; Lu Chen right of center in wide shot"`), and a **layout sketch** fed through the existing `[STORYBOARD LOCK]` channel (layout only — style still comes from the prompt). Shot size and camera angle are **derived from the geometry**, not typed in by hand, so lens/framing and the written spec can't disagree. A deterministic composition audit reports *who is out of frame, who is occluding whom, whether the camera clips an actor* — **before you spend a cent generating**.
+
+**Segment retake** *(v12.315)* — hate two seconds of an eight-second shot? Retake **those two**. The other six are **byte-copied** (`-c copy`), not re-encoded, so the part you liked doesn't lose a generation. Shot duration is unchanged by construction, which means the compressed timeline, voice-over delays, subtitle starts and EDL record-ins **need no recomputation**. Takes are versioned like voice retakes — adopt or roll back.
+
+**Frame-by-frame inspection** *(v12.328–330)* — step through a finished shot frame by frame, box the broken stretch, and hand that exact range to segment retake. Frames are extracted with **accurate seek** (`-ss` after `-i`, not the fast keyframe-only seek), and the timestamp under each frame uses the **same frame-snapping** as the retake planner — so the frame you picked is the frame it cuts at. When the strip is thinned to stay responsive, it says so; frames that fail to decode are reported, not silently skipped.
+
+Also in this range: fonts are **self-hosted** so builds no longer depend on a network fetch; the XVerse writer and both director paths finally receive the **target language** (non-Chinese projects used to get Chinese scripts and rely on a costly after-the-fact re-translation); the in-process rate limiter **bounds and evicts** its bucket table (the key contained an attacker-supplied email — an unbounded memory vector), and eviction never releases an active block; collaborative comments arriving over Yjs are **validated and field-whitelisted**, so a peer can no longer overwrite another author's name or text.
 
 ---
 
