@@ -16,7 +16,6 @@ import { MidjourneyService, hasMidjourney } from '../midjourney.service';
 import { KlingService, hasKling } from '../kling.service';
 import { FalFluxService, hasFalFlux } from '../fal-flux.service';
 import { ComfyUIService, hasComfyUI, hasComfyUIControlNet } from '../comfyui.service';
-import { XVerseService, hasXVerse, isXVersePrimary } from '../xverse.service';
 import {
   getDirectorSystemPrompt, getMcKeeWriterPrompt,
   getCharacterVisualPrompt, getSceneVisualPrompt, getStoryboardVisualPrompt,

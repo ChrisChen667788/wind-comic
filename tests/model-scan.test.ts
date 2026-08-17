@@ -66,7 +66,6 @@ describe('v10.6.3 · scanLatestModels(注入假清单)', () => {
     primary: ['claude-sonnet-4-6', 'claude-sonnet-5', 'claude-opus-5', 'gpt-x'],
     creative: ['deepseek-v4-pro', 'deepseek-v5-pro', 'deepseek-v5-flash', 'deepseek-v4-flash'],
     fallback: ['MiniMax-M2.7', 'MiniMax-M3', 'MiniMax-Music-2.6', 'speech-02-hd', 'speech-03-hd'],
-    xverse: null,       // 自托管未起 → 来源不可用
     qingyuntop: ['veo3.1-pro', 'veo4-pro', 'sora-2-pro', 'vidu-q2'],
     vectorengine: null,
   };
@@ -82,7 +81,6 @@ describe('v10.6.3 · scanLatestModels(注入假清单)', () => {
     expect(by['llm-fallback'].familyCandidates).toBe(2); // Music 系不入家族(\d 收紧)
     expect(by['video-veo'].latest).toBe('veo4-pro');
     expect(by['tts-minimax'].latest).toBe('speech-03-hd');
-    expect(by['xverse'].status).toBe('source-unavailable');
     expect(report.unscannable.length).toBeGreaterThan(0);          // fal/ComfyUI 诚实标不可扫
   });
 

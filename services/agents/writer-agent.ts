@@ -17,7 +17,6 @@ import { MidjourneyService, hasMidjourney } from '../midjourney.service';
 import { KlingService, hasKling } from '../kling.service';
 import { FalFluxService, hasFalFlux } from '../fal-flux.service';
 import { ComfyUIService, hasComfyUI, hasComfyUIControlNet } from '../comfyui.service';
-import { XVerseService, hasXVerse, isXVersePrimary } from '../xverse.service';
 import {
   getDirectorSystemPrompt, getMcKeeWriterPrompt,
   getCharacterVisualPrompt, getSceneVisualPrompt, getStoryboardVisualPrompt,
@@ -105,7 +104,6 @@ export interface WriterAgentCtx {
   characterAppearanceMap: Record<string, string>;
   qualityLedger: Array<{ shot: number; kind: string; detail: string }>;
   openai: OpenAI | null;
-  xverseService: XVerseService | null;
   emit(type: string, data: any): void;
   update(role: AgentRole, u: Partial<Agent>): void;
   callLLM(systemPrompt: string, userMessage: string, json?: boolean, useCreativeModel?: boolean, opts?: { maxTokens?: number; timeoutMs?: number }): Promise<string>;
@@ -123,72 +121,6 @@ export async function runWriter(ctx: WriterAgentCtx, plan: DirectorPlan): Promis
 
     let script: Script;
 
-    // ─────────────────────────────────────────
-    // XVERSE-Ent 路径（开源 MoE 编剧模型）
-    // 仅当 XVERSE_ENABLED=true 时作为编剧主用 LLM
-    // 否则保留 OpenAI/Claude 主链路，XVerse 仅作 fallback
-    // ─────────────────────────────────────────
-    if (ctx.xverseService && isXVersePrimary()) {
-      ctx.update(AgentRole.WRITER, { progress: 20, currentTask: 'XVERSE-Ent A5.7B 思考剧本结构' });
-      ctx.emit('agentTalk', { role: AgentRole.WRITER, text: '调用开源 XVERSE-Ent A5.7B（融合麦基方法论）...🧠' });
-
-      const directorTotalShotsX = plan.storyStructure?.totalShots || 0;
-
-      // ── 编剧增强块：Voice Fingerprints + Budget Plan(story-bible 按需注入) ──
-      // 来源: lib/screenwriter-enhance.ts — Sudowrite Story Bible + LongWriter AgentWrite
-      // 只做 userContext 末尾追加,不改原有 prompt,对 XVerse/OpenAI 都是纯文本注入
-      const enhanceBlockX = buildScreenwriterEnhanceUserBlock({
-        voices: inferVoiceFingerprintsFromCharacters(plan.characters || []),
-        budgets: plan.scenes?.length
-          ? buildDefaultSceneBudgets(plan.scenes, directorTotalShotsX || plan.scenes.length * 3)
-          : undefined,
-      });
-
-      // v2.11 #4: 如果本项目有上一轮 Editor 评分,把"低分维度强化提示"注入 Writer
-      const prevScoreX = ctx.projectId ? await getLatestQualityScore(ctx.projectId) : null;
-      const feedbackHintX = buildWriterFeedbackHint(prevScoreX);
-      if (feedbackHintX) {
-        console.log(`[Writer] reinforcing weak dimensions from last run score (overall=${prevScoreX?.overall})`);
-        ctx.emit('agentTalk', {
-          role: AgentRole.WRITER,
-          text: `读到上一版评分(综合${prevScoreX?.overall}),针对性强化弱维度 📈`,
-        });
-      }
-
-      const xUserContext = (ctx.parsedScript
-        ? `${getWriterScriptContext(ctx.parsedScript)}\n\n══ 视觉风格参考 ══\n${JSON.stringify({ genre: plan.genre, style: plan.style, characterAppearances: plan.characters.map(c => ({ name: c.name, appearance: c.appearance })) })}`
-        : `导演计划：${JSON.stringify(plan)}`) + feedbackHintX + enhanceBlockX;
-
-      const xResult = await ctx.xverseService.writeScript({
-        plan,
-        userContext: xUserContext,
-        isAdaptation: !!ctx.parsedScript,
-        characterNames: plan.characters?.map(c => c.name),
-        characterAppearances: Object.keys(ctx.characterAppearanceMap).length > 0 ? ctx.characterAppearanceMap : undefined,
-        sceneCount: ctx.parsedScript?.stats.sceneCount,
-        directorTotalShots: directorTotalShotsX,
-        language: ctx.targetLanguage(),   // v12.322:与自家 LLM 那条同一口径
-        onHeartbeat: (msg) => {
-          ctx.emit('heartbeat', { message: msg });
-          ctx.update(AgentRole.WRITER, { currentTask: msg });
-        },
-      });
-
-      if (xResult.ok && xResult.script) {
-        script = xResult.script;
-        ctx.update(AgentRole.WRITER, { status: 'completed', progress: 100, output: script });
-        const ms = xResult.elapsedMs.toFixed(0);
-        const p1 = xResult.passes.pass1Ms.toFixed(0);
-        const p2 = xResult.passes.pass2Ms.toFixed(0);
-        const fix = xResult.passes.fixMs ? `, fix=${xResult.passes.fixMs.toFixed(0)}ms` : '';
-        console.log(`[Writer] XVerse done in ${ms}ms (pass1=${p1}ms, pass2=${p2}ms${fix})`);
-        ctx.emit('agentTalk', { role: AgentRole.WRITER, text: `「${script.title || '未命名'}」由 XVERSE-Ent 完成 ✨ (${(xResult.elapsedMs / 1000).toFixed(1)}s)` });
-        return script;
-      }
-
-      console.warn(`[Writer] XVerse failed (${xResult.error}), 降级到 Claude/OpenAI 主链路`);
-      ctx.emit('agentTalk', { role: AgentRole.WRITER, text: `XVerse 调用失败 (${xResult.error?.slice(0, 60)})，降级到云端 LLM...` });
-    }
 
     if (ctx.openai) {
       ctx.update(AgentRole.WRITER, { progress: 30 });
@@ -395,30 +327,6 @@ export async function runWriter(ctx: WriterAgentCtx, plan: DirectorPlan): Promis
 
       if (!raw) {
         console.error('[Writer] Pass 2 返回空结果！');
-        // 优先尝试 XVerse 作为开源 fallback
-        if (ctx.xverseService) {
-          ctx.emit('agentTalk', { role: AgentRole.WRITER, text: 'Claude 返回空结果，切换 XVERSE-Ent 兜底...🔄' });
-          const xUserContext = ctx.parsedScript
-            ? `${getWriterScriptContext(ctx.parsedScript)}\n\n══ 视觉风格参考 ══\n${JSON.stringify({ genre: plan.genre, style: plan.style, characterAppearances: plan.characters.map(c => ({ name: c.name, appearance: c.appearance })) })}`
-            : `导演计划：${JSON.stringify(plan)}`;
-          const xRes = await ctx.xverseService.writeScript({
-            plan,
-            userContext: xUserContext,
-            isAdaptation: !!ctx.parsedScript,
-            characterNames: plan.characters?.map(c => c.name),
-            characterAppearances: Object.keys(ctx.characterAppearanceMap).length > 0 ? ctx.characterAppearanceMap : undefined,
-            sceneCount: ctx.parsedScript?.stats.sceneCount,
-            directorTotalShots,
-            language: ctx.targetLanguage(),   // v12.322
-            onHeartbeat: (msg) => ctx.emit('heartbeat', { message: msg }),
-          });
-          if (xRes.ok && xRes.script) {
-            script = xRes.script;
-            ctx.update(AgentRole.WRITER, { status: 'completed', progress: 100, output: script });
-            ctx.emit('agentTalk', { role: AgentRole.WRITER, text: `「${script.title || '未命名'}」由 XVERSE-Ent 兜底完成 ✨` });
-            return script;
-          }
-        }
         ctx.emit('agentTalk', { role: AgentRole.WRITER, text: 'LLM 返回空结果，使用智能降级方案...' });
         script = ctx.fallbackScript(plan);
         ctx.update(AgentRole.WRITER, { status: 'completed', progress: 100, output: script });
@@ -557,23 +465,6 @@ ${raw.slice(0, 2000)}
         console.error('[Writer] JSON parse failed, using fallback');
         script = ctx.fallbackScript(plan);
       }
-    } else if (ctx.xverseService) {
-      // OpenAI 缺席 → XVerse 兜底
-      ctx.emit('agentTalk', { role: AgentRole.WRITER, text: '云端 LLM 未配置，启用开源 XVERSE-Ent...🚀' });
-      const xUserContext = ctx.parsedScript
-        ? `${getWriterScriptContext(ctx.parsedScript)}\n\n══ 视觉风格参考 ══\n${JSON.stringify({ genre: plan.genre, style: plan.style })}`
-        : `导演计划：${JSON.stringify(plan)}`;
-      const xRes = await ctx.xverseService.writeScript({
-        plan,
-        userContext: xUserContext,
-        isAdaptation: !!ctx.parsedScript,
-        characterNames: plan.characters?.map(c => c.name),
-        directorTotalShots: plan.storyStructure?.totalShots || 0,
-        sceneCount: ctx.parsedScript?.stats.sceneCount,
-        language: ctx.targetLanguage(),   // v12.322
-        onHeartbeat: (msg) => ctx.emit('heartbeat', { message: msg }),
-      });
-      script = (xRes.ok && xRes.script) ? xRes.script : ctx.fallbackScript(plan);
     } else {
       await sleep(2000);
       script = ctx.fallbackScript(plan);

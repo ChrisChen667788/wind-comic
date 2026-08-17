@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.331**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.332**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.331**:**vitest 4261 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.332**:**vitest 4240 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,21 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.331.0** | 2026-08-12 | `待填` | **📋 对外门面复核:README 漏了两项已上线能力;ModelScope 代码镜像落后 126 个版本**。
+| **v12.332.0** | 2026-08-12 | `待填` | **🗑 移除 XVERSE-Ent 自托管编剧通道(方案 A:全删)**。
+
+**为什么删**:XVerse 是开源 MoE 模型,需自建 vLLM / sglang / HF TGI 服务 —— 这些都要 CUDA,**macOS 上没有可用路径**;owner 机器上 `XVERSE_BASE_URL` / `XVERSE_API_KEY` **从未配置**,`hasXVerse()` 恒为 false,这条路**从来没有真正跑过**。v12.322 还发现 `XVerseService.runDirector` 全仓无调用方。权衡后按 owner 决定全删,换取维护面收敛。
+
+**删除面**:10 个专属文件(1814 行:服务 / 4 个脚本 / benchmark 文档 / skill / 3 个测试)+ 8 个源文件里的 60 处引用 + 6 个测试的桩数据 + 文档。
+
+**三条 fallback 分支的真实形态**(动手前先量清楚,结果比"23 处引用"听起来小得多):它们是三个**独立、外挂式**的 `if` 块,且**每一处的后手都已写好** —— ① 主用路径失败时本就设计成**穿透**到 `if (ctx.openai)`;② 内层 `if` 后面紧跟着完整的 `fallbackScript` 兜底;③ 是 `else if` 夹在中间,删掉后 `else` 原样接手。**在未配置 XVerse 的机器上,这三处此刻走的就是「删掉之后」那条路** —— 删除不改变既有行为。真正的工作量在配置块、巡检面板与测试桩。
+
+**保留的**:`VERSIONS.md` 与两份竞品分析里的 XVerse 字样 —— 那是**历史陈述**,改掉等于让文档说谎。
+
+**过程中截住一件差点做错的事**:删 `v12-322-xverse-language.test.ts` 时,那文件里有一半锁的是**仍然存在的行为**(自家 LLM 导演路径的语种指令)。**删掉一个供应商,不该把与它无关的守护一起丢掉** —— 否则那条修复会在某次重构里悄悄退回,而没有任何测试会红。幸存部分已补成本版新测试。
+
+**自检**(不接受「没报错」当结论):三条降级路径结构完整且括号双配平;6 个被删符号全仓**零悬空引用**;受影响的 7 个测试文件 63 条全过;`API_CONFIG` **运行时真取一次**确认 8 个供应商键、无坏 getter(删配置块最容易留下这个);首页 / dashboard / 项目页三个**真实页面** HTTP 200 且零模块错误(额度面板删过一行标签,必须真打开验)。
+
+| **v12.331.0** | 2026-08-12 | `430ed16` | **📋 对外门面复核:README 漏了两项已上线能力;ModelScope 代码镜像落后 126 个版本**。
 
 对 GitHub 与 ModelScope 全部文件做了一次逐项复核(未提交代码 / 未响应需求 / 未修 bug / 文档漂移 / 未合 PR / 未回 issue)。**大部分是干净的**:工作区无未提交改动、与远端同步、0 个开放 PR、文档数字零漂移、版本哈希 420 行零错误、文档内零死链、CI 连续六版全绿。代码里 3 处 `TODO/XXX` 命中经查是**两条诚实标注的未实现邮件供应商**与**一个 `BETAXXXXXX` 占位符**,不是缺陷。
 

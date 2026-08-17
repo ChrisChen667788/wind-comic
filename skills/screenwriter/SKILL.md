@@ -139,7 +139,7 @@ const enhanceBlock = buildScreenwriterEnhanceUserBlock({
 userContext = `${userContext}\n${enhanceBlock}`;
 ```
 
-This works with every existing LLM path (OpenAI, Claude, XVerse, local Ollama) because it's pure text injection.
+This works with every existing LLM path (OpenAI, Claude, local Ollama) because it's pure text injection.
 
 ### Full critic-rewrite path (premium tier)
 
@@ -176,7 +176,6 @@ const { finalDraft, rounds, finalScore } = await runCriticRewriteLoop({
 
 This skill composes with:
 - `mckee-skill` (`lib/mckee-skill.ts`) — the base McKee prompt library
-- `screenwriter-xverse` (`skills/base/screenwriter-xverse.md`) — XVerse open-source LLM routing
 - `seedance-enhance` (`lib/seedance-enhance.ts`) — downstream visual-consistency primitives
 - `content-generation` (`skills/base/content-generation.md`) — generic generation primitives
 

@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.331</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.332</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-4261%2F4261-2ea44f"  alt="4261 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-4240%2F4240-2ea44f"  alt="4240 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -93,7 +93,7 @@ Every tool can generate a clip. These three let you **direct** one — and they 
 
 **Frame-by-frame inspection** *(v12.328–330)* — step through a finished shot frame by frame, box the broken stretch, and hand that exact range to segment retake. Frames are extracted with **accurate seek** (`-ss` after `-i`, not the fast keyframe-only seek), and the timestamp under each frame uses the **same frame-snapping** as the retake planner — so the frame you picked is the frame it cuts at. When the strip is thinned to stay responsive, it says so; frames that fail to decode are reported, not silently skipped.
 
-Also in this range: fonts are **self-hosted** so builds no longer depend on a network fetch; the XVerse writer and both director paths finally receive the **target language** (non-Chinese projects used to get Chinese scripts and rely on a costly after-the-fact re-translation); the in-process rate limiter **bounds and evicts** its bucket table (the key contained an attacker-supplied email — an unbounded memory vector), and eviction never releases an active block; collaborative comments arriving over Yjs are **validated and field-whitelisted**, so a peer can no longer overwrite another author's name or text.
+Also in this range: fonts are **self-hosted** so builds no longer depend on a network fetch; the director paths finally receive the **target language** (non-Chinese projects used to get Chinese scripts and rely on a costly after-the-fact re-translation); the in-process rate limiter **bounds and evicts** its bucket table (the key contained an attacker-supplied email — an unbounded memory vector), and eviction never releases an active block; collaborative comments arriving over Yjs are **validated and field-whitelisted**, so a peer can no longer overwrite another author's name or text.
 
 ---
 
@@ -250,7 +250,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **4261 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **4240 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -459,7 +459,7 @@ Every model call is provider-pluggable (priority chain + automatic fallback). Cr
 
 | Capability | Default model (env override) | Supplement / fallback |
 |---|---|---|
-| **Creative LLM** (writer / director) | `deepseek-v4-pro` (`OPENAI_CREATIVE_MODEL`) + `deepseek-v4-flash` fast tier for drafts/polish | `MiniMax-M2.7` (`LLM_FALLBACK_MODEL`) · optional self-hosted **XVERSE-Ent** (A5.7B / A4.2B) |
+| **Creative LLM** (writer / director) | `deepseek-v4-pro` (`OPENAI_CREATIVE_MODEL`) + `deepseek-v4-flash` fast tier for drafts/polish | `MiniMax-M2.7` (`LLM_FALLBACK_MODEL`) |
 | **General LLM** (planning / validation / Vision-Audit) | `claude-sonnet-4-6` (`OPENAI_MODEL`) | `MiniMax-M2.7` |
 | **Video** | `veo3.1-pro` (`VEO_MODEL`) | `veo3.1` · Kling → **MiniMax Hailuo** (Sora-2 retired — API EOL 2026-09-24) |
 | **Image** | `flux.1-kontext-pro` (`IMAGE_MODEL`) | Midjourney (`mj_imagine`) · fal FLUX Kontext · local ComfyUI → **MiniMax image** |
@@ -468,7 +468,6 @@ Every model call is provider-pluggable (priority chain + automatic fallback). Cr
 
 - **Why two LLM tiers**: the creative tier (DeepSeek `-pro`, a reasoning model) carries writer/director quality work; the general tier (Claude `sonnet-4-6`) handles high-frequency planning / validation / Vision-Audit; the `-flash` tier keeps draft-compare & basic polish at sub-second latency.
 - **MiniMax safety net**: any primary LLM / video / image failure auto-routes to MiniMax (OpenAI-compatible) — surfaced live on the **API Health Board** (正常 / 额度用尽 / 配置缺失 / 不可达).
-- **XVERSE-Ent** is an **open-source MoE screenwriting model** you can self-host (vLLM / SGLang / ModelScope) and slot in as the writer/director LLM — set `XVERSE_ENABLED=true`.
 - **Swap anything** in `.env.local` (`OPENAI_*` / `OPENAI_CREATIVE_*` / `VEO_*` / `IMAGE_MODEL` / `VE_TTS_MODEL` / `MINIMAX_*`) — zero code change. See [`docs/llm-providers.md`](docs/llm-providers.md).
 
 ---
@@ -516,7 +515,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 4261/4261 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 4240/4240 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 
@@ -557,7 +556,6 @@ Wind Comic stands on a lot of excellent open-source work:
 - **App & UI** — [Next.js](https://nextjs.org) (App Router + Turbopack) · [React 19](https://react.dev) · [Tailwind CSS v4](https://tailwindcss.com) · [Radix UI](https://www.radix-ui.com) · [Phosphor Icons](https://phosphoricons.com) + [Lucide](https://lucide.dev) · [Framer Motion](https://www.framer.com/motion/) · [React Flow](https://reactflow.dev) for the agent-workflow DAG
 - **Realtime & data** — [Yjs](https://github.com/yjs/yjs) + [y-websocket](https://github.com/yjs/y-websocket) for **CRDT** real-time collaboration · [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) + [node-postgres](https://node-postgres.com) for the dual-driver persistence layer
 - **Media & export** — [FFmpeg](https://ffmpeg.org) via [fluent-ffmpeg](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg) (CJK subtitle burn / audio mux) · pro NLE interchange through CMX3600 **EDL** · FCP7 **XML** · **AAF** (a from-scratch MS-CFB Compound File Binary writer, no third-party lib)
-- **Open models & engines** — [XVERSE-Ent](https://github.com/xverse-ai/XVERSE-Ent), an open-source **MoE screenwriting model** (self-hostable via vLLM / SGLang / ModelScope) · [FLUX.1 Kontext](https://blackforestlabs.ai) for image consistency · a provider-pluggable LLM/video chain (DeepSeek · Claude · MiniMax · Veo · Kling · Midjourney) over OpenAI-compatible endpoints
 - **Methods & algorithms** — Robert McKee story structure + Save-the-Cat 3-act beat analysis · **CRDT** (conflict-free replicated data types) for collaborative editing · `cref` / `sref` + 8-dimension character **DNA** for cross-shot identity consistency
 - **Tooling** — [TypeScript](https://www.typescriptlang.org) (strict) · [Vitest](https://vitest.dev) · [Stripe](https://stripe.com) — and every creator whose real-world feedback shaped the pipeline.
 

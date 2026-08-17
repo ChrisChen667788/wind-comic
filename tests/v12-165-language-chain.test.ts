@@ -22,7 +22,7 @@ describe('v12.164 · 遗留双修', () => {
     const calls: Array<{ usr: string; opts: any }> = [];
     const ctx: any = {
       parsedScript: null, originalIdea: 't', projectId: '', template: null,
-      characterAppearanceMap: {}, qualityLedger: [], openai: {}, xverseService: null,
+      characterAppearanceMap: {}, qualityLedger: [], openai: {},
       emit: () => {}, update: () => {},
       callLLM: (_sys: string, usr: string, _json?: boolean, _cr?: boolean, opts?: any) => { calls.push({ usr, opts }); return Promise.resolve(''); },
       fallbackScript: () => ({ title: 'fb', shots: [] }),

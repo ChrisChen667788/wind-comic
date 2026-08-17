@@ -91,7 +91,7 @@ describe('v12.284 · 行为:反馈真的进了 LLM 的 user 消息', () => {
     const calls: string[] = [];
     const ctx: any = {
       parsedScript: null, originalIdea: '复仇', projectId: 'p-1', template: null,
-      characterAppearanceMap: {}, qualityLedger: [], openai: {}, xverseService: null,
+      characterAppearanceMap: {}, qualityLedger: [], openai: {},
       emit: () => {}, update: () => {},
       callLLM: (_s: string, usr: string) => { calls.push(usr); return Promise.resolve(''); },
       fallbackScript: () => ({ title: 'fb', shots: [] }),

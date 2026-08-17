@@ -88,37 +88,4 @@ export const API_CONFIG = {
     pricing: 0  // 本地运行，无额外费用
   },
 
-  // ── XVERSE-Ent 开源 MoE 编剧模型 ──
-  // GitHub:   https://github.com/xverse-ai/XVERSE-Ent
-  // HF:       https://huggingface.co/xverse/XVERSE-Ent-A4.2B
-  //           https://huggingface.co/xverse/XVERSE-Ent-A5.7B
-  // ModelScope: https://modelscope.cn/models/xverse/XVERSE-Ent-A4.2B
-  //             https://modelscope.cn/models/xverse/XVERSE-Ent-A5.7B
-  //
-  // 部署方式（任选）:
-  //   1. vLLM:    `python -m vllm.entrypoints.openai.api_server --model xverse/XVERSE-Ent-A5.7B --trust-remote-code`
-  //   2. sglang:  `python -m sglang.launch_server --model-path xverse/XVERSE-Ent-A4.2B --port 30000`
-  //   3. ModelScope inference: 通过其托管推理 endpoint
-  //
-  // 接口要求:OpenAI 兼容 `/v1/chat/completions`，本项目通过 scripts/xverse-call.mjs 子进程调用
-  xverse: {
-    apiKey: process.env.XVERSE_API_KEY || '',
-    baseURL: process.env.XVERSE_BASE_URL || 'http://localhost:8000/v1',
-    /** 默认模型——A5.7B 适合编剧/导演等强创意环节，质量更高 */
-    get model() { return process.env.XVERSE_MODEL || 'xverse/XVERSE-Ent-A5.7B'; },
-    /** 快速模型——A4.2B 适合规划、校验、补丁等高频小任务，速度更快 */
-    get fastModel() { return process.env.XVERSE_FAST_MODEL || 'xverse/XVERSE-Ent-A4.2B'; },
-    /** 是否启用 XVERSE 作为编剧/导演主用 LLM（true=强制启用；false=仅在 OpenAI 缺席时降级使用） */
-    enabled: process.env.XVERSE_ENABLED === 'true',
-    /** 是否在 OpenAI/Claude 主链路失败时作为 fallback 使用 */
-    fallback: process.env.XVERSE_FALLBACK !== 'false',
-    /** 默认采样参数 */
-    temperature: Number(process.env.XVERSE_TEMPERATURE || 0.85),
-    topP: Number(process.env.XVERSE_TOP_P || 0.9),
-    /** 单次最大输出 tokens（A5.7B 在 32K 上下文窗口内推荐 4096-8192） */
-    maxTokens: Number(process.env.XVERSE_MAX_TOKENS || 6144),
-    /** 子进程超时（ms） */
-    timeout: Number(process.env.XVERSE_TIMEOUT || 180000),
-    pricing: 0,  // 本地/私有部署，无 token 计费
-  },
 };

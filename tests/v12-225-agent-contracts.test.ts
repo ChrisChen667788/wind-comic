@@ -20,7 +20,6 @@ vi.mock('@/lib/config', () => ({
     vidu: { apiKey: '', baseURL: '' },
     fal: { apiKey: '' },
     comfyui: { baseURL: '' },
-    xverse: { enabled: false, fallback: false, baseURL: '', apiKey: '', model: '', fastModel: '', temperature: 0.7, topP: 0.9, maxTokens: 4096, timeout: 60000 },
   },
 }));
 

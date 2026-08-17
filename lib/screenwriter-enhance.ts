@@ -455,7 +455,7 @@ ${JSON.stringify(previousDraft, null, 2).slice(0, 6000)}
  * 跑最多 maxRounds 轮"评分 → 修改"循环,直到达到 targetScore。
  *
  * 注意: 本函数不直接调用 LLM,由调用方传入两个闭包。这样上层可以复用
- * 任何 LLM(Claude / OpenAI / XVerse / 本地 Ollama) 而不锁死。
+ * 任何 LLM(Claude / OpenAI / 本地 Ollama) 而不锁死。
  */
 export async function runCriticRewriteLoop<TDraft>(params: {
   initialDraft: TDraft;

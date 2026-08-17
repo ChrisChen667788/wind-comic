@@ -37,7 +37,6 @@ export type ApiProvider =
   | 'vidu'
   | 'fal'
   | 'comfyui'
-  | 'xverse'
   | 'qingyuntop';
 
 export type AlertType = 'exhausted' | 'saturated' | 'rate_limited' | 'auth_failed' | 'model_unavailable';
@@ -127,10 +126,6 @@ const QUOTA_MATCHERS: Record<ApiProvider, QuotaMatcher[]> = {
   comfyui: [
     { type: 'saturated', match: (sc, msg) =>
         /queue.*full|busy|saturated/i.test(msg || '') },
-  ],
-  xverse: [
-    { type: 'rate_limited', match: (sc) => sc === 429 },
-    { type: 'exhausted', match: (sc, msg) => /quota|余额/i.test(msg || '') },
   ],
   qingyuntop: [
     { type: 'saturated', match: (sc, msg) =>

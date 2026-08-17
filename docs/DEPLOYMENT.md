@@ -284,7 +284,6 @@ data/
 | 脚本 | 调用方 | 触发方式 | 用途 |
 |------|--------|----------|------|
 | `scripts/llm-call.mjs` | `services/hybrid-orchestrator.ts:791-808` | `execFile('node', [scriptPath], ...)` stdin JSON → stdout JSON | 绕过 Turbopack 对长 fetch 的阻塞，独立 Node 进程调 LLM `/chat/completions`；支持主 LLM → MiniMax 兜底链 |
-| `scripts/xverse-call.mjs` | `services/xverse.service.ts:114-138` | `execFile('node', [scriptPath], ...)` stdin JSON → stdout | XVerse API 调用隔离（同款子进程策略） |
 | ffmpeg 二进制（不在 scripts/） | `services/video-composer.ts`、`lib/audio-silence.ts`、`lib/beat-detect.ts`、`lib/last-frame-extractor.ts`、`lib/editor-score.ts`、`lib/lipsync-providers/local-2d.ts`、`app/api/mock-assets/` | fluent-ffmpeg / execFile | 见第 7 节 |
 
 **非生产脚本（仅 CI/工具）：** `scripts/capture-*.mjs`、`scripts/gen-*.ts`、`scripts/pg-*.ts`、`scripts/video-probe.mjs`、`scripts/ws-server.mjs`（e2e 测试用 WebSocket 服务）、`scripts/release.sh`。
@@ -337,16 +336,6 @@ data/
 | `LLM_FALLBACK_BASE_URL` | 可选 | `https://api.minimaxi.com/v1` | 全局 LLM 兜底端点（主 LLM 异常/欠费时路由到此） |
 | `LLM_FALLBACK_API_KEY` | 可选 | `MINIMAX_API_KEY` | 全局 LLM 兜底密钥 |
 | `LLM_FALLBACK_MODEL` | 可选 | `MiniMax-M2.7` | 全局 LLM 兜底模型 ID；可被 `model_overrides` 表覆盖 |
-| `XVERSE_API_KEY` | 可选 | — | XVERSE-Ent 开源 MoE 编剧模型密钥（自托管/私有部署） |
-| `XVERSE_BASE_URL` | 可选 | `http://localhost:8000/v1` | XVERSE-Ent 服务地址（vLLM/sglang 部署端点） |
-| `XVERSE_MODEL` | 可选 | `xverse/XVERSE-Ent-A5.7B` | XVERSE 主模型 ID（编剧/导演强创意环节） |
-| `XVERSE_FAST_MODEL` | 可选 | `xverse/XVERSE-Ent-A4.2B` | XVERSE 快速模型 ID（规划/校验等高频小任务） |
-| `XVERSE_ENABLED` | 可选 | `false` | `true` 强制启用 XVERSE 作为编剧/导演主用 LLM |
-| `XVERSE_FALLBACK` | 可选 | `true` | `false` 禁止在主链路失败时降级到 XVERSE |
-| `XVERSE_TEMPERATURE` | 可选 | `0.85` | XVERSE 采样温度 |
-| `XVERSE_TOP_P` | 可选 | `0.9` | XVERSE Top-P 采样 |
-| `XVERSE_MAX_TOKENS` | 可选 | `6144` | XVERSE 单次最大输出 token 数 |
-| `XVERSE_TIMEOUT` | 可选 | `180000` | XVERSE 子进程超时（ms） |
 
 **回退链说明（lib/config.ts）**
 ```
@@ -355,7 +344,7 @@ creativeApiKey  = CREATIVE_API_KEY  || DEEPSEEK_API_KEY  || OPENAI_API_KEY
 fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 ```
 
-**model_overrides 表优先级**：`lib/model-overrides.ts` 在启动时（`instrumentation.ts` 调 `loadModelOverridesIntoEnv()`）将数据库中的覆盖记录回写进 `process.env`。DB 覆盖值优先于 `.env` 默认；`config.ts` 中所有模型字段均为 getter，每次读取时实时从 `process.env` 取值，修改后无需重启即生效。可覆盖的键名包括：`OPENAI_MODEL`、`OPENAI_CREATIVE_MODEL`、`OPENAI_CREATIVE_FAST_MODEL`、`LLM_FALLBACK_MODEL`、`VEO_MODEL`、`XVERSE_MODEL`、`XVERSE_FAST_MODEL` 等。
+**model_overrides 表优先级**：`lib/model-overrides.ts` 在启动时（`instrumentation.ts` 调 `loadModelOverridesIntoEnv()`）将数据库中的覆盖记录回写进 `process.env`。DB 覆盖值优先于 `.env` 默认；`config.ts` 中所有模型字段均为 getter，每次读取时实时从 `process.env` 取值，修改后无需重启即生效。可覆盖的键名包括：`OPENAI_MODEL`、`OPENAI_CREATIVE_MODEL`、`OPENAI_CREATIVE_FAST_MODEL`、`LLM_FALLBACK_MODEL`、`VEO_MODEL`、`OPENAI_CREATIVE_MODEL`、`LLM_FALLBACK_MODEL` 等。
 
 ## 模块二：图像生成
 

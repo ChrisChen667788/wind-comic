@@ -1,7 +1,7 @@
 /**
  * lib/model-scan (v10.6.3 模型雷达) — 一键扫描各 API 支持的最新模型 + 同家族自动升级建议。
  *
- * 思路:本项目的引擎栈大半走 OpenAI 兼容端点(DeepSeek / MiniMax / 主网关 / XVERSE-vLLM)
+ * 思路:本项目的引擎栈大半走 OpenAI 兼容端点(DeepSeek / MiniMax / 主网关)
  * 或聚合网关(qingyuntop 管 Veo/Sora/Vidu、vectorengine 管 Kling/MJ/TTS),它们都有
  * `GET /v1/models` —— 扫描 = 拉清单,与当前配置(env 覆盖 + 代码默认)做同家族比对。
  *
@@ -70,7 +70,7 @@ export function pickBest(current: string, candidates: string[], opts?: { keepTie
 
 // ─── 扫描目标(模块 × 家族 × 清单来源) ─────────────────────────────────────
 
-export type ScanSource = 'primary' | 'creative' | 'fallback' | 'xverse' | 'qingyuntop' | 'vectorengine';
+export type ScanSource = 'primary' | 'creative' | 'fallback' | 'qingyuntop' | 'vectorengine';
 
 export interface ModuleTarget {
   module: string;
@@ -93,7 +93,6 @@ export const MODULE_TARGETS: ModuleTarget[] = [
   { module: 'creative-llm', label: '创意主 LLM(DeepSeek)', envKey: 'OPENAI_CREATIVE_MODEL', defaultModel: 'deepseek-v4-pro', family: /^deepseek-/i, source: 'creative', verifiable: true },
   { module: 'creative-fast-llm', label: '创意快档 LLM(DeepSeek flash)', envKey: 'OPENAI_CREATIVE_FAST_MODEL', defaultModel: 'deepseek-v4-flash', family: /^deepseek-/i, source: 'creative', keepTier: true, verifiable: true },
   { module: 'llm-fallback', label: '通用回退(MiniMax M 系)', envKey: 'LLM_FALLBACK_MODEL', defaultModel: 'MiniMax-M2.7', family: /^minimax-m\d/i, source: 'fallback', verifiable: true }, // \d 防 Music/MCP 系误入
-  { module: 'xverse', label: '自托管编剧(XVERSE-Ent)', envKey: 'XVERSE_MODEL', defaultModel: 'xverse/XVERSE-Ent-A5.7B', family: /^xverse\//i, source: 'xverse', verifiable: true },
   { module: 'video-veo', label: '视频(Veo,qingyuntop 网关)', envKey: 'VEO_MODEL', defaultModel: 'veo3.1-pro', family: /^veo/i, source: 'qingyuntop' },
   { module: 'tts-minimax', label: '配音兜底(MiniMax speech)', envKey: 'MINIMAX_TTS_MODEL', defaultModel: 'speech-02-hd', family: /^speech-/i, source: 'fallback' },
 ];
@@ -124,7 +123,6 @@ export function resolveSources(): Record<ScanSource, SourceSpec> {
       key: process.env.DEEPSEEK_API_KEY || process.env.CREATIVE_API_KEY || process.env.OPENAI_API_KEY,
     },
     fallback: { baseUrl: process.env.LLM_FALLBACK_BASE_URL || 'https://api.minimaxi.com/v1', key: process.env.LLM_FALLBACK_API_KEY || process.env.MINIMAX_API_KEY },
-    xverse: { baseUrl: process.env.XVERSE_BASE_URL || 'http://localhost:8000/v1', key: process.env.XVERSE_API_KEY },
     qingyuntop: { baseUrl: (process.env.QINGYUNTOP_BASE_URL || 'https://api.qingyuntop.top') + '/v1', key: process.env.QINGYUNTOP_API_KEY || process.env.VEO_API_KEY },
     vectorengine: { baseUrl: veBase + '/v1', key: veKey },
   };

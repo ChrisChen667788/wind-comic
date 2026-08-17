@@ -34,7 +34,6 @@ const PROVIDER_LABEL: Record<string, string> = {
   vidu: 'Vidu (长视频)',
   fal: 'Fal/Flux (图片备选)',
   comfyui: 'ComfyUI (图片备选)',
-  xverse: 'XVerse (编剧备选)',
   qingyuntop: '青云顶 (聚合网关)',
 };
 

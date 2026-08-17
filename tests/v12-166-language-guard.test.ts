@@ -47,7 +47,7 @@ describe('v12.166 · textMatchesLanguage', () => {
       const calls: Array<{ sys: string; usr: string }> = [];
       const ctx: any = {
         parsedScript: null, originalIdea: 't', projectId: '', template: null,
-        characterAppearanceMap: {}, qualityLedger: [], openai: {}, xverseService: null,
+        characterAppearanceMap: {}, qualityLedger: [], openai: {},
         emit: () => {}, update: () => {},
         callLLM: (sys: string, usr: string) => { calls.push({ sys, usr }); return Promise.resolve(''); },
         fallbackScript: () => ({ title: 'fb', shots: [] }),

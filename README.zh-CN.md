@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.331</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.332</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -71,7 +71,7 @@
 
 **逐帧检视** *(v12.328–330)* —— 对成片逐帧翻看,框出坏的那一段,把这个区间直接交给片段重拍。抽帧用的是**精确 seek**(`-ss` 放在 `-i` 之后,而不是只到关键帧的快速 seek),每帧标注的时间戳与重拍规划**共用同一套帧吸附** —— 你点的那一帧,就是它会切的那一帧。帧数过多而抽稀时会明说;解码失败的帧如实报出,不静默跳过。
 
-同期还有:字体**自托管**,构建不再依赖外网;XVerse 编剧与两条导演路径终于收到**目标语种**(此前非中文项目会拿到中文剧本,只能靠事后整篇回译补救);进程内限流器给桶表**加了上限与回收**(key 里含用户可填的邮箱 —— 那是可被直接触发的内存耗尽面),且淘汰**绝不释放正在生效的封禁**;经 Yjs 同步的协作评论**逐字段校验 + 白名单**,协作者不能再覆盖他人评论的署名与正文。
+同期还有:字体**自托管**,构建不再依赖外网;两条导演路径终于收到**目标语种**(此前非中文项目会拿到中文剧本,只能靠事后整篇回译补救);进程内限流器给桶表**加了上限与回收**(key 里含用户可填的邮箱 —— 那是可被直接触发的内存耗尽面),且淘汰**绝不释放正在生效的封禁**;经 Yjs 同步的协作评论**逐字段校验 + 白名单**,协作者不能再覆盖他人评论的署名与正文。
 
 ---
 
@@ -224,7 +224,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **4261 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **4240 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -304,7 +304,7 @@ KPI 卡: 平均冲突分 / 反转数 / 通过状态. 每镜柱状图 + 反转 ar
 
 | 能力 | 主(最强) | 补全 | 兜底(不变) |
 |---|---|---|---|
-| **LLM**(编剧 / 导演 / 质检) | `claude-sonnet-4-6` | — | MiniMax / XVERSE |
+| **LLM**(编剧 / 导演 / 质检) | `claude-sonnet-4-6` | — | MiniMax |
 | **视频** | `veo3.1-pro`(Veo 3.1 Pro) | Kling | **MiniMax Hailuo** |
 | **图像** | `flux-2-pro`(`IMAGE_MODEL`) | Midjourney(`mj_imagine`) | **MiniMax image-01** |
 | **配音 TTS** | `gpt-4o-mini-tts` | — | MiniMax T2A |
@@ -359,7 +359,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 4261/4261 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 4240/4240 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

@@ -19,7 +19,6 @@ import { FalFluxService, hasFalFlux } from './fal-flux.service';
 import { ComfyUIService, hasComfyUI, hasComfyUIControlNet } from './comfyui.service';
 import { runWriter as runWriterAgent, type WriterAgentCtx } from './agents/writer-agent';
 import { runEditor as runEditorAgent, type EditorAgentCtx } from './agents/editor-agent';
-import { XVerseService, hasXVerse, isXVersePrimary } from './xverse.service';
 import {
   getDirectorSystemPrompt, getMcKeeWriterPrompt,
   getCharacterVisualPrompt, getSceneVisualPrompt, getStoryboardVisualPrompt,
@@ -313,7 +312,6 @@ export class HybridOrchestrator {
   private happyhorseService: HappyHorseService | null; // v12.272
   private falFluxService: FalFluxService | null;
   private comfyuiService: ComfyUIService | null;
-  private xverseService: XVerseService | null;
   public onProgress?: ProgressCallback;
 
   // Pipeline intervention gate support
@@ -432,10 +430,6 @@ export class HybridOrchestrator {
     console.log(`[Hybrid] Story template set: ${template.name} (${template.id})`);
   }
 
-  /** 测试用：注入 XVerse 服务（生产请勿使用） */
-  __setXVerseService(service: XVerseService | null): void {
-    this.xverseService = service;
-  }
 
   /** 读取某个 agent 的当前状态（测试 / 调试用） */
   getAgentState(role: AgentRole): Agent | undefined {
@@ -717,7 +711,6 @@ export class HybridOrchestrator {
     this.happyhorseService = getHappyHorseService(); // v12.272:无 key 返回 null,链序自动跳过
     this.falFluxService = hasFalFlux() ? new FalFluxService() : null;
     this.comfyuiService = hasComfyUI() ? new ComfyUIService() : null;
-    this.xverseService = hasXVerse() ? new XVerseService() : null;
     this.initializeAgents();
     const minimaxCaps: string[] = [];
     if (this.minimaxService?.isImageAvailable()) minimaxCaps.push('IMG');
@@ -726,7 +719,7 @@ export class HybridOrchestrator {
     const minimaxLabel = this.minimaxService
       ? (minimaxCaps.length > 0 ? minimaxCaps.join('+') : 'TTS-ONLY')
       : 'OFF';
-    console.log(`[Hybrid] LLM: ${this.openai ? 'Claude' : 'OFF'}, MJ: ${this.mjService ? 'ON' : 'OFF'}, Minimax: ${minimaxLabel}, Veo: ${this.veoService ? 'ON' : 'OFF'}, Kling: ${this.klingService ? 'ON' : 'OFF'}, HappyHorse: ${this.happyhorseService ? 'ON' : 'OFF'}, FalFlux: ${this.falFluxService ? 'ON' : 'OFF'}, ComfyUI: ${this.comfyuiService ? 'ON' : 'OFF'}, XVerse: ${this.xverseService ? (isXVersePrimary() ? 'PRIMARY' : 'FALLBACK') : 'OFF'}`);
+    console.log(`[Hybrid] LLM: ${this.openai ? 'Claude' : 'OFF'}, MJ: ${this.mjService ? 'ON' : 'OFF'}, Minimax: ${minimaxLabel}, Veo: ${this.veoService ? 'ON' : 'OFF'}, Kling: ${this.klingService ? 'ON' : 'OFF'}, HappyHorse: ${this.happyhorseService ? 'ON' : 'OFF'}, FalFlux: ${this.falFluxService ? 'ON' : 'OFF'}, ComfyUI: ${this.comfyuiService ? 'ON' : 'OFF'}`);
 
     // v3.2 P1: 注册内置 image providers + 自动加载 IMAGE_PROVIDERS_DIR.
     // 异步 fire-and-forget — 不阻塞 orchestrator 创建.
