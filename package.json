@@ -104,7 +104,7 @@
     "ws": "^8.21.3",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.32",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
