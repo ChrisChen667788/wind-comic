@@ -23,6 +23,8 @@ import { useYjs } from '@/hooks/use-yjs';
 import { subscribeSSE } from '@/lib/sse-client';
 import { useLocale } from '@/hooks/use-locale';
 
+import { mergeYjsComments } from '@/lib/comment-merge';
+
 interface FetchedComment extends CommentRow {}
 interface Thread { root: FetchedComment; replies: FetchedComment[] }
 
@@ -272,22 +274,18 @@ export function CommentThread({
     if (!yjs) return;
     const arr = yjs.doc.getArray<{ [k: string]: unknown }>('comments');
     const onChange = () => {
-      const all = arr.toArray() as unknown as FetchedComment[];
-      const filtered = all.filter(
-        (c) => c && c.targetType === targetType && c.targetId === targetId,
-      );
-      if (filtered.length === 0) return;
-      setComments((prev) => {
-        const byId = new Map(prev.map((c) => [c.id, c]));
-        for (const yc of filtered) {
-          // 合并: Yjs 版优先 (它带 deletedAt 更新), 但保 prev 字段兜底
-          byId.set(yc.id, { ...byId.get(yc.id), ...yc });
-        }
-        // 按 createdAt asc
-        return Array.from(byId.values()).sort((a, b) =>
-          a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0,
-        );
-      });
+      // v12.327:这里原本是 `arr.toArray() as unknown as FetchedComment[]`,然后
+      // `{ ...prev, ...yc }` 让 Yjs 版**整体覆盖**服务端版。而 Y.Array 是 CRDT,
+      // 项目内任何协作者都能往里写任意对象 —— 于是推一个带已存在 id 的对象,就能
+      // 在所有人界面上改掉别人评论的作者名和正文。那句断言把「这是不可信数据」
+      // 藏掉了。改为:新评论须整体过校验;已存在的 id 只吸收 deletedAt/updatedAt。
+      const raw = arr.toArray() as unknown[];
+      if (raw.length === 0) return;
+      setComments((prev) => mergeYjsComments<FetchedComment>(
+        prev,
+        raw,
+        (c) => c.targetType === targetType && c.targetId === targetId,
+      ));
     };
     arr.observe(onChange);
     // 初次也跑一遍, 把已有的 Y.Array 内容 merge 进来
