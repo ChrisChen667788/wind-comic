@@ -24,6 +24,9 @@ const OUT = path.join(__dirname, 'assets', 'audio', 'bgm.mp3');
 
 async function main() {
   if (!KEY) { console.error('MINIMAX_API_KEY missing'); process.exit(1); }
+  // v12.336:**先建目录再发请求**。此前目录不存在时,请求已经发出、额度已经扣掉,
+  // 却在写盘那一步才抛 ENOENT —— 生成的音频直接丢失。订阅是每天 3 条,烧一条就少一条。
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
   const body = {
     model: 'music-2.6',
     prompt: 'restrained cinematic underscore, warm analog pads, steady muted pulse, sparse felt piano, quietly determined, editorial and precise, no drums build, no epic swell, instrumental, no vocals',

@@ -1,10 +1,10 @@
 <!-- 由 scripts/gen-modelscope-intro.mjs 从 README.md 自动生成: 图片→raw、相对链→blob 绝对化, 其余逐字不变. 全选复制粘贴到 ModelScope 项目「介绍」区即与 GitHub 主页一致. 勿手改本文件, 改 README.md 后重跑脚本. -->
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
+  <img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.335</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.336</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -19,7 +19,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-4311%2F4311-2ea44f"  alt="4311 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-4313%2F4313-2ea44f"  alt="4313 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -30,7 +30,7 @@
 
 <p align="center">
   <a href="https://github.com/ChrisChen667788/wind-comic/raw/main/assets/promo/wind-comic-promo-en.mp4">
-    <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/promo/wind-comic-promo.gif" alt="Wind Comic — the full 39-second promo, condensed into a silent 15-second loop (click to watch with voiceover &amp; sound)" width="100%" />
+    <img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/promo/wind-comic-promo.gif" alt="Wind Comic — the full 39-second promo, condensed into a silent 15-second loop (click to watch with voiceover &amp; sound)" width="100%" />
   </a>
 </p>
 <p align="center">
@@ -69,15 +69,15 @@ It works because it doesn't try to be one giant model. It's an **honest multi-ag
 
 Three views of the same engine. **Open on GitHub to watch them animate** — flowing dashes trace live data &amp; control paths, traveling dots are data packets moving through the pipeline.
 
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/diagrams/architecture.png" alt="Wind Comic system architecture — Next.js client · orchestration · 8-agent pipeline · LLM gateway · 12+ media engines · quality / data / realtime platform" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/diagrams/architecture.png" alt="Wind Comic system architecture — Next.js client · orchestration · 8-agent pipeline · LLM gateway · 12+ media engines · quality / data / realtime platform" width="100%" /></p>
 
 <sub>**System architecture** — five layers, top to bottom. The **Director** threads control across all eight agents; the **LLM gateway** falls back DeepSeek → MiniMax with zero code change; **12+ media engines** plug in behind one router; everything lands on a **dual-driver** (SQLite ⇄ PostgreSQL) platform.</sub>
 
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/diagrams/sequence.png" alt="Sequence diagram — one idea to one finished film, with the Vision-Audit retry loop and multi-engine race" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/diagrams/sequence.png" alt="Sequence diagram — one idea to one finished film, with the Vision-Audit retry loop and multi-engine race" width="100%" /></p>
 
 <sub>**Sequence** — the lifecycle of one *idea → film* request, time flowing down. Two signature beats: the **Vision-Audit retry loop** (auto-regenerate any shot scoring &lt; 70) and the **multi-engine race** (Seedance / Kling / Veo / Vidu — first good clip wins).</sub>
 
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/diagrams/dataflow.png" alt="Data-flow diagram — the artifact refinery from text to final.mp4, persisted to DbDriver and the asset store" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/diagrams/dataflow.png" alt="Data-flow diagram — the artifact refinery from text to final.mp4, persisted to DbDriver and the asset store" width="100%" /></p>
 
 <sub>**Data flow** — the artifact refinery. One line of text is refined stage-by-stage (`TEXT → JSON → PNG → IMG → MP4`); every artifact is persisted to the dual-driver DB + asset store and is independently reusable, so any stage can be re-run in isolation.</sub>
 
@@ -118,7 +118,7 @@ Also in this range: fonts are **self-hosted** so builds no longer depend on a ne
 > v3 shipped the pipeline. **v6 turned it into a production studio; v7–v9 hardened it into a platform; v10 closed the lip-sync, template-market, and cost loops.** Reusable characters, a prompt IDE, novel→season auto-splitting with real voiceover, a 60-style gallery, a director's control room, team credit budgets, an industry-grade script audit (**Polish Pro**, v7.1), a **premium design pass** (v8.3), a **fully-migrated Postgres backend** (v9), a **lip-sync delivery pipeline + template market + cost observability** (v10), and a live API health board — every screen below is a **real capture of the running app**.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/landing.jpg" alt="Wind Comic landing — 青枫漫剧 AI Animation Agent Studio, 8 agents · 7 engines · 3 consistency guards, looping cinematic hero" width="100%" />
+  <img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/landing.jpg" alt="Wind Comic landing — 青枫漫剧 AI Animation Agent Studio, 8 agents · 7 engines · 3 consistency guards, looping cinematic hero" width="100%" />
   <br/><sub>v10 landing — looping cinematic hero, 8 collaborating agents · 7 media engines · 3 consistency guards.</sub>
 </p>
 
@@ -130,12 +130,12 @@ Also in this range: fonts are **self-hosted** so builds no longer depend on a ne
 
 <table>
 <tr>
-<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/create.jpg" /><br/><sub><b>创作工坊</b> — one line → film: style presets · multi-ref element shelf · character lock · live preview · gold-neon genre gallery</sub></td>
-<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/templates.jpg" /><br/><sub><b>模板市场</b> — preview clips · ★ ratings / ♥ favorites · quality score · one-click remix (carries voices)</sub></td>
+<td width="50%"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/create.jpg" /><br/><sub><b>创作工坊</b> — one line → film: style presets · multi-ref element shelf · character lock · live preview · gold-neon genre gallery</sub></td>
+<td width="50%"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/templates.jpg" /><br/><sub><b>模板市场</b> — preview clips · ★ ratings / ♥ favorites · quality score · one-click remix (carries voices)</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/qc.jpg" /><br/><sub><b>成片质检 + 配音口型</b> — four-dimension publish gate · consistency trend · viseme track (animated mouth + measured alignment) · per-shot Vision scores</sub></td>
-<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/cost.jpg" /><br/><sub><b>技术监看 · 成本归因</b> — per-stage cost share (video / image / LLM / TTS / lip-sync) + saving hints</sub></td>
+<td width="50%"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/qc.jpg" /><br/><sub><b>成片质检 + 配音口型</b> — four-dimension publish gate · consistency trend · viseme track (animated mouth + measured alignment) · per-shot Vision scores</sub></td>
+<td width="50%"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/cost.jpg" /><br/><sub><b>技术监看 · 成本归因</b> — per-stage cost share (video / image / LLM / TTS / lip-sync) + saving hints</sub></td>
 </tr>
 </table>
 
@@ -160,37 +160,37 @@ Also in this range: fonts are **self-hosted** so builds no longer depend on a ne
 
 ### 🎬 Director Console — the whole film as one control room *(v6.4)*
 Every stage at a glance — what's ready, what's gone stale because you changed something upstream, and a one-click rerun that knows exactly which downstream stages it invalidates.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/director-console.png" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/director-console.png" width="100%" /></p>
 
 ### 📖 Novel → season, with real voiceover *(v6.2)*
 Paste a full novel; Wind Comic splits it into episodes by chapter markers (or by target length), picks a narration mode, and can render a real narration track + burnable subtitles for the whole season in parallel.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/story-intake.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/story-intake.jpg" width="100%" /></p>
 
 ### 🎨 Style Gallery — 60 cinematic looks, one click *(v6.3)*
 Lock a consistent visual identity before you generate. Search, filter by category, and apply any preset straight into the creation workshop.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/styles.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v6/styles.jpg" width="100%" /></p>
 
 ### 🩺 API Health Board — never get surprised by a dead key *(v6.7)*
 Live status for every model and gateway: 正常 / 额度用尽 / 配置缺失 / 不可达, with real balance read-out and a "去充值 / 补配置" hint. Keys are never stored or returned.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/health.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v6/health.jpg" width="100%" /></p>
 
 ### 🩺 Polish Studio — Pro industry audit *(v7.1)*
 Paste a draft, hit **Pro**: deepseek-v4-pro returns a polished script **plus a full industry diagnostic** — AIGC-pipeline readiness score (e.g. 85/100), style profile, first-3-second hook strength, Save-the-Cat 3-act breakdown with missing beats called out, on-the-nose dialogue lines flagged, and per-character Cameo/Seedance identity anchors so every shot stays on-model.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/polish-pro-audit.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v8/polish-pro-audit.jpg" width="100%" /></p>
 
 ### 👤 Character Studio + Cameo IP turnaround *(v6.0 / v7.x)*
 Every character gets a real 3-view turnaround sheet (front / three-quarter / back) with a locked structured "DNA prompt" — face geometry, skin tone, signature props, color palette, silhouette identity, full body pose — so the same actor reads identically across all 6 shots. The Cameo IP economy lets the same character travel between projects.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/character-studio.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v8/character-studio.jpg" width="100%" /></p>
 
 ### 🎬 Finished film + 11-tab director station *(v8.0)*
 One project, eleven tabs of cockpit-grade control: 导演台 · 剧本 · 角色 · 场景 · 分镜 · 连贯性 · 视频 · 镜头工坊 · Cinema 时间线 · 节奏分析 · 成片质检 · 技术监看 · 参数联动 · 评论协作 · 完整播放. The finished film plays right in the workspace with a 90/100 audit badge and one-click `mp4` / platform export.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/final-film.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/final-film.jpg" width="100%" /></p>
 
 ### 👥 Team Workspace *(v6.5)*  ·  🎞️ Cinema Timeline + narration track *(v6.2.4)*
 <table>
 <tr>
-<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/team.jpg" /><br/><sub>Credit pool + per-member allocations, RBAC, real invite links.</sub></td>
-<td width="50%"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v10/cinema-timeline.png" /><br/><sub>Multi-track timeline; narration audio + subtitles burned in.</sub></td>
+<td width="50%"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/team.jpg" /><br/><sub>Credit pool + per-member allocations, RBAC, real invite links.</sub></td>
+<td width="50%"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v10/cinema-timeline.png" /><br/><sub>Multi-track timeline; narration audio + subtitles burned in.</sub></td>
 </tr>
 </table>
 
@@ -252,7 +252,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/llm-providers.md) for the full matrix.
 
-### 10. **4311 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **4313 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -387,39 +387,39 @@ Below is the **foundational v3 pipeline** (the v6 studio screens are in the [New
 
 ### Workspace overview
 The 创作总览 dashboard: 99 projects + 4 case studies + recent activity feed + system status (engines in use, model versions).
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/screenshot-dashboard-v3.1.3.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/screenshot-dashboard-v3.1.3.jpg" width="100%" /></p>
 
 ### Asset library
 Cross-project reusable: 角色 / 场景 / 视频 / 音乐 / 字幕 / 模板 — 1467 assets in this demo project.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/screenshot-assets-v3.1.3.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/screenshot-assets-v3.1.3.jpg" width="100%" /></p>
 
 ### Project library
 Every short film with auto-generated cinematic covers + status badges + quality donut.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/screenshot-projects-v3.1.3.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/screenshot-projects-v3.1.3.jpg" width="100%" /></p>
 
 ### Creation workspace — live multi-agent canvas
 The whole pipeline as a live agent flow: Writer / Character Designer / Scene Designer / Storyboard Artist / Video Producer / Editor nodes wired together with progress streaming per node, plus a chat side-rail showing every agent message in real time.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/creation-canvas.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v8/creation-canvas.jpg" width="100%" /></p>
 
 ### Per-project script + shot list with beats
 The 剧本 tab: every shot with duration, emotion tag (警觉 / 凝重 / 惊恐 / 暴风的沉着 / 镇定的专注…) and a one-line **beat note** (从表面到深层警觉 / 从无知到悉知威胁 / 从警戒到遭受袭击 …) so the rhythm of the cut is legible at a glance.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v8/script-shotlist.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/v8/script-shotlist.jpg" width="100%" /></p>
 
 ### 🆕 Cinema Timeline (v3.1.1–v3.1.3 — multi-track + collab)
 3-track layout (SHOTS / BGM / SUBTITLE), drag-to-retime, double-click subtitles to rewrite, drag edges to resize, **real BGM waveform** (Web Audio decode), live other-user cursors with name labels, segment lock indicators.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/screenshot-cinema-timeline-v3.1.3.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/screenshot-cinema-timeline-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 Pacing Analysis (v2.21 P1.4)
 KPI: 平均冲突分 / 反转数 / 通过状态. Per-shot conflict-score bar chart with reversal arrows + emotional polarity icons. Color-coded green (≥7) / amber (4-6) / red (<4). Below: actionable warnings + suggestions.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/screenshot-pacing-v3.1.3.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/screenshot-pacing-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 Comments + @mentions (v3.0 P0.1)
 Project-level + per-shot threaded comments with @-autocomplete and notification bell. Each shot collapses for context.
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/screenshot-comments-v3.1.3.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/screenshot-comments-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 Shot Workshop (v2.16 P1.4 + v2.23 P0.2)
 Per-shot "改 prompt 重生" (regenerate image with custom prompt + reference image upload) and "4K 重渲" (Kling Master 4K re-render, plan-gated).
-<p align="center"><img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/screenshot-workshop-v3.1.3.jpg" width="100%" /></p>
+<p align="center"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/screenshot-workshop-v3.1.3.jpg" width="100%" /></p>
 
 ---
 
@@ -517,7 +517,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 4311/4311 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 4313/4313 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/CONTRIBUTING.md) for the repo's contribution guide.
 

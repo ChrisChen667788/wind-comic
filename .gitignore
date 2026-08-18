@@ -95,6 +95,10 @@ data/qfmj.db.bak-*
 # v12.321:宣传片工程的重型产物不入库 —— 渲染产物可重生,成片素材是从
 # videos/wc-promo 复制来的副本,重复入库只是让仓库变胖。
 videos/wind-comic-promo/renders/
+# v12.336 例外:assets/audio/ **入库**,不在忽略之列。
+# renders/ 能从源码确定性重建,而配乐/配音是**付费且不可复现**的产物 ——
+# MiniMax 订阅每天只有 3 条生成额度,且同一 prompt 每次出的曲子都不一样,
+# 丢了就再也拿不回这一条。这正是版本控制该保管的东西。
 videos/wind-comic-promo/assets/footage-*.mp4
 videos/wind-comic-promo/assets/*.jpg
 # 这几张是 assets/ 下产品截图的副本(product-hero 就是 banner.png),别重复入库

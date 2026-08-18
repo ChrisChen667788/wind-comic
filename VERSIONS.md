@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.335**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.336**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.335**:**vitest 4311 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.336**:**vitest 4313 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,26 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.335.0** | 2026-08-17 | `待填` | **🖼 仓库主页图片「加载不出来」—— 文件一个都没坏,是匿名 raw 端点在限流**。
+| **v12.336.0** | 2026-08-18 | `待填` | **🎬 中文版宣传片(自家 MiniMax 出配乐+旁白)· ModelScope 图片改自托管 · 找回被误删的 configuration.json**。
+
+**① ModelScope「图片显示不出来」——是慢,不是坏。** 页面上看:ModelScope 有自己的图片代理(`resouces.modelscope.cn/proxy-image/`),会把外链图全部改写过去。代理本身通(直接抓返回 `200 image/jpeg`),但它要**逐张跨境**回源到 `raw.githubusercontent.com`,30 张图排队等很久,期间大片显示成裂图。**实测等到稳态是 47/47 全部加载** —— 所以判定为慢。改法:镜像里本来就有全部文件,把 28 处光栅图改指 ModelScope 自己的 `resolve` 地址,变成境内取图。**SVG 例外**:ModelScope 的 resolve 把 `.svg` 当 `text/plain` 发(实测),故 star 曲线两张仍留在 raw —— 这也纠正了我上一版的误判:那条「diagrams SVG→PNG」的注释我说过时,其实它讲的是 **ModelScope 的 host**,不是 raw。
+
+**② `configuration.json` 找回来了。** 上一版被我 `--sync` 误删且内容无从还原。这次没有硬猜,而是去看**同 owner、同为代码型仓库**的 `haozi667788/pixcull` —— 它的同名文件就是平台建库时生成的样板:`{"framework":"pytorch","task":"text-generation","allow_remote":true}`。按原样恢复,并**提交进 git**,否则下次 `--sync` 还会再删一次。
+
+**③ 中文版宣传片。** 用本项目自己的引擎做:`music-2.6` 出 224s 原创配乐,`speech-2.8-hd` 出 8 句中文旁白,按原时间码排布 + BGM 侧链闪避,`loudnorm` 到 **-16.3 LUFS**(社媒口径)。成片 1920×1080 · 66s · 48kHz。**中文比英文长是硬约束**:L8 起于 54.0s 而原片只有 56.7s,任何完整句子都塞不进 2.7 秒 —— 故按本地化惯例把片尾卡定格延长 9.3s,而不是把旁白赶着念完(那会毁掉「克制笃定」的口吻)。旁白落点用**波形图**核过:8 段语音清晰分离,起点正落在 0/7/14/23/30/39/47/54 秒。
+
+**④ 三个自己制造的坑,都留了防线**:
+- **BGM 第一次生成把额度白烧了**:输出目录不存在,脚本没建目录 —— 而 ENOENT 抛在**请求发出之后**,音频直接丢失。订阅每天只有 3 条。已改为**发请求前先 mkdir**。
+- **片尾卡的「测试通过 4131」是硬编码**,每次发版即过期(当时已是 4311,数字还被转置了)。已接进 `sync-doc-stats`,规则**锚定「测试通过」标签而非数字**,免得误伤同卡上的 MIT/版本号。
+- **`sync-doc-stats.mjs` 顶层就有副作用**:单测只要 `import` 它拿纯函数,就会**真的把全仓文档同步一遍**并 `process.exit(0)` —— 一条用例跑了 **77 秒**(顺带执行 `npx vitest list`),而且**真的改了工作区文件**。已收进 `main()` + 主模块守卫;import 耗时 **77s → 13ms**。**脚本能被 import,就必须假定有人会 import 它。**
+
+**⑤ 一次被我改坏又修回的**:惰性化测试数时我用了一条粗暴正则替换 `tests`,结果把注释、错误文案、**甚至替换规则里的字符串字面量**(`alt="\d+ tests passing"`)一并改了 —— 那会真的改坏同步逻辑。已回滚重做,只精确改 3 处真实变量引用。
+
+**⑥ 配乐/配音入库(gitignore 例外)**:`renders/` 能从源码确定性重建,而配乐配音是**付费且不可复现**的产物(每天 3 条额度、同一 prompt 每次出的曲子都不同),丢了拿不回来 —— 这正是版本控制该保管的。
+
+**⑦ 顺带**:GitHub 5 个 dependabot PR 已全部合并(开放 PR 归零)。 |
+
+| **v12.335.0** | 2026-08-18 | `767e48c` | **🖼 仓库主页图片「加载不出来」—— 文件一个都没坏,是匿名 raw 端点在限流**。
 
 **定位**:三种取法一比就清楚了 —— 无认证 `github.com/<repo>/raw/main/<path>` 返回 **404**;无认证 `raw.githubusercontent.com` 返回 **429**(诚实的状态码);带认证的 API `contents` 返回 **200 且字节数完全正确**。也就是说 `/raw/` 路径**把 429 显示成 404**,于是看起来像「文件没了」。用 `git ls-tree origin/main` 复核,每个文件都在远端、大小正常。
 

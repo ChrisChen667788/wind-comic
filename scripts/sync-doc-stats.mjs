@@ -65,7 +65,14 @@ function resolveTestCount() {
   return assertPlausible(out.split('\n').filter((l) => l.trim().length > 0).length);
 }
 
-const tests = resolveTestCount();
+// v12.336:**惰性求值**。此前是顶层直接算,于是任何 `import` 本模块的测试都会真的去跑
+// `npx vitest list` —— 单个用例因此耗时 72 秒,凭空给全量测试加了一分多钟。
+// 纯函数(syncOne / syncPromoFrame 等)被单测导入时根本不需要这个数字。
+let _testsCache = null;
+function tests() {
+  if (_testsCache === null) _testsCache = resolveTestCount();
+  return _testsCache;
+}
 
 /** 要同步的对外文档。 */
 const FILES = [
@@ -75,6 +82,9 @@ const FILES = [
   'docs/MARKETING-en.md',
   'docs/modelscope-profile.md',
   'VERSIONS.md',   // v12.291:只同步抬头区,见 syncVersionsHeader —— 正文全是历史陈述,不能动
+  // v12.336:宣传片片尾卡的「测试通过 NNNN」此前是**硬编码**,每次发版即过期 ——
+  // 实测成片上写着 4131 而当时已是 4311(数字还被转置了)。片尾卡是对外的事实陈述,不该靠人记。
+  'videos/wind-comic-promo/compositions/frames/08-your-keys.html',
 ];
 
 /**
@@ -100,7 +110,7 @@ function isTableRow(line) {
 function syncLine(line) {
   if (isTableRow(line)) return line; // ← 保护历史记录
   let s = line;
-  const T = String(tests);
+  const T = String(tests());
   const rules = [
     // 徽章 + alt
     [/Tests-\d+%2F\d+-2ea44f/g, `Tests-${T}%2F${T}-2ea44f`],
@@ -123,6 +133,17 @@ function syncLine(line) {
 }
 
 /** 逐行处理,表格行原样透传。 */
+/**
+ * 宣传片片尾卡:只替换紧跟在「测试通过」标签后面那一格的数字。
+ * **锚定标签而不是锚定数字** —— 同一张卡上还有 MIT、版本号,误伤的代价是对外素材说谎。
+ */
+export function syncPromoFrame(text, n = tests()) {
+  return text.replace(
+    /(<div class="k cn">测试通过<\/div><div class="v">)(\d+)(<\/div>)/,
+    (_m, a, _old, b) => `${a}${n}${b}`,
+  );
+}
+
 function syncOne(text) {
   return text.split('\n').map(syncLine).join('\n');
 }
@@ -148,36 +169,51 @@ function syncVersionsHeader(text) {
     s = s.replace(/\(\*\*v\d+\.\d+(?:\.\d+)?\*\*\)/g, `(**${vShort}**)`);
     s = s.replace(/截至 \*\*v\d+\.\d+(?:\.\d+)?\*\*/g, `截至 **${vShort}**`);
     // 抬头里的「vitest 3739 全绿」
-    s = s.replace(/vitest\s+\d{3,5}\s*全绿/gi, `vitest ${tests} 全绿`);
+    s = s.replace(/vitest\s+\d{3,5}\s*全绿/gi, `vitest ${tests()} 全绿`);
     return s;
   });
   return [...head, ...lines.slice(firstRow)].join('\n');
 }
 
-let drifted = 0;
-const report = [];
-for (const f of FILES) {
-  if (!fs.existsSync(f)) continue;
-  const before = fs.readFileSync(f, 'utf-8');
-  const after = f === 'VERSIONS.md' ? syncVersionsHeader(before) : syncOne(before);
-  if (after !== before) {
-    drifted++;
-    // 统计变了几行,便于人工核对
-    const bl = before.split('\n'), al = after.split('\n');
-    const changed = bl.reduce((n, l, i) => n + (l !== al[i] ? 1 : 0), 0);
-    report.push(`  ${f} — ${changed} 行`);
-    if (!checkOnly) fs.writeFileSync(f, after);
+/**
+ * v12.336:**主流程收进 main(),由主模块守卫触发。**
+ *
+ * 此前整个同步流程写在模块顶层 —— 于是单测只要 `import` 本模块拿纯函数(syncOne /
+ * syncPromoFrame),就会**真的把全仓文档同步一遍**并 `process.exit(0)`:
+ * 一条用例跑了 77 秒(因为顺带执行了 `npx vitest list`),而且**真的改了工作区的文件**。
+ * 脚本能被 import 就必须假定有人会 import 它。
+ */
+function main() {
+  let drifted = 0;
+  const report = [];
+  for (const f of FILES) {
+    if (!fs.existsSync(f)) continue;
+    const before = fs.readFileSync(f, 'utf-8');
+    const after = f === 'VERSIONS.md' ? syncVersionsHeader(before)
+      : f.endsWith('08-your-keys.html') ? syncPromoFrame(before)
+      : syncOne(before);
+    if (after !== before) {
+      drifted++;
+      // 统计变了几行,便于人工核对
+      const bl = before.split('\n'), al = after.split('\n');
+      const changed = bl.reduce((n, l, i) => n + (l !== al[i] ? 1 : 0), 0);
+      report.push(`  ${f} — ${changed} 行`);
+      if (!checkOnly) fs.writeFileSync(f, after);
+    }
   }
+
+  console.log(`[doc-stats] 真源:版本 ${vShort} · 测试 ${tests()}`);
+  if (drifted === 0) {
+    console.log('[doc-stats] ✅ 全部对外文档已一致,无漂移');
+    process.exit(0);
+  }
+  console.log(`[doc-stats] ${checkOnly ? '❌ 检测到漂移' : '✅ 已同步'}(${drifted} 个文件):`);
+  for (const r of report) console.log(r);
+  if (checkOnly) {
+    console.log('[doc-stats] 提示:运行 `npm run sync-doc-stats -- --tests=<全量测试数>` 修复');
+    process.exit(1);
+  }
+
 }
 
-console.log(`[doc-stats] 真源:版本 ${vShort} · 测试 ${tests}`);
-if (drifted === 0) {
-  console.log('[doc-stats] ✅ 全部对外文档已一致,无漂移');
-  process.exit(0);
-}
-console.log(`[doc-stats] ${checkOnly ? '❌ 检测到漂移' : '✅ 已同步'}(${drifted} 个文件):`);
-for (const r of report) console.log(r);
-if (checkOnly) {
-  console.log('[doc-stats] 提示:运行 `npm run sync-doc-stats -- --tests=<全量测试数>` 修复');
-  process.exit(1);
-}
+if (import.meta.url === `file://${process.argv[1]}`) main();
