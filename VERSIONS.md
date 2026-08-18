@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.336**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.337**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.336**:**vitest 4313 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.337**:**vitest 4333 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,25 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.336.0** | 2026-08-18 | `待填` | **🎬 中文版宣传片(自家 MiniMax 出配乐+旁白)· ModelScope 图片改自托管 · 找回被误删的 configuration.json**。
+| **v12.337.0** | 2026-08-18 | `待填` | **🗣 自然语言改单镜 —— 竞品对标清单的最后一项接上了**。
+
+**先复盘计划进度**:那轮竞品调研列的对标项是「LibTV 导演台 / 片段重拍 / 拉片、OiiOii 拉片复刻、**Seko 自然语言改单镜**」。片段重拍 v12.314–315 落地,导演台三版 v12.316–318 落地,拉片本仓 v11.1.1 就有、v12.328 又补了逐帧检视 —— **只剩「自然语言改单镜」**。而随后六版(v12.331–336)全是门面/配置/资源/宣传片,属于计划外的必要维护,迭代方案本身停在这里。
+
+**它其实做了一半,卡在最后一步**:`lib/edit-intent`(v12.248)早能把「第 3 镜改成夜景」解析成 `regenShot` 意图;`lib/edit-intent-execute` 把意图分成三支 —— 组合级(画幅/字幕/平台/删镜/重配音)v12.251 已接到 `recompose` 真执行;节奏需整片重跑只作提示;**唯独单镜这支解析了却不执行**,界面只显示「第 N 镜需重生画面(慢、要预算)——请自行去项目页」。**又是一次「造好没接线」,而且是差最后一根线。**
+
+**接线时踩到一个会静默出错的真陷阱**:`regenerate-shot` 端点里是 `prompt: [description || '', cameraPrompt].join('. ')` —— `description` **就是整条视频提示词**。若把 note(「改成夜景」)当 description 传进去,原镜的人物、场景、动作、光线**会被整个抹掉**,生成一个毫不相干的镜头,**而且会「成功」返回、不报任何错**。所以核心不变式是:**原描述非空时,绝不允许只拿 note 出门。**
+
+**做法**:新增 `lib/shot-edit-merge.ts`(纯函数)。合并在**服务端**做 —— 端点新收 `editNote`,自己从 `project_assets` 读回该镜的 `data.description` 再合并,不让前端拼提示词(前端拼等于把「原描述是什么」这件事复制一份出去)。修改说明放在**最后**(同一属性后出现的表述通常压过先出现的),并用「在此基础上修改:」写明两段关系,免得模型把指令读成画面里的字。
+
+**冲突只报不判**:note 与原描述在同一属性上撞车时(时间/天气/景别/色调),如实报给用户「你改动了时间,与原描述冲突,以你的说法为准」,而不是这里悄悄替他选。原描述缺失(老项目/资产被清)时才允许只用 note,且**必须警告**画面可能与原镜差别很大 —— 不静默降级。
+
+**花钱的操作按花钱的规矩来**:逐镜**串行**(并行等于同时烧 N 份预算,且失败难归因)、沿用组合级那套**两步确认**(第一次点只亮红)、一镜失败不连累后面的但**如实记进日志**不静默跳过。端点原有的 `requireProjectAccess(edit)` 鉴权与预算护栏(v12.207/v12.312)一并继承。
+
+**零回归**:只有传了 `editNote` 才走合并分支,项目页原来传 `description` 的路径一字未动 —— 这条写成了断言。
+
+**验证**:tsc 0(项目代码);20 条新单测;`/dashboard/edit-chat` 与 `/dashboard` 实测 HTTP 200、dev 日志零编译错误。**说清没验到的**:该页需登录,而创建账号/输入密码是红线,所以「登录后点按钮真的触发一次重生」这一步我没有实测 —— 单镜重生会真实计费,也不该由我代跑。 |
+
+| **v12.336.0** | 2026-08-18 | `eb215d3` | **🎬 中文版宣传片(自家 MiniMax 出配乐+旁白)· ModelScope 图片改自托管 · 找回被误删的 configuration.json**。
 
 **① ModelScope「图片显示不出来」——是慢,不是坏。** 页面上看:ModelScope 有自己的图片代理(`resouces.modelscope.cn/proxy-image/`),会把外链图全部改写过去。代理本身通(直接抓返回 `200 image/jpeg`),但它要**逐张跨境**回源到 `raw.githubusercontent.com`,30 张图排队等很久,期间大片显示成裂图。**实测等到稳态是 47/47 全部加载** —— 所以判定为慢。改法:镜像里本来就有全部文件,把 28 处光栅图改指 ModelScope 自己的 `resolve` 地址,变成境内取图。**SVG 例外**:ModelScope 的 resolve 把 `.svg` 当 `text/plain` 发(实测),故 star 曲线两张仍留在 raw —— 这也纠正了我上一版的误判:那条「diagrams SVG→PNG」的注释我说过时,其实它讲的是 **ModelScope 的 host**,不是 raw。
 

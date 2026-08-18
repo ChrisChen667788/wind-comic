@@ -45,7 +45,11 @@ export default function EditChatPage() {
   const [projects, setProjects] = useState<ProjectLite[]>([]);
   const [projectId, setProjectId] = useState('');
   const [executing, setExecuting] = useState(false);
-  const [armed, setArmed] = useState(false);           // 破坏性两步确认:先亮红再执行
+  const [armed, setArmed] = useState(false);
+  // v12.337 单镜重生执行态:逐镜串行(并行会同时烧多份预算,且失败难归因)
+  const [shotRunning, setShotRunning] = useState<number | null>(null);
+  const [shotLog, setShotLog] = useState<Array<{ shotNumber: number; status: 'ok' | 'fail' | 'running'; msg: string }>>([]);
+  const [shotArmed, setShotArmed] = useState(false);           // 破坏性两步确认:先亮红再执行
   // v12.251 复检修:arm 后短暂禁用按钮(冷却),让**双击**的第二击落空 —— 否则一次双击会
   // 「arm→立刻执行」一气呵成绕过两步确认(React 在两个 click 宏任务间已提交 armed=true)。
   const [cooldown, setCooldown] = useState(false);
@@ -109,6 +113,69 @@ export default function EditChatPage() {
     } finally {
       setParsing(false);
     }
+  };
+
+  /**
+   * v12.337:执行**单镜重生**。竞品对标清单最后一项(Seko 自然语言改单镜)。
+   *
+   * 关键契约:把用户那句话作为 `editNote` 交给服务端,由服务端读原镜描述后**合并**,
+   * 而不是当作新的 description 传过去 —— 后者会把原镜的人物/场景/动作整个抹掉,
+   * 且会「成功」返回不报错(见 lib/shot-edit-merge)。
+   *
+   * 逐镜**串行**:每镜都是真金白银的一次视频生成,并行等于同时烧 N 份预算。
+   */
+  const executeShots = async () => {
+    if (!plan || plan.regenShots.length === 0) return;
+    if (!projectId) { showToast({ title: '先选一个要修改的项目', type: 'error' }); return; }
+    if (cooldown) return;
+    if (!shotArmed) {           // 与组合级同一套两步确认:第一次点只亮红
+      setShotArmed(true);
+      setCooldown(true);
+      if (cooldownRef.current) clearTimeout(cooldownRef.current);
+      cooldownRef.current = setTimeout(() => setCooldown(false), 600);
+      return;
+    }
+    setShotLog([]);
+    for (const rs of plan.regenShots) {
+      setShotRunning(rs.shotNumber);
+      setShotLog((L) => [...L, { shotNumber: rs.shotNumber, status: 'running', msg: '正在重生…' }]);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/regenerate-shot`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shotNumber: rs.shotNumber, editNote: rs.note || '' }),
+        });
+        if (!res.ok || !res.body) {
+          const t = await res.text().catch(() => '');
+          throw new Error(t.slice(0, 120) || `HTTP ${res.status}`);
+        }
+        // SSE:只取最后的 complete/error,过程中的 status 用于回显服务端的合并说明
+        const reader = res.body.getReader(); const dec = new TextDecoder();
+        let buf = '', done = false, lastMsg = '';
+        while (!done) {
+          const { value, done: d } = await reader.read();
+          if (d) break;
+          buf += dec.decode(value, { stream: true });
+          const chunks = buf.split('\n\n'); buf = chunks.pop() || '';
+          for (const c of chunks) {
+            const line = c.split('\n').find((l) => l.startsWith('data: '));
+            if (!line) continue;
+            try {
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === 'status' && ev.data?.message) lastMsg = String(ev.data.message);
+              if (ev.type === 'complete') { done = true; lastMsg = '已重生 ✓'; }
+              if (ev.type === 'error') { throw new Error(ev.data?.message || '重生失败'); }
+            } catch { /* 半包/非 JSON 行忽略 */ }
+          }
+        }
+        setShotLog((L) => L.map((x) => x.shotNumber === rs.shotNumber ? { ...x, status: 'ok', msg: lastMsg || '已重生 ✓' } : x));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '重生失败';
+        setShotLog((L) => L.map((x) => x.shotNumber === rs.shotNumber ? { ...x, status: 'fail', msg } : x));
+        // 一镜失败不连累后面的 —— 但如实记下来,不静默跳过
+      }
+    }
+    setShotRunning(null);
+    setShotArmed(false);
   };
 
   /** 执行组合级编辑(recompose)。破坏性操作需先 armed(第一次点只亮红,第二次才真跑)。 */
@@ -231,15 +298,39 @@ export default function EditChatPage() {
                 </div>
               )}
 
-              {/* 另走流程/暂不执行的部分:如实指路,不假装已执行 */}
-              {plan && (plan.regenShots.length > 0 || plan.paceHint) && (
-                <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-2 mb-4 text-[11px] text-amber-200/85 leading-relaxed space-y-1">
-                  {plan.regenShots.length > 0 && (
-                    <div>· 第 {plan.regenShots.map(r => r.shotNumber).join('、')} 镜需**重生画面**(慢、要预算)——请到项目页对应镜头点「重生」,本页不代跑。</div>
+              {/* v12.337:单镜重生**在本页直接执行**(此前只指路,让用户自己跑去项目页) */}
+              {plan && plan.regenShots.length > 0 && (
+                <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-2 mb-4 text-[11px] text-amber-200/85 leading-relaxed">
+                  <div className="mb-2">
+                    · 第 {plan.regenShots.map(r => r.shotNumber).join('、')} 镜将<b>重生画面</b> —— 逐镜串行,每镜都是一次真实的付费视频生成。
+                    你的说明会<b>合并进原镜描述</b>(不是替换),其余保持不变。
+                  </div>
+                  <button
+                    type="button"
+                    onClick={executeShots}
+                    disabled={!projectId || shotRunning !== null || cooldown}
+                    className={`px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors disabled:opacity-40 ${
+                      shotArmed ? 'bg-red-500/85 text-white hover:bg-red-500' : 'bg-amber-500/20 text-amber-100 hover:bg-amber-500/30'
+                    }`}
+                  >
+                    {shotRunning !== null ? `正在重生第 ${shotRunning} 镜…`
+                      : shotArmed ? `确认重生 ${plan.regenShots.length} 个镜头(要花钱)` : `重生这 ${plan.regenShots.length} 个镜头`}
+                  </button>
+                  {shotLog.length > 0 && (
+                    <div className="mt-2 space-y-0.5">
+                      {shotLog.map((l) => (
+                        <div key={l.shotNumber} className={l.status === 'fail' ? 'text-red-300' : l.status === 'ok' ? 'text-emerald-300' : ''}>
+                          第 {l.shotNumber} 镜:{l.msg}
+                        </div>
+                      ))}
+                    </div>
                   )}
-                  {plan.paceHint && (
-                    <div>· 「节奏{plan.paceHint === 'fast' ? '快' : '慢'}一点」需整片重跑(recompose 不改节奏),本页暂不执行。</div>
-                  )}
+                </div>
+              )}
+
+              {plan?.paceHint && (
+                <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-2 mb-4 text-[11px] text-amber-200/85 leading-relaxed">
+                  · 「节奏{plan.paceHint === 'fast' ? '快' : '慢'}一点」需整片重跑(recompose 不改节奏),本页不执行。
                 </div>
               )}
 

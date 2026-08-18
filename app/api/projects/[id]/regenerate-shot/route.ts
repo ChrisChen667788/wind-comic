@@ -25,9 +25,29 @@ function getStoryboardImageUrl(projectId: string, shotNumber: number): string {
   }
 }
 
+/**
+ * v12.337:读这一镜**原本的描述**(storyboard 资产的 data.description)。
+ * 自然语言改单镜必须在它的基础上合并 —— 见 lib/shot-edit-merge 的说明。
+ */
+function getStoryboardDescription(projectId: string, shotNumber: number): string {
+  try {
+    const row = db.prepare(
+      `SELECT data FROM project_assets
+       WHERE project_id = ? AND type = 'storyboard' AND shot_number = ?
+       ORDER BY updated_at DESC LIMIT 1`
+    ).get(projectId, shotNumber) as { data: string } | undefined;
+    if (!row?.data) return '';
+    const d = JSON.parse(row.data);
+    return typeof d?.description === 'string' ? d.description : '';
+  } catch (e) {
+    console.warn('[regenerate-shot] failed to load shot description:', e);
+    return '';
+  }
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
-  const { shotNumber, duration, description, videoProvider, cameraMovement } = await request.json();
+  const { shotNumber, duration, description, videoProvider, cameraMovement, editNote } = await request.json();
 
   // v12.312:**此前完全无鉴权**。下面那段预算护栏写的是「有登录态才检查」——
   // 于是匿名请求 uid 为空,**既跳过预算也没有任何归属校验**,可对任意 projectId
@@ -102,10 +122,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           // v12.141(P0-1):每镜运镜覆盖 —— preset id/自由文本 → 专业运镜指令拼进视频 prompt
           const { resolveCameraMovementPrompt } = await import('@/lib/prompt-templates');
           const cameraPrompt = resolveCameraMovementPrompt(cameraMovement);
+          // v12.337:自然语言改单镜。**只有传了 editNote 才走合并**,老调用方(项目页)
+          // 传 description 的路径一字未动 —— 零回归。
+          // 陷阱备忘:这里的 prompt **就是整条视频提示词**,若把「改成夜景」当 description
+          // 直接传进来,原镜的人物/场景/动作会被整个抹掉,而且会「成功」返回、不报任何错。
+          let baseDescription = description || '';
+          let mergeNote = '';
+          if (typeof editNote === 'string' && editNote.trim()) {
+            const { mergeShotEdit, describeMerge } = await import('@/lib/shot-edit-merge');
+            const merged = mergeShotEdit(description || getStoryboardDescription(projectId, shotNumber), editNote);
+            baseDescription = merged.prompt;
+            mergeNote = describeMerge(merged);
+            send('status', { message: mergeNote });
+            if (merged.mode === 'noteOnly') {
+              console.warn(`[regenerate-shot] v12.337 镜 ${shotNumber} 找不到原描述,按 note 单独重画`);
+            }
+          }
           const storyboard = {
             shotNumber,
             imageUrl,
-            prompt: [description || '', cameraPrompt].filter(Boolean).join('. '),
+            prompt: [baseDescription, cameraPrompt].filter(Boolean).join('. '),
           };
           if (cameraPrompt) console.log(`[regenerate-shot] v12.141 运镜覆盖: ${String(cameraMovement).slice(0, 30)}`);
 
