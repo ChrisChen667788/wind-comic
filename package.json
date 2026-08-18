@@ -104,7 +104,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "ws": "^8.21.3",
-    "y-websocket": "^3.0.0",
+    "y-websocket": "^3.1.0",
     "yjs": "^13.6.32",
     "zustand": "^5.0.15"
   },
