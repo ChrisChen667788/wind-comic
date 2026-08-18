@@ -24,7 +24,7 @@ Tone: confident, precise, engineer-to-engineer. No hype adjectives, no "revoluti
 
 ## Assets
 
-- `assets/banner.png` — homepage hero screenshot (2880×1800), the product's own front page
+- `assets/banner.jpg` — homepage hero screenshot (2880×1800), the product's own front page
 - `assets/promo/wind-comic-promo-en.mp4` — the previous 39s promo; reference for pacing and register only, do not reuse its cuts wholesale
 - `http://localhost:3000` — live dev server, the real product UI for capture
 

@@ -15,7 +15,7 @@
  *   node scripts/modelscope-upload-helper.mjs
  *   node scripts/modelscope-upload-helper.mjs --open    # 自动 open 浏览器到对应页
  *
- * 输出截图建议: assets/banner.png + screenshot-dashboard-v3.1.3 +
+ * 输出截图建议: assets/banner.jpg + screenshot-dashboard-v3.1.3 +
  * screenshot-cinema-timeline-v3.1.3 + screenshot-pacing-v3.1.3 — 都已在 repo.
  */
 
@@ -142,11 +142,11 @@ const STEPS = [
   {
     title: '步骤 8/8 · 截图上传',
     body: [
-      'assets/banner.png',
-      'assets/screenshot-dashboard-v3.1.3.png',
-      'assets/screenshot-cinema-timeline-v3.1.3.png',
-      'assets/screenshot-pacing-v3.1.3.png',
-      'assets/screenshot-comments-v3.1.3.png',
+      'assets/banner.jpg',
+      'assets/screenshot-dashboard-v3.1.3.jpg',
+      'assets/screenshot-cinema-timeline-v3.1.3.jpg',
+      'assets/screenshot-pacing-v3.1.3.jpg',
+      'assets/screenshot-comments-v3.1.3.jpg',
     ].map((f) => path.join(projectRoot, f)).join('\n'),
     instruction: '把这 5 个文件路径分别用 Finder 上传到 ModelScope 的"封面/特色截图"区',
   },

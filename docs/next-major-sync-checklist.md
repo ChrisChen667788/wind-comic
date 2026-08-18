@@ -9,7 +9,7 @@
 - [x] 更新**产品推广文案** —— `✨ Why` 加 v10 三条护栏(口型/模板/成本)、总览表 v10 行、Tests 徽章→2103
 - [x] 重跑 `node scripts/gen-modelscope-intro.mjs` → `docs/modelscope-intro.md` 已同步(0 残留相对图)
 - [x] 保留 README 结尾「致谢 + Star History」(未动)
-- [x] **首页(landing)新截图** —— `assets/v10/landing.png`(headless Chrome 真实捕获,公开页无需登录)
+- [x] **首页(landing)新截图** —— `assets/v10/landing.jpg`(headless Chrome 真实捕获,公开页无需登录)
 - [x] **其余模块界面截图**(v10.0.2,2026-06-07)—— 用户登录后:种子化演示数据(demo 项目 + 4 模板 + 质检/成本/对齐)→ 复用会话 token 用 puppeteer 无头截 `assets/v10/{create,templates,qc,cost}.png` → README(中英)New in 区换成 v10 模块 2×2 实拍,深层 v6–v8 图加「早期截图」横幅。
       - 注:demo 数据(项目「霓虹追缉」+ tpl_demo* 模板)留在 dev 库作演示内容,如需清理可删 `proj-demo-v10` 相关行 + `tpl_demo%`。
       - 未重拍的深层模块(导演台/长篇/角色工坊/Polish/团队/时间线 等)仍是 v6–v8 图、已如实标注「早期截图」,后续如需可同法补。

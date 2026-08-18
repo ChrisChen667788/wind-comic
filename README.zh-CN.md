@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Wind Comic — 一句话变完整短剧" width="100%" />
+  <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.334</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.335</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -94,7 +94,7 @@
 > v3 交付了流水线;**v6 做成生产级工作室,v7–v9 夯成平台,v10 闭合口型 / 模板市场 / 成本三条线。** 可复用角色库、提示词 IDE、长篇小说→自动分集 + 真配音、60 套风格画廊、导演级控片台、团队积分预算、行业级剧本诊断(Polish Pro v7.1)、精品化设计(v8.3)、**全量 Postgres 双驱动后端(v9)**、**配音口型交付管线 + 模板市场 + 成本可观测(v10)**,以及实时 API 健康看板 —— 下方每一张都是**运行中产品的真实截图**。
 
 <p align="center">
-  <img src="assets/v10/landing.png" alt="Wind Comic 首页 —— 青枫漫剧 AI 动画 Agent 工作室,8 智能体 · 7 引擎 · 3 一致性守护,循环影院级 hero" width="100%" />
+  <img src="assets/v10/landing.jpg" alt="Wind Comic 首页 —— 青枫漫剧 AI 动画 Agent 工作室,8 智能体 · 7 引擎 · 3 一致性守护,循环影院级 hero" width="100%" />
   <br/><sub>v10 首页 —— 循环影院级 hero,8 协作智能体 · 7 视频引擎 · 3 一致性守护。</sub>
 </p>
 
@@ -106,12 +106,12 @@
 
 <table>
 <tr>
-<td width="50%"><img src="assets/v10/create.png" /><br/><sub><b>创作工坊</b> —— 一句话起片:画风预设 · 多参元素货架 · 锁角色 · 实时预览 · 金色霓虹题材库</sub></td>
-<td width="50%"><img src="assets/v10/templates.png" /><br/><sub><b>模板市场</b> —— 预览片 · ★评分 / ♥收藏 · 质量分 · 一键起片(连音色复用)</sub></td>
+<td width="50%"><img src="assets/v10/create.jpg" /><br/><sub><b>创作工坊</b> —— 一句话起片:画风预设 · 多参元素货架 · 锁角色 · 实时预览 · 金色霓虹题材库</sub></td>
+<td width="50%"><img src="assets/v10/templates.jpg" /><br/><sub><b>模板市场</b> —— 预览片 · ★评分 / ♥收藏 · 质量分 · 一键起片(连音色复用)</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/v10/qc.png" /><br/><sub><b>成片质检 + 配音口型</b> —— 四维发布门禁 · 一致性趋势 · viseme 轨(动画嘴 + 实测对齐)· 每镜 Vision 评分</sub></td>
-<td width="50%"><img src="assets/v10/cost.png" /><br/><sub><b>技术监看 · 成本归因</b> —— 逐阶段花销占比(视频 / 图像 / LLM / TTS / 口型)+ 省钱提示</sub></td>
+<td width="50%"><img src="assets/v10/qc.jpg" /><br/><sub><b>成片质检 + 配音口型</b> —— 四维发布门禁 · 一致性趋势 · viseme 轨(动画嘴 + 实测对齐)· 每镜 Vision 评分</sub></td>
+<td width="50%"><img src="assets/v10/cost.jpg" /><br/><sub><b>技术监看 · 成本归因</b> —— 逐阶段花销占比(视频 / 图像 / LLM / TTS / 口型)+ 省钱提示</sub></td>
 </tr>
 </table>
 
@@ -145,32 +145,32 @@
 
 ### 📖 长篇小说 → 整季,带真配音 *(v6.2)*
 粘贴整本小说;按章节标记(或目标字数)自动分集,选叙事模式,可为整季并行生成真解说音轨 + 可烧录字幕。
-<p align="center"><img src="assets/v10/story-intake.png" width="100%" /></p>
+<p align="center"><img src="assets/v10/story-intake.jpg" width="100%" /></p>
 
 ### 🎨 风格画廊 —— 60 套电影质感,一键套用 *(v6.3)*
 生成前先锁住统一画风。搜索、按分类筛选,任选预设直接送进创作工坊。
-<p align="center"><img src="assets/v6/styles.png" width="100%" /></p>
+<p align="center"><img src="assets/v6/styles.jpg" width="100%" /></p>
 
 ### 🩺 API 健康看板 —— 别再被一个死 key 打断 *(v6.7)*
 每个模型 / 网关实时状态:正常 / 额度用尽 / 配置缺失 / 不可达,带真实余额读数和「去充值 / 补配置」建议。Key 永不存储、永不回传。
-<p align="center"><img src="assets/v6/health.png" width="100%" /></p>
+<p align="center"><img src="assets/v6/health.jpg" width="100%" /></p>
 
 ### 🩺 剧本润色 Pro 行业级诊断 *(v7.1)*
 贴一段草稿,选 **Pro**:deepseek-v4-pro 不仅润色,还给一份**完整行业体检** —— AIGC 管线就绪度评分(85/100)、风格画像、前 3 秒 Hook 强度、Save the Cat 三幕结构+缺失节拍指认、直抒胸臆/抽象情绪台词标红、按角色给 Cameo/Seedance Identity 锚点(保证每镜人物不漂)。
-<p align="center"><img src="assets/v8/polish-pro-audit.png" width="100%" /></p>
+<p align="center"><img src="assets/v8/polish-pro-audit.jpg" width="100%" /></p>
 
 ### 👤 角色工坊 + Cameo IP 三视图 *(v6.0 / v7.x)*
 每个角色一张真三视图(正/三分之四/背),配一段结构化「DNA 提示词」—— 脸型、肤色、标志性道具、配色、Silhouette identity、全身 pose 全部锁定 —— 保证全片 6 个镜头同一个人。Cameo IP 经济还能让同一角色在多个项目间复用。
-<p align="center"><img src="assets/v8/character-studio.png" width="100%" /></p>
+<p align="center"><img src="assets/v8/character-studio.jpg" width="100%" /></p>
 
 ### 🎬 完整成片 + 11 tab 控片台 *(v8.0)*
 一个项目,11 tab 驾驶舱级控制:导演台 · 剧本 · 角色 · 场景 · 分镜 · 连贯性 · 视频 · 镜头工坊 · Cinema 时间线 · 节奏分析 · 成片质检 · 技术监看 · 参数联动 · 评论协作 · 完整播放。成片直接在工作区里播,带 90/100 质检徽章,一键 `mp4` / 平台导出。
-<p align="center"><img src="assets/v10/final-film.png" width="100%" /></p>
+<p align="center"><img src="assets/v10/final-film.jpg" width="100%" /></p>
 
 ### 👥 团队工作区 *(v6.5)*  ·  🎞️ 时间线 + 解说轨 *(v6.2.4)*
 <table>
 <tr>
-<td width="50%"><img src="assets/v10/team.png" /><br/><sub>积分池 + 按成员分配额度,RBAC,真邀请链接。</sub></td>
+<td width="50%"><img src="assets/v10/team.jpg" /><br/><sub>积分池 + 按成员分配额度,RBAC,真邀请链接。</sub></td>
 <td width="50%"><img src="assets/v10/cinema-timeline.png" /><br/><sub>多轨时间线;解说音频 + 字幕已烧入。</sub></td>
 </tr>
 </table>
@@ -224,7 +224,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **4299 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **4311 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -262,39 +262,39 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 
 ### 创作总览
 99 项目 + 4 案例 + 最近创作 feed + 系统状态 (当前引擎 / 模型版本).
-<p align="center"><img src="assets/screenshot-dashboard-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-dashboard-v3.1.3.jpg" width="100%" /></p>
 
 ### 素材库
 跨项目复用: 角色 / 场景 / 视频 / 音乐 / 字幕 / 模板 — 本 demo 项目里 1467 个素材.
-<p align="center"><img src="assets/screenshot-assets-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-assets-v3.1.3.jpg" width="100%" /></p>
 
 ### 我的项目
 所有短片 + 自动生成的电影感封面 + 状态徽章 + 质量 donut.
-<p align="center"><img src="assets/screenshot-projects-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-projects-v3.1.3.jpg" width="100%" /></p>
 
 ### 创作工坊 —— 多 Agent 实时编排画布
 整条管线就是一张 Agent 流图:编剧 / 角色设计师 / 场景设计师 / 分镜师 / 视频生成 / 剪辑师 节点连线,每个节点带进度流,旁边一条 Chat 侧栏实时显示每个 Agent 的发言。
-<p align="center"><img src="assets/v8/creation-canvas.png" width="100%" /></p>
+<p align="center"><img src="assets/v8/creation-canvas.jpg" width="100%" /></p>
 
 ### 项目剧本 + 镜头节拍
 剧本 tab:每镜带时长、情绪标签(警觉 / 凝重 / 惊恐 / 暴风的沉着 / 镇定的专注…)和一行**节拍注**(从表面到深层警觉 / 从无知到悉知威胁 / 从警戒到遭受袭击…),节奏一眼看清。
-<p align="center"><img src="assets/v8/script-shotlist.png" width="100%" /></p>
+<p align="center"><img src="assets/v8/script-shotlist.jpg" width="100%" /></p>
 
 ### 🆕 Cinema 时间线 (v3.1.1–v3.1.3 — 多轨道 + 协作)
 3 轨布局 (SHOTS / BGM / SUBTITLE), 拖拽改时间, 双击字幕改文字, 拖边沿改时长, **真 BGM 波形** (Web Audio decode), 实时其他用户光标 + 名字标, 段锁标识.
-<p align="center"><img src="assets/screenshot-cinema-timeline-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-cinema-timeline-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 节奏分析 (v2.21 P1.4)
 KPI 卡: 平均冲突分 / 反转数 / 通过状态. 每镜柱状图 + 反转 arrow + 极性 icon. 色码 绿 (≥7) / 琥珀 (4-6) / 红 (<4). 下方: actionable warnings + suggestions.
-<p align="center"><img src="assets/screenshot-pacing-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-pacing-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 评论 + @ 提及 (v3.0 P0.1)
 项目级 + 每镜独立的嵌套评论, @ 自动补全, 通知 bell. 每镜可折叠.
-<p align="center"><img src="assets/screenshot-comments-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-comments-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 镜头工坊 (v2.16 P1.4 + v2.23 P0.2)
 每镜独立的"改 prompt 重生" (用户改 prompt + 上传参考图重生) + "4K 重渲" (Kling Master 4K, plan-gate).
-<p align="center"><img src="assets/screenshot-workshop-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-workshop-v3.1.3.jpg" width="100%" /></p>
 
 ---
 
@@ -359,7 +359,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 4299/4299 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 4311/4311 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

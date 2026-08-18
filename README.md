@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
+  <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.334</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.335</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-4299%2F4299-2ea44f"  alt="4299 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-4311%2F4311-2ea44f"  alt="4311 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -116,7 +116,7 @@ Also in this range: fonts are **self-hosted** so builds no longer depend on a ne
 > v3 shipped the pipeline. **v6 turned it into a production studio; v7–v9 hardened it into a platform; v10 closed the lip-sync, template-market, and cost loops.** Reusable characters, a prompt IDE, novel→season auto-splitting with real voiceover, a 60-style gallery, a director's control room, team credit budgets, an industry-grade script audit (**Polish Pro**, v7.1), a **premium design pass** (v8.3), a **fully-migrated Postgres backend** (v9), a **lip-sync delivery pipeline + template market + cost observability** (v10), and a live API health board — every screen below is a **real capture of the running app**.
 
 <p align="center">
-  <img src="assets/v10/landing.png" alt="Wind Comic landing — 青枫漫剧 AI Animation Agent Studio, 8 agents · 7 engines · 3 consistency guards, looping cinematic hero" width="100%" />
+  <img src="assets/v10/landing.jpg" alt="Wind Comic landing — 青枫漫剧 AI Animation Agent Studio, 8 agents · 7 engines · 3 consistency guards, looping cinematic hero" width="100%" />
   <br/><sub>v10 landing — looping cinematic hero, 8 collaborating agents · 7 media engines · 3 consistency guards.</sub>
 </p>
 
@@ -128,12 +128,12 @@ Also in this range: fonts are **self-hosted** so builds no longer depend on a ne
 
 <table>
 <tr>
-<td width="50%"><img src="assets/v10/create.png" /><br/><sub><b>创作工坊</b> — one line → film: style presets · multi-ref element shelf · character lock · live preview · gold-neon genre gallery</sub></td>
-<td width="50%"><img src="assets/v10/templates.png" /><br/><sub><b>模板市场</b> — preview clips · ★ ratings / ♥ favorites · quality score · one-click remix (carries voices)</sub></td>
+<td width="50%"><img src="assets/v10/create.jpg" /><br/><sub><b>创作工坊</b> — one line → film: style presets · multi-ref element shelf · character lock · live preview · gold-neon genre gallery</sub></td>
+<td width="50%"><img src="assets/v10/templates.jpg" /><br/><sub><b>模板市场</b> — preview clips · ★ ratings / ♥ favorites · quality score · one-click remix (carries voices)</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/v10/qc.png" /><br/><sub><b>成片质检 + 配音口型</b> — four-dimension publish gate · consistency trend · viseme track (animated mouth + measured alignment) · per-shot Vision scores</sub></td>
-<td width="50%"><img src="assets/v10/cost.png" /><br/><sub><b>技术监看 · 成本归因</b> — per-stage cost share (video / image / LLM / TTS / lip-sync) + saving hints</sub></td>
+<td width="50%"><img src="assets/v10/qc.jpg" /><br/><sub><b>成片质检 + 配音口型</b> — four-dimension publish gate · consistency trend · viseme track (animated mouth + measured alignment) · per-shot Vision scores</sub></td>
+<td width="50%"><img src="assets/v10/cost.jpg" /><br/><sub><b>技术监看 · 成本归因</b> — per-stage cost share (video / image / LLM / TTS / lip-sync) + saving hints</sub></td>
 </tr>
 </table>
 
@@ -162,32 +162,32 @@ Every stage at a glance — what's ready, what's gone stale because you changed 
 
 ### 📖 Novel → season, with real voiceover *(v6.2)*
 Paste a full novel; Wind Comic splits it into episodes by chapter markers (or by target length), picks a narration mode, and can render a real narration track + burnable subtitles for the whole season in parallel.
-<p align="center"><img src="assets/v10/story-intake.png" width="100%" /></p>
+<p align="center"><img src="assets/v10/story-intake.jpg" width="100%" /></p>
 
 ### 🎨 Style Gallery — 60 cinematic looks, one click *(v6.3)*
 Lock a consistent visual identity before you generate. Search, filter by category, and apply any preset straight into the creation workshop.
-<p align="center"><img src="assets/v6/styles.png" width="100%" /></p>
+<p align="center"><img src="assets/v6/styles.jpg" width="100%" /></p>
 
 ### 🩺 API Health Board — never get surprised by a dead key *(v6.7)*
 Live status for every model and gateway: 正常 / 额度用尽 / 配置缺失 / 不可达, with real balance read-out and a "去充值 / 补配置" hint. Keys are never stored or returned.
-<p align="center"><img src="assets/v6/health.png" width="100%" /></p>
+<p align="center"><img src="assets/v6/health.jpg" width="100%" /></p>
 
 ### 🩺 Polish Studio — Pro industry audit *(v7.1)*
 Paste a draft, hit **Pro**: deepseek-v4-pro returns a polished script **plus a full industry diagnostic** — AIGC-pipeline readiness score (e.g. 85/100), style profile, first-3-second hook strength, Save-the-Cat 3-act breakdown with missing beats called out, on-the-nose dialogue lines flagged, and per-character Cameo/Seedance identity anchors so every shot stays on-model.
-<p align="center"><img src="assets/v8/polish-pro-audit.png" width="100%" /></p>
+<p align="center"><img src="assets/v8/polish-pro-audit.jpg" width="100%" /></p>
 
 ### 👤 Character Studio + Cameo IP turnaround *(v6.0 / v7.x)*
 Every character gets a real 3-view turnaround sheet (front / three-quarter / back) with a locked structured "DNA prompt" — face geometry, skin tone, signature props, color palette, silhouette identity, full body pose — so the same actor reads identically across all 6 shots. The Cameo IP economy lets the same character travel between projects.
-<p align="center"><img src="assets/v8/character-studio.png" width="100%" /></p>
+<p align="center"><img src="assets/v8/character-studio.jpg" width="100%" /></p>
 
 ### 🎬 Finished film + 11-tab director station *(v8.0)*
 One project, eleven tabs of cockpit-grade control: 导演台 · 剧本 · 角色 · 场景 · 分镜 · 连贯性 · 视频 · 镜头工坊 · Cinema 时间线 · 节奏分析 · 成片质检 · 技术监看 · 参数联动 · 评论协作 · 完整播放. The finished film plays right in the workspace with a 90/100 audit badge and one-click `mp4` / platform export.
-<p align="center"><img src="assets/v10/final-film.png" width="100%" /></p>
+<p align="center"><img src="assets/v10/final-film.jpg" width="100%" /></p>
 
 ### 👥 Team Workspace *(v6.5)*  ·  🎞️ Cinema Timeline + narration track *(v6.2.4)*
 <table>
 <tr>
-<td width="50%"><img src="assets/v10/team.png" /><br/><sub>Credit pool + per-member allocations, RBAC, real invite links.</sub></td>
+<td width="50%"><img src="assets/v10/team.jpg" /><br/><sub>Credit pool + per-member allocations, RBAC, real invite links.</sub></td>
 <td width="50%"><img src="assets/v10/cinema-timeline.png" /><br/><sub>Multi-track timeline; narration audio + subtitles burned in.</sub></td>
 </tr>
 </table>
@@ -250,7 +250,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **4299 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **4311 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -361,19 +361,19 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 
 | 我的项目 · 删除/下架管理 | 拉片表 + 复刻工作台 |
 |---|---|
-| ![我的项目](docs/screenshots/v12/01-my-projects-manage.png) | ![拉片](docs/screenshots/v12/04-pull-sheet-replicate.png) |
+| ![我的项目](docs/screenshots/v12/01-my-projects-manage.jpg) | ![拉片](docs/screenshots/v12/04-pull-sheet-replicate.jpg) |
 
 | 素材库 · 资产管理 | API 健康 · 模型雷达 |
 |---|---|
-| ![素材库](docs/screenshots/v12/02-my-assets-manage.png) | ![模型雷达](docs/screenshots/v12/03-api-health-model-radar.png) |
+| ![素材库](docs/screenshots/v12/02-my-assets-manage.jpg) | ![模型雷达](docs/screenshots/v12/03-api-health-model-radar.jpg) |
 
 | 钩子审计三指标 | 一句指令调剪辑风格(v12.0.4) |
 |---|---|
-| ![钩子审计](docs/screenshots/v12/05-pacing-hook-audit.png) | ![剪辑风格](docs/screenshots/v12/06-edit-style-instruction.png) |
+| ![钩子审计](docs/screenshots/v12/05-pacing-hook-audit.jpg) | ![剪辑风格](docs/screenshots/v12/06-edit-style-instruction.jpg) |
 
 | 片段预览音频:三态徽章 + 带声试听(v12.1.2) | |
 |---|---|
-| ![片段音频预览](docs/screenshots/v12/07-clip-audio-preview.png) | 左:带配音(TTS 叠层)+ 带声试听开关 · 右:片段无独立音轨(成片含配乐+配音) |
+| ![片段音频预览](docs/screenshots/v12/07-clip-audio-preview.jpg) | 左:带配音(TTS 叠层)+ 带声试听开关 · 右:片段无独立音轨(成片含配乐+配音) |
 
 完整逐版本核心迭代见 [`VERSIONS.md`](VERSIONS.md);阶段计划见 `docs/stage18`–`docs/stage20`。
 
@@ -385,39 +385,39 @@ Below is the **foundational v3 pipeline** (the v6 studio screens are in the [New
 
 ### Workspace overview
 The 创作总览 dashboard: 99 projects + 4 case studies + recent activity feed + system status (engines in use, model versions).
-<p align="center"><img src="assets/screenshot-dashboard-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-dashboard-v3.1.3.jpg" width="100%" /></p>
 
 ### Asset library
 Cross-project reusable: 角色 / 场景 / 视频 / 音乐 / 字幕 / 模板 — 1467 assets in this demo project.
-<p align="center"><img src="assets/screenshot-assets-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-assets-v3.1.3.jpg" width="100%" /></p>
 
 ### Project library
 Every short film with auto-generated cinematic covers + status badges + quality donut.
-<p align="center"><img src="assets/screenshot-projects-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-projects-v3.1.3.jpg" width="100%" /></p>
 
 ### Creation workspace — live multi-agent canvas
 The whole pipeline as a live agent flow: Writer / Character Designer / Scene Designer / Storyboard Artist / Video Producer / Editor nodes wired together with progress streaming per node, plus a chat side-rail showing every agent message in real time.
-<p align="center"><img src="assets/v8/creation-canvas.png" width="100%" /></p>
+<p align="center"><img src="assets/v8/creation-canvas.jpg" width="100%" /></p>
 
 ### Per-project script + shot list with beats
 The 剧本 tab: every shot with duration, emotion tag (警觉 / 凝重 / 惊恐 / 暴风的沉着 / 镇定的专注…) and a one-line **beat note** (从表面到深层警觉 / 从无知到悉知威胁 / 从警戒到遭受袭击 …) so the rhythm of the cut is legible at a glance.
-<p align="center"><img src="assets/v8/script-shotlist.png" width="100%" /></p>
+<p align="center"><img src="assets/v8/script-shotlist.jpg" width="100%" /></p>
 
 ### 🆕 Cinema Timeline (v3.1.1–v3.1.3 — multi-track + collab)
 3-track layout (SHOTS / BGM / SUBTITLE), drag-to-retime, double-click subtitles to rewrite, drag edges to resize, **real BGM waveform** (Web Audio decode), live other-user cursors with name labels, segment lock indicators.
-<p align="center"><img src="assets/screenshot-cinema-timeline-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-cinema-timeline-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 Pacing Analysis (v2.21 P1.4)
 KPI: 平均冲突分 / 反转数 / 通过状态. Per-shot conflict-score bar chart with reversal arrows + emotional polarity icons. Color-coded green (≥7) / amber (4-6) / red (<4). Below: actionable warnings + suggestions.
-<p align="center"><img src="assets/screenshot-pacing-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-pacing-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 Comments + @mentions (v3.0 P0.1)
 Project-level + per-shot threaded comments with @-autocomplete and notification bell. Each shot collapses for context.
-<p align="center"><img src="assets/screenshot-comments-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-comments-v3.1.3.jpg" width="100%" /></p>
 
 ### 🆕 Shot Workshop (v2.16 P1.4 + v2.23 P0.2)
 Per-shot "改 prompt 重生" (regenerate image with custom prompt + reference image upload) and "4K 重渲" (Kling Master 4K re-render, plan-gated).
-<p align="center"><img src="assets/screenshot-workshop-v3.1.3.png" width="100%" /></p>
+<p align="center"><img src="assets/screenshot-workshop-v3.1.3.jpg" width="100%" /></p>
 
 ---
 
@@ -515,7 +515,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 4299/4299 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 4311/4311 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 
