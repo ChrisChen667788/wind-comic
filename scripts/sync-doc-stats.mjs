@@ -138,8 +138,12 @@ function syncLine(line) {
  * **锚定标签而不是锚定数字** —— 同一张卡上还有 MIT、版本号,误伤的代价是对外素材说谎。
  */
 export function syncPromoFrame(text, n = tests()) {
+  // v12.338:**容忍任意属性**。首版把标记逐字锚死(`<div class="k cn">测试通过</div>…`),
+  // 结果 HyperFrames 工具给每个元素注入 `data-hf-id="…"` 之后正则整条失配 ——
+  // 门禁不再报红、数字也不再同步,而且是**静默**的。锚「测试通过」这个标签本身,
+  // 属性怎么加都不影响。
   return text.replace(
-    /(<div class="k cn">测试通过<\/div><div class="v">)(\d+)(<\/div>)/,
+    /(<div\b[^>]*class="k cn"[^>]*>测试通过<\/div>\s*<div\b[^>]*class="v"[^>]*>)(\d+)(<\/div>)/,
     (_m, a, _old, b) => `${a}${n}${b}`,
   );
 }

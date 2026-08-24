@@ -11,7 +11,8 @@ import { NextResponse } from 'next/server';
 import { listAssetsByType, deleteAssetsByType, createAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { deriveProsody } from '@/lib/tts-prosody';
-import { buildVoiceRouting, effectiveVoice } from '@/lib/voice-routing';
+import { effectiveVoice } from '@/lib/voice-routing';
+import { resolveAndPersistCast } from '@/lib/voice-cast';
 import { getDbDriver } from '@/lib/db-driver';
 import { getUserFromRequest } from '../../../auth/lib';
 import { recordCostLog, estimateTtsCostCny } from '@/lib/repos/cost-log-repo';
@@ -65,7 +66,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // 角色 → 音色路由(首次出现顺序 + 性别池轮转,稳定互异);forceVoice 时不用
   // v10.6.4: speaker 提取与 lib/voice-retake.loadDialogueShots 完全对齐(单数 character
   // 回退 + trim)—— 否则演示工程(单数字段)整集合成全落默认音色,retake 却走轮转,两路打架
-  const routing = forceVoice ? null : buildVoiceRouting(dialogueShots.map((s) => ((s.characters?.[0] || (s as any).character || '') as string).trim()));
+  // v12.338:出片即**落定妆表**(角色→音色写盘)。此前这套分配只活在这一次请求里 ——
+  // 而分配是按整集阵容轮转出来的,用户出片后一改剧本(加角色/删台词/改名),
+  // 阵容顺序一变,后续单句重录拿到的就不再是成片里那把嗓子,且不会有任何报警。
+  // 落盘后重录读表(lib/voice-retake),两边同一出处才谈得上一致。
+  const routing = forceVoice ? null : await resolveAndPersistCast(id, dialogueShots.map((s) => ((s.characters?.[0] || (s as any).character || '') as string).trim()));
   // 用户手动覆盖(v9.7.7,优先级最高,仅次于 forceVoice)
   let overrides: Record<string, string> = {};
   try {

@@ -23,7 +23,8 @@ import {
 } from './repos/asset-repo';
 import { persistAsset } from './asset-storage';
 import { deriveProsody, type ProsodyParams } from './tts-prosody';
-import { buildVoiceRouting, effectiveVoice } from './voice-routing';
+import { effectiveVoice } from './voice-routing';
+import { resolveAndPersistCast } from './voice-cast';
 import { recordCostLog, estimateTtsCostCny } from './repos/cost-log-repo';
 
 export const TAKE_TYPE = 'shot-audio-take';
@@ -85,8 +86,11 @@ async function resolveVoice(projectId: string, speaker: string, dialogueShots: D
   let overrides: Record<string, string> = {};
   const ovRows = await listAssetsByType(projectId, 'voice-overrides');
   overrides = parseJson(ovRows[0]?.data)?.overrides || {};
-  // 路由必须按整集对白镜的首次出现顺序构建,单句重录才与整集音色一致
-  const routing = buildVoiceRouting(dialogueShots.map((s) => s.speaker));
+  // v12.338:**先读定妆表**。此前这里按整集剧本重建路由 —— 只要剧本没变就与出片一致,
+  // 但用户出片后改了剧本(加角色/删台词/改名),阵容顺序一变,轮转结果整体错位,
+  // 重录拿到的就不是成片里那把嗓子,且不会有任何报警。读表则与阵容变化解耦。
+  // 老项目没有定妆表:按整集重建(与本版之前一模一样)并回填,从此稳定。
+  const routing = await resolveAndPersistCast(projectId, dialogueShots.map((s) => s.speaker));
   return effectiveVoice(speaker, { overrides, routing });
 }
 

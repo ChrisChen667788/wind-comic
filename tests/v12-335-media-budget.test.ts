@@ -101,8 +101,9 @@ describe('v12.335 · 仓库当下必须在预算内(门禁不是摆设)', () => 
 describe('v12.336 · 宣传片片尾卡的测试数不再硬编码', () => {
   it('只改「测试通过」那一格,不碰同卡上的其它数字', async () => {
     const { syncPromoFrame } = await import('../scripts/sync-doc-stats.mjs');
+    // 带属性的形态也要过 —— HyperFrames 工具会注入 data-hf-id,首版正则就栽在这
     const card = '<div><div class="k cn">许可</div><div class="v">MIT</div></div>'
-      + '<div><div class="k cn">测试通过</div><div class="v">4131</div></div>'
+      + '<div data-hf-id="x"><div data-hf-id="y" class="k cn">测试通过</div><div data-hf-id="z" class="v">4131</div></div>'
       + '<div><div class="k cn">版本</div><div class="v">12335</div></div>';
     const out = syncPromoFrame(card, 4311);
     expect(out).toContain('>4311<');
@@ -113,7 +114,7 @@ describe('v12.336 · 宣传片片尾卡的测试数不再硬编码', () => {
 
   it('仓库里那张片尾卡当前与 package 的测试数一致', () => {
     const html = fs.readFileSync('videos/wind-comic-promo/compositions/frames/08-your-keys.html', 'utf-8');
-    const m = html.match(/<div class="k cn">测试通过<\/div><div class="v">(\d+)<\/div>/);
+    const m = html.match(/<div\b[^>]*class="k cn"[^>]*>测试通过<\/div>\s*<div\b[^>]*class="v"[^>]*>(\d+)<\/div>/);
     expect(m, '片尾卡上找不到「测试通过」那一格').toBeTruthy();
     const readme = fs.readFileSync('README.md', 'utf-8').match(/Tests-(\d+)%2F/);
     expect(m![1], '片尾卡数字与 README 徽章不一致 —— 对外素材说了假话').toBe(readme![1]);
