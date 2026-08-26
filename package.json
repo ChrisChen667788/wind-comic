@@ -96,7 +96,7 @@
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^19.2.8",
-    "react-hotkeys-hook": "^5.2.4",
+    "react-hotkeys-hook": "^5.3.3",
     "react-window": "^2.2.7",
     "stripe": "^22.1.0",
     "swr": "^2.5.1",
