@@ -39,7 +39,8 @@
     "preflight": "node scripts/preflight.mjs",
     "gate:fake-green": "node scripts/fake-green-gate.mjs",
     "media:check": "node scripts/optimize-media.mjs --check",
-    "media:optimize": "node scripts/optimize-media.mjs"
+    "media:optimize": "node scripts/optimize-media.mjs",
+    "ms:sync": "node scripts/modelscope-sync.mjs"
   },
   "keywords": [
     "ai",
