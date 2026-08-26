@@ -60,10 +60,15 @@ describe('v12.300 · 三处应用层失败接现有 toast(不造第五套)', () 
 describe('v12.300 · DropZone 自带内联错误(低层组件不依赖 Provider)', () => {
   const s = read('components/ui/DropZone.tsx');
 
+  // v12.339 改写:原断言锁的是**具体标识符**(setUploadError / onError?.(error))。
+  // v12.339 把拖放与校验抽成 useFileDrop hook 复用给 u2v,错误状态随之改名 ——
+  // 行为一点没丢,四条断言却全红。**锁写法而不是锁行为**,与 v12.336/337/338 同一个毛病。
+  // 现在锁 v12.300 真正要保证的四件事,不关心内部叫什么名字。
+
   it('失败时记下原因并渲染出来,而不是静默恢复初始态', () => {
-    expect(s).toContain('setUploadError');
-    expect(s).toContain('上传失败');
-    expect(s).toMatch(/role="alert"/);
+    expect(s, '错误必须进 state,否则渲染不出来').toMatch(/set[A-Za-z]*[Ee]rror\(/);
+    expect(s, '要有兜底文案').toContain('上传失败');
+    expect(s, '错误必须对读屏可见').toMatch(/role="alert"/);
   });
 
   it('**不引入 useToast** —— 它在 Provider 外会抛,通用组件不该有这个地雷', () => {
@@ -72,14 +77,15 @@ describe('v12.300 · DropZone 自带内联错误(低层组件不依赖 Provider)
 
   it('提供 onError 让外层可以接管(想走 toast 的话)', () => {
     expect(s).toContain('onError?: (error: unknown) => void');
-    expect(s).toContain('onError?.(error)');
+    expect(s, '失败路径必须真的回调外层,而不只是声明了这个 prop').toMatch(/onError\?\.\(/);
   });
 
   it('重试前清掉上次的错误(否则成功后仍挂着旧报错)', () => {
-    const i = s.indexOf('setUploadError(null)');
-    const j = s.indexOf('await onFilesAccepted(files)');
-    expect(i, '未清理').toBeGreaterThan(0);
-    expect(i, '必须在重试之前清').toBeLessThan(j);
+    const clear = s.search(/set[A-Za-z]*[Ee]rror\(null\)/);
+    const call = s.search(/await onFiles(Accepted)?\(/);
+    expect(clear, '未清理').toBeGreaterThan(0);
+    expect(call, '找不到上传调用点').toBeGreaterThan(0);
+    expect(clear, '必须在重试之前清').toBeLessThan(call);
   });
 
   it('错误态优先于「拖拽文件到这里」的空态文案', () => {
@@ -108,7 +114,10 @@ describe('v12.300 · 这四处不得退回「只 console」', () => {
     const bad: string[] = [];
     for (const f of WATCHED) {
       const s = read(f);
-      const hasUserFeedback = s.includes('showToast(') || s.includes('setUploadError');
+      // v12.339:此前把「用户可见反馈」硬编码成 setUploadError 这一个名字 ——
+      // 改名(哪怕行为不变)就会误报「只进 console」。改为认**语义**:
+      // 走 toast,或把错误写进任何 error state(渲染出来的前提)。
+      const hasUserFeedback = s.includes('showToast(') || /set[A-Za-z]*[Ee]rror\(/.test(s);
       if (!hasUserFeedback) bad.push(f);
     }
     expect(bad, `这些文件的失败仍然只进 console:\n${bad.join('\n')}`).toEqual([]);

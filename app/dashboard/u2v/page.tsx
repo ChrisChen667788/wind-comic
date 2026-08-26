@@ -11,6 +11,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useFileDrop } from '@/components/ui/DropZone';
+
+// v12.339:这页的上传限制只此一处 —— hook 的落地校验与 uploadFile 的兜底校验共用,
+// 两处各写一套数字就是漂移的开始。
+const U2V_ACCEPT = { 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] };
+const U2V_MAX = 10 * 1024 * 1024;
 import { Upload, Link as LinkIcon, Play, Download, CircleNotch as Loader2, Sparkle as Sparkles, Warning as AlertTriangle, ArrowCounterClockwise as RotateCcw, FilmSlate } from '@phosphor-icons/react';
 import { useToast } from '@/components/ui/toast-provider';
 import { CameraLanguagePicker } from '@/components/create/camera-language-picker';
@@ -37,6 +43,9 @@ export default function U2VPage() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const tailFileRef = useRef<HTMLInputElement | null>(null);
   const [imageUrl, setImageUrl] = useState('');
+  // v12.339:这两个上传区**本来就长得像拖放区**("点击上传"),却只支持点击。
+  // 复用 useFileDrop 的行为(校验 + 拖放),外观一字不改 —— 通用组件那套灰色样式
+  // 塞进影院主题里会突兀,所以只借行为不借皮肤。
   const [imagePreview, setImagePreview] = useState('');
   const [urlDraft, setUrlDraft] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
@@ -97,8 +106,8 @@ export default function U2VPage() {
       showToast({ title: '只能上传图片', type: 'error' });
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      showToast({ title: '图片太大(上限 10MB)', type: 'error' });
+    if (file.size > U2V_MAX) {
+      showToast({ title: `图片太大(上限 ${U2V_MAX / 1048576}MB)`, type: 'error' });
       return;
     }
     const form = new FormData();
@@ -117,6 +126,18 @@ export default function U2VPage() {
       setTailImagePreview(body.url);
     }
   };
+
+  // 首/尾帧各一份拖放行为;外观沿用本页原样,只是多了「拖进来也行」。
+  const firstDrop = useFileDrop({
+    onFiles: (fs) => { if (fs[0]) return uploadFile(fs[0], 'first'); },
+    accept: U2V_ACCEPT, maxSize: U2V_MAX,
+    onError: (msg) => showToast({ title: msg, type: 'error' }),
+  });
+  const tailDrop = useFileDrop({
+    onFiles: (fs) => { if (fs[0]) return uploadFile(fs[0], 'tail'); },
+    accept: U2V_ACCEPT, maxSize: U2V_MAX,
+    onError: (msg) => showToast({ title: msg, type: 'error' }),
+  });
 
   const acceptUrl = async () => {
     const trimmed = urlDraft.trim();
@@ -256,9 +277,10 @@ export default function U2VPage() {
           <div>
             <label className="text-xs text-[var(--soft)] uppercase tracking-wider">输入图片</label>
             <div
+              {...firstDrop.dropProps}
               onClick={() => !imagePreview && fileRef.current?.click()}
               className={`mt-2 aspect-video rounded-xl overflow-hidden flex items-center justify-center border ${
-                imagePreview ? 'border-[#E8C547]/30 bg-black/20' : 'cursor-pointer border-dashed border-white/15 bg-white/[0.02] hover:bg-white/5'
+                firstDrop.isDragging ? 'border-[#E8C547] bg-[#E8C547]/10' : imagePreview ? 'border-[#E8C547]/30 bg-black/20' : 'cursor-pointer border-dashed border-white/15 bg-white/[0.02] hover:bg-white/5'
               }`}
             >
               {imagePreview ? (
@@ -266,7 +288,7 @@ export default function U2VPage() {
               ) : (
                 <div className="text-center text-[var(--soft)]">
                   <Upload className="w-7 h-7 mx-auto mb-1 opacity-50" />
-                  <div className="text-xs">点击上传 或 用 URL</div>
+                  <div className="text-xs">{firstDrop.isDragging ? '放开即上传' : '点击 / 拖入图片 或 用 URL'}</div>
                 </div>
               )}
             </div>
@@ -333,9 +355,10 @@ export default function U2VPage() {
                 )}
               </label>
               <div
+                {...tailDrop.dropProps}
                 onClick={() => !tailImagePreview && tailFileRef.current?.click()}
                 className={`mt-2 aspect-video rounded-xl overflow-hidden flex items-center justify-center border ${
-                  tailImagePreview ? 'border-[#E8C547]/30 bg-black/20' : 'cursor-pointer border-dashed border-white/10 bg-white/[0.02] hover:bg-white/5'
+                  tailDrop.isDragging ? 'border-[#E8C547] bg-[#E8C547]/10' : tailImagePreview ? 'border-[#E8C547]/30 bg-black/20' : 'cursor-pointer border-dashed border-white/10 bg-white/[0.02] hover:bg-white/5'
                 }`}
               >
                 {tailImagePreview ? (
@@ -343,7 +366,7 @@ export default function U2VPage() {
                 ) : (
                   <div className="text-center text-[var(--soft)]">
                     <Upload className="w-5 h-5 mx-auto mb-1 opacity-40" />
-                    <div className="text-[11px]">点击上传尾帧 · Kling 自动补中间运动</div>
+                    <div className="text-[11px]">{tailDrop.isDragging ? '放开即上传尾帧' : '点击 / 拖入尾帧 · Kling 自动补中间运动'}</div>
                   </div>
                 )}
               </div>

@@ -132,3 +132,28 @@ describe('v12.337 · 接线:端点与界面都真的接上了', () => {
     expect(PAGE, 'v12.337 之前这里让用户自己去项目页手动重生').not.toMatch(/请自行|自己去项目页/);
   });
 });
+
+describe('v12.339 修:上游报错不许被当成成功(v12.337 埋的静默失败)', () => {
+  const PAGE = fs.readFileSync('app/dashboard/edit-chat/page.tsx', 'utf-8');
+
+  it('**解析失败与上游错误分开处理** —— 同一个 catch 吞两者会把失败报成成功', () => {
+    // 病灶:`if (ev.type==='error') throw ...` 写在 try 里,被「忽略非 JSON 行」的 catch 吞掉,
+    // 循环照常走完 → 这一镜被标成 status:'ok'「已重生 ✓」。
+    expect(PAGE, 'catch 只该吞解析失败').toMatch(/try \{ ev = JSON\.parse\(.+\); \} catch \{ continue; \}/);
+    expect(PAGE, '上游错误要存下来而不是就地 throw 进 catch').toContain('upstreamErr =');
+  });
+
+  it('上游报错必须真的抛出去,不能落进 ok 分支', () => {
+    // 断言窗口要按**语义**界定:顶部 shotLog 的类型声明里也有 status: 'ok',
+    // 直接 indexOf 会量到那一处(这正是第一版写错的地方)。
+    const iThrow = PAGE.indexOf('if (upstreamErr) throw upstreamErr');
+    const iOk = PAGE.indexOf("{ ...x, status: 'ok'");
+    expect(iThrow, '缺少抛出').toBeGreaterThan(0);
+    expect(iOk, '找不到标记成功的赋值点').toBeGreaterThan(0);
+    expect(iThrow, '必须在标记 ok 之前').toBeLessThan(iOk);
+  });
+
+  it('收到 error 事件后立刻跳出,不再继续读流', () => {
+    expect(PAGE).toMatch(/upstreamErr = new Error[\s\S]{0,60}break;/);
+  });
+});

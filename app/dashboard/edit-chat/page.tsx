@@ -151,6 +151,7 @@ export default function EditChatPage() {
         // SSE:只取最后的 complete/error,过程中的 status 用于回显服务端的合并说明
         const reader = res.body.getReader(); const dec = new TextDecoder();
         let buf = '', done = false, lastMsg = '';
+        let upstreamErr: Error | null = null;
         while (!done) {
           const { value, done: d } = await reader.read();
           if (d) break;
@@ -159,14 +160,19 @@ export default function EditChatPage() {
           for (const c of chunks) {
             const line = c.split('\n').find((l) => l.startsWith('data: '));
             if (!line) continue;
-            try {
-              const ev = JSON.parse(line.slice(6));
-              if (ev.type === 'status' && ev.data?.message) lastMsg = String(ev.data.message);
-              if (ev.type === 'complete') { done = true; lastMsg = '已重生 ✓'; }
-              if (ev.type === 'error') { throw new Error(ev.data?.message || '重生失败'); }
-            } catch { /* 半包/非 JSON 行忽略 */ }
+            // v12.339 修:此前 `throw new Error(...)` 写在 try 里,被下面那个「忽略半包/非 JSON」
+            // 的 catch **一并吞掉** —— 上游报错后循环照常走完,这一镜被标成「已重生 ✓」。
+            // **失败被报告成成功**,正是本仓反复在打的静默失败。解析失败与上游错误是两回事,
+            // 必须分开:catch 只吞解析,上游错误存下来、跳出循环后再抛。
+            let ev: any = null;
+            try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+            if (ev?.type === 'status' && ev.data?.message) lastMsg = String(ev.data.message);
+            if (ev?.type === 'complete') { done = true; lastMsg = '已重生 ✓'; }
+            if (ev?.type === 'error') { upstreamErr = new Error(ev.data?.message || '重生失败'); done = true; break; }
           }
+          if (upstreamErr) break;
         }
+        if (upstreamErr) throw upstreamErr;   // 交给外层 catch 记成 fail —— 不许落进下面的 ok 分支
         setShotLog((L) => L.map((x) => x.shotNumber === rs.shotNumber ? { ...x, status: 'ok', msg: lastMsg || '已重生 ✓' } : x));
       } catch (e) {
         const msg = e instanceof Error ? e.message : '重生失败';
