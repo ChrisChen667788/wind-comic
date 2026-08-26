@@ -617,6 +617,24 @@ export default function DashboardCreatePage() {
         if (sa) s.updateAsset(sa.id, { data: { ...sa.data, pacingReport: data } });
         break;
       }
+      // v12.340:连续性主表。editor-agent 从 v12.16.0 起就 emit 这个事件,而这里
+      // **一直没有对应 case** —— 事件进了 switch 的 default 被静默丢弃。跨镜光照漂移、
+      // 画幅/帧率不一致这些出片前该看见的隐患,算了却从不呈现给用户。
+      // 落法与 pacingAudit 同源:挂在 script 资产的 data 上,由既有资产面板消费。
+      case 'continuitySheet': {
+        const sa = s.assets.find(a => a.type === 'script');
+        if (sa) s.updateAsset(sa.id, { data: { ...sa.data, continuitySheet: data } });
+        // 校验不过时在对话里点名说清楚 —— agentTalk 只说了「发现 N 处」,没说是哪几处
+        const issues: string[] = (data as any)?.check?.issues || [];
+        if (issues.length) {
+          s.addChatMessage(AgentRole.EDITOR, {
+            id: `msg-cont-${Date.now()}`, projectId, agentRole: AgentRole.EDITOR,
+            role: 'agent', content: `连续性主表:${issues.length} 处隐患 —— ${issues.slice(0, 3).join(';')}${issues.length > 3 ? ` 等 ${issues.length} 处` : ''}`,
+            timestamp: new Date().toISOString(),
+          } as any);
+        }
+        break;
+      }
       case 'editResult': {
         s.updateNodeData('node-editor', { status: 'completed', progress: 100, editResult: data } as any);
         refreshNodeAssets();

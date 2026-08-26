@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.339**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.340**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.339**:**vitest 4366 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.340**:**vitest 4389 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,25 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.339.0** | 2026-08-25 | `待填` | **📎 DropZone:声明了却不执行的校验 —— 照原样接线就会把 bug 一起发布**。
+| **v12.340.0** | 2026-08-27 | `待填` | **🔌 两条纯接线:算出来却没人消费的东西,接到用户看得见的地方**。
+
+本版是那轮盘点(25 个 agent 跑完、逐条核验过)排出来的「接线日」。合规项按 owner 决定**不做**。
+
+**① 连续性主表被静默丢弃。** `editor-agent` 自 **v12.16.0** 起就 `emit('continuitySheet', …)`,而前端 SSE switch 的 22 个 case 里**从来没有它** —— 事件落进 default 被丢掉。跨镜光照漂移、画幅/帧率不一致这些**出片前该看见**的隐患,算了却从不呈现给用户(校验不过时只有一句 `agentTalk` 说「发现 N 处」,是哪几处不说)。已补 case,落法与既有 `pacingAudit` **同源**(挂在 `script` 资产的 `data` 上,由既有资产面板消费),并在有隐患时把前三条**点名列出来**;没有隐患则不发消息,不为了展示能力去打扰人。
+
+**② 发布预检零消费方。** `GET /publish-preflight` 早就在、`lib/create-pipeline` 内部也用了,但**前端一个调用点都没有** —— 于是「这条片子会不会因为时长/画幅被抖音拒掉」只有真发出去撞墙才知道。现在进面板即拉,每个平台卡上一枚徽章,**阻断项摊开写**(不藏在悬停 title 里 —— 会挡住人的东西不该只在悬停时可见)。
+
+**发布前拦一道,但不剥夺你坚持发布的权利**:预检判定不通过时弹确认并列出原因,确认了照发。理由是平台规则会变、预检本身也可能保守 —— 该做的是**不让人在毫不知情的情况下撞墙**,而不是替他决定。
+
+**接线时踩到的两处,都是"别想当然"**:① 端点返回的字段是 `platforms`,我第一版按惯例写成了 `results`,查了 route 才改对;② 平台卡是**独立子组件**,拿不到父作用域的 `preflight`,已改为父层按 platform 取好、通过 props 传单条结论(子组件不再自己找)。预检拉取失败**不打断发布流程**也不进主错误态 —— 404「还没有成片」、422「不是本地产物」都是正常状态,不是错误。
+
+**顺带**:owner 明确要求后,MiniMax 新 key 已写入 `.env.local`(替换旧行而非追加,避免同名变量谁生效不确定)。`npm run audit:api` 从「鉴权失败」转为 **OK**,音色库可正常拉取;`MINIMAX_GROUP_ID` 仍是占位符(只影响 `voice_clone`)。
+
+**顺带被自己的门禁抓了一次(这是好事)**:上一版新写的 `scripts/modelscope-sync.mjs` 引入了 `MODELSCOPE_API_TOKEN`,而 v12.333 那道「配置面变量必须在 `.env.example` 有声明行」的**通用规则门禁**立刻在全量里报红。它不是白名单、是按规则扫的,所以新增变量自动被覆盖 —— 这正是 v12.333 把它从「6 个变量的硬编码名单」改成规则扫描的意义。已补记(并写明只从环境变量读、不要跑 `modelscope login`)。
+
+**验证**:tsc 0;13 条新单测(含「没有隐患时不打扰用户」「不剥夺坚持发布的权利」这类容易被写成反面的约束);`/dashboard/create` 与 `/dashboard` 实测 HTTP 200、dev 日志零编译错误。**没验到的**:两条接线的最终呈现都需登录后在真实项目里跑一次流水线才看得到,我只验证了编译与挂载点。 |
+
+| **v12.339.0** | 2026-08-26 | `b6fad03` | **📎 DropZone:声明了却不执行的校验 —— 照原样接线就会把 bug 一起发布**。
 
 **起因是「造好没接线」清单里最老的一条**:`components/ui/DropZone.tsx` 自 v12.300 起就**零生产消费方**(全仓只有它自己引用自己),VERSIONS 当时记着「修了不亏,但属于造好没接线那一类,不在本版处理」——从 v12.300 到 v12.338 共 39 个版本没人动。
 

@@ -16,6 +16,9 @@ import {
 
 const DEFAULT_PLATFORMS: PlatformId[] = ['douyin', 'xiaohongshu', 'shipinhao'];
 
+/** 与 lib/publish-preflight 的 PreflightResult 对齐(前端只读展示,不重算判定) */
+interface PreflightRow { platform: string; label: string; pass: boolean; issues: string[]; warnings: string[] }
+
 // v12.3.1 发布动作结果(per platform)
 type PublishResult = { kind: 'ok' | 'plan' | 'blocked' | 'err'; msg: string; shareUrl?: string; externalUrl?: string };
 
@@ -28,6 +31,10 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
   const [publishing, setPublishing] = useState<PlatformId | null>(null);
   const [pubResults, setPubResults] = useState<Record<string, PublishResult>>({});
   // v12.3.3 定时发布 + YouTube 真上传
+  // v12.340:发布预检。端点 GET /publish-preflight 从 v12.3.x 就在,**前端零消费方** ——
+  // 于是「这条片子在抖音会不会因为时长/画幅被拒」只有发出去撞墙才知道。
+  const [preflight, setPreflight] = useState<PreflightRow[] | null>(null);
+  const [preflightNote, setPreflightNote] = useState('');
   const [scheduleAt, setScheduleAt] = useState('');   // datetime-local 字符串(空 = 立即)
   const [ytReal, setYtReal] = useState(false);        // 勾选 = 真上传到 YouTube(需已配 token)
 
@@ -37,6 +44,21 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
       .then((r) => r.json()).then((j) => { if (alive && j?.pack?.platforms) setPack(j.pack); })
       .catch(() => {});
     return () => { alive = false; };
+  }, [projectId]);
+
+  // 预检是只读的、也不花钱,进面板就拉;失败不打断发布流程,只是不显示徽章。
+  useEffect(() => {
+    if (!projectId) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('qfmj-token') : '';
+    fetch(`/api/projects/${projectId}/publish-preflight`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+      .then(async (r) => {
+        if (r.ok) return r.json();
+        const j = await r.json().catch(() => ({}));
+        // 404「还没有成片」/422「不是本地产物」都是**正常状态**,不是错误 —— 如实说,别报红
+        throw new Error(j?.message || `预检不可用 (${r.status})`);
+      })
+      .then((j) => setPreflight(Array.isArray(j?.platforms) ? j.platforms : null))   // 端点返回 { ok, meta, platforms }
+      .catch((e) => setPreflightNote(e instanceof Error ? e.message : '预检不可用'));
   }, [projectId]);
 
   function toggle(p: PlatformId) {
@@ -69,6 +91,13 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
   // v12.3.1+12.3.3 发布:打包 + 硬质量门禁 + 计费 gate + 落记录 + 分享链接;
   // 可定时(scheduleAt)/可真上传(YouTube 已配 token → 真传,其余诚实降级为手动)。
   async function publish(platform: PlatformId) {
+    // v12.340:预检已明确判定不通过时,先拦一道 —— 不阻止你坚持发(平台规则会变、
+    // 预检也可能保守),但不能让人在毫不知情的情况下撞墙。
+    const pf = preflight?.find((r) => r.platform === platform);
+    if (pf && !pf.pass) {
+      const ok = window.confirm(`预检未通过(${pf.label}):\n${pf.issues.join('\n')}\n\n仍要发布吗?`);
+      if (!ok) return;
+    }
     setPublishing(platform);
     setPubResults((r) => ({ ...r, [platform]: { kind: 'ok', msg: '发布中…' } }));
     try {
@@ -157,7 +186,8 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {pack.platforms.map((p) => (
             <PlatformCard key={p.platform} p={p} copiedKey={copiedKey} onCopy={copy}
-              onPublish={() => publish(p.platform)} publishing={publishing === p.platform} result={pubResults[p.platform]} />
+              onPublish={() => publish(p.platform)} publishing={publishing === p.platform} result={pubResults[p.platform]}
+              pf={preflight?.find((r) => r.platform === p.platform)} />
           ))}
         </div>
       )}
@@ -171,9 +201,11 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
   );
 }
 
-function PlatformCard({ p, copiedKey, onCopy, onPublish, publishing, result }: {
+function PlatformCard({ p, copiedKey, onCopy, onPublish, publishing, result, pf }: {
   p: PlatformPack; copiedKey: string; onCopy: (t: string, k: string) => void;
   onPublish: () => void; publishing: boolean; result?: PublishResult;
+  /** v12.340:本平台的预检结论(父层已按 platform 取好,子组件不再自己找) */
+  pf?: PreflightRow;
 }) {
   const Row = ({ k, label, value }: { k: string; label: string; value: string }) => (
     <div className="flex items-start gap-2 py-1.5 border-b border-[var(--cinema-border)] last:border-0">
@@ -186,7 +218,33 @@ function PlatformCard({ p, copiedKey, onCopy, onPublish, publishing, result }: {
   );
   return (
     <div className="cinema-card !p-4">
-      <div className="cinema-eyebrow mb-2">{p.label}</div>
+      <div className="cinema-eyebrow mb-2 flex items-center gap-2">
+        {p.label}
+        {/* v12.340:预检徽章 —— 发之前就知道会不会被平台拒 */}
+        {(() => {
+          if (!pf) return null;
+          return (
+            <span
+              data-testid={`preflight-${p.platform}`}
+              className={`px-1.5 py-0.5 rounded text-[10px] ${pf.pass
+                ? 'bg-[var(--cinema-green)]/15 text-[var(--cinema-green)]'
+                : 'bg-[var(--cinema-red)]/15 text-[var(--cinema-red)]'}`}
+              title={[...pf.issues, ...pf.warnings].join('\n') || '预检通过'}
+            >
+              {pf.pass ? (pf.warnings.length ? `预检通过 · ${pf.warnings.length} 条建议` : '预检通过') : `预检未过 · ${pf.issues.length} 项`}
+            </span>
+          );
+        })()}
+      </div>
+      {/* 未通过时把原因摊开写 —— 徽章上的 title 悬停才看得到,阻断项不该藏在悬停里 */}
+      {(() => {
+        if (!pf || pf.pass || !pf.issues.length) return null;
+        return (
+          <ul className="mb-2 text-[11px] text-[var(--cinema-red)] leading-relaxed list-disc pl-4">
+            {pf.issues.map((it: string, i: number) => <li key={i}>{it}</li>)}
+          </ul>
+        );
+      })()}
       <Row k={`${p.platform}-title`} label="标题" value={p.titles[0] || ''} />
       {p.titles.slice(1).map((t, i) => <Row key={i} k={`${p.platform}-t${i}`} label="备选" value={t} />)}
       {p.tags.length > 0 && <Row k={`${p.platform}-tags`} label="标签" value={p.tags.map((t) => '#' + t).join(' ')} />}
