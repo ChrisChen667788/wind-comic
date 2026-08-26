@@ -118,12 +118,12 @@
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/ws": "^8.18.1",
-    "@vitejs/plugin-react": "^6.0.4",
+    "@vitejs/plugin-react": "^6.1.0",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.15",
-    "puppeteer": "^25.7.0",
+    "puppeteer": "^25.8.0",
     "tsx": "^4.23.12",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "sharp": "^0.35.3",
