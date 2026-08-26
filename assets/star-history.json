@@ -1,7 +1,7 @@
 {
   "repo": "ChrisChen667788/wind-comic",
-  "updatedAt": "2026-08-25T04:03:53.141Z",
-  "total": 453,
+  "updatedAt": "2026-08-26T04:06:06.597Z",
+  "total": 464,
   "note": "自采数据。GitHub 2026-06-30 起把 stargazers 接口收窄为 admin/collaborator 可访问,故第三方 star 曲线服务全部失效;此文件由 scripts/gen-star-history.mjs 用本仓库 token 生成并提交,顺带充当历史备份。",
   "series": [
     {
@@ -290,7 +290,11 @@
     },
     {
       "d": "2026-08-25",
-      "c": 453
+      "c": 460
+    },
+    {
+      "d": "2026-08-26",
+      "c": 464
     }
   ]
 }
