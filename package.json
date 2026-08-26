@@ -76,7 +76,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@xyflow/react": "^12.11.3",
-    "autoprefixer": "^10.4.27",
+    "autoprefixer": "^10.5.4",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",
