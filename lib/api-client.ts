@@ -15,6 +15,14 @@ async function request(path: string, options: RequestInit = {}) {
   if (!res.ok) {
     const err = new Error((data as any).message || 'Request failed');
     (err as any).status = res.status;
+    // v12.341:**把 Retry-After 一并带出去**。此前只保留 status,于是服务端明明算好了
+    // 「还剩多少秒解锁」,界面却拿不到 —— 429 和 401 一样只能显示「登录失败」,
+    // 用户以为密码记错了,反复重试(徒劳,锁定窗口是固定的、不会因重试延长,但也不会提前结束)。
+    const ra = res.headers.get('Retry-After');
+    if (ra) {
+      const sec = Number(ra);
+      if (Number.isFinite(sec) && sec > 0) (err as any).retryAfterSec = Math.ceil(sec);
+    }
     throw err;
   }
   return data;

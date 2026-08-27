@@ -22,7 +22,7 @@
 > ▸ Real CJK subtitles
 > ▸ Multiplayer timeline (Yjs CRDT)
 > ▸ Bring your own LLM
-> ▸ MIT · 4389 tests
+> ▸ MIT · 4400 tests
 >
 > github.com/ChrisChen667788/wind-comic
 
@@ -44,7 +44,7 @@
 > - **Real-time multiplayer** via Yjs CRDT — live cursors, presence avatars, Y.Map segment locks
 > - **BYO LLM** in 3 env vars — OpenAI / Anthropic / DeepSeek / Qwen / Kimi / OpenRouter / Ollama (local)
 >
-> MIT licensed. 4389 tests passing. Self-hostable on Node 20+.
+> MIT licensed. 4400 tests passing. Self-hostable on Node 20+.
 
 ---
 
@@ -68,7 +68,7 @@
 >
 > 5. **Provider-agnostic LLM.** Every LLM call routes through one OpenAI-compatible `chat/completions` endpoint via subprocess (to dodge Next.js Turbopack's fetch quirks). Swap providers by editing 3 env vars. Tested on OpenAI, Anthropic-via-OpenRouter, DeepSeek-r1, Qwen, MiniMax, GLM, Kimi, local Ollama. See `docs/llm-providers.md`.
 >
-> 8 months, v2.0 → v12.340, 4389 vitest tests, TypeScript strict, MIT. Honestly happy for criticism — `docs/COMPETITIVE-GAP-2026-05.md` is our own self-audit of where we still lose vs Sora/Kling/Higgsfield.
+> 8 months, v2.0 → v12.341, 4400 vitest tests, TypeScript strict, MIT. Honestly happy for criticism — `docs/COMPETITIVE-GAP-2026-05.md` is our own self-audit of where we still lose vs Sora/Kling/Higgsfield.
 >
 > github.com/ChrisChen667788/wind-comic
 
@@ -77,7 +77,7 @@
 ## 🔥 Reddit — r/MachineLearning, r/aivideo, r/SideProject
 
 **Title:**
-> [P] Open-sourced an 8-agent AI pipeline that turns 1 sentence into a finished short-form drama (4389 tests, MIT)
+> [P] Open-sourced an 8-agent AI pipeline that turns 1 sentence into a finished short-form drama (4400 tests, MIT)
 
 **Body:**
 
@@ -97,7 +97,7 @@ On top of the pipeline: a **multi-track Cinema Timeline** (Logic Pro vibe) with 
 
 The LLM is provider-agnostic — `docs/llm-providers.md` documents how to swap to gpt-4o / Claude / DeepSeek-r1 / Qwen / Kimi / local Ollama by editing 3 env vars.
 
-Tech: Next.js 16 + TypeScript strict + SQLite + Web Audio API + Yjs. 4389 vitest tests passing. MIT.
+Tech: Next.js 16 + TypeScript strict + SQLite + Web Audio API + Yjs. 4400 vitest tests passing. MIT.
 
 Honest competitor comparison: README's vs-competitors table is kept current (**verified 2026-08-07**, figures re-checked by an independent second pass that **overturned 4 of 8** high-risk claims). Two heavyweight entrants in two weeks: **MiniMax H3** (Jul 31; **weights opened Aug 3**, excl. US/EU/UK/KR) took **#2 on text-to-video-with-audio (Elo 1238)**, #3 on image-to-video (1190), and **#1 on video-editing-with-audio**; **ByteDance Seedance 2.5** (Jul 31) does **30 seconds in a single native take** — the longest today — at native 4K 10-bit with up to **50 reference inputs**. Gemini Omni Flash still leads T2V-with-audio (1244). **Kling 3.0** is the all-round short-drama pick (native 4K, up to 60fps, up to 15s, 6 coherent shots, native multilingual dialogue + lip-sync, ~$0.084–0.112/s). **Sora 2's API shuts down 2026-09-24 — roughly six weeks out.** **The first structurally-comparable open-source rival has arrived**: HKU's **ViMax** (MIT, 5.6k★, 12 agents, script→storyboard→character→video) and **OpenMontage** (24k★, no standalone UI) — so *being open source is no longer the differentiator by itself*. Checked item by item, ViMax has no TTS, no pacing audit, no EDL/AAF edit-line export and no collaboration; **as of 2026-08 no competitor we could find — open or closed — combines pacing audit + EDL/AAF export + open-source self-hosting.**
 
@@ -118,7 +118,7 @@ GitHub: https://github.com/ChrisChen667788/wind-comic
 > ▸ Real CJK subtitles (no more garbled-glyph issues)
 > ▸ Logic Pro-style timeline with real-time multiplayer
 > ▸ Bring your own LLM (12+ providers supported)
-> ▸ MIT licensed, 4389 tests passing
+> ▸ MIT licensed, 4400 tests passing
 >
 > If you're a vertical-drama studio, content marketing team, indie filmmaker, or comic adaptation studio — give it 10 minutes.
 >
@@ -132,7 +132,7 @@ GitHub: https://github.com/ChrisChen667788/wind-comic
 
 # How we built an 8-agent AI pipeline that beats Sora at short-form drama
 
-> TL;DR: Sora gives you 5 seconds. We give you 30 seconds + character consistency + real Chinese subtitles + a multiplayer timeline editor. Open source. MIT. 4389 tests.
+> TL;DR: Sora gives you 5 seconds. We give you 30 seconds + character consistency + real Chinese subtitles + a multiplayer timeline editor. Open source. MIT. 4400 tests.
 
 Most "AI video" tools take a prompt and run it through one giant model. The result feels like a tech demo, not a show. Characters change faces between shots. Visual style drifts. Chinese subtitles render as garbled glyphs. No sense of pacing.
 
@@ -150,7 +150,7 @@ We took the opposite approach: 8 specialized agents, each an expert at their rol
 >
 > **Why it's different**: 8 specialized agents (not one black-box model), Style Bible Frame locks visual identity, 8-dim Character DNA + Vision retry locks faces, real CJK subtitles burned via ffmpeg, multiplayer timeline via Yjs CRDT, bring-your-own LLM (12+ providers).
 >
-> MIT · Next.js 16 · TypeScript · 4389 tests passing
+> MIT · Next.js 16 · TypeScript · 4400 tests passing
 >
 > Source: github.com/ChrisChen667788/wind-comic
 
@@ -158,7 +158,7 @@ We took the opposite approach: 8 specialized agents, each an expert at their rol
 
 ## 🔥 GitHub repo `about` tag
 
-> One sentence → finished short drama. Multi-agent AI pipeline · cinematic storyboards · real-time collab timeline · BYO LLM · MIT · 4389 tests.
+> One sentence → finished short drama. Multi-agent AI pipeline · cinematic storyboards · real-time collab timeline · BYO LLM · MIT · 4400 tests.
 
 ---
 
