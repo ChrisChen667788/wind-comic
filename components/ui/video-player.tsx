@@ -18,6 +18,25 @@ export function VideoPlayer({ src, poster, className, autoPlay = false }: VideoP
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [currentTime, setCurrentTime] = React.useState(0)
   const [duration, setDuration] = React.useState(0)
+  // v12.342:加载失败要说出来。此前 <video> 没有 onError —— 素材文件丢了(serve-file 返 404)
+  // 界面就是一片空白,用户只能猜是网络问题还是自己点错了。owner 的 30 个历史项目
+  // 素材被定时清理删光后,看到的正是这个「什么都没有,也什么都不说」的状态。
+  const [loadError, setLoadError] = React.useState<string>('')
+
+  // 换了 src 就清掉旧错误,否则修好后仍挂着上一条报错
+  React.useEffect(() => { setLoadError('') }, [src])
+
+  const handleError = React.useCallback(async () => {
+    // 区分「文件没了」和「一时加载不出来」—— 两者对用户的意义完全不同
+    let msg = '视频加载失败'
+    try {
+      const r = await fetch(src, { method: 'HEAD' })
+      if (r.status === 404) msg = '素材文件已丢失(可能被定时清理删除),需重新生成这一镜'
+      else if (r.status === 403) msg = '素材链接已过期或无权访问'
+      else if (!r.ok) msg = `素材不可用(HTTP ${r.status})`
+    } catch { msg = '视频加载失败:网络不可达' }
+    setLoadError(msg)
+  }, [src])
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -84,7 +103,18 @@ export function VideoPlayer({ src, poster, className, autoPlay = false }: VideoP
         onLoadedMetadata={handleLoadedMetadata}
         autoPlay={autoPlay}
         onClick={togglePlay}
+        onError={handleError}
       />
+
+      {loadError && (
+        <div
+          role="alert"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/80 text-center px-4"
+        >
+          <p className="text-sm text-red-300">{loadError}</p>
+          <p className="text-[11px] text-white/50 break-all">{src}</p>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">

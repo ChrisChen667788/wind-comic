@@ -318,24 +318,73 @@ export function resolveByKey(key: string): { absPath: string; ext: string } | nu
 }
 
 /**
- * 清理策略(未实装): 按 LRU 保留最近 30 天,防止磁盘爆掉。
- * 可以用 cron 调用 `cleanup({ maxAgeDays: 30 })`。
+ * 按龄清理孤儿文件 —— **被引用的文件永不删除**。
+ *
+ * ## 这个函数曾经删掉了用户 30 个历史项目的全部素材
+ *
+ * 原实现只看 `mtimeMs < cutoff` 就 `unlinkSync`,**完全不查文件是否仍被项目引用**;
+ * 函数头还写着「清理策略(未实装)」,而 `/api/cron/cleanup-media` 早已在调它。
+ * 于是 2026 年 6-14 一次清理把 `data/storage/assets` 按 30 天龄清空:
+ * 分镜 34、角色 51、场景 102、视频 168、成片 24 —— **在盘数全部归零**,
+ * 而 `project_assets` 里 406 条 `serve-file?key=…` 引用原样保留。
+ * 用户看到的是「历史项目视频全都播不了」,系统对此毫无察觉。
+ * `unlinkSync` 不进废纸篓,没有 S3、没有 Time Machine —— **不可恢复**。
+ *
+ * ## 现在的规则
+ * 删除前先把库里所有仍被引用的 key 读出来,**命中引用的一律跳过**,不管它多老。
+ * 只有「无人引用的孤儿」才按龄清理 —— 那才是这个函数本来该做的事。
+ * 读引用失败时(库锁、schema 变更)**一个都不删**:宁可多占磁盘,不可误删不可恢复的产物。
  */
-export function cleanup(opts?: { maxAgeDays?: number }): { removed: number } {
+export function listReferencedKeys(): Set<string> {
+  const keys = new Set<string>();
+  const { db } = require('./db');
+  // persistent_url 与 media_urls 两处都可能带 key,都要认
+  const rows = db.prepare(
+    `SELECT persistent_url, media_urls FROM project_assets
+     WHERE persistent_url LIKE '%serve-file%' OR media_urls LIKE '%serve-file%'`,
+  ).all() as Array<{ persistent_url?: string; media_urls?: string }>;
+  for (const r of rows) {
+    for (const blob of [r.persistent_url || '', r.media_urls || '']) {
+      for (const m of blob.matchAll(/key=([0-9a-zA-Z_-]+)/g)) keys.add(m[1]);
+    }
+  }
+  return keys;
+}
+
+export function cleanup(opts?: { maxAgeDays?: number; dryRun?: boolean }): {
+  removed: number; skippedReferenced: number; freedMB: number; aborted?: string;
+} {
   ensureStorage();
   const days = opts?.maxAgeDays ?? 30;
   const cutoff = Date.now() - days * 24 * 3600 * 1000;
-  let removed = 0;
+
+  // 读不到引用就**什么都不删** —— 删除不可逆,而多占磁盘是可逆的。
+  let referenced: Set<string>;
   try {
-    const files = fs.readdirSync(STORAGE_ROOT);
-    for (const f of files) {
+    referenced = listReferencedKeys();
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    console.error(`[storage-cleanup] 读引用失败,本次不删任何文件:${why}`);
+    return { removed: 0, skippedReferenced: 0, freedMB: 0, aborted: why.slice(0, 160) };
+  }
+
+  let removed = 0, skippedReferenced = 0, freed = 0;
+  try {
+    for (const f of fs.readdirSync(STORAGE_ROOT)) {
       const p = path.join(STORAGE_ROOT, f);
-      const stat = fs.statSync(p);
-      if (stat.mtimeMs < cutoff) {
-        fs.unlinkSync(p);
-        removed++;
-      }
+      let stat: fs.Stats;
+      try { stat = fs.statSync(p); } catch { continue; }
+      if (!stat.isFile()) continue;
+      const key = f.replace(/\.[^.]*$/, '');          // <key><ext> → <key>
+      if (referenced.has(key)) { skippedReferenced++; continue; }   // 被引用 → 永不删
+      if (stat.mtimeMs >= cutoff) continue;
+      if (!opts?.dryRun) fs.unlinkSync(p);
+      freed += stat.size;
+      removed++;
     }
-  } catch { /* ignore */ }
-  return { removed };
+  } catch (e) {
+    console.warn('[storage-cleanup] 遍历中断:', e instanceof Error ? e.message : e);
+  }
+  console.log(`[storage-cleanup] ${opts?.dryRun ? '(干跑)' : ''}删除孤儿 ${removed} 个 · 因被引用跳过 ${skippedReferenced} 个 · 释放 ${Math.round(freed / 1048576)}MB`);
+  return { removed, skippedReferenced, freedMB: Math.round(freed / 1048576) };
 }

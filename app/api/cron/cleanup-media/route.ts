@@ -16,16 +16,51 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-function sweepDir(dir: string, maxAgeDays: number, dryRun: boolean): { removed: number; freedMB: number } {
-  let removed = 0, freed = 0;
+/**
+ * 按龄清理目录 —— **被数据库引用的文件永不删除**(v12.342)。
+ *
+ * 原实现只看 mtime 就删,理由是「composed 成片可再合成、exports 可再导出、media 中间物可再生」。
+ * 但「可再生」不等于「可以删」:再生要花钱、要时间,而用户并不知道自己的成片有 7 天保质期。
+ * 实际后果:`data/composed` 已被清空,而 `project_assets` 里仍有 **33 条**指向它的引用 ——
+ * 用户点开历史项目,成片播不出来,系统对此毫无察觉。storage 那边同样如此(见 lib/asset-storage）。
+ *
+ * 现在:先取库里所有仍被引用的**文件名**,命中的一律跳过,不管多老。
+ * 取引用失败就整轮不删 —— 删除不可逆,占磁盘可逆。
+ */
+function referencedBasenames(): Set<string> | null {
   try {
-    if (!fs.existsSync(dir)) return { removed: 0, freedMB: 0 };
+    const { db } = require('@/lib/db');
+    const rows = db.prepare(
+      `SELECT persistent_url, media_urls FROM project_assets
+       WHERE persistent_url IS NOT NULL OR media_urls IS NOT NULL`,
+    ).all() as Array<{ persistent_url?: string; media_urls?: string }>;
+    const names = new Set<string>();
+    for (const r of rows) {
+      for (const blob of [r.persistent_url || '', r.media_urls || '']) {
+        for (const m of blob.matchAll(/([A-Za-z0-9._-]+\.(?:mp4|mov|webm|png|jpe?g|webp|mp3|wav|m4a|srt|edl|xml|aaf))/g)) {
+          names.add(m[1]);
+        }
+      }
+    }
+    return names;
+  } catch (e) {
+    console.error('[cleanup-media] 读引用失败,本轮不删任何文件:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+function sweepDir(dir: string, maxAgeDays: number, dryRun: boolean, referenced: Set<string> | null): { removed: number; freedMB: number; skippedReferenced: number } {
+  let removed = 0, freed = 0, skippedReferenced = 0;
+  if (referenced === null) return { removed: 0, freedMB: 0, skippedReferenced: 0 };  // 读不到引用 → 不删
+  try {
+    if (!fs.existsSync(dir)) return { removed: 0, freedMB: 0, skippedReferenced: 0 };
     const cutoff = Date.now() - maxAgeDays * 24 * 3600 * 1000;
     const walk = (d: string) => {
       for (const f of fs.readdirSync(d)) {
         const p = path.join(d, f);
         const st = fs.statSync(p);
         if (st.isDirectory()) { walk(p); continue; }
+        if (referenced.has(f)) { skippedReferenced++; continue; }   // 被引用 → 永不删
         if (st.mtimeMs < cutoff) {
           freed += st.size;
           if (!dryRun) fs.unlinkSync(p);
@@ -35,7 +70,7 @@ function sweepDir(dir: string, maxAgeDays: number, dryRun: boolean): { removed: 
     };
     walk(dir);
   } catch { /* 单目录失败不阻塞其他 */ }
-  return { removed, freedMB: Math.round(freed / 1024 / 1024) };
+  return { removed, freedMB: Math.round(freed / 1024 / 1024), skippedReferenced };
 }
 
 async function handle(request: Request) {
@@ -72,12 +107,15 @@ async function handle(request: Request) {
   }
   const dryRun = url.searchParams.get('dryRun') === '1';
   const root = process.cwd();
+  // 一次性取引用清单,三个目录共用;取不到则整轮不删(见 referencedBasenames)
+  const refs = referencedBasenames();
   const report = {
     dryRun,
-    composed: sweepDir(path.join(root, 'data', 'composed'), 7, dryRun),
-    exports: sweepDir(path.join(root, 'data', 'exports'), 7, dryRun),
-    media: sweepDir(path.join(root, 'data', 'media'), 14, dryRun),
-    storage: dryRun ? { removed: 0 } : cleanup({ maxAgeDays: 30 }),
+    referenceLookup: refs === null ? 'failed(本轮不删)' : `${refs.size} 个被引用文件受保护`,
+    composed: sweepDir(path.join(root, 'data', 'composed'), 7, dryRun, refs),
+    exports: sweepDir(path.join(root, 'data', 'exports'), 7, dryRun, refs),
+    media: sweepDir(path.join(root, 'data', 'media'), 14, dryRun, refs),
+    storage: cleanup({ maxAgeDays: 30, dryRun }),   // v12.342:干跑也走同一条逻辑,报告才有意义
   };
   const totalRemoved = report.composed.removed + report.exports.removed + report.media.removed + (report.storage.removed || 0);
   return NextResponse.json({ ...report, totalRemoved, ranAt: new Date().toISOString() });
