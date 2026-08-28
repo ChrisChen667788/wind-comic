@@ -50,6 +50,8 @@ export interface CastResolution {
 export function resolveWithCast(
   names: string[],
   persisted: Record<string, string> | null | undefined,
+  /** v12.346:剧本性别线索。只影响**新角色**的分配 —— 已锁定的是成片事实,永不改。 */
+  hints?: Map<string, { gender?: 'male' | 'female'; ageGroup?: string }>,
 ): CastResolution {
   const locked = { ...(persisted || {}) };
   const map = new Map<string, string>();
@@ -66,8 +68,8 @@ export function resolveWithCast(
   // ② 新角色:先按既有算法算一遍,再把**与已占用音色冲突**的往后顺延,
   //    避免新人和老人撞音(轮转算法本身只在「一次性拿到全部阵容」时才保证不撞)。
   const taken = new Set(Object.values(locked));
-  const routed = buildVoiceRouting(fresh);
-  const pool = [...new Set([...buildVoiceRouting(clean).values(), ...routed.values()])];
+  const routed = buildVoiceRouting(fresh, undefined, hints);
+  const pool = [...new Set([...buildVoiceRouting(clean, undefined, hints).values(), ...routed.values()])];
   const added: Record<string, string> = {};
   for (const n of fresh) {
     let v = routed.get(n) || '';
@@ -124,7 +126,30 @@ export async function saveVoiceCast(projectId: string, entries: Record<string, s
  */
 export async function resolveAndPersistCast(projectId: string, names: string[]): Promise<Map<string, string>> {
   const persisted = await loadVoiceCast(projectId);
-  const { map, added } = resolveWithCast(names, persisted);
+  // v12.346:先从**本项目剧本**投票出性别,再去分配音色。
+  // 之前这里只有名字,而姓名词表对中文人名几乎无效(实测 53 个角色只判出 4 个),
+  // 于是绝大多数角色的性别是散列出来的 —— 且会被 saveVoiceCast **永久锁死**。
+  const hints = await loadScriptGenderHints(projectId);
+  const { map, added } = resolveWithCast(names, persisted, hints);
   if (Object.keys(added).length) await saveVoiceCast(projectId, added);
   return map;
+}
+
+/** 读本项目剧本的分镜,投票得出角色性别。读不到就返回空表(退回原有链路,不报错)。 */
+async function loadScriptGenderHints(
+  projectId: string,
+): Promise<Map<string, { gender?: 'male' | 'female' }> | undefined> {
+  try {
+    const { db } = await import('./db');
+    const row = db.prepare('SELECT script_data FROM projects WHERE id = ?').get(projectId) as
+      { script_data?: string } | undefined;
+    if (!row?.script_data) return undefined;
+    const shots = JSON.parse(row.script_data)?.shots;
+    if (!Array.isArray(shots) || !shots.length) return undefined;
+    const { buildCastHints } = await import('./character-gender');
+    const hints = buildCastHints(shots);
+    return hints.size ? hints : undefined;
+  } catch {
+    return undefined;   // 线索是增强项,拿不到不该让配音整条链失败
+  }
 }

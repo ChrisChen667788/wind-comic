@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.345**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.346**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.345**:**vitest 4466 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.346**:**vitest 4480 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,27 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.345.0** | 2026-08-28 | `待填` | **📚 两个「库」模块对真实用户都是空的 —— 各有各的病根 + 每日重跑定时化**。
+| **v12.346.0** | 2026-08-28 | `待填` | **🗣 角色性别从剧本读,不再靠猜名字(8% → 48%)**。
+
+迭代方案里这条标着「越晚修影响越大」,原因是 v12.338 的 voice-cast 会把分配结果**持久化** —— 错一次就永久锁死。
+
+**先量化,再动手。** 音色选路最终落到 `inferTraitsFromName`,而那份词表只认**称谓词**(叔/爷/姐/妹/夫人/公子),不认中文人名。拿 owner 真实的 50 个角色实测:**只判得出 4 个(8%)**,其余 46 个落到「全目录确定性散列」——**性别是随机的**。柳如烟一旦散列到男声,voice-cast 就把它当成片事实锁住。
+
+**没有去扩姓名词典 —— 那是猜。** 剧本里其实写着答案:分镜的 `visualPrompt` 是给图像引擎的英文描述,必然点明人物性别(「Li Chang'an, a young Chinese man with bronze tan complexion」)。新增纯函数模块 `lib/character-gender.ts`,拿**单角色镜**投票:
+
+- 多角色镜**不投票** —— 性别词归不到具体人身上
+- 一边有票另一边为 0 → 直接定;两边都有票需 **2 倍以上优势**(镜里常有第二个未具名人物污染少量票)
+- 判不出返回 undefined,交回原链路 —— 延续既有的「不瞎猜」约定
+- 中文 visualPrompt 也认
+
+**实测(owner 真实数据,50 个角色)**:姓名词表 4 个(8%)→ 剧本投票 21 个(42%)→ **合并 24 个(48%)**;两种方法**冲突 0 个**(互相印证);仍判不出的 26 个退回散列,与之前完全一致。
+
+接线走**唯一入口**(v12.296 立的规矩):`resolveCastVoices` 新增可选 `hints` 参数,`_preferredVoice` 里**剧本证据覆盖姓名启发,但只覆盖它确实给出的字段** —— 「李大爷」剧本判 female、姓名词表判老年,两者互补而不是互相清空。`resolveAndPersistCast` 拿 projectId 读本项目剧本造线索,读不到就返回 undefined(线索是增强项,拿不到不该让配音整条链失败)。
+
+**零回归是硬约束,并写成断言**:不传 hints 时 `resolveCastVoices` 的输出必须与改动前**逐字节一致**;已在定妆表里的角色,线索再强也不动 —— 那是成片事实。
+
+验证:**vitest +14 · tsc 0**。 |
+| **v12.345.0** | 2026-08-28 | `b09d056` | **📚 两个「库」模块对真实用户都是空的 —— 各有各的病根 + 每日重跑定时化**。
 
 owner 要求「把库里已有的剧本等素材整理归类后存进对应模块」。查下来发现**根本不是整理问题,是两个模块都坏着**:
 

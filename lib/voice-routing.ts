@@ -39,10 +39,15 @@ export function inferGenderFromName(name: string): RoutedGender {
  * v12.229 立的「每角色独立音色」是真实需求,**没有被牺牲** —— 新实现是「先取该角色的偏好音色,
  * 撞车才在**同性别**候选里按名字散列另挑」,既保住独立性,又不会再出现性别相反的分配。
  */
-export function buildVoiceRouting(names: string[], catalog: VoiceMeta[] = VOICE_CATALOG): Map<string, string> {
+export function buildVoiceRouting(
+  names: string[],
+  catalog: VoiceMeta[] = VOICE_CATALOG,
+  /** v12.346:剧本推断出的性别线索,优先于姓名词表。不传 = 与之前完全一致。 */
+  hints?: Map<string, { gender?: 'male' | 'female'; ageGroup?: string }>,
+): Map<string, string> {
   const map = new Map<string, string>();
   const pool = catalog.length ? catalog : VOICE_CATALOG;
-  for (const [n, id] of resolveCastVoices(names, pool)) map.set(n, id || DEFAULT_VOICE_ID);
+  for (const [n, id] of resolveCastVoices(names, pool, hints)) map.set(n, id || DEFAULT_VOICE_ID);
   return map;
 }
 

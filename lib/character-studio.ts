@@ -466,6 +466,14 @@ export function resolveCharacterVoice(
 export function resolveCastVoices(
   names: Array<string | undefined | null>,
   catalog: VoiceMeta[] = VOICE_CATALOG,
+  /**
+   * v12.346:外部线索(目前来自 `lib/character-gender.buildCastHints` —— 从剧本分镜的
+   * visualPrompt 投票得出的性别)。**优先于姓名词表**:前者是剧本写明的事实,
+   * 后者只是称谓启发式。实测 owner 的 53 个角色,姓名词表只判得出 4 个(8%),
+   * 其余落到「全目录确定性散列」= 性别随机;而 v12.338 的 voice-cast 会把它**持久化**。
+   * 不传则行为与之前逐字节一致(零回归)。
+   */
+  hints?: Map<string, { gender?: 'male' | 'female'; ageGroup?: string }>,
 ): Map<string, string> {
   const pool = catalog && catalog.length ? catalog : VOICE_CATALOG;
   const map = new Map<string, string>();
@@ -475,7 +483,7 @@ export function resolveCastVoices(
     const n = (raw || '').trim();
     if (!n || map.has(n)) continue;
 
-    const preferred = _preferredVoice(n, pool);
+    const preferred = _preferredVoice(n, pool, hints?.get(n));
     let chosen = preferred;
     if (used.has(preferred)) {
       // 同性别候选里按名字散列找没被占的 —— 保持性别正确,且确定性
@@ -500,6 +508,7 @@ export function resolveCastVoices(
 function _preferredVoice(
   name: string,
   catalog: VoiceMeta[] = VOICE_CATALOG,
+  hint?: { gender?: 'male' | 'female'; ageGroup?: string },
 ): string {
   const n = (name || '').trim();
   const pool = catalog && catalog.length ? catalog : VOICE_CATALOG;
@@ -511,6 +520,10 @@ function _preferredVoice(
     // 动态取值:tts-prosody 无任何依赖,这里静态 import 也安全,用 require 形态是为了不改本文件的 import 拓扑
     traits = inferTraitsFromName(n) || {};
   } catch { traits = {}; }
+  // v12.346:剧本证据覆盖姓名启发 —— 但**只覆盖它确实给出的字段**,
+  // 年龄仍可由姓名词表补(「李大爷」剧本判得出 male,姓名词表判得出老年,两者互补)。
+  if (hint?.gender) traits = { ...traits, gender: hint.gender };
+  if (hint?.ageGroup) traits = { ...traits, ageGroup: hint.ageGroup };
 
   if (traits.gender || traits.ageGroup) {
     try {
