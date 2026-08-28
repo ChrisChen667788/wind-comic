@@ -36,6 +36,13 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
   const [preflight, setPreflight] = useState<PreflightRow[] | null>(null);
   const [preflightNote, setPreflightNote] = useState('');
   const [scheduleAt, setScheduleAt] = useState('');   // datetime-local 字符串(空 = 立即)
+  // v12.355:开场钩子创意。端点 hook-ideas 从 v12.86 就在,**前端零引用** ——
+  // 它产出 5 条经公式约束 + 合规净化 + 长度校验的开场文案,正好喂 recompose 的
+  // hookVariants 做 A/B。放在分发面板:钩子是「投出去能不能被划走」的第一决定因素。
+  const [hooks, setHooks] = useState<string[]>([]);
+  const [hooksBusy, setHooksBusy] = useState(false);
+  const [hooksErr, setHooksErr] = useState('');
+
   // v12.353:改画幅。端点 /reframe 从 v12.16 就在,**前端零引用** ——
   // 而竖屏短剧要投 B站/YouTube 就得有横屏版,这正是分发面板最缺的一环。
   const [reframing, setReframing] = useState<'' | '16:9' | '9:16'>('');
@@ -145,6 +152,28 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
     a.click(); URL.revokeObjectURL(url);
   }
 
+  async function loadHooks() {
+    setHooksBusy(true); setHooksErr(''); setHooks([]);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/hook-ideas`, { method: 'POST' });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) {
+        // 「项目缺 plan/script」「LLM 输出无合规 hook」都是可执行提示,原样转达
+        setHooksErr(j?.message || `生成失败(HTTP ${res.status})`);
+        return;
+      }
+      const list = (j.hooks || []).map((h: unknown) =>
+        typeof h === 'string' ? h : String((h as { title?: string })?.title || ''),
+      ).filter(Boolean);
+      if (!list.length) { setHooksErr('返回为空 —— 换个角度重试或手写'); return; }
+      setHooks(list);
+    } catch (e) {
+      setHooksErr(e instanceof Error ? e.message : '生成失败');
+    } finally {
+      setHooksBusy(false);
+    }
+  }
+
   async function doReframe(aspect: '16:9' | '9:16') {
     setReframing(aspect); setReframeNote(''); setReframeUrl('');
     try {
@@ -227,6 +256,43 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
           选好平台 → 一键生成。基于本片剧本/钩子, 为每个平台产出标题候选 · 标签 · 封面钩子 · 简介 · 发布建议。
         </div>
       )}
+
+      {/* v12.355:开场钩子 —— 决定观众划不划走的前 3 秒 */}
+      <div className="cinema-card !p-4">
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <span className="cinema-eyebrow flex items-center gap-1.5">
+            <Megaphone size={13} className="text-[var(--cinema-amber)]" /> 开场钩子 · 前 3 秒
+          </span>
+          <button
+            onClick={loadHooks}
+            disabled={hooksBusy}
+            data-testid="hook-ideas"
+            className="cinema-btn-ghost !text-[11px] disabled:opacity-50"
+          >
+            {hooksBusy ? '生成中…' : hooks.length ? '换一批' : '生成 5 条'}
+          </button>
+        </div>
+        <p className="cinema-mono text-[10px] opacity-50 mb-2 leading-relaxed">
+          基于本片剧本产出开场文案,可直接作 A/B 变体投放对比。
+        </p>
+        {hooksErr && <p role="alert" className="cinema-mono text-[10px] text-red-400">{hooksErr}</p>}
+        {hooks.length > 0 && (
+          <ul className="flex flex-col gap-1.5" data-testid="hook-list">
+            {hooks.map((h, i) => (
+              <li key={i} className="flex items-start gap-2 cinema-mono text-[11px] leading-relaxed">
+                <span className="opacity-40 shrink-0 tabular-nums">{i + 1}.</span>
+                <span className="flex-1">{h}</span>
+                <button
+                  onClick={() => copy(h, `hook-${i}`)}
+                  className="shrink-0 text-[10px] opacity-60 hover:opacity-100 underline"
+                >
+                  {copiedKey === `hook-${i}` ? '已复制' : '复制'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* v12.353:改画幅 —— 一次成片,两个平台都能投 */}
       <div className="cinema-card !p-4">
