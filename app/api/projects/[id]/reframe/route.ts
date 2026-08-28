@@ -53,6 +53,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     return NextResponse.json({ ok: true, aspect: target, mode, width: w, height: h, videoUrl: altUrl });
   } catch (e) {
-    return NextResponse.json({ error: '重构图失败: ' + (e instanceof Error ? e.message : String(e)).slice(0, 160) }, { status: 502 });
+    // v12.353:把内部错误翻成可执行的话。实测撞到的就是这条 ——
+    // 成片的库记录还在,磁盘文件却没了(v12.342 那次误删的后遗症),
+    // 而原文是 `serve-file path not found: /api/serve-file?key=…`,
+    // 用户看了不知道该干什么。**报错的价值在于告诉人下一步做什么。**
+    const raw = e instanceof Error ? e.message : String(e);
+    const missing = /path not found|ENOENT|no such file/i.test(raw);
+    return NextResponse.json({
+      error: missing
+        ? '成片的本地文件已丢失(库里有记录、磁盘上没有),需要重新合成后再改画幅'
+        : '重构图失败: ' + raw.slice(0, 160),
+      ...(missing ? { code: 'source_missing' } : {}),
+    }, { status: 502 });
   }
 }

@@ -36,6 +36,13 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
   const [preflight, setPreflight] = useState<PreflightRow[] | null>(null);
   const [preflightNote, setPreflightNote] = useState('');
   const [scheduleAt, setScheduleAt] = useState('');   // datetime-local 字符串(空 = 立即)
+  // v12.353:改画幅。端点 /reframe 从 v12.16 就在,**前端零引用** ——
+  // 而竖屏短剧要投 B站/YouTube 就得有横屏版,这正是分发面板最缺的一环。
+  const [reframing, setReframing] = useState<'' | '16:9' | '9:16'>('');
+  const [reframeMode, setReframeMode] = useState<'blur-pad' | 'crop'>('blur-pad');
+  const [reframeNote, setReframeNote] = useState('');
+  const [reframeUrl, setReframeUrl] = useState('');
+
   const [ytReal, setYtReal] = useState(false);        // 勾选 = 真上传到 YouTube(需已配 token)
 
   useEffect(() => {
@@ -138,6 +145,29 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
     a.click(); URL.revokeObjectURL(url);
   }
 
+  async function doReframe(aspect: '16:9' | '9:16') {
+    setReframing(aspect); setReframeNote(''); setReframeUrl('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/reframe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aspect, mode: reframeMode }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) {
+        // 「已是该比例」「未找到成片」都是可执行提示,原样转达
+        setReframeNote(j?.error || `重构图失败(HTTP ${res.status})`);
+        return;
+      }
+      setReframeUrl(j.videoUrl || '');
+      setReframeNote(`已生成 ${j.aspect} 版(${j.width}×${j.height} · ${j.mode === 'crop' ? '裁切填满' : '模糊填边'})`);
+    } catch (e) {
+      setReframeNote(e instanceof Error ? e.message : '重构图失败');
+    } finally {
+      setReframing('');
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* 平台选择 + 生成 */}
@@ -197,6 +227,56 @@ export function DistributionPanel({ projectId }: { projectId: string }) {
           选好平台 → 一键生成。基于本片剧本/钩子, 为每个平台产出标题候选 · 标签 · 封面钩子 · 简介 · 发布建议。
         </div>
       )}
+
+      {/* v12.353:改画幅 —— 一次成片,两个平台都能投 */}
+      <div className="cinema-card !p-4">
+        <div className="cinema-eyebrow mb-2 flex items-center gap-1.5">
+          <Megaphone size={13} className="text-[var(--cinema-amber)]" /> 改画幅 · 一片两投
+        </div>
+        <p className="cinema-mono text-[10px] opacity-50 mb-3 leading-relaxed">
+          直接把已合成的成片重构图,**不重新生成每一镜** —— 竖屏短剧一键出横屏版投 B站/YouTube,反之亦然。
+        </p>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <button
+            onClick={() => doReframe('16:9')}
+            disabled={!!reframing}
+            data-testid="reframe-169"
+            className="cinema-btn-ghost !text-[11px] disabled:opacity-50"
+          >
+            {reframing === '16:9' ? '生成中…' : '导出 16:9 横屏版'}
+          </button>
+          <button
+            onClick={() => doReframe('9:16')}
+            disabled={!!reframing}
+            data-testid="reframe-916"
+            className="cinema-btn-ghost !text-[11px] disabled:opacity-50"
+          >
+            {reframing === '9:16' ? '生成中…' : '导出 9:16 竖屏版'}
+          </button>
+          <label className="cinema-mono text-[10px] opacity-70 flex items-center gap-1.5 ml-1">
+            <select
+              value={reframeMode}
+              onChange={(e) => setReframeMode(e.target.value as 'blur-pad' | 'crop')}
+              disabled={!!reframing}
+              data-testid="reframe-mode"
+              className="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-[10px]"
+            >
+              <option value="blur-pad">模糊填边(画面完整)</option>
+              <option value="crop">裁切填满(会切掉边缘)</option>
+            </select>
+          </label>
+        </div>
+        {reframeNote && (
+          <div role="status" className="cinema-mono text-[10px] opacity-75 flex flex-wrap items-center gap-2">
+            {reframeNote}
+            {reframeUrl && (
+              <a href={reframeUrl} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-0.5">
+                <LinkSimple size={10} /> 查看
+              </a>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -265,6 +345,7 @@ function PlatformCard({ p, copiedKey, onCopy, onPublish, publishing, result, pf 
           </span>
         )}
       </div>
+
     </div>
   );
 }
