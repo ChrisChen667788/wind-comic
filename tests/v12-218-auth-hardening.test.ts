@@ -178,9 +178,27 @@ describe('v12.218 GET /api/projects/[id]/cost 需 view', () => {
 });
 
 describe('v12.218 GET /api/assets 需 projectId + view', () => {
-  it('无 projectId → 400', async () => {
+  // v12.345:原断言是「无 projectId → 400」。那是**写法**,不是要守的行为 ——
+  // v12.218 真正要堵的是「无作用域枚举他人资产」。而 400 让素材库页面
+  // (调的正是不带 projectId 的 /api/assets)空白了几十个版本。
+  // 现在无 projectId 返回**该用户自己项目**的资产,洞依旧堵着。断言随之改成验行为:
+  it('无 projectId + 无 token → 401(不许匿名列表)', async () => {
+    const res = await getAssets(req('/api/assets') as any);
+    expect(res.status).toBe(401);
+  });
+  it('无 projectId + 属主 token → 200,且只含自己项目的资产', async () => {
     const res = await getAssets(req('/api/assets', tokenFor(owner)) as any);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    const list = await res.json();
+    expect(Array.isArray(list)).toBe(true);
+    // 关键:返回的每一条都必须属于 owner 的项目
+    for (const a of list) expect(a.projectId).toBe(projId);
+  });
+  it('无 projectId + 他人 token → 拿不到属主的任何资产(旧洞的核心)', async () => {
+    const res = await getAssets(req('/api/assets', tokenFor(other)) as any);
+    expect(res.status).toBe(200);
+    const list = await res.json();
+    expect(list.some((a: { projectId: string }) => a.projectId === projId)).toBe(false);
   });
   it('无 token → 401', async () => {
     const res = await getAssets(req(`/api/assets?projectId=${projId}`) as any);
