@@ -60,10 +60,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // 选中帧上位为该镜 storyboard(后续视频生成首帧)
   try {
+    // v12.347:原本只存引擎外链。用户「选定」的动作意味着这张要当视频首帧进成片 ——
+    // 恰恰最该落盘的一张,却是唯一没落的,几天后 403 就变成「选了个空」。
+    const { persistAsset } = await import('@/lib/asset-storage');
+    const pickedPersisted = await persistAsset(picked.imageUrl).catch(() => null);
+    if (!pickedPersisted) console.warn(`[candidates/pick] 落盘失败,回退外链(会过期):${String(picked.imageUrl).slice(0, 80)}`);
     await createAsset({
       id: `sb-${projectId}-${shotNumber}-pick-${Date.now()}`,
       projectId, type: 'storyboard', name: `Shot ${shotNumber}(九宫格选定 ${pickedId})`,
-      mediaUrls: [picked.imageUrl],
+      mediaUrls: [pickedPersisted?.url || picked.imageUrl],
+      persistentUrl: pickedPersisted?.url || null,
       data: { prompt: picked.prompt || '', fromCandidate: pickedId, variantLabel: picked.variantLabel, picked: true, pickedAt: new Date().toISOString() },
       shotNumber,
     });

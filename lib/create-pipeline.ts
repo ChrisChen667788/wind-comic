@@ -96,7 +96,11 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
           void (async () => {
             try {
               const { createAsset } = await import('@/lib/repos/asset-repo');
-              await createAsset({ projectId, type: 'storyboard-sketch', name: `Shot ${d.shotNumber} 构图草图`, data: { mode: 'auto', sketchMeta: null }, mediaUrls: [d.sketchUrl!], shotNumber: d.shotNumber, persistentUrl: d.sketchUrl!.startsWith('http') ? d.sketchUrl! : null });
+              // v12.347:原本写 `persistentUrl: url.startsWith('http') ? url : null` ——
+              // 把会过期的引擎外链直接塞进 persistent_url。这一列的名字就是它的承诺。
+              // 库里已有 9 条这样的假持久,全是 storyboard-sketch,正是这一行产生的。
+              const sk = await persistAsset(d.sketchUrl!).catch(() => null);
+              await createAsset({ projectId, type: 'storyboard-sketch', name: `Shot ${d.shotNumber} 构图草图`, data: { mode: 'auto', sketchMeta: null }, mediaUrls: [sk?.url || d.sketchUrl!], shotNumber: d.shotNumber, persistentUrl: sk?.url || null });
             } catch { /* 落库失败不阻塞 */ }
           })();
         }

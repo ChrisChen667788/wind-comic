@@ -51,7 +51,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const imageUrl = parseAnyTextResponse(await r.json().catch(() => null));
     if (!imageUrl) return NextResponse.json({ message: 'AnyText 返回无法解析出图片' }, { status: 502 });
 
-    await upsertAsset({ projectId: id, type: 'anytext_cover', name: `AnyText封面: ${title}`, data: { title }, mediaUrls: [imageUrl], persistentUrl: imageUrl.startsWith('http') ? imageUrl : null });
+    // v12.347:AnyText 返回的是会过期的外链,原本被直接塞进 persistent_url。
+    const { persistAsset } = await import('@/lib/asset-storage');
+    const coverPersisted = await persistAsset(imageUrl).catch(() => null);
+    if (!coverPersisted) console.warn(`[anytext-cover] 落盘失败,回退外链(会过期):${String(imageUrl).slice(0, 80)}`);
+    await upsertAsset({ projectId: id, type: 'anytext_cover', name: `AnyText封面: ${title}`, data: { title }, mediaUrls: [coverPersisted?.url || imageUrl], persistentUrl: coverPersisted?.url || null });
     return NextResponse.json({ ok: true, title, imageUrl: imageUrl.slice(0, 200) });
   } catch (e) {
     return NextResponse.json({ message: `AnyText 调用失败: ${e instanceof Error ? e.message : e}`.slice(0, 150) }, { status: 502 });

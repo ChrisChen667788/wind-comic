@@ -128,11 +128,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const elapsedMs = Date.now() - t0;
         console.log(`[regen-4k] shot ${shotNumber} done in ${elapsedMs}ms → ${videoUrl.slice(0, 80)}`);
 
-        // 持久化:覆盖该镜头的 video 资产 + 标记 quality=4k
+        // v12.347:注释写「持久化」,做的却是把**可灵返回的外链**直接当 persistentUrl 存。
+        // 4K 重渲是收费的高成本操作,产物反而是最不该几天后 403 的那一份。
+        const { persistAsset } = await import('@/lib/asset-storage');
+        const p4k = await persistAsset(videoUrl).catch(() => null);
+        if (!p4k) console.warn(`[regen-4k] 落盘失败,回退外链(会过期):${String(videoUrl).slice(0, 80)}`);
         try {
           await updateAssetBySelector(
             projectId, { type: 'video', shotNumber },
-            { mediaUrls: [videoUrl], persistentUrl: videoUrl, data: { quality: '4k', engine: 'kling-master', regeneratedAt: new Date().toISOString() } },
+            { mediaUrls: [p4k?.url || videoUrl], persistentUrl: p4k?.url || null, data: { quality: '4k', engine: 'kling-master', regeneratedAt: new Date().toISOString() } },
           );
         } catch (e) {
           console.warn('[regen-4k] DB update failed (non-fatal):', e);

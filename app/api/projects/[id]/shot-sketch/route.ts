@@ -100,7 +100,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     for (const a of existing.filter((x: any) => assetShotNumber(x) === shotNumber)) {
       try { db.prepare('DELETE FROM project_assets WHERE id = ?').run((a as any).id); } catch { /* ignore */ }
     }
-    await createAsset({ projectId: id, type: 'storyboard-sketch', name: `Shot ${shotNumber} 构图草图`, data: { mode, sketchMeta: sketchMeta || (Object.keys(stageMeta).length ? stageMeta : null) }, mediaUrls: [finalSketchUrl], shotNumber, persistentUrl: finalSketchUrl.startsWith('http') ? finalSketchUrl : null });
+    // v12.347:草图 URL 可能是引擎外链,原本直接当 persistent_url 存 —— 库里 9 条假持久就是这么来的。
+    const { persistAsset } = await import('@/lib/asset-storage');
+    const sketchPersisted = await persistAsset(finalSketchUrl).catch(() => null);
+    if (!sketchPersisted) console.warn(`[shot-sketch] 落盘失败,回退外链(会过期):${String(finalSketchUrl).slice(0, 80)}`);
+    await createAsset({ projectId: id, type: 'storyboard-sketch', name: `Shot ${shotNumber} 构图草图`, data: { mode, sketchMeta: sketchMeta || (Object.keys(stageMeta).length ? stageMeta : null) }, mediaUrls: [sketchPersisted?.url || finalSketchUrl], shotNumber, persistentUrl: sketchPersisted?.url || null });
   } catch (e) {
     return NextResponse.json({ error: `草图落库失败: ${e instanceof Error ? e.message.slice(0, 120) : e}`, sketchUrl }, { status: 500 });
   }

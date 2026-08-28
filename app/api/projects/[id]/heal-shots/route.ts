@@ -9,6 +9,7 @@
  * 鉴权:登录 + 属主/可编辑(改项目素材)。
  */
 import { NextResponse } from 'next/server';
+import { persistAsset } from '@/lib/asset-storage';
 import { getUserFromRequest } from '@/app/api/auth/lib';
 import { db } from '@/lib/db';
 import { canEditProject } from '@/lib/project-share';
@@ -110,13 +111,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         { duration: meta.duration || 5, videoProvider },
       );
       if (!clip?.videoUrl || clip.videoUrl.startsWith('data:')) throw new Error('regen returned no usable video url');
-      // 持久化:更新既有 video 资产;没有则新建
+      // v12.347:注释写着「持久化」,做的却只是写 DB 行 —— **文件从没落过盘**,
+      // 存进去的是引擎外链,几天后 403(owner 那批老素材正是这样批量失效的)。
+      // 补渲的意义是「把坏掉的镜治好」,治完几天又坏等于没治。
+      const persisted = await persistAsset(clip.videoUrl).catch(() => null);
+      if (!persisted) console.warn(`[heal-shots] 落盘失败,回退外链(会过期):${String(clip.videoUrl).slice(0, 80)}`);
+      const savedUrl = persisted?.url || clip.videoUrl;
+
       const sel = { type: 'video', shotNumber: h.shot };
-      const changes = await updateAssetBySelector(id, sel, { mediaUrls: [clip.videoUrl] });
+      const changes = await updateAssetBySelector(id, sel, {
+        mediaUrls: [savedUrl], persistentUrl: persisted?.url || null,
+      });
       if (changes === 0) {
-        await createAsset({ projectId: id, type: 'video', name: `视频 ${h.shot}`, data: { duration: clip.duration || 5, healed: true }, mediaUrls: [clip.videoUrl], shotNumber: h.shot });
+        await createAsset({ projectId: id, type: 'video', name: `视频 ${h.shot}`, data: { duration: clip.duration || 5, healed: true }, mediaUrls: [savedUrl], persistentUrl: persisted?.url || null, shotNumber: h.shot });
       }
-      healed.push({ shot: h.shot, reasons: h.healable, videoUrl: clip.videoUrl });
+      healed.push({ shot: h.shot, reasons: h.healable, videoUrl: savedUrl });
     } catch (e) {
       failed.push({ shot: h.shot, error: e instanceof Error ? e.message.slice(0, 160) : String(e) });
     }

@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.346**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.347**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.346**:**vitest 4480 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.347**:**vitest 4488 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,29 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.346.0** | 2026-08-28 | `待填` | **🗣 角色性别从剧本读,不再靠猜名字(8% → 48%)**。
+| **v12.347.0** | 2026-08-28 | `待填` | **🏷 `persistent_url` 里存着会过期的外链 —— 这一列的名字就是它的承诺**。
+
+v12.343 修完三个重生端点后,审计留了个尾巴:「22 个写资产的端点不调 `persistAsset`,其中 11 个确实在写媒体 URL」。逐个追来源后发现两族,而**第二族比第一族阴**。
+
+**① 压根不落盘**(3 处):
+- `heal-shots` —— 补渲视频。注释白纸黑字写着「持久化:更新既有 video 资产」,做的却只是写 DB 行。补渲的意义是「把坏掉的镜治好」,治完几天又 403 等于没治。
+- `candidates/pick` —— 九宫格选定的那张。用户「选定」意味着这张要当视频首帧进成片,**恰恰最该落盘的一张,却是唯一没落的**。
+- `regenerate-shot-4k` —— 4K 重渲。收费的高成本操作,产物反而是最不该几天后失效的那一份。
+
+**② 假持久**(3 处,更阴):
+```ts
+persistentUrl: url.startsWith('http') ? url : null
+```
+把引擎外链直接塞进 `persistent_url`。消费方 —— 包括 **v12.342 那个「清理前查引用」的扫描** —— 看到这一列有值就认为「有本地持久副本」,而它几天后就 403。出现在 `shot-sketch`、`anytext-cover`、`create-pipeline`。
+
+**不只是修代码,还把已经坏掉的救回来。** 库里查出 **9 条**这样的假持久(全是 storyboard-sketch,来自 `imagine-cdn.youchuan.cn`)。逐条探活:**8 条仍存活、1 条已经 403**。新增 `scripts/rescue-fake-persistent.ts`(`npx tsx`,**复用仓库自己的 `persistAsset`**,不另造一套落盘逻辑),把存活的抓回本地存储并改写 `persistent_url` 与 `media_urls`,已死的只报告不动 —— 留着让人知道丢了什么。实测抢救 8 条约 10MB;那 1 条死的正好证明这不是假想风险。
+
+**测试设计上做了一次让步并写明原因**:`persistentUrl: <变量>` 的变量是不是外链,静态分析判不了。所以严格门禁只锁**那个具体谎言**(`startsWith('http') ? url : null`),其余走**已复核清单** —— 8 个站点逐个追过来源并把结论写进注释(`serveFilePathUrl` 本地 / `persistFirstValid` 落盘结果 / 复制既有资产),**新增站点必须复核后加进白名单,否则红**,不给静默新增留口子。
+
+**又踩了一次 `[^}]*`**:断言 `createAsset({[^}]*persistentUrl:` 被 `data: {…}` 里的第一个 `}` 截断,恒为假。本会话第三次栽在括号类上,已改成语义窗口(`indexOf('if (changes === 0)')` → `indexOf('healed.push(')`)。
+
+验证:**vitest +8 · tsc 0**。抢救前已备份 `data/qfmj.db`。 |
+| **v12.346.0** | 2026-08-28 | `b7acaa5` | **🗣 角色性别从剧本读,不再靠猜名字(8% → 48%)**。
 
 迭代方案里这条标着「越晚修影响越大」,原因是 v12.338 的 voice-cast 会把分配结果**持久化** —— 错一次就永久锁死。
 
