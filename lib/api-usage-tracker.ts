@@ -39,6 +39,13 @@ export type ApiProvider =
   | 'comfyui'
   | 'qingyuntop';
 
+// v12.348:欠费措辞收口到 lib/quota-vocab.mjs(全仓唯一一份)。
+// 原来这里与 scripts/api-health-audit.mjs 各写一套,而**好的那份没被复用**:
+// 可灵欠费原文 "Account balance not enough" 不含 credit/余额/insufficient,
+// 于是落到兜底的 rate_limited(HTTP 429)。「限流」的处置是等一会,「欠费」是充值 ——
+// 建议完全相反,而 owner 的可灵账户已经没钱 17 天没人看出来。
+import { ARREARS_RE } from './quota-vocab.mjs';
+
 export type AlertType = 'exhausted' | 'saturated' | 'rate_limited' | 'auth_failed' | 'model_unavailable';
 
 export interface ApiCallRecord {
@@ -90,14 +97,14 @@ const QUOTA_MATCHERS: Record<ApiProvider, QuotaMatcher[]> = {
   ],
   openai: [
     { type: 'exhausted', match: (sc, msg) =>
-        /insufficient_quota|quota.*exceeded|user.*quota.*not.*enough|余额/i.test(msg || '') },
+        ARREARS_RE.test(msg || '') },
     { type: 'rate_limited', match: (sc, msg) =>
         sc === 429 || /rate.?limit|too.?many.?requests/i.test(msg || '') },
     { type: 'auth_failed', match: (sc) => sc === 401 || sc === 403 },
   ],
   midjourney: [
     { type: 'exhausted', match: (sc, msg) =>
-        /credits?.*insufficient|insufficient.*credit|余额/i.test(msg || '') },
+        ARREARS_RE.test(msg || '') },
     { type: 'saturated', match: (sc, msg) =>
         /queue.*full|task.*pending.*queue|上游.*饱和/i.test(msg || '') },
     { type: 'rate_limited', match: (sc) => sc === 429 },
@@ -107,20 +114,22 @@ const QUOTA_MATCHERS: Record<ApiProvider, QuotaMatcher[]> = {
         /pre_consume_token_quota_failed|上游负载已饱和|分组.*饱和|saturated/i.test(msg || '') },
     { type: 'rate_limited', match: (sc, msg) =>
         sc === 429 || /rate.?limit/i.test(msg || '') },
-    { type: 'exhausted', match: (sc, msg) => /insufficient_quota|余额/i.test(msg || '') },
+    { type: 'exhausted', match: (sc, msg) => ARREARS_RE.test(msg || '') },
   ],
+  // v12.348:exhausted 一律走共享词表,且**必须排在 rate_limited 之前** ——
+  // 可灵/Vidu 欠费返回的是 HTTP 429,顺序反了就会被限流规则先吃掉。
   kling: [
-    { type: 'exhausted', match: (sc, msg) => /credit|余额|insufficient/i.test(msg || '') },
+    { type: 'exhausted', match: (sc, msg) => ARREARS_RE.test(msg || '') },
     { type: 'auth_failed', match: (sc) => sc === 401 || sc === 403 },
     { type: 'rate_limited', match: (sc) => sc === 429 },
   ],
   vidu: [
-    { type: 'exhausted', match: (sc, msg) => /credit|余额|insufficient/i.test(msg || '') },
+    { type: 'exhausted', match: (sc, msg) => ARREARS_RE.test(msg || '') },
     { type: 'auth_failed', match: (sc) => sc === 401 || sc === 403 },
     { type: 'rate_limited', match: (sc) => sc === 429 },
   ],
   fal: [
-    { type: 'exhausted', match: (sc, msg) => /credit|insufficient|余额/i.test(msg || '') },
+    { type: 'exhausted', match: (sc, msg) => ARREARS_RE.test(msg || '') },
     { type: 'auth_failed', match: (sc) => sc === 401 || sc === 403 },
   ],
   comfyui: [
@@ -130,7 +139,7 @@ const QUOTA_MATCHERS: Record<ApiProvider, QuotaMatcher[]> = {
   qingyuntop: [
     { type: 'saturated', match: (sc, msg) =>
         /上游.*饱和|分组.*饱和|saturated|pre_consume/i.test(msg || '') },
-    { type: 'exhausted', match: (sc, msg) => /quota|余额|insufficient/i.test(msg || '') },
+    { type: 'exhausted', match: (sc, msg) => ARREARS_RE.test(msg || '') },
     { type: 'rate_limited', match: (sc) => sc === 429 },
   ],
 };

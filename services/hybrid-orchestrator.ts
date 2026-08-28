@@ -4121,13 +4121,33 @@ ${characterBibleBlock}${producerContext}
     // v12.154:真引擎链(此前无 Kling;且末档把分镜图当视频谎报 completed)
     // v12.156:链序与主管线统一(显式 provider > env VIDEO_ENGINE_ORDER > Veo 默认)
     const { resolveEngineOrder, parseEngineOrderEnv } = await import('@/lib/engine-order');
+    // v12.348:**happyhorse 原本不在这个表里**,尽管 v12.272 已接入、日志还打着
+    // 「HappyHorse: ON」、`engine-order` 也认这个名字。后果:单镜重生时显式指定
+    // `videoProvider: 'happyhorse'` → `has('happyhorse')` 为假 → **显式选择被静默忽略**,
+    // 回落到 env 链序(可灵打头)。实测就是这么发现的:指定了 happyhorse,日志里
+    // 每一镜仍先撞可灵的余额墙。主管线那条路径一直是把 happyhorse push 进去的 ——
+    // 两条路不对称,而不对称的那条没人看。
     const availForRegen = ([
       this.veoService && 'veo', this.minimaxService && 'minimax', this.klingService && 'kling',
-    ].filter(Boolean)) as Array<'veo' | 'minimax' | 'kling'>;
+      (this.happyhorseService && happyHorseAspectSupported(this.videoAspect())) && 'happyhorse',
+    ].filter(Boolean)) as Array<'veo' | 'minimax' | 'kling' | 'happyhorse'>;
+
+    // 显式指定了一个**当前不可用**的引擎时,原来只是悄悄换一个跑 —— 用户拿到的结果
+    // 与他选的引擎无关,却没有任何提示。这类静默回落是最难排查的一种。
+    const _explicit = (provider || '').toLowerCase().replace('keling', 'kling').replace('hh', 'happyhorse');
+    if (_explicit && !availForRegen.includes(_explicit as never)) {
+      console.warn(`[Regenerate] 显式指定的引擎「${_explicit}」当前不可用(未配置/画幅不支持),已回落到链序 ${availForRegen.join(' → ')}`);
+    }
     const regenOrder = resolveEngineOrder(provider, availForRegen, parseEngineOrderEnv(process.env.VIDEO_ENGINE_ORDER));
     const genByEngine: Record<string, () => Promise<string>> = {
       veo: () => this.veoService!.generateVideo(engineFrame, storyboard.prompt, { duration, aspectRatio: this.videoAspect() }),
       minimax: () => this.minimaxService!.generateVideo(engineFrame, storyboard.prompt, minimaxOpts),
+      // v12.348:与主管线同参 —— 有首帧走 i2v,否则 t2v。
+      happyhorse: () => this.happyhorseService!.generateVideo(storyboard.prompt, {
+        imageUrl: engineFrame && engineFrame.startsWith('http') ? engineFrame : undefined,
+        aspectRatio: this.videoAspect() as any,
+        duration,
+      }),
       kling: () => {
         // v12.197:显式尾帧 → 首尾帧融合(锁切镜构图);无尾帧走单图 i2v
         const tailImg = options?.tailFrameUrl ? toEngineImage(options.tailFrameUrl) : null;
