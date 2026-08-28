@@ -90,7 +90,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { outputPath, count } = await concatVideos(urls, aspect, tmpDir);
     // 持久化:从 tmp 落到 storage(否则重启/清理后 URL 失效);失败兜底用 tmp serve-file URL
     const tmpUrl = `${serveFilePathUrl(outputPath)}`;
-    const persisted = await persistAsset(tmpUrl, { ext: 'mp4' }).catch(() => null);
+    const persisted = await persistAsset(tmpUrl, { ext: '.mp4' }).catch(() => null);
     const videoUrl = persisted?.url || tmpUrl;
     await upsertAsset({
       projectId: anchor.id, type: 'season_video', name: '整季合集',

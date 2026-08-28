@@ -217,6 +217,12 @@ export async function persistAsset(
     const key = hashKey(buffer);
     ext = ext || extFromContentType(contentType) || extFromUrl(sourceUrl) || '.bin';
 
+    // v12.343:扩展名必须带前导点。调用方写 `{ ext: 'png' }`(5 处这样写过)会落盘成
+    // `<key>png` —— serve 侧 resolveByKey 用**前缀匹配**照样能取到,于是没人发现;
+    // 而 cleanup 侧用**去扩展名**反推 key,反推不出来 → 判为孤儿 → 到期删除。
+    // 「能播放但会被删」是最难发现的一类,所以在源头归一,而不是逐个改调用点。
+    if (ext && !ext.startsWith('.')) ext = '.' + ext;
+
     // v10.4.4: 写入走 storage adapter —— local(默认)同目录同布局,行为与历史一致;
     // s3 时上传对象存储(URL 指向 S3)且同时写本地副本(absPath/serve-file 消费方不变)。
     const put = await getStorageDriver().put(key, ext, buffer, contentType || 'application/octet-stream');
@@ -375,7 +381,11 @@ export function cleanup(opts?: { maxAgeDays?: number; dryRun?: boolean }): {
       let stat: fs.Stats;
       try { stat = fs.statSync(p); } catch { continue; }
       if (!stat.isFile()) continue;
-      const key = f.replace(/\.[^.]*$/, '');          // <key><ext> → <key>
+      // v12.343:必须与 resolveByKey 的**前缀匹配**同语义。原来这里用「去扩展名」,
+      // 对 `<key>png`(缺点)反推出 `<key>png` ≠ 引用表里的 `<key>` → 误判孤儿。
+      // 存量坏文件也靠这行保住(源头修了,但已落盘的还在)。
+      const m = f.match(/^([a-f0-9]{16,64})/i);
+      const key = m ? m[1] : f.replace(/\.[^.]*$/, '');
       if (referenced.has(key)) { skippedReferenced++; continue; }   // 被引用 → 永不删
       if (stat.mtimeMs >= cutoff) continue;
       if (!opts?.dryRun) fs.unlinkSync(p);

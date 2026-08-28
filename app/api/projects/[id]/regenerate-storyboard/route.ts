@@ -22,6 +22,7 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { createAsset, listAssetsByType } from '@/lib/repos/asset-repo';
+import { persistAsset } from '@/lib/asset-storage';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { NextResponse } from 'next/server';
 
@@ -79,11 +80,20 @@ function getProjectContext(projectId: string): {
 
 async function persistStoryboard(projectId: string, shotNumber: number, imageUrl: string, prompt: string): Promise<void> {
   try {
+    // v12.343:名叫 persistStoryboard,却只写了 DB 行 —— 图片本身从没落过盘。
+    // 存进去的是引擎外链(hailuo-*.aliyuncs.com 之类),几天后 403,于是「重生成功」
+    // 的分镜过一阵就全变裂图。owner 那 30 个项目的老素材正是这样一批一批失效的。
+    // 主管线 create-pipeline 一直走 persistAsset,只有这条重生路径漏接。
+    const persisted = await persistAsset(imageUrl).catch(() => null);
+    const finalUrl = persisted?.url || imageUrl;
+    if (!persisted) console.warn(`[regen-sb] 落盘失败,回退外链(会过期):${imageUrl.slice(0, 80)}`);
+
     // 更新该 shot_number 对应的 storyboard asset (insert new row, 保留历史)
     const id = `sb-${projectId}-${shotNumber}-${Date.now()}`;
     await createAsset({
       id, projectId, type: 'storyboard', name: `Shot ${shotNumber} (re-gen)`,
-      mediaUrls: [imageUrl],
+      mediaUrls: [finalUrl],
+      persistentUrl: persisted?.url || null,
       data: { prompt, regenerated: true, regeneratedAt: new Date().toISOString() },
       shotNumber,
     });

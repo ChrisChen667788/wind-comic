@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.342**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.343**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.342**:**vitest 4416 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.343**:**vitest 4437 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,38 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.342.0** | 2026-08-28 | `待填` | **🗑 清理前必须查引用 —— 这个函数删掉了 owner 30 个历史项目的全部素材**。
+| **v12.343.0** | 2026-08-28 | `待填` | **📎 「能播放,但会被删」—— 昨天那个修复的漏网之鱼**。
+
+**在重跑素材时当场抓到的。** 重生第一张角色图后例行核对落盘,发现文件名是 `4f2de8fb…c80234png` —— **`png` 前面少了个点**。磁盘上 15 个文件,14 个带点,唯独新生成的这个不带。
+
+**根因是两套 key 反推语义不一致**:
+- serve 侧 `resolveByKey`:`files.find(f => f.startsWith(key))` —— **前缀匹配**
+- cleanup 侧:`f.replace(/\.[^.]*$/, '')` —— **去扩展名**
+
+对 `<key>png` 这两者结果不同:能取到(所以播放正常、没人发现),却反推不出 key(所以引用比对失败、判为孤儿、到期删除)。**v12.342 的「删前查引用」保不住它** —— 因为引用比对用的正是那个反推出来的 key。等于昨天刚堵上的洞,还留着一条缝。
+
+**源头**:`persistAsset(url, { ext: 'png' })` —— 调用方漏了点。全仓 **5 处**这样写:`series/[id]/cover`、`series/[id]/export`、`voice-clone`、`projects/[id]/music`、`projects/[id]/regenerate-asset-image`。
+
+**修法是修语义,不是修拼写。** 逐个改调用点治不了根 —— 第 6 个人还会这么写:
+1. **源头归一**:`persistAsset` 里补前导点(放在扩展名兜底解析之后、写盘之前,`.bin` 等回落路径一并覆盖)。
+2. **cleanup 改用前缀反推**,与 `resolveByKey` 同语义 —— 存量已落盘的坏文件也一并保住(源头修了,盘上的还在)。
+3. 5 处调用点仍然改成 `'.png'` 形式,让意图明确(防御纵深,不是主修)。
+4. 盘上那 1 个坏文件名归一为 `<key>.png`。
+
+**测试锁的是行为不是写法**(本会话第 5 次踩这个坑,不再犯):对 `<key>.png` / `<key>png` / `<key>.mp4` / `<key>` 四种命名,断言「serve 取得到 ⇒ cleanup 必须反推出同一个 key」;另有一条回归断言证明旧写法对缺点文件**确实**会误判 —— 否则这组测试可能是空的。再加一条全仓扫描,任何 `persistAsset` 调用点写了不带点的 ext 就红。
+
+**② 同一次重跑里抓到的第二族(更严重):重生端点「生成完不存」。**
+
+冒烟跑通一镜后核对落库,发现分镜图 `persistent_url` **为空**,`media_urls` 直指 `hailuo-*.aliyuncs.com` 外链 —— 而这正是 owner 那批老素材**全部 403** 的同一类 URL。函数名叫 `persistStoryboard`,却只写了 DB 行,图片从没落过盘;主管线 `create-pipeline` 一直走 `persistAsset`,只有重生这条路径漏接。
+
+视频更彻底:`projects/[id]/regenerate-shot` **只把 videoUrl 从 SSE 吐出去,资产表一行都不写**。而唯一的调用方(create 页「重试镜头 N」按钮)是 `fetch(...).catch(() => {})` —— **连响应都不读**。也就是说这个按钮每按一次,就真花钱生成一条视频,然后**没有任何人保存它**:库里没记录、盘上没文件、刷新页面就没了。
+
+修:两处都补 `persistAsset` 落盘 + 写 `persistentUrl`;`regenerate-shot` 增 `upsertAsset({type:'video', shotNumber})`,`complete` 事件回落盘后的 URL 而非原始外链;保存失败包在 try/catch 里(存不下不该让这一镜白跑)并显式告警「会过期」。**顺带全仓审计**:22 个写资产的端点不调 `persistAsset`,其中 11 个确实在写媒体 URL —— 已记为后续清查项,本版只修重跑路径上的三个。
+
+测试锁行为不锁写法:三条重生路由必须 ① 调 `persistAsset` ② 写 `persistentUrl`;`regenerate-shot` 必须写 video 资产;顺序断言「先落盘 → 再写库 → complete 回落盘后 URL」。**其中顺序断言第一版是红的** —— `indexOf("send('complete'")` 命中了演示分支(文件里有两处),窗口取错让断言恒假;改成从 `upsert` 位置起找。本会话第 N 次栽在断言窗口上,规矩仍是:**按语义划窗口,别按出现顺序**。
+
+验证:**vitest +21(`tests/v12-343-ext-normalization.test.ts`)· tsc 0**。重跑一镜实测:分镜 41s + 可灵视频 117s。 |
+| **v12.342.0** | 2026-08-28 | `c9db1c0` | **🗑 清理前必须查引用 —— 这个函数删掉了 owner 30 个历史项目的全部素材**。
 
 **这是一次真实事故的根因修复,不是预防性加固。** owner 报「历史项目视频全都播不了」。排查:`project_assets` 里 406 条 `serve-file?key=…` 引用,磁盘上**零命中**;分镜 34 / 角色 51 / 场景 102 / 视频 168 / 成片 24,**在盘数全部为 0**;整个 `data/` 只剩 97MB;`data/composed` 也已清空,而库里仍有 33 条指向它的引用。
 

@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: '音样需 ≤5MB' }, { status: 400 });
     const buf = Buffer.from(await file.arrayBuffer());
     const dataUri = `data:${(file as any).type || 'audio/mpeg'};base64,${buf.toString('base64')}`;
-    const persisted = await persistAsset(dataUri, { ext: 'mp3', contentType: (file as any).type || 'audio/mpeg' });
+    const persisted = await persistAsset(dataUri, { ext: '.mp3', contentType: (file as any).type || 'audio/mpeg' });
     // persistAsset 返回站内 /api/serve-file?key= 相对 URL → 拼成绝对 http 供 MiniMax 拉取
     const rel = persisted?.url;
     if (!rel) return NextResponse.json({ error: '音样落盘失败' }, { status: 500 });

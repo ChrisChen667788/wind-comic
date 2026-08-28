@@ -44,7 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!url) return NextResponse.json({ message: 'AI 作曲未返回音频' }, { status: 502 });
 
   // 落盘持久副本(外链会过期)→ upsert music 资产;recompose 自动作 BGM
-  const persisted = await persistAsset(url, { ext: 'mp3', contentType: 'audio/mpeg' });
+  const persisted = await persistAsset(url, { ext: '.mp3', contentType: 'audio/mpeg' });
   const finalUrl = persisted?.url || url;
   await upsertAsset({ projectId: id, type: 'music', name: '背景配乐(AI 作曲)', data: { prompt, style, source: 'minimax-music-2.6' }, mediaUrls: [finalUrl], persistentUrl: persisted?.url ?? null });
 

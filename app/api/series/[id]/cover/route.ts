@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!gen.result?.imageUrl) {
       return NextResponse.json({ error: '封面生成失败: ' + gen.tried.map((t: any) => t.error).join(' | ').slice(0, 160) }, { status: 502 });
     }
-    const persisted = await persistAsset(gen.result.imageUrl, { ext: 'png' }).catch(() => null);
+    const persisted = await persistAsset(gen.result.imageUrl, { ext: '.png' }).catch(() => null);
     const coverUrl = persisted?.url || gen.result.imageUrl;
     await upsertAsset({ projectId: anchor.id, type: 'season_cover', name: '季封面', data: { seriesId: id, name }, mediaUrls: [coverUrl], persistentUrl: persisted?.url || null });
     return NextResponse.json({ ok: true, coverUrl });

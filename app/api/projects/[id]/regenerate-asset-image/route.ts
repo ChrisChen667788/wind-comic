@@ -70,7 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // 持久化 + 更新该资产(只换图,data 保留)
-  const persisted = await persistAsset(gen.result.imageUrl, { ext: 'png' }).catch(() => null);
+  const persisted = await persistAsset(gen.result.imageUrl, { ext: '.png' }).catch(() => null);
   const finalUrl = persisted?.url || gen.result.imageUrl;
   await upsertAsset({ projectId: id, type, name, data: adata, mediaUrls: [finalUrl], persistentUrl: persisted?.url || null });
 
