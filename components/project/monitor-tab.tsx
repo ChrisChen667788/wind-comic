@@ -68,6 +68,41 @@ export function MonitorTab({ projectId, storyboards = [] }: { projectId: string;
     document.body.appendChild(a); a.click(); a.remove();
   }
 
+  // v12.349:剪映草稿导出。端点从 v12.38 就存在,但**没有任何前端调它** ——
+  // 因为它要调用方自己拼「剪映打得开的路径」,而前端手里只有 /api/serve-file?key=…。
+  // 现在服务端直接组装(素材就在本机 data/storage/assets 下,绝对路径剪映可用)。
+  // 剪映需要**两个**文件放进同一个草稿目录,所以这里连下两次。
+  const [jyBusy, setJyBusy] = useState(false);
+  const [jyNote, setJyNote] = useState('');
+  async function downloadJianYing() {
+    setJyBusy(true); setJyNote('');
+    try {
+      for (const which of ['content', 'meta'] as const) {
+        const res = await fetch(`/api/projects/${projectId}/export-jianying?file=${which}`);
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          setJyNote(j?.error || `导出失败(HTTP ${res.status})`);
+          return;
+        }
+        if (which === 'content') {
+          const n = res.headers.get('X-JianYing-Notes');
+          if (n) { try { setJyNote(decodeURIComponent(n)); } catch { /* 头部损坏不影响下载 */ } }
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = which === 'meta' ? 'draft_meta_info.json' : 'draft_content.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      setJyNote(e instanceof Error ? e.message : '导出失败');
+    } finally {
+      setJyBusy(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* v9.2.1 渲染循环 — 每镜进度 / 重试 / 耗时 + 整体 ETA 实时反馈 */}
@@ -82,6 +117,27 @@ export function MonitorTab({ projectId, storyboards = [] }: { projectId: string;
           <button onClick={() => download('aaf')} className="cinema-btn-ghost !text-[11px]"><FileDown size={13} /> 导出 AAF (Avid)</button>
           <span className="cinema-mono text-[10px] opacity-50 self-center">含镜头时长 + 素材路径, 按项目帧率生成时间码</span>
         </div>
+
+        {/* v12.349:剪映(国内二剪主力)。单独一行 —— 它产出两个文件、且有版本限制,
+            与上面那排「一键下载一个文件」的行为不同,混在一起会让人以为也是单文件。 */}
+        <div className="mt-3 pt-3 border-t border-white/5 flex flex-wrap items-center gap-2">
+          <button
+            onClick={downloadJianYing}
+            disabled={jyBusy}
+            data-testid="export-jianying"
+            className="cinema-btn-ghost !text-[11px] disabled:opacity-50"
+          >
+            <FileDown size={13} /> {jyBusy ? '生成中…' : '导出剪映草稿(2 个文件)'}
+          </button>
+          <span className="cinema-mono text-[10px] opacity-50">
+            两个 json 放进剪映草稿目录同一文件夹
+          </span>
+        </div>
+        {jyNote && (
+          <div role="status" className="cinema-mono text-[10px] opacity-70 mt-2 leading-relaxed">
+            {jyNote}
+          </div>
+        )}
       </div>
 
       {/* 示波器 */}
