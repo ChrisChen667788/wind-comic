@@ -78,3 +78,26 @@ describe('v12.344 重跑脚本必须认得占位片', () => {
     expect(script).toMatch(/占位片 \$\{stat\.animatic\}/);
   });
 });
+
+describe('v12.344 每日额度驱动', () => {
+  const script = fs.readFileSync(path.join(process.cwd(), 'scripts/rerun-project.mjs'), 'utf8');
+  const daily = fs.readFileSync(path.join(process.cwd(), 'scripts/rerun-daily.sh'), 'utf8');
+
+  it('额度耗尽用专属退出码 3,不与普通失败(1)混淆', () => {
+    expect(script).toMatch(/if \(stat\.animatic > 0\)[\s\S]{0,200}process\.exit\(3\)/);
+    expect(script).toMatch(/process\.exit\(stat\.fail > 0 \? 1 : 0\)/);
+  });
+
+  it('每日驱动收到 3 就整轮停 —— 换个项目只会再撞一次同一堵墙', () => {
+    expect(daily).toMatch(/code" -eq 3/);
+    expect(daily).toMatch(/exit 0/);
+  });
+
+  it('普通失败不中断整轮(一个项目坏了不该拖垮其余)', () => {
+    expect(daily).toMatch(/code" -ne 0 \] && echo/);
+  });
+
+  it('驱动固定走 minimax —— 可灵欠费时不该每镜白撞一次', () => {
+    expect(daily).toMatch(/WC_PROVIDER=minimax/);
+  });
+});

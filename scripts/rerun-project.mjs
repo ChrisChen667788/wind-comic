@@ -181,4 +181,9 @@ if (STEPS.has('videos')) {
 }
 
 console.log(`\n  合计 生成 ${stat.done} · 跳过 ${stat.skip} · 失败 ${stat.fail}${stat.animatic ? ` · ⚠️ 占位片 ${stat.animatic}` : ''} · 耗时 ${((Date.now() - t0) / 60000).toFixed(1)} 分钟\n`);
+// 退出码有语义:3 = 当日视频额度已耗尽(调用方应停止整轮,而不是换个项目再撞一次墙)。
+if (stat.animatic > 0) {
+  console.log('  ⛔ 当日视频额度已耗尽 —— 明天刷新后重跑同一条命令即可续上\n');
+  process.exit(3);
+}
 process.exit(stat.fail > 0 ? 1 : 0);
