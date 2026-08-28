@@ -4,7 +4,9 @@
  * components/project/monitor-tab (v8.0) — 技术监看台 (对标 CineFlow 底部监视器 + EDL/AAF 导出)
  *
  *   - 视频示波器:选一帧分镜 → 直方图 / 亮度波形 / RGB Parade (canvas 实采像素, lib/scopes 计算)
- *   - 专业出片:导出 EDL (CMX3600) / FCP7 XML 对接 DaVinci Resolve / Premiere Pro
+ *   - 专业出片:导出 EDL (CMX3600) / FCP7 XML 对接 DaVinci Resolve / Premiere Pro + 剪映草稿 (v12.349)
+ *   - 画风漂移 (v12.350):逐镜视觉 embedding 的客观距离,抓「越画越跑偏」——
+ *     与示波器同属客观仪表,不是 LLM 的主观判断
  *
  * 注: 示波器需同源素材像素; 跨域外链图无法读 ImageData 时给出提示。
  */
@@ -16,6 +18,107 @@ import { formatEta, type ShotRenderState, type RenderLoopSummary } from '@/lib/r
 
 function firstMedia(sb: any): string | undefined {
   return sb?.persistentUrl || sb?.mediaUrls?.[0] || sb?.media_urls?.[0] || sb?.persistent_url;
+}
+
+/**
+ * v12.350:画风漂移面板。端点 `/drift-check` 从 v12.2.4 就在,**前端一次都没调过**。
+ *
+ * 放在监看台而不是评分面板:它和示波器同类 —— **客观可量化**(逐镜视觉 embedding 的
+ * 余弦距离),而不是 LLM 对画面的主观描述。抓的是「渐进漂移」:每一镜看着都还行,
+ * 但第 1 镜和第 11 镜已经不像同一部片。
+ *
+ * 按需触发,不自动加载 —— 它要对每张分镜图做一次 embedding,开销和费用都不小。
+ */
+function DriftPanel({ projectId }: { projectId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [data, setData] = useState<null | {
+    available: boolean; reason?: string;
+    embeddedCount?: number; totalShots?: number; meanDrift?: number;
+    outliers?: number[]; scores?: Array<{ shotNumber: number; driftScore: number }>;
+  }>(null);
+  const [err, setErr] = useState('');
+
+  async function run() {
+    setBusy(true); setErr(''); setData(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/drift-check`);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setErr(j?.message || `检测失败(HTTP ${res.status})`);
+        return;
+      }
+      setData(await res.json());
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '检测失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const outlierSet = new Set(data?.outliers || []);
+  const maxDrift = Math.max(0.0001, ...(data?.scores || []).map((x) => x.driftScore));
+
+  return (
+    <div className="cinema-card !p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="cinema-eyebrow flex items-center gap-1.5">
+          <Activity size={13} className="text-[var(--monitor-blue)]" /> 画风漂移检测
+        </span>
+        <button
+          onClick={run}
+          disabled={busy}
+          data-testid="drift-check-run"
+          className="cinema-btn-ghost !text-[11px] disabled:opacity-50"
+        >
+          {busy ? '检测中…' : '开始检测'}
+        </button>
+      </div>
+
+      {!data && !err && !busy && (
+        <p className="cinema-mono text-[10px] opacity-50 leading-relaxed">
+          逐镜比对视觉特征,找出与全片风格偏离最大的镜头。开销较大,按需运行。
+        </p>
+      )}
+
+      {err && <p role="alert" className="cinema-mono text-[10px] text-red-400">{err}</p>}
+
+      {/* 诚实降级:没配 embedding 就说清楚,不假装算过 */}
+      {data && !data.available && (
+        <p role="status" className="cinema-mono text-[10px] opacity-70 leading-relaxed">
+          暂不可用 —— {data.reason || '未知原因'}
+        </p>
+      )}
+
+      {data?.available && (
+        <div data-testid="drift-result">
+          <div className="cinema-mono text-[10px] opacity-70 mb-2 flex flex-wrap gap-x-3 gap-y-1">
+            <span>平均漂移 <b className="opacity-100">{data.meanDrift}</b></span>
+            <span>已比对 {data.embeddedCount}/{data.totalShots} 镜</span>
+            <span className={outlierSet.size ? 'text-amber-400' : 'opacity-70'}>
+              {outlierSet.size ? `偏离最大:第 ${data.outliers!.join('、')} 镜` : '未发现明显偏离'}
+            </span>
+          </div>
+          <div className="flex items-end gap-1 h-16" role="img" aria-label="逐镜漂移分值">
+            {(data.scores || []).map((x) => (
+              <div key={x.shotNumber} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+                <div
+                  className={`w-full rounded-sm ${outlierSet.has(x.shotNumber) ? 'bg-amber-400' : 'bg-white/25'}`}
+                  style={{ height: `${Math.max(3, (x.driftScore / maxDrift) * 52)}px` }}
+                  title={`第 ${x.shotNumber} 镜 · 漂移 ${x.driftScore}`}
+                />
+                <span className="cinema-mono text-[8px] opacity-40 truncate w-full text-center">{x.shotNumber}</span>
+              </div>
+            ))}
+          </div>
+          {outlierSet.size > 0 && (
+            <p className="cinema-mono text-[10px] opacity-50 mt-2">
+              偏离大的镜可在分镜面板重生;漂移是相对值,只在同一部片内可比。
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function MonitorTab({ projectId, storyboards = [] }: { projectId: string; storyboards?: any[] }) {
@@ -139,6 +242,9 @@ export function MonitorTab({ projectId, storyboards = [] }: { projectId: string;
           </div>
         )}
       </div>
+
+      {/* 画风漂移(v12.350)—— 与示波器并列的客观仪表 */}
+      <DriftPanel projectId={projectId} />
 
       {/* 示波器 */}
       <div className="cinema-card !p-4">
