@@ -51,7 +51,7 @@
 
 最大尊重: **接你自己的 LLM**. 改 3 行 `.env` 就能从 gpt-4o 换 DeepSeek-r1 / Claude (via OpenRouter) / 通义 / Kimi / 本地 Ollama. 不绑定 provider, 不薅你羊毛.
 
-4606 个单测全过 / TypeScript 严格模式 / MIT 开源.
+4620 个单测全过 / TypeScript 严格模式 / MIT 开源.
 
 GitHub: https://github.com/ChrisChen667788/wind-comic
 
@@ -75,7 +75,7 @@ GitHub: https://github.com/ChrisChen667788/wind-comic
 
 我想要的: **开源 + 多 Agent 协同 + 中文优先 + 自带 LLM + 实时多人协作**. 都没有. 自己造一个.
 
-8 个月, v2.0 → v12.356, 4606 个单测, MIT 开源. 这就是 **Wind Comic**.
+8 个月, v2.0 → v12.357, 4620 个单测, MIT 开源. 这就是 **Wind Comic**.
 
 ## 核心架构
 
@@ -154,8 +154,8 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 ## 数据
 
 - 8 个月 21 个 sprint
-- v2.0 → v12.356
-- **4606 个单测全过**
+- v2.0 → v12.357
+- **4620 个单测全过**
 - **TypeScript 严格模式, 0 错误**
 - **MIT 开源**
 - **0 强制依赖外部 API key** (没配 Minimax 也能跑, 自动 fallback)
@@ -189,7 +189,7 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 > · Style Bible 锁画风 / DNA 锁脸 / ffmpeg 烧中文字幕
 > · Logic Pro 风时间线 + 实时多人协作 (Yjs)
 > · 接你自己的 LLM (12+ provider, 0 改代码)
-> · 4606 测试全过 / MIT 开源
+> · 4620 测试全过 / MIT 开源
 >
 > github.com/ChrisChen667788/wind-comic
 
@@ -204,7 +204,7 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 > 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 / 锁画风 / 中文字幕真烧入 / 实时多人协作 / 接你自己的 LLM. MIT 开源.
 >
 > GitHub: github.com/ChrisChen667788/wind-comic
-> v12.356 · 4606 单测全过 · 0 API key 强制依赖.
+> v12.357 · 4620 单测全过 · 0 API key 强制依赖.
 
 详细全文 → 看 [`docs/modelscope-profile.md`](modelscope-profile.md).
 
@@ -233,7 +233,7 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 
 ## 🔥 GitHub 简介 (about)
 
-> One sentence → finished short drama. Multi-agent AI pipeline · cinematic storyboards · real-time collab timeline · BYO LLM · open source · 4606 tests passing.
+> One sentence → finished short drama. Multi-agent AI pipeline · cinematic storyboards · real-time collab timeline · BYO LLM · open source · 4620 tests passing.
 
 ---
 

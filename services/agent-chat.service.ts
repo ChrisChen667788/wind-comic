@@ -90,7 +90,7 @@ export class AgentChatService {
       storyboards?: any[];
       chatHistory?: { role: string; content: string }[];
     }
-  ): AsyncGenerator<{ type: string; content?: string; action?: AgentAction }> {
+  ): AsyncGenerator<{ type: string; content?: string; action?: AgentAction; error?: string }> {
     const systemPrompt = AGENT_PROMPTS[agentRole] || '你是一位AI助手。';
 
     // 构建上下文
@@ -142,7 +142,18 @@ export class AgentChatService {
         yield { type: 'action', action };
       }
     } catch (error) {
-      yield { type: 'content', content: `抱歉，出现了错误: ${error instanceof Error ? error.message : '未知错误'}` };
+      // v12.357:**错误不能伪装成模型的回答。**
+      //
+      // 原实现把异常 `yield { type: 'content', content: '抱歉,出现了错误: …' }` ——
+      // 于是调用方拿到的是一段「看起来像正文」的字符串,与真回答无法区分。
+      // 实测后果:导演评审在 LLM 超时后收到「抱歉,出现了错误: Request timed out.」
+      // 当作正文,再被 `?? 75` 兜底编成一份「评分 75 · 达标」的假评审(v12.356 修的就是它)。
+      // **但那只是下游止血,病根在这里** —— 任何 chat() 的消费方都会中同样的招。
+      //
+      // 现在产出独立的 `type: 'error'`;为兼容只认 content 的老消费方,
+      // 仍带一份人可读的 content,但**类型上已经能区分**,想区分的就能区分。
+      const msg = error instanceof Error ? error.message : '未知错误';
+      yield { type: 'error', error: msg, content: `抱歉，出现了错误: ${msg}` };
     }
   }
 }
@@ -175,7 +186,7 @@ export class DemoChatService {
     agentRole: AgentRole,
     userMessage: string,
     _context: any
-  ): AsyncGenerator<{ type: string; content?: string; action?: AgentAction }> {
+  ): AsyncGenerator<{ type: string; content?: string; action?: AgentAction; error?: string }> {
     const pool = this.responses[agentRole] || ['收到，正在处理...'];
     const response = pool[Math.floor(Math.random() * pool.length)];
 

@@ -148,11 +148,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           const generator = chatService.chat(AgentRole.DIRECTOR, auditPrompt, context);
 
           let fullContent = '';
+          let upstreamErr = '';
           for await (const chunk of generator) {
+            // v12.357:chat() 现在产出独立的 'error' —— **不必再从正文里猜是不是报错**。
+            // v12.356 那版靠 /出现了错误|timed out|…/ 匹配文本兜底,那是没有类型时的将就。
+            if (chunk.type === 'error') { upstreamErr = chunk.error || chunk.content || '模型调用失败'; break; }
             if (chunk.type === 'content') {
               fullContent += chunk.content || '';
               send('content', { content: chunk.content });
             }
+          }
+          if (upstreamErr) {
+            send('error', { message: `导演没能完成审片:${upstreamErr.slice(0, 160)}`, code: 'review_incomplete' });
+            controller.close();
+            return;
           }
 
           // 尝试解析 JSON 审核结果

@@ -6,6 +6,14 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // v12.357:**最先做** —— 后面所有初始化(遥测/模型雷达/队列 worker)都可能发请求。
+    // Node 的 fetch 默认不认 HTTPS_PROXY,本机经 ClashX 才能到达的网关会全部超时。
+    try {
+      const { installServerProxy } = await import('@/lib/server-proxy');
+      const p = await installServerProxy();
+      if (p) console.log(`[proxy] 服务端已挂系统代理 ${p}(否则只走代理的网关会全部超时)`);
+    } catch { /* 装不上就直连,不该让服务起不来 */ }
+
     const { initSentry } = await import('@/lib/telemetry');
     await initSentry();
 

@@ -105,7 +105,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         let assistantReply = '';
         for await (const chunk of generator) {
           if (chunk.type === 'content') assistantReply += chunk.content || '';
-          send(chunk.type, chunk.type === 'action' ? { action: chunk.action } : { content: chunk.content || '' });
+          // v12.357:chat() 现在会产出独立的 'error'。两点因此自动变对:
+          //   ① 错误不再被累进 assistantReply(只有 content 才累加)→ **不会被当成助手回复存进聊天记录**;
+          //   ② 事件类型如实透出,前端可以按错误渲染,而不是当成一句普通回答。
+          send(
+            chunk.type,
+            chunk.type === 'action' ? { action: chunk.action }
+              : chunk.type === 'error' ? { message: chunk.error || chunk.content || '模型调用失败', content: chunk.content || '' }
+                : { content: chunk.content || '' },
+          );
         }
 
         // 记录助手回复

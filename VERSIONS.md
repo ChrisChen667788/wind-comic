@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.356**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.357**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.356**:**vitest 4606 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.357**:**vitest 4620 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,27 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.356.0** | 2026-08-28 | `待填` | **🎬 导演评审接线 —— 以及接线时当场抓到的一个假绿**。
+| **v12.357.0** | 2026-08-29 | `待填` | **🔌 服务端 fetch 不认系统代理 —— 一整类网关在服务端不可达,而它伪装成「导演功能坏了」**。
+
+顺着 v12.356 留下的欠账(「导演评审 happy path 跑不通」)往下挖,挖到的**不是导演的问题**。
+
+**第一层病根(更根本)**:Node 的 fetch(undici)**默认不读 `HTTPS_PROXY`**。本机全局挂 ClashX,`api.vectorengine.ai` 只能经代理到达 —— 于是 Next.js 服务里**每一次**打该网关的 LLM 调用都超时。
+
+表现极具迷惑性,这也是它藏了这么久的原因:
+- `curl` 打同一个模型、同一把 key,**2.2 秒**返回(curl 认 `*_proxy` 环境变量);
+- 服务端**必然** `Request timed out`;
+- 而走 OpenRouter 的端点(如 hook-ideas)**一切正常** —— 那个域名不需要代理。
+
+所以看起来像「导演这个功能坏了」,实际是**一整类网关在服务端不可达**。
+
+**最扎心的是:`scripts/api-health-audit.mjs` 的文件头早就把这个坑写清楚了**,还专门在脚本里装了 ProxyAgent —— 但**只装在那个脚本里,服务端从来没装过**。知识写在一处、消费方在另一处,是本仓反复出现的老毛病。新增 `lib/server-proxy.ts` 在 `instrumentation.ts` 里**最先**执行(后续初始化都可能发请求),幂等、装不上退回直连不让服务起不来、装上打日志(否则下次再遇到超时又要重新排查一遍)。同时把那条实测教训写进代码:**`process.env.NODE_USE_ENV_PROXY='1'` 写在代码里无效** —— undici 启动时就读完了该开关。
+
+**第二层病根**:`agent-chat.service` 把异常 `yield { type:'content' }` —— **错误伪装成模型的回答**,与真回答无法区分。这正是 v12.356 那份假评审的上游来源;那一版靠正则猜文本(`/出现了错误|timed out|…/`)兜底,是**没有类型时的将就**。现在产出独立的 `type:'error'`,两个消费方都改成按类型判断:`director-review` 收到即停,`chat` 路由如实透出且**错误不再被当成助手回复存进聊天记录**。
+
+**修完的实测结果 —— 从「必然超时」到 73 秒出真结论**:评分 40、8 条问题。而且第一次跑就查出 owner 数据里的一个**真 bug**:年代剧女主角柳如烟的概念图 prompt 里写着 `futuristic sci-fi setting, cyberpunk costume with high-tech accessories` —— 已核对原始数据属实。**一个刚被解锁的功能,第一次运行就抓到了真问题。**
+
+验证:**vitest +14 · tsc 0**。 |
+| **v12.356.0** | 2026-08-29 | `984cc4a` | **🎬 导演评审接线 —— 以及接线时当场抓到的一个假绿**。
 
 上一轮收官时我把这条**明确记成了欠账**(SSE 复杂度高一档,不硬塞),这一版还上。
 
