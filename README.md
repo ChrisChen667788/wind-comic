@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.351</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.352</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-4551%2F4551-2ea44f"  alt="4551 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-4561%2F4561-2ea44f"  alt="4561 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -250,7 +250,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **4551 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **4561 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -515,7 +515,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 4551/4551 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 4561/4561 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 

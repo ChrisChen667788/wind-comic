@@ -20,6 +20,7 @@ import {
 } from '@/lib/lipsync-providers';
 import type { ScriptShot } from '@/types/agents';
 import { requireUser, requireProjectAccess } from '@/lib/auth-guard';
+import { recordPluginEvent } from '@/lib/plugin-chain-telemetry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -92,7 +93,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (line) visemes = planVisemes(line).map((f) => ({ t: f.t, viseme: f.viseme, mouthOpen: f.mouthOpen }));
   }
 
+  // v12.352:口型这一路**一条遥测都没有** —— admin 的 plugin-stats 面板上
+  // image/video/tts 三条曲线都在,lipsync 是空的,运维看不到它的成功率与耗时。
+  //
+  // 为什么不套 `withLipSyncPlugin`(迭代方案里那条):这里**没有「orchestrator 老路径」
+  // 可作 fallback** —— lipsync 本来就是走注册表调度的,plugin 与 fallback 会是同一条,
+  // 模式(off/shadow/primary)因此毫无意义;而且默认 mode 是 `off`,套上去连遥测都不产生。
+  // 光加 wrapper 是花架子,真正缺的是**在真实调用点落账**,与 plugin mode 无关。
+  const _lsT0 = Date.now();
   const { result, tried } = await dispatchLipSyncGenerate({ faceUrl, audioUrl, visemes, shotNumber: body.shotNumber, faceIsVideo });
+  void recordPluginEvent({
+    kind: 'lipsync',
+    mode: 'primary',
+    outcome: result ? 'primary_hit' : 'primary_fallback',
+    provider: result?.provider || tried.find((t) => t.ok)?.id || null,
+    latencyMs: Date.now() - _lsT0,
+    error: result ? null : tried.map((t) => t.error).filter(Boolean).join(' | ').slice(0, 200),
+  });
   if (!result) {
     return NextResponse.json({ configured: true, ok: false, message: '口型渲染失败(引擎链全失败)', tried }, { status: 502 });
   }

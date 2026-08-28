@@ -18,7 +18,7 @@ import { nanoid } from 'nanoid';
 import { now } from '@/lib/db';
 import { getDbDriver } from '@/lib/db-driver';
 
-export type PluginEventKind = 'image' | 'video' | 'tts';
+export type PluginEventKind = 'image' | 'video' | 'tts' | 'lipsync';
 export type PluginEventMode = 'primary' | 'shadow';
 export type PluginEventOutcome =
   | 'primary_hit'

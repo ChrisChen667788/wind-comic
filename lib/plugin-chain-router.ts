@@ -1,7 +1,7 @@
 /**
  * v3.2 P3 / P4 — Plugin-chain orchestrator wrappers.
  *
- * 三个 `withXxxPlugin` 高阶函数, 把 orchestrator 老主路径变成 fallback,
+ * 四个 `withXxxPlugin` 高阶函数(v12.352 起含 lipsync), 把 orchestrator 老主路径变成 fallback,
  * plugin chain 变成可选 primary. 业务侧用法:
  *
  *   return await withImagePlugin(pluginInput, () => existingOrchestratorLogic());
@@ -24,6 +24,7 @@ import { recordPluginEvent, type PluginEventKind } from './plugin-chain-telemetr
 import type { ImageGenerateInput } from './image-providers/types';
 import type { VideoGenerateInput } from './video-providers/types';
 import type { TTSGenerateInput, TTSGenerateResult } from './tts-providers/types';
+import type { LipSyncGenerateInput, LipSyncGenerateResult } from './lipsync-providers/types';
 
 // ─── Generic core ───────────────────────────────────────────────────────────
 
@@ -191,4 +192,32 @@ export async function withTTSPlugin(
   fallback: () => Promise<TTSGenerateResult>,
 ): Promise<TTSGenerateResult> {
   return runWithPlugin('tts', () => tryTTSPlugin(input), fallback);
+}
+
+// ─── LipSync(v12.352) ─────────────────────────────────────────────────────
+//
+// 注册表 `lib/lipsync-providers` 从 v12.213 就齐了(register / select / dispatch 都在),
+// 唯独**没有 wrapper** —— 于是口型这一路始终只走 orchestrator 老路径,
+// 用户即便注册了自己的口型 provider 也永远不会被调用,而且**一条遥测都没有**:
+// admin 的 plugin-stats 面板上 image/video/tts 三条曲线,lipsync 是空的。
+//
+// 与 image 那条不同,这里**不需要**「是否存在自定义 provider」的额外判定 ——
+// lipsync 注册表里本来就没有「内置 adapter 冒充插件」的问题(见 withImagePlugin 的
+// BUILTIN_IMAGE_PROVIDER_IDS 注释),所以沿用默认 mode 即可。
+
+async function tryLipSyncPlugin(input: LipSyncGenerateInput): Promise<PluginAttempt<LipSyncGenerateResult>> {
+  const { dispatchLipSyncGenerate } = await import('./lipsync-providers/registry');
+  const r = await dispatchLipSyncGenerate(input);
+  if (!r.result) {
+    const reasons = r.tried.map((t) => t.error).join(' | ').slice(0, 60);
+    throw new Error(`lipsync plugin chain empty / all-failed: ${reasons || 'no providers'}`);
+  }
+  return { value: r.result, provider: r.result.provider };
+}
+
+export async function withLipSyncPlugin(
+  input: LipSyncGenerateInput,
+  fallback: () => Promise<LipSyncGenerateResult>,
+): Promise<LipSyncGenerateResult> {
+  return runWithPlugin('lipsync', () => tryLipSyncPlugin(input), fallback);
 }
