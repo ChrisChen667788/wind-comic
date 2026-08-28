@@ -162,14 +162,38 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             try { parsed = JSON.parse(jsonMatch[0]); } catch {}
           }
 
+          // v12.356:**评审没真发生时不许发 review 事件。**
+          //
+          // 原实现里 `overallScore: parsed?.overallScore ?? 75` + `passed: … >= 75`
+          // 意味着:LLM 超时/报错 → parsed 为 null → 照样发出「评分 75 · 达标」,
+          // 摘要是那句错误原文(实测拿到的就是「抱歉,出现了错误: Request timed out.」)。
+          // 用户看到的是一块绿牌子,而**审片从未发生**。
+          //
+          // 这与 v12.344 的 Ken Burns 占位片是同一族病:降级伪装成成功。
+          // 兜底默认值放在「结论」上,就是在编结论。
+          const looksFailed = !parsed
+            && (!fullContent.trim() || /出现了错误|timed out|timeout|error|失败/i.test(fullContent));
+          if (looksFailed) {
+            send('error', {
+              message: `导演没能完成审片:${(fullContent || '模型无输出').trim().slice(0, 160)}`,
+              code: 'review_incomplete',
+            });
+            controller.close();
+            return;
+          }
+
+          // 解析不出结构、但确实有内容 → 给出内容本身,分数留空而不是编一个
+          const score = typeof parsed?.overallScore === 'number' ? parsed.overallScore : null;
           send('review', {
             id: `review-${Date.now()}`,
             projectId,
-            overallScore: parsed?.overallScore ?? 75,
+            overallScore: score,
             summary: parsed?.summary || fullContent.slice(0, 500),
             items: Array.isArray(parsed?.items) ? parsed.items : [],
             status: 'pending',
-            passed: (parsed?.overallScore ?? 75) >= 75,
+            // 分数缺失时**不敢说达标** —— null 让前端显示「未给出评分」而不是绿牌
+            passed: score === null ? null : score >= 75,
+            scored: score !== null,
             createdAt: new Date().toISOString(),
           });
         }

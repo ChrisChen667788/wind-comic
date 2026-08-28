@@ -7,6 +7,25 @@
  */
 
 import { useState } from 'react';
+
+/** v12.356:导演评审结论(与 director-review 的 `review` 事件同形)。 */
+/** 评审条目里的环节名 → 中文(与 review-node 的 STAGE_MAP 同一套叫法)。 */
+const STAGE_LABEL: Record<string, string> = {
+  writer: '编剧', character_designer: '角色', scene_designer: '场景',
+  storyboard: '分镜', video_producer: '视频', editor: '剪辑',
+};
+
+interface DirectorReviewItem {
+  stage?: string; severity?: string; issue?: string; suggestion?: string;
+}
+interface DirectorReview {
+  /** v12.356:模型没给出结构化分数时为 null —— **不编一个** */
+  overallScore: number | null;
+  summary: string;
+  /** 分数缺失时为 null:不敢说达标,也不敢说不达标 */
+  passed: boolean | null;
+  items: DirectorReviewItem[];
+}
 import {
   FileText, Users, FilmSlate as Clapperboard, FilmStrip as Film, Pencil,
   ArrowsClockwise as RefreshCw, Warning as AlertTriangle, CaretRight as ChevronRight,
@@ -77,6 +96,15 @@ export function DirectorConsole({
     : '全链路就绪 · 可导出成片';
 
   // v12.199:变体选胜 —— POST ab-variant/choose,成功后本地把 chosen 标记切到该变体并刷新主成片
+  // v12.356:导演整体评审。端点 director-review 是 **SSE 流式**,而且从来没有前端调过 ——
+  // `components/nodes/review-node` 能渲染评审结果,却**没有任何东西触发它**:
+  // 有渲染器、没触发器。这里补的正是那个触发器。
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewMsg, setReviewMsg] = useState('');
+  const [reviewStream, setReviewStream] = useState('');
+  const [review, setReview] = useState<DirectorReview | null>(null);
+  const [reviewErr, setReviewErr] = useState('');
+
   const [choosingVariant, setChoosingVariant] = useState<number | null>(null);
   const chooseVariant = async (variant: number) => {
     if (!projectId || choosingVariant !== null) return;
@@ -161,6 +189,57 @@ export function DirectorConsole({
     }
   };
 
+  async function runDirectorReview() {
+    setReviewing(true); setReviewErr(''); setReview(null); setReviewStream(''); setReviewMsg('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/director-review`, { method: 'POST' });
+      if (!res.ok || !res.body) {
+        const j = await res.json().catch(() => ({}));
+        setReviewErr(j?.message || `评审失败(HTTP ${res.status})`);
+        return;
+      }
+      // SSE:边收边显示,不让用户对着转圈等一分钟
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      let acc = '';
+      let gotReview = false;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          let ev: { type?: string; data?: Record<string, unknown> };
+          try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+          const d = ev.data || {};
+          if (ev.type === 'status') setReviewMsg(String(d.message || ''));
+          else if (ev.type === 'content') { acc += String(d.content || ''); setReviewStream(acc.slice(-600)); }
+          else if (ev.type === 'error') setReviewErr(String(d.message || '评审失败'));
+          else if (ev.type === 'review') {
+            gotReview = true;
+            setReview({
+              // null 要原样保留 —— `Number(null) || 0` 会把「没评分」变成「0 分」
+              overallScore: typeof d.overallScore === 'number' ? d.overallScore : null,
+              summary: String(d.summary || ''),
+              passed: typeof d.passed === 'boolean' ? d.passed : null,
+              items: Array.isArray(d.items) ? (d.items as DirectorReviewItem[]) : [],
+            });
+          }
+        }
+      }
+      // 流正常结束却没拿到结论 —— 如实说,别留个空面板让人以为在加载
+      if (!gotReview) setReviewErr((e) => e || '评审流已结束但没有返回结论,请重试');
+    } catch (e) {
+      setReviewErr(e instanceof Error ? e.message : '评审失败');
+    } finally {
+      setReviewing(false);
+      setReviewMsg('');
+    }
+  }
+
   return (
     <div className="cinema-card-hi p-5">
       {/* header + 下一步建议 */}
@@ -172,6 +251,18 @@ export function DirectorConsole({
           <p className="cinema-subhead text-xs opacity-65 mt-0.5">逐环节查看状态 · 进入任意节点编辑 / 重生 · 了解重跑的下游影响</p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* v12.356:让导演审一遍。有渲染器(review-node)没触发器 —— 这就是那个触发器。 */}
+          {projectId && (
+            <button
+              onClick={runDirectorReview}
+              disabled={reviewing}
+              data-testid="director-review-run"
+              className="cinema-chip hover:brightness-110 disabled:opacity-50 cursor-pointer"
+              title="让导演 Agent 通读全片资产,给整体评分与逐项问题"
+            >
+              🎬 {reviewing ? '审片中…' : '让导演审一遍'}
+            </button>
+          )}
           {cnt('final_video') > 0 && projectId && (
             <button
               onClick={doWorkshop}
@@ -188,6 +279,73 @@ export function DirectorConsole({
           </span>
         </div>
       </div>
+
+      {/* v12.356:导演评审 —— 流式过程 + 结论 */}
+      {reviewErr && (
+        <div role="alert" className="mb-3 text-xs px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/25 text-red-300">
+          {reviewErr}
+        </div>
+      )}
+      {reviewing && (
+        <div role="status" className="mb-3 text-xs cinema-subhead px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            {reviewMsg || '导演正在审片…'}
+          </div>
+          {/* 边收边显示 —— 一分钟的等待里给点真东西看,而不是干转圈 */}
+          {reviewStream && (
+            <pre className="mt-2 text-[10px] opacity-55 whitespace-pre-wrap break-words max-h-24 overflow-hidden leading-relaxed">
+              {reviewStream}
+            </pre>
+          )}
+        </div>
+      )}
+      {review && !reviewing && (
+        <div data-testid="director-review-result" className="mb-4 rounded-[3px] bg-[var(--cinema-surface-2)] border border-[var(--cinema-border)] p-3 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* v12.356:三态 —— 达标 / 未达标 / **模型没给出评分**。
+                第三态不能画成绿牌,那正是原实现的假绿。 */}
+            <span className={`cinema-chip ${
+              review.passed === null ? '' : review.passed ? 'cinema-chip-green' : 'cinema-chip-amber'
+            }`}>
+              {review.passed === null
+                ? <AlertTriangle className="w-3 h-3" />
+                : review.passed
+                  ? <CheckCircle2 className="w-3 h-3" weight="fill" />
+                  : <AlertTriangle className="w-3 h-3" weight="fill" />}
+              {review.overallScore === null ? '未给出评分' : `导演评分 ${review.overallScore}`}
+            </span>
+            <span className="cinema-subhead text-[11px] opacity-70">
+              {review.passed === null ? '模型未返回结构化评分,只有下方文字意见' : review.passed ? '达标' : '未达标(< 75)'}
+              {' · '}{review.items.length} 条待改
+            </span>
+          </div>
+          {review.summary && (
+            <p className="cinema-subhead text-[11px] opacity-80 leading-relaxed whitespace-pre-wrap">{review.summary}</p>
+          )}
+          {review.items.length > 0 && (
+            <ul className="space-y-1.5">
+              {review.items.map((it, i) => (
+                <li key={i} className="text-[11px] leading-relaxed flex items-start gap-2">
+                  <span className={`shrink-0 cinema-chip !text-[9px] !px-1.5 !py-0 ${
+                    it.severity === 'high' || it.severity === '严重' ? 'cinema-chip-amber' : ''
+                  }`}>
+                    {STAGE_LABEL[it.stage || ''] || it.stage || '整体'}
+                  </span>
+                  <span className="flex-1">
+                    <span className="opacity-85">{it.issue}</span>
+                    {it.suggestion && <span className="opacity-60"> → {it.suggestion}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {/* 评审只是判断,不是事实 —— 说清楚它的定位 */}
+          <p className="cinema-subhead text-[10px] opacity-45">
+            这是 LLM 对全片资产的整体判断,供参考;客观测量见监看台的示波器与画风漂移。
+          </p>
+        </div>
+      )}
 
       {workshopMsg && (
         <div className="mb-3 text-xs cinema-subhead px-3 py-2 rounded-lg bg-white/5 border border-white/10">{workshopMsg}</div>

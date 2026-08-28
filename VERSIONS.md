@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.355**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.356**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.355**:**vitest 4591 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.356**:**vitest 4606 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,40 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.355.0** | 2026-08-28 | `待填` | **🪝 开场钩子接线 —— 端点从 v12.86 就在,前端零引用**。
+| **v12.356.0** | 2026-08-28 | `待填` | **🎬 导演评审接线 —— 以及接线时当场抓到的一个假绿**。
+
+上一轮收官时我把这条**明确记成了欠账**(SSE 复杂度高一档,不硬塞),这一版还上。
+
+**接线部分**:`components/nodes/review-node` 一直能渲染评审结果,却**没有任何东西触发它** —— 有渲染器、没触发器。补的正是触发器,放在「导演台」(全链路控片本来就是它的位置)。SSE **边收边显示**:审片要一分钟,不能让人对着转圈干等;流正常结束却没拿到结论时如实说,不留空面板。
+
+**更要紧的部分 —— 实测第一次跑就抓到假绿。** LLM 超时后,端点**照样发出 `review` 事件**:
+
+```
+review: 评分=75 · 达标=true · 摘要「抱歉,出现了错误: Request timed out.」
+```
+
+病根:`overallScore: parsed?.overallScore ?? 75` + `passed: … >= 75`。**把兜底默认值放在「结论」上,就是在编结论。** 用户看到一块绿牌子,而审片从未发生。这与 v12.344 的 Ken Burns 占位片是同一族病:降级伪装成成功。
+
+修成三态:
+- **解析失败且内容像报错** → 发 `error` + `code:'review_incomplete'`,**并真的 return**(不能发完 error 又接着发 review);
+- **有内容但解析不出结构** → 分数为 `null`,`passed` 也为 `null` —— **不敢说达标,也不敢说不达标**;
+- 正常 → 照旧。
+
+前端跟着改三态,并特别避开一个坑:`Number(d.overallScore) || 0` 会把「没评分」变成「0 分」—— 那是另一种编造。第三态**不画绿牌**,显示「未给出评分 · 模型未返回结构化评分,只有下方文字意见」。
+
+**改动前后实测对比**:
+| | 之前 | 现在 |
+|---|---|---|
+| LLM 超时 | `review: 评分=75 达标=true` | `error [review_incomplete]: 导演没能完成审片…` |
+
+另:面板底部注明「这是 LLM 对全片资产的整体判断,供参考;客观测量见监看台的示波器与画风漂移」—— 与 v12.350 立的「测量 vs 判断」分界保持一致。
+
+测试上又踩一次自己的坑:`not.toMatch(/…\?\? 75/)` 被**我自己注释里引用的旧代码**绊倒。断言改为只扫代码行(与 v12.347 同一做法)。
+
+**遗留(如实记)**:LLM 本身在这个项目上会超时(34 个分镜,prompt 很大),所以 happy path 尚未跑通 —— 这一版保证的是**失败时不说谎**,不是「审片一定能出结果」。
+
+验证:**vitest +15 · tsc 0**。 |
+| **v12.355.0** | 2026-08-28 | `2fc0741` | **🪝 开场钩子接线 —— 端点从 v12.86 就在,前端零引用**。
 
 接线扫描里的第三条,也是本轮 10 版的收官。钩子是「投出去会不会被划走」的第一决定因素,而它的产物正好是 `recompose` 的 `hookVariants` 输入 —— **可直接做 A/B**,所以放分发面板而不是创作页。
 
