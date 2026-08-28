@@ -158,6 +158,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           // 连响应都不读。于是每次重试都真花钱生成一条视频,然后**没有任何人保存它**:
           // 资产表没有记录、磁盘没有文件、刷新页面就没了。
           // 引擎返回的还是会过期的外链,即便前端存了也只能撑几天(owner 的老素材就是这么没的)。
+          // v12.344:编排器在所有引擎都失败时会回落成 Ken Burns animatic(静止分镜图做缓推),
+          // 并如实返回 isAnimatic:true —— 但这个标记原来**到 API 边界就被丢掉了**,
+          // complete 事件不带它。于是前端和脚本都把「静止图动画」当成真视频,是个假绿。
+          const isAnimatic = (result as { isAnimatic?: boolean }).isAnimatic === true;
           let savedUrl = result.videoUrl;
           try {
             const { persistAsset } = await import('@/lib/asset-storage');
@@ -171,6 +175,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
               persistentUrl: persisted?.url || null,
               data: {
                 duration: result.duration || 8, provider,
+                // 落库也要记 —— 否则下次「续跑」看到盘上有文件就跳过,
+                // 占位片会被永久当成成片。
+                isAnimatic,
                 regenerated: true, regeneratedAt: new Date().toISOString(),
               },
             });
@@ -184,6 +191,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             videoUrl: savedUrl,
             duration: result.duration || 8,
             version: 2,
+            isAnimatic,
+            ...(isAnimatic ? { degradedReason: '所有视频引擎均不可用(额度耗尽/欠费),已用分镜图生成 Ken Burns 动态占位 —— 不是 AI 生成的视频' } : {}),
           });
         }
       } catch (error) {

@@ -56,6 +56,12 @@ if (!project) { console.error(`项目不存在: ${projectId}`); process.exit(1);
 const TOKEN = signJwt(project.user_id);
 const H = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
 
+/** 这一行视频资产是不是 Ken Burns 占位(不是真 AI 视频,明天要重做)。 */
+function isAnimaticRow(row) {
+  if (!row?.data) return false;
+  try { return JSON.parse(row.data)?.isAnimatic === true; } catch { return false; }
+}
+
 /** 该 key 的文件是否已在盘上(与 resolveByKey 同语义:前缀匹配)。 */
 function onDisk(persistentUrl) {
   if (!persistentUrl) return false;
@@ -91,7 +97,7 @@ const shots = (sd.shots || []).slice(0, LIMIT === Infinity ? undefined : LIMIT);
 console.log(`\n═══ ${project.title.split('\n')[0].slice(0, 40)}`);
 console.log(`    ${projectId} · ${shots.length} 镜 · 引擎 ${PROVIDER}${DRY ? ' · 干跑' : ''}\n`);
 
-const stat = { done: 0, skip: 0, fail: 0 };
+const stat = { done: 0, skip: 0, fail: 0, animatic: 0 };
 const t0 = Date.now();
 function log(tag, name, r, ms) {
   if (r === 'skip') { stat.skip++; return console.log(`  ⏭  ${tag} ${name} —— 已在盘上`); }
@@ -150,16 +156,29 @@ if (STEPS.has('boards')) {
 // ---------- 4. 视频 ----------
 if (STEPS.has('videos')) {
   for (const s of shots) {
-    const row = db.prepare(`SELECT persistent_url FROM project_assets WHERE project_id=? AND type='video' AND shot_number=? ORDER BY updated_at DESC LIMIT 1`).get(projectId, s.shotNumber);
-    if (row && onDisk(row.persistent_url)) { log('视频', `#${s.shotNumber}`, 'skip'); continue; }
+    const row = db.prepare(`SELECT persistent_url, data FROM project_assets WHERE project_id=? AND type='video' AND shot_number=? ORDER BY updated_at DESC LIMIT 1`).get(projectId, s.shotNumber);
+    // 占位片不算数 —— 盘上有文件也要重做,否则「续跑」会把它永久当成片。
+    if (row && onDisk(row.persistent_url) && !isAnimaticRow(row)) { log('视频', `#${s.shotNumber}`, 'skip'); continue; }
+    if (row && isAnimaticRow(row)) console.log(`  ↻ 视频 #${s.shotNumber} —— 上次是占位片,重做`);
     if (DRY) { console.log(`  · 视频 #${s.shotNumber} (${s.duration || 10}s)`); continue; }
     const t = Date.now();
+    let animatic = false;
     const r = await sse(`${BASE}/api/projects/${projectId}/regenerate-shot`,
       { shotNumber: s.shotNumber, duration: s.duration || 10, description: s.sceneDescription || '', videoProvider: PROVIDER, cameraMovement: s.cameraMovement || '' },
-      (ev, d) => (ev.type === 'complete' || ev.type === 'done' ? (d?.videoUrl || d?.url) : null));
+      (ev, d) => {
+        if (ev.type === 'complete' && d?.isAnimatic === true) animatic = true;
+        return (ev.type === 'complete' || ev.type === 'done') ? (d?.videoUrl || d?.url) : null;
+      });
+    if (r.ok && animatic) {
+      // 额度耗尽的信号。继续跑只会产出更多占位片,白费时间 —— 停下来等明天刷新。
+      stat.animatic++;
+      console.log(`  ⚠️ 视频 #${s.shotNumber} —— 引擎全部不可用,产出的是 Ken Burns 占位片,不是真视频`);
+      console.log(`\n  ⛔ 判定当日额度已耗尽,停止本项目剩余镜头(明天刷新后重跑同一条命令即可续上)`);
+      break;
+    }
     log('视频', `#${s.shotNumber}`, r, Date.now() - t);
   }
 }
 
-console.log(`\n  合计 生成 ${stat.done} · 跳过 ${stat.skip} · 失败 ${stat.fail} · 耗时 ${((Date.now() - t0) / 60000).toFixed(1)} 分钟\n`);
+console.log(`\n  合计 生成 ${stat.done} · 跳过 ${stat.skip} · 失败 ${stat.fail}${stat.animatic ? ` · ⚠️ 占位片 ${stat.animatic}` : ''} · 耗时 ${((Date.now() - t0) / 60000).toFixed(1)} 分钟\n`);
 process.exit(stat.fail > 0 ? 1 : 0);
