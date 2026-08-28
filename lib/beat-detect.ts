@@ -203,3 +203,55 @@ export async function detectBeatsWithFallback(
   const grid = beatGridFromBpm(bpm, dur, real[0] ?? 0);
   return grid.length ? { beats: grid, source: 'bpm-grid' } : { beats: [], source: 'none' };
 }
+
+/**
+ * v12.351:拍点序列 → BPM。**纯函数**,便于单测。
+ *
+ * 背景:`detectBeats` 从 v12.246 就在,MV 页却仍是 `useState(120)` + 手填数字框 ——
+ * 检测造好了没接线,用户得自己数拍子。
+ *
+ * 做法上有两个坑,都不是「取平均」能绕过的:
+ *
+ * ① **必须取中位数,不能取平均。** silencedetect 会漏拍(弱拍被噪声底吞掉),
+ *    漏一拍就产生一个双倍长的间隔;平均值被这类离群值拉偏,中位数不受影响。
+ *
+ * ② **半速/倍速歧义。** 每小节只在重拍触发时,测出来是真实 BPM 的一半;
+ *    鼓点密时又可能测成两倍。所以把结果折算进一个常用区间(默认 70–170),
+ *    反复 ×2 / ÷2 直到落进去 —— 这是音乐软件的通用做法,不是我拍脑袋定的。
+ *
+ * 拍点不足 4 个时返回 null(**不猜** —— 与本仓「判不出就说判不出」的既有约定一致)。
+ */
+export function bpmFromBeats(
+  beats: number[] | null | undefined,
+  opts: { minBpm?: number; maxBpm?: number } = {},
+): { bpm: number; confidence: number; intervals: number } | null {
+  const b = (beats || []).filter((x) => Number.isFinite(x)).sort((x, y) => x - y);
+  if (b.length < 4) return null;
+
+  const gaps: number[] = [];
+  for (let i = 1; i < b.length; i++) {
+    const g = b[i] - b[i - 1];
+    if (g > 0.05 && g < 4) gaps.push(g);   // 掐掉抖动与超长静音
+  }
+  if (gaps.length < 3) return null;
+
+  const sorted = [...gaps].sort((x, y) => x - y);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  if (!(median > 0)) return null;
+
+  const minBpm = opts.minBpm ?? 70;
+  const maxBpm = opts.maxBpm ?? 170;
+  let bpm = 60 / median;
+  // 折算进常用区间(每次只动一倍,避免在极端值上震荡)
+  for (let i = 0; i < 6 && bpm < minBpm; i++) bpm *= 2;
+  for (let i = 0; i < 6 && bpm > maxBpm; i++) bpm /= 2;
+
+  // 置信度 = 间隔有多齐整(离中位数 ±15% 内的占比)。齐整=检测可信,散=多半漏拍。
+  const near = gaps.filter((g) => Math.abs(g - median) <= median * 0.15).length;
+  return {
+    bpm: Math.round(bpm * 10) / 10,
+    confidence: Math.round((near / gaps.length) * 100) / 100,
+    intervals: gaps.length,
+  };
+}
+

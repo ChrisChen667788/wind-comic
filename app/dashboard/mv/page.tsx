@@ -51,6 +51,9 @@ export default function MvPlanPage() {
   const [videoClips, setVideoClips] = useState<string[]>([]);
   const [clipDraft, setClipDraft] = useState('');
   const [musicUrl, setMusicUrl] = useState('');
+  // v12.351:BPM 自动检测状态
+  const [bpmBusy, setBpmBusy] = useState(false);
+  const [bpmNote, setBpmNote] = useState('');
   const [composing, setComposing] = useState(false);
   const [mvUrl, setMvUrl] = useState('');
   const [mvDuration, setMvDuration] = useState(0); // 成片实际时长,用于和规划时长比对(真片段短于卡点时会缩短)
@@ -72,6 +75,33 @@ export default function MvPlanPage() {
       }
     } catch { /* noop */ }
   }, []);
+
+  // v12.351:从配乐自动测 BPM。测不出就**说测不出并保留手填**,不塞一个编出来的数。
+  const detectBpm = async () => {
+    if (!musicUrl.trim()) return;
+    setBpmBusy(true); setBpmNote('');
+    try {
+      const res = await fetch('/api/mv/detect-bpm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ musicUrl: musicUrl.trim() }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) {
+        setBpmNote(j?.reason || j?.error || `检测失败(HTTP ${res.status})—— 请手动填写`);
+        return;
+      }
+      setBpm(Math.round(j.bpm));
+      setBpmNote(
+        `测得 ${j.bpm} BPM(拍点 ${j.beats} 个 · 齐整度 ${Math.round((j.confidence || 0) * 100)}%)` +
+        (j.note ? ` · ${j.note}` : ''),
+      );
+    } catch (e) {
+      setBpmNote((e instanceof Error ? e.message : '检测失败') + ' —— 请手动填写');
+    } finally {
+      setBpmBusy(false);
+    }
+  };
 
   const plan = async () => {
     setPlanning(true);
@@ -195,12 +225,28 @@ export default function MvPlanPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--soft)] uppercase tracking-wider">BPM(每分钟拍数)</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs text-[var(--soft)] uppercase tracking-wider">BPM(每分钟拍数)</label>
+              {/* v12.351:检测函数从 v12.246 就在,这里却一直让用户自己数拍子。 */}
+              <button
+                type="button"
+                onClick={detectBpm}
+                disabled={bpmBusy || !musicUrl.trim()}
+                data-testid="detect-bpm"
+                className="text-[10px] px-2 py-0.5 rounded-md border border-white/10 hover:border-[#E8C547]/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                title={musicUrl.trim() ? '从配乐自动测 BPM' : '先填配乐 URL'}
+              >
+                {bpmBusy ? '检测中…' : '自动检测'}
+              </button>
+            </div>
             <input
               type="number" min={1} max={400} value={bpm}
               onChange={e => setBpm(Number(e.target.value))}
               className="mt-2 w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:outline-none focus:border-[#E8C547]/50 text-sm tabular-nums"
             />
+            {bpmNote && (
+              <div role="status" className="text-[10px] mt-1 opacity-70 leading-relaxed">{bpmNote}</div>
+            )}
           </div>
           <div>
             <label className="text-xs text-[var(--soft)] uppercase tracking-wider">每镜拍数</label>
