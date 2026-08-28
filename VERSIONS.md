@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.344**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.345**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.344**:**vitest 4451 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.345**:**vitest 4464 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,27 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.344.0** | 2026-08-28 | `待填` | **🎭 占位片被当成成片上报 —— 诚实标记造好了没接线**。
+| **v12.345.0** | 2026-08-28 | `待填` | **📚 两个「库」模块对真实用户都是空的 —— 各有各的病根 + 每日重跑定时化**。
+
+owner 要求「把库里已有的剧本等素材整理归类后存进对应模块」。查下来发现**根本不是整理问题,是两个模块都坏着**:
+
+**① 素材库空白 —— 修接口没跟消费方(老毛病又犯)。**
+`app/dashboard/assets` 调的是 `fetch('/api/assets')`(不带 projectId),而 **v12.218 的安全止血**把这个端点改成了「必须传 projectId + view 权限」,取消了无 projectId 的全表扫。那次修复堵洞是对的 —— 原来 `?projectId=` 就能枚举下载他人图/视频/TTS —— **但没人回头看消费方**。于是素材库从 v12.218 起一路 400,**空白至今**。owner 报的「素材库看不见」就是这个,不是权限问题。
+
+修法不是退回全表扫,而是补一条**用户自己作用域**的列表:无 projectId 时,项目集合只来自 `listProjectsByUser(登录用户)`,**不接受任何外部传入的 id**;未登录 401;IN 子句用占位符不做字符串拼接。实测:`GET /api/assets` 从 400 变 200,返回 **1019 个资产**(角色 61 / 场景 133 / 分镜 263 / 视频 178 / 音乐 27 / 剧本 31);无令牌仍是 401。
+
+**② 角色库空白 —— 压根没有「提升进库」这条路径。**
+`/api/characters` 读 `character_library`,而全表 84 行**全是测试夹具**(`owner-dd` / `grantee` / `@test.local`),真实用户 **0 行**。owner 跑完整条管线产出 61 个角色资产,没有任何代码把它们写进角色库 —— 这个模块对真实用户从来就是空的。
+
+新增 `scripts/backfill-character-library.mjs`,按名去重后回填 **53 个角色**。**描述取最好的那一份而不是就近取**:角色资产自己的 `description` 存的是**图像生成 prompt**(英文、给引擎看的),人话档案在剧本 `script_data.characterArcs` 里(成长弧线/渴望/真正需要/缺陷/说话方式);`appearance` 取 `character-dna` 的 `promptBlock`(五官签名);图优先 `persistent_url`(外链会过期);同名角色跨项目去重时**优先保留有图的那条**。幂等 —— 二次执行新增 0、跳过 53。写库前已备份 `data/qfmj.db`。
+
+**③ 每日重跑定时化(owner 要求)。**
+`scripts/rerun-cron.sh` + launchd `ai.qfmanju.rerun`,每天 09:00(机器睡着则唤醒后补跑),`RunAtLoad=false` 避免装载当场烧一轮额度。外壳负责:探活 dev server(没起就临时起、**跑完只关自己起的那个**)、补 PATH(launchd 环境极简,node 常不在)、日志留痕到 `~/Library/Logs/wind-comic-rerun.log`。**已实跑验证**:复用已有 server → 跳过 28 个已完成 → 识别第 11 镜是占位片并重试 → 仍是占位片 → 整轮干净停下、退出码 0。
+
+测试(+13)锁行为:未登录 401、项目集合不得来自外部 id、IN 用占位符、带 projectId 的老路径仍过 `requireProjectAccess`、空项目返回 `[]`;回填侧锁幂等、锁「描述不取图像 prompt」、锁「同名优先留有图的」、锁「必须显式传 userId 不许回落库里第一个用户」。
+
+验证:**vitest 4464 全绿 · tsc 0 · preflight 6/6**。 |
+| **v12.344.0** | 2026-08-28 | `9f0e9e5` | **🎭 占位片被当成成片上报 —— 诚实标记造好了没接线**。
 
 **又是重跑素材时当场撞见的。** 跑完《月挂不下来》11 镜,脚本报「✅ 视频 #11 5s」—— 5 秒出一条视频不合常理。查服务器日志:
 

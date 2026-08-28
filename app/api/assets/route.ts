@@ -4,7 +4,7 @@ import { normalizeAssetRow } from '@/lib/asset-storage';
 import { getUserFromRequest } from '../auth/lib';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { getAsset, deleteAsset } from '@/lib/repos/asset-repo';
-import { getOwnedProject } from '@/lib/repos/project-repo';
+import { getOwnedProject, listProjectsByUser } from '@/lib/repos/project-repo';
 
 export const runtime = 'nodejs';
 
@@ -15,8 +15,38 @@ export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get('type');
 
   // v12.218(安全止血):此 GET 曾无属主校验,?projectId= 即枚举下载他人图/视频/TTS。
-  // 现要求 projectId 且对其有 view 权限;不再允许无 projectId 的全表扫。
-  if (!projectId) return NextResponse.json({ message: 'projectId required' }, { status: 400 });
+  // 改成要求 projectId + view 权限,并**取消了无 projectId 的全表扫**。
+  //
+  // v12.345:那次修复对了一半 —— 素材库页面调的正是 `fetch('/api/assets')`(不带
+  // projectId),于是一路 400,**整个素材库空白至今**。owner 报「素材库看不见」就是这个。
+  // 修接口没跟消费方,是本项目的老毛病。
+  //
+  // 正确解不是退回全表扫,而是补一条**用户自己作用域**的列表:无 projectId 时
+  // 只列该用户名下项目的资产。枚举他人资产的洞依然堵着 —— 项目集合来自
+  // listProjectsByUser(登录用户),不接受任何外部传入的 id。
+  if (!projectId) {
+    const u = getUserFromRequest(request);
+    if (!u?.sub) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const mine = await listProjectsByUser(u.sub);
+    if (mine.length === 0) return NextResponse.json([]);
+    const ids = mine.map((p) => p.id);
+    const ph = ids.map(() => '?').join(',');
+    const params: unknown[] = [...ids];
+    let q = `SELECT * FROM project_assets WHERE project_id IN (${ph})`;
+    if (confirmed === 'true') q += ' AND confirmed = 1';
+    if (type) { q += ' AND type = ?'; params.push(type); }
+    q += ' ORDER BY created_at DESC';
+    const rows = db.prepare(q).all(...(params as any[])) as any[];
+    return NextResponse.json(rows.map((a) => {
+      const { mediaUrls, persistentUrl } = normalizeAssetRow(a);
+      return {
+        id: a.id, projectId: a.project_id, type: a.type, name: a.name,
+        data: JSON.parse(a.data || '{}'), mediaUrls, persistentUrl,
+        shotNumber: a.shot_number, confirmed: !!a.confirmed,
+        version: a.version, createdAt: a.created_at, updatedAt: a.updated_at,
+      };
+    }));
+  }
   const g = await requireProjectAccess(request, projectId, 'view');
   if (!g.ok) return NextResponse.json({ message: g.message }, { status: g.status });
 
