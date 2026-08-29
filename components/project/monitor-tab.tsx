@@ -33,6 +33,8 @@ function DriftPanel({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState(false);
   const [data, setData] = useState<null | {
     available: boolean; reason?: string;
+    /** v12.368:这组数字是怎么来的 —— 语义嵌入 vs 本地签名,边界不同,必须告诉用户 */
+    method?: 'embedding' | 'local-signature'; methodNote?: string;
     embeddedCount?: number; totalShots?: number; meanDrift?: number;
     outliers?: number[]; scores?: Array<{ shotNumber: number; driftScore: number }>;
   }>(null);
@@ -110,8 +112,16 @@ function DriftPanel({ projectId }: { projectId: string }) {
               </div>
             ))}
           </div>
+          {/* v12.368:**把测量方式和它的边界一起交出去。**
+              本地签名抓调色/构图跑偏,抓不到同色调下的人物走形 —— 不说清楚,
+              用户会把「没报警」当成「人物一致性没问题」。 */}
+          {data.methodNote && (
+            <p className="cinema-mono text-[10px] opacity-55 mt-2 leading-relaxed">
+              测量方式:{data.methodNote}
+            </p>
+          )}
           {outlierSet.size > 0 && (
-            <p className="cinema-mono text-[10px] opacity-50 mt-2">
+            <p className="cinema-mono text-[10px] opacity-50 mt-1">
               偏离大的镜可在分镜面板重生;漂移是相对值,只在同一部片内可比。
             </p>
           )}
