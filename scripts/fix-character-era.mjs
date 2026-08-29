@@ -20,14 +20,35 @@ const DRY = process.argv.includes('--dry');
 const ROOT = process.cwd();
 const db = new Database(path.join(ROOT, 'data/qfmj.db'));
 
-/** 库里出现过的全部年代片段 —— 要替换的就是它们。 */
-const ERA_FRAGMENTS = [
-  'ancient Chinese hanfu era, period-accurate silk costume and hair, ',
-  'futuristic sci-fi setting, cyberpunk costume with high-tech accessories, ',
-  'medieval fantasy setting, period costume and accessories, ',
-  'Republic of China era (1920s-1940s), cheongsam or zhongshan suit, ',
-  'modern contemporary setting, ',
+/**
+ * 年代片段 **与它配套的负向词** —— 必须成对替换。
+ *
+ * v12.359 补的教训:第一版只换了年代片段,负向词原样留着,于是产生**自相矛盾的 prompt**:
+ *   · 柳如烟 改成 hanfu,负向词却仍是 `--no historical --no ancient --no hanfu`
+ *     → **要古风又禁古风**;她重生出来的图穿古装却配现代高跟鞋,根因就在这里,
+ *       我当时误判成「生成模型的残留」。
+ *   · 苏砚青 改成 modern,负向词却仍是 `--no hoodie --no sneakers --no modern`
+ *     → **要现代又禁现代**。
+ * 年代和负向词本来就是同一个决定的两面,分开处理必然出这种事。
+ */
+const ERA_PAIRS = [
+  {
+    era: 'ancient Chinese hanfu era, period-accurate silk costume and hair, ',
+    neg: ' --no hoodie --no sneakers --no modern --no jeans --no t-shirt',
+  },
+  {
+    era: 'futuristic sci-fi setting, cyberpunk costume with high-tech accessories, ',
+    neg: ' --no historical --no ancient --no hanfu',
+  },
+  {
+    era: 'medieval fantasy setting, period costume and accessories, ',
+    neg: ' --no modern --no contemporary',
+  },
+  { era: 'Republic of China era (1920s-1940s), cheongsam or zhongshan suit, ', neg: '' },
+  { era: 'modern contemporary setting, ', neg: '' },
 ];
+const ERA_FRAGMENTS = ERA_PAIRS.map((p) => p.era);
+const ALL_NEGATIVES = ERA_PAIRS.map((p) => p.neg).filter(Boolean);
 
 /** 按**项目标题 + 剧本简介**判题材 —— 这才是权威依据,而不是角色的外貌描述。 */
 function eraForProject(text) {
@@ -70,7 +91,14 @@ for (const r of rows) {
   if (!want) { skipped++; console.log(`  ？ ${r.name.padEnd(8)} 判不出题材,不动 —— ${String(r.title).split('\n')[0].slice(0, 26)}`); continue; }
   if (want === current) { ok++; continue; }
 
-  const next = prompt.replace(current, want);
+  // 成对替换:先换年代片段,再把**旧年代的负向词**换成新年代的
+  let next = prompt.replace(current, want);
+  const wantNeg = ERA_PAIRS.find((x) => x.era === want)?.neg ?? '';
+  for (const n of ALL_NEGATIVES) {
+    if (next.includes(n)) { next = next.replace(n, wantNeg); break; }
+  }
+  // 原来没有负向词、而新年代需要 → 补在末尾(与 mckee-skill 的拼法一致)
+  if (wantNeg && !next.includes(wantNeg)) next = next + wantNeg;
   const label = `${current.split(',')[0]} → ${want.split(',')[0]}`;
   console.log(`  ✏️ ${r.name.padEnd(8)} ${label}`);
   console.log(`     ${String(r.title).split('\n')[0].slice(0, 40)}`);

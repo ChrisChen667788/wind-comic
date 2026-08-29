@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.358**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.359**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.358**:**vitest 4645 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.359**:**vitest 4661 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,27 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.358.0** | 2026-08-29 | `待填` | **🏯 单字匹配把 61 个角色里 21 个写成了赛博朋克 —— 同一个错误在三处代码各犯一遍**。
+| **v12.359.0** | 2026-08-29 | `待填` | **⚖️ 年代改了、负向词没改 —— 自相矛盾的 prompt,而我把它误判成了「模型的锅」**。
+
+上一版修完年代,owner 让我重生其余角色图。**动手前先从备份库对比出「到底哪些真被改过」**(不凭日志回忆),结果这一比,比出了自己上一版的漏洞。
+
+**v12.358 只换了年代片段,配套负向词原样留着**:
+- 柳如烟 改成 `ancient Chinese hanfu era`,负向词却仍是 `--no historical --no ancient --no hanfu` → **要古风又禁古风**
+- 苏砚青 改成 `modern contemporary setting`,负向词却仍是 `--no hoodie --no sneakers --no modern` → **要现代又禁现代**
+
+实测 **28 个角色全部不匹配**。年代和负向词本来就是同一个决定的两面,分开处理必然出这种事。
+
+**最该记的一笔:上一版我说错了话。** 柳如烟第一次重生出来穿古装配现代高跟鞋,我在版本日志和汇报里都写了「这是生成模型的残留,不是设定错了」——**那个判断是错的**。根因就是我自己留下的这条矛盾负向词:prompt 一边要 hanfu、一边 `--no hanfu`。改对后重生,**高跟鞋消失,变成完整的古风衣裙**。
+教训写进代码注释:**看到「模型没听话」,先回头查自己的 prompt 有没有自相矛盾,别急着甩锅给模型。**
+
+修:`scripts/fix-character-era.mjs` 把年代与负向词改成**成对结构**(`ERA_PAIRS`),换年代时同步换负向词、原来没有而新年代需要就补上;新增 `scripts/fix-era-negatives.mjs` 按当前年代把负向词强制对齐,**不重新判定年代**(那已在 v12.358 定好,重判只会引入新变数),三种情形分别处理:换 / 删 / 补。
+
+`scripts/regen-fixed-characters.mjs` 重生这批图 —— **改了 prompt 不重生等于没改**。清单来自与备份库的 diff;单个失败不中断整批,但**额度类错误立即停止**,不继续空烧;支持断点续跑。
+
+测试(+16)锁行为:**负向词不得禁掉自己要的东西**(`hanfu` 的负向里不能有 `--no hanfu`)、判不出年代时正负都为空(不能只留一个负向词)、成对替换、以及把「误判成模型残留」这条教训写进注释这件事本身也被断言锁住。
+
+验证:**vitest +16 · tsc 0**。两次数据修改前均已备份 `data/qfmj.db`。 |
+| **v12.358.0** | 2026-08-29 | `0b14e3e` | **🏯 单字匹配把 61 个角色里 21 个写成了赛博朋克 —— 同一个错误在三处代码各犯一遍**。
 
 owner 让我「修掉柳如烟那个 prompt 并重生她的角色图」。**结果不是一个 prompt 的事。**
 
