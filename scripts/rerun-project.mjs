@@ -170,10 +170,14 @@ if (STEPS.has('videos')) {
         return (ev.type === 'complete' || ev.type === 'done') ? (d?.videoUrl || d?.url) : null;
       });
     if (r.ok && animatic) {
-      // 额度耗尽的信号。继续跑只会产出更多占位片,白费时间 —— 停下来等明天刷新。
+      // v12.367:**只停视频,不停整轮。**
+      // 占位片说明**视频**额度尽了,但图像额度是**另一套**(实测:视频耗尽当天,
+      // 角色/场景/分镜仍在正常出图)。原来一遇到占位片就整轮退出,导致后面项目
+      // 连一张图都不生成 —— 实测卡住了 53 张。
+      // 而分镜图正是明天视频的 **i2v 首帧**,先备好,明天的视频额度才花得到刀刃上。
       stat.animatic++;
       console.log(`  ⚠️ 视频 #${s.shotNumber} —— 引擎全部不可用,产出的是 Ken Burns 占位片,不是真视频`);
-      console.log(`\n  ⛔ 判定当日额度已耗尽,停止本项目剩余镜头(明天刷新后重跑同一条命令即可续上)`);
+      console.log(`  ⛔ 视频额度已耗尽,跳过本项目剩余镜头(图像类步骤继续)`);
       break;
     }
     log('视频', `#${s.shotNumber}`, r, Date.now() - t);
@@ -181,9 +185,11 @@ if (STEPS.has('videos')) {
 }
 
 console.log(`\n  合计 生成 ${stat.done} · 跳过 ${stat.skip} · 失败 ${stat.fail}${stat.animatic ? ` · ⚠️ 占位片 ${stat.animatic}` : ''} · 耗时 ${((Date.now() - t0) / 60000).toFixed(1)} 分钟\n`);
-// 退出码有语义:3 = 当日视频额度已耗尽(调用方应停止整轮,而不是换个项目再撞一次墙)。
+// 退出码有语义:3 = 当日**视频**额度已耗尽。
+// v12.367:调用方收到 3 应当**继续跑后面的项目、但关掉视频步骤**,
+// 而不是整轮退出 —— 图像额度是另一套,停掉它等于白白浪费当天的出图配额。
 if (stat.animatic > 0) {
-  console.log('  ⛔ 当日视频额度已耗尽 —— 明天刷新后重跑同一条命令即可续上\n');
+  console.log('  ⛔ 当日视频额度已耗尽 —— 后续项目将只跑图像步骤\n');
   process.exit(3);
 }
 process.exit(stat.fail > 0 ? 1 : 0);

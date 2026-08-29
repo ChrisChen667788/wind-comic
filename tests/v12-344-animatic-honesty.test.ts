@@ -67,10 +67,17 @@ describe('v12.344 重跑脚本必须认得占位片', () => {
     expect(win).toMatch(/SELECT persistent_url, data/);
   });
 
-  it('出现占位片即停止本项目,不再空烧后续镜头', () => {
+  /**
+   * v12.367 修订:原断言锁的是「出现占位片 → 停整轮」。
+   * 那个决定后来被推翻,理由是**视频额度与图像额度是两套** ——
+   * 停整轮会白白放掉当天的出图配额(实测卡住 53 张图)。
+   * 现在只跳过**视频**步骤,图像步骤继续。
+   * 保留的核心不变:**占位片必须触发停止,不能继续空烧视频额度**。
+   */
+  it('出现占位片即停止本项目的视频步骤,不再空烧', () => {
     expect(script).toMatch(/if \(r\.ok && animatic\)/);
     expect(script).toMatch(/break;/);
-    expect(script).toMatch(/当日额度已耗尽/);
+    expect(script).toMatch(/视频额度已耗尽,跳过本项目剩余镜头/);
   });
 
   it('汇总里单列占位片数量,不混进「生成」', () => {
@@ -88,13 +95,19 @@ describe('v12.344 每日额度驱动', () => {
     expect(script).toMatch(/process\.exit\(stat\.fail > 0 \? 1 : 0\)/);
   });
 
-  it('每日驱动收到 3 就整轮停 —— 换个项目只会再撞一次同一堵墙', () => {
+  /**
+   * v12.367 修订:原断言是「收到 3 → exit 0」。当时的理由「换个项目只会再撞同一堵墙」
+   * **只对视频成立**;图像步骤撞不到那堵墙。现在收到 3 → 置标志、后续项目只跑图像。
+   */
+  it('每日驱动收到 3 → 关掉视频、继续跑图像(而不是整轮停)', () => {
     expect(daily).toMatch(/code" -eq 3/);
-    expect(daily).toMatch(/exit 0/);
+    expect(daily).toMatch(/VIDEO_BUDGET_LEFT=0/);
+    expect(daily).toContain('--only=chars,scenes,boards');
   });
 
   it('普通失败不中断整轮(一个项目坏了不该拖垮其余)', () => {
-    expect(daily).toMatch(/code" -ne 0 \] && echo/);
+    // v12.367:3 不再算「普通失败」—— 它有专门的降级分支,不该再报一次警
+    expect(daily).toMatch(/code" -ne 0 \] && \[ "\$code" -ne 3 \] && echo/);
   });
 
   it('驱动固定走 minimax —— 可灵欠费时不该每镜白撞一次', () => {
