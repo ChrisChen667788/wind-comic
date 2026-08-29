@@ -43,12 +43,19 @@ function scan() {
     const src = fs.readFileSync(file, 'utf-8');
     const lines = src.split('\n');
 
+    // v12.380:映射是**文件级**的,而 `const src = fs.readFileSync(...)` 常常是
+    // 函数内的局部变量 —— 同一个名字在一个测试文件里可以指向好几个源文件。
+    // 后写的覆盖先写的,就会把断言算到错误的源文件头上(误报),
+    // 也可能把真正该报的算成别的文件(漏报)。
+    // 解析真作用域太重;这里取保守解:**同名变量指向过不同文件,就整个放弃它** ——
+    // 门禁宁可漏报,也不能让人对着一条假线索去改没坏的测试。
     const varmap = new Map();
     READ_RE.lastIndex = 0;
     for (let m; (m = READ_RE.exec(src)); ) {
       const target = m[2];
       if (!/\.(ts|tsx|mjs|js|md|json)$/.test(target)) continue;
-      varmap.set(m[1], target);
+      if (varmap.has(m[1]) && varmap.get(m[1]) !== target) varmap.set(m[1], null); // 有歧义
+      else if (!varmap.has(m[1])) varmap.set(m[1], target);
     }
     if (!varmap.size) continue;
 
@@ -56,7 +63,7 @@ function scan() {
     for (let m; (m = IDX_RE.exec(src)); ) {
       const [, varName, , literalRaw] = m;
       const target = varmap.get(varName);
-      if (!target) continue;
+      if (!target) continue;   // 未知或有歧义的变量一律放过
       const abs = path.join(ROOT, target);
       if (!fs.existsSync(abs)) continue;
 
@@ -72,7 +79,11 @@ function scan() {
       const body = fs.readFileSync(abs, 'utf-8');
       let count = 0, at = 0;
       while ((at = body.indexOf(literal, at)) !== -1) { count++; at += literal.length; }
-      if (count > 1) {
+      // v12.380:**0 次和 >1 次都是坏锚点,而且 0 次更狠** ——
+      // indexOf 直接返回 -1,slice(-1, X) 切出的东西必然不是想验的那段。
+      // v12.379 就撞上了:v12.374 的锚点 `const musicRaw` 在改名后消失,
+      // 断言以完全错误的理由变红(行为其实更强了)。原门禁只查 >1,漏掉了这一半。
+      if (count === 0 || count > 1) {
         findings.push({ test: `tests/${name}`, line: lineNo, literal: literal.slice(0, 60), count, target });
       }
     }
@@ -95,10 +106,14 @@ if (process.argv.includes('--update')) {
 
 const fresh = findings.filter((f) => !known.has(key(f)));
 if (fresh.length) {
-  console.log(`\n❌ 锚点门禁失败:新增 ${fresh.length} 处有歧义的 indexOf 锚点\n`);
+  console.log(`\n❌ 锚点门禁失败:新增 ${fresh.length} 处坏的 indexOf 锚点(0 次或多次)\n`);
   for (const f of fresh) {
     console.log(`  ${f.test}:${f.line}`);
-    console.log(`    锚点「${f.literal}」在 ${f.target} 中出现 ${f.count} 次 —— indexOf 只会命中第一处`);
+    console.log(
+      f.count === 0
+        ? `    锚点「${f.literal}」在 ${f.target} 中**一次都不出现** —— indexOf 返回 -1,窗口必然切错`
+        : `    锚点「${f.literal}」在 ${f.target} 中出现 ${f.count} 次 —— indexOf 只会命中第一处`,
+    );
   }
   console.log(`\n怎么办:
   1. 换一个**语义唯一**的锚点(调用点而不是裸函数名、代码行而不是注释行);
