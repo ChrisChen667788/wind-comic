@@ -159,8 +159,16 @@ describe('recompose 接线', () => {
   });
 
   it('BGM 走同一条防线', () => {
-    const win = codeOnly.slice(codeOnly.indexOf('const musicRaw'), codeOnly.indexOf('const keepSet'));
-    expect(win).toContain('isMediaReachable');
+    // v12.379 修订:那版把 BGM 从「取第一条再看可不可达」改成「在候选里挑可达的」,
+    // `const musicRaw` 这个变量随之消失 —— 锚点指向一个已不存在的名字,
+    // indexOf 返回 -1、窗口切歪,断言以**错误的理由**变红(行为其实更强了)。
+    // 现在锚在选路段落的开头,并先自证窗口有效。
+    const start = codeOnly.indexOf('const musicCandidates');
+    const end = codeOnly.indexOf('const keepSet', start);
+    expect(start, 'BGM 选路段落找不到了').toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    const win = codeOnly.slice(start, end);
+    expect(win).toMatch(/isMediaReachable|filterReachable/);
     expect(win).toContain('musicDropped');
   });
 

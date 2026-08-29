@@ -104,14 +104,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // v12.184:自定义 BGM(body.bgmUrl,http/站内)优先于项目 music 资产 —— 用户上传/外链换曲即重合成
   const customBgm = typeof body?.bgmUrl === 'string' && /^(https?:|\/api\/serve-file)/.test(body.bgmUrl) ? body.bgmUrl : '';
+  // v12.379:**在候选里挑一条可达的,而不是挑第一条再看它可不可达。**
+  // 原来取 musicAssets[0],而 listAssetsByType 是 `ORDER BY shot_number` ——
+  // music 资产的 shot_number 全是 NULL,顺序实际由插入次序决定。
+  // 项目 1 有两条:6 月那条 AI 作曲(文件早丢了)和刚上传的自备 BGM,
+  // [0] 稳稳取到坏的那条,新上传的配乐永远轮不到 —— 上传了却没声音,还查不出原因。
+  // v12.374 的守卫本来就能判可达性;既然能判,就该拿它来**选**,不只是用来**拒**。
   let musicDropped = false;
-  const musicRaw = customBgm || musicAssets[0]?.persistent_url || parse(musicAssets[0]?.media_urls)?.[0] || '';
-  // v12.374:BGM 走同一条防线 —— 项目 1 的 music 资产同样只剩库里一条记录,文件早没了
-  if (musicRaw && !isMediaReachable(musicRaw)) {
+  const musicCandidates = [...musicAssets]
+    // 新的优先:同为 NULL 的 shot_number 排不出先后,时间能
+    .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))
+    .map((a) => a.persistent_url || parse(a.media_urls)?.[0] || '')
+    .filter(Boolean);
+  const musicPick = customBgm
+    ? (isMediaReachable(customBgm) ? customBgm : '')
+    : (filterReachable(musicCandidates, (u) => u).kept[0] || '');
+  if (!musicPick && (customBgm || musicCandidates.length)) {
     musicDropped = true;
-    console.warn(`[recompose] BGM 文件已不在盘上,本次成片无背景音乐:${String(musicRaw).slice(0, 80)}`);
+    console.warn(
+      `[recompose] ${musicCandidates.length + (customBgm ? 1 : 0)} 条 BGM 候选没有一条的文件还在盘上,本次成片无背景音乐`
+    );
   }
-  const musicUrl = musicDropped ? '' : fullUrl(musicRaw);
+  const musicUrl = musicPick ? fullUrl(musicPick) : '';
   const keepSet = new Set(clips.map((c) => c.shotNumber));
 
   let voiceoverDropped = 0;
