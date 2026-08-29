@@ -47,6 +47,7 @@ export function listImageProviders(): ImageProvider[] {
  * 规则:
  *   1. available() === false → 排除
  *   2. refCount > maxRefImages → 排除 (它吃不下这么多 ref)
+ *   2b. refCount < minRefImages → 排除 (它吃不了这么少 ref —— v12.371)
  *   3. exclude 里的 → 排除
  *   4. prefer 命中 → 提到第一位
  *   5. 其余按 priority 升序
@@ -58,6 +59,8 @@ export function selectProviders(input: SelectInput): ImageProvider[] {
     if (!p.available()) return false;
     if (!isProviderHealthy(p.id)) return false; // v12.8.0: 软熔断 —— 冷却中的 provider 跳过
     if (input.refCount > p.maxRefImages) return false;
+    // v12.371:下界。少了它,0 参考图的场景生成会先白试一次 multi-ref 再必然失败。
+    if (input.refCount < (p.minRefImages ?? 0)) return false;
     return true;
   });
   filtered.sort((a, b) => a.priority - b.priority);

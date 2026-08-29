@@ -75,6 +75,9 @@ registerImageProvider({
   name: 'Minimax image-01 (multi-ref)',
   supportsRefs: true,
   maxRefImages: 4,
+  // v12.371:它的 generate 第一行就是「needs at least 1 ref」——
+  // 把这个约束**声明出来**,由选路统一执行,而不是靠抛错表达。
+  minRefImages: 1,
   priority: 90,   // ref ≥ 3 时比 MJ 更适合 — 优先级稍高
   available: () => {
     try {

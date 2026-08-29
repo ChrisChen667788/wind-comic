@@ -83,6 +83,18 @@ export interface ImageProvider {
   /** 最多吃几张参考图 — provider 超过自己截取 */
   maxRefImages: number;
   /**
+   * v12.371:**参考图下界**(默认 0)。
+   *
+   * 病根:选路只过滤上界 `refCount > maxRefImages`,没有下界 ——
+   * 而 `minimax-multi` 的 `generate` 第一行就是「needs at least 1 ref」。
+   * 于是**场景图**(天然 0 张参考)每次都会先白试一次它、必然抛错,再落到下一个。
+   * 实测 owner 的项目里,「万人演唱会现场」「昆仑山暴风雪中」「秦岭龙脉上空」
+   * 三张场景图就是这么失败的。
+   *
+   * 能力约束应当**声明在注册表里由选路统一执行**,而不是埋在 generate 里靠抛错表达。
+   */
+  minRefImages?: number;
+  /**
    * 优先级 — 数字越小越优先. 内置默认 100. 自定义 provider 想抢首位就设 50.
    * 在 ref 数量适配的前提下, 注册表按 priority 排序.
    */

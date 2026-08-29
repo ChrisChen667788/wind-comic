@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.370**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.371**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.370**:**vitest 4849 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.371**:**vitest 4866 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,31 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.370.1** | 2026-08-29 | `待填` | **🔴 我推了三个红灯 —— 测试读了别的测试会写的目录**。
+| **v12.371.0** | 2026-08-29 | `待填` | **🎯 场景图每次都白试一次必然失败的引擎;失败后又给了错的建议**。
+
+两处都是从**今天真实跑出来的日志**里挖到的 —— v12.367 解封了 53 张图,跑完一看有 6 张失败,顺着报错查下去。
+
+**① 选路少了下界。** 报错是 `Minimax multi-ref needs at least 1 ref`,而**场景图天然 0 张参考**。`selectProviders` 只过滤上界 `refCount > maxRefImages`,**没有下界** —— 于是每张场景图都先白试一次 multi-ref、必然抛错,再落到下一个。实测「万人演唱会现场」「昆仑山暴风雪中」「秦岭龙脉上空」三张就是这么失败的。
+
+修法不是在 `generate` 里再加判断,而是**把能力约束声明到注册表、由选路统一执行**:新增 `minRefImages`(缺省 0,老 provider 零回归),`minimax-multi` 声明 `minRefImages: 1`。**约束靠抛错表达,调用方就只能靠试错发现。**
+
+**② 全链失败的文案给了错的建议。** 原文案是「所有图像引擎都失败了,**请稍后再试**」。但真实原因常常是**稍后再试也没用**的那种:
+
+| 真实报错 | 该做的事 |
+|---|---|
+| `Token quota exhausted` | 等额度刷新或充值 —— **现在重试不会成功** |
+| `1026 input new_sensitive` | **改写该镜文案** —— 重试同一段文字不会成功 |
+| `MJ 分组 …` | 换通道/换 key —— 重试同一通道不会成功 |
+| `Request timed out` | 这类**重试确实有效** |
+
+四种处置完全不同,而「请稍后再试」对其中三种是**错的**。原因**早就写进 `api_usage_events`**,只是没人交回给用户 —— 与 v12.348(巡检读运行时告警表)是同一手法:**系统知道,就别让用户猜**。
+
+新增 `lib/recent-failure`:只看**近 5 分钟**(太旧的记录与本次失败无关,拿它当原因反而误导)、只看**图像链 provider**(不把 LLM/TTS 的失败混进来)、**判不出就返回 null** 退回通用文案(不硬编一个可能是错的建议)。
+
+**实测验证**:改动后重生那张失败的场景图,`multi-ref` 报错消失,暴露出的是诚实的真因 `Token quota exhausted`(今天出了 47+ 张,图像额度也见底了);拿 owner 的真实失败记录跑 `adviseFromError`,最近一次是 **minimax 1026「prompt 被判敏感」**—— 正是那种重试一万次也不会好的。
+
+验证:**vitest +17 · tsc 0**。 |
+| **v12.370.1** | 2026-08-29 | `9e8876e` | **🔴 我推了三个红灯 —— 测试读了别的测试会写的目录**。
 
 v12.368 / 369 / 370 三版 CI 全红,而**本地每次都是全绿**。根因是 v12.368 我写的那条断言:
 

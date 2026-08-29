@@ -202,7 +202,19 @@ export async function POST(
         });
 
         if (!imageUrl || imageUrl.startsWith('data:')) {
-          send('error', { message: '所有图像引擎都失败了 (返回 mock 或空), 请稍后再试' });
+          // v12.371:原文案是「请稍后再试」——**对多数真实原因都是错的建议**:
+          // 额度耗尽、prompt 被判敏感、网关分组受限,重试同样的东西都不会成功。
+          // 而原因**早就写进 api_usage_events 了**,只是没人交回给用户。
+          const { recentImageFailure } = await import('@/lib/recent-failure');
+          const hint = recentImageFailure();
+          send('error', {
+            message: hint?.advice
+              ? `图像生成失败(${hint.provider}):${hint.advice}`
+              : hint?.raw
+                ? `所有图像引擎都失败了 —— 最近一次上游报错(${hint.provider}):${hint.raw}`
+                : '所有图像引擎都失败了(返回 mock 或空),且未取到上游报错;请查看服务日志',
+            ...(hint ? { upstream: hint.raw, provider: hint.provider } : {}),
+          });
           controller.close();
           return;
         }
