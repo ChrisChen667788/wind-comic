@@ -9,6 +9,7 @@
  * 对标行业 2.7 元/集翻译成本(一次 LLM 翻译调用 + TTS 重配,无重渲视频)。
  */
 import { NextResponse } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { getUserFromRequest } from '../../../auth/lib';
 import { getOwnedProject, updateProjectById } from '@/lib/repos/project-repo';
 import { upsertAsset, listAssetsByType } from '@/lib/repos/asset-repo';
@@ -32,8 +33,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!lang || lang === 'zh') return NextResponse.json({ message: '请指定非中文目标语种(ja/ko/ru/en…)' }, { status: 400 });
 
   // 取数与 pull-sheet 同款:script 资产优先(排除多语版/备份),回退 projects.script_data
-  const scriptRows = (await listAssetsByType(id, 'script')).filter((r) => !/^script-/.test(r.name || ''));
-  let script: any = (() => { try { return scriptRows[0]?.data ? JSON.parse(scriptRows[0].data) : null; } catch { return null; } })();
+  // v12.381:改走唯一入口。原来这里自带一份 `!/^script-/` 过滤 —— 判据方向是对的,
+  // 但它连 `script-drafts` 这类将来可能出现的非语种资产也会一起排掉,
+  // 而 pull-sheet / recompose 又各有各的写法(其实都没过滤)。三份实现,三种行为。
+  const scriptRows = await listAssetsByType(id, 'script');
+  const _picked = pickScriptAsset(scriptRows);
+  let script: any = (() => { try { return _picked.row?.data ? JSON.parse(_picked.row.data) : null; } catch { return null; } })();
   if (!Array.isArray(script?.shots)) {
     script = (() => { try { return JSON.parse((project as any).script_data || '{}'); } catch { return {}; } })();
   }

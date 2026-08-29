@@ -11,6 +11,7 @@
  * 读免鉴权(与项目 assets/asset-ledger GET 一致按 projectId 作用域)。
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { db } from '@/lib/db';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { buildPullSheetFromScript, toPullSheetCsv } from '@/lib/pull-sheet';
@@ -48,8 +49,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   // script:资产优先,回退 projects.script_data(演示工程形)
+  // v12.381:走唯一入口选稿。原来直接取 [0] —— 而一个项目可以有主稿 + 若干 script-<lang> 翻译稿,
+  // listAssetsByType 的 ORDER BY shot_number 在 shot_number 全为 NULL 时等于插入次序,
+  // 先出过俄语版的项目就会拿俄语稿去导一份中文项目的场记表。
   const scriptRows = await listAssetsByType(id, 'script');
-  let script: any = parseJson(scriptRows[0]?.data);
+  let script: any = parseJson(pickScriptAsset(scriptRows).row?.data);
   if (!Array.isArray(script?.shots)) {
     const r = db.prepare('SELECT title, script_data FROM projects WHERE id = ?').get(id) as
       | { title?: string; script_data?: string } | undefined;

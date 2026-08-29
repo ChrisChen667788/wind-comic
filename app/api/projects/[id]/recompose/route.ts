@@ -1,5 +1,6 @@
 import { filterReachable, isMediaReachable } from '@/lib/media-reachable';
 import { pickShotVoice } from '@/lib/shot-voice';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { NextResponse } from 'next/server';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { getUserFromRequest } from '@/app/api/auth/lib';
@@ -52,7 +53,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (videoAssets.length === 0) return NextResponse.json({ message: '该项目没有可复用的镜头视频' }, { status: 400 });
 
   const parse = (s: string | null): any => { try { return s ? JSON.parse(s) : {}; } catch { return {}; } };
-  const scriptShots: any[] = parse(scriptAssets[0]?.data)?.shots || [];
+  let scriptFellBackFrom: string | null = null;
+  // v12.381:按目标语种选剧本,而不是「取第一条」。
+  // v12.187 给本端点加了 body.language 让 TTS 按语种发音,但**台词来源没跟着切** ——
+  // 传 language:'en' 的结果是用英语嗓念中文台词,烧上去的字幕也还是中文。
+  const scriptPick = pickScriptAsset(scriptAssets, body?.language);
+  if (scriptPick.fellBack) {
+    // 静默降级正是本系列一直在消灭的东西:选了英语却出中文片,得让调用方知道
+    console.warn(`[recompose] 没有 ${scriptPick.requested} 版剧本,已回退主稿 —— 台词与字幕将是主稿语种,未必是所请求的语种`);
+  }
+  scriptFellBackFrom = scriptPick.fellBack ? scriptPick.requested : null;
+  const scriptShots: any[] = parse(scriptPick.row?.data ?? null)?.shots || [];
   const dlg = new Map<number, { dialogue?: string; transition?: string; duration?: number; speaker?: string; characters?: unknown }>();
   for (const s of scriptShots) dlg.set(s.shotNumber, { dialogue: s.dialogue, transition: s.transition, duration: s.duration, speaker: s.speaker, characters: s.characters });
 
@@ -298,5 +309,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
 
   return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, voiceoverDropped, musicDropped,
+      scriptFellBackFrom,   // v12.381:请求了某语种却只有中文稿时如实告知
       voiceoverFailed: voiceoverFailed.length ? voiceoverFailed : undefined, hookCard: hookAppended, endCard: cardAppended, variants: variants.length > 0 ? variants : undefined });
 }
