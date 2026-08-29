@@ -23,6 +23,7 @@
  */
 
 import OpenAI from 'openai';
+import { isAncient } from './genre-vocab';
 import { API_CONFIG } from './config';
 
 export interface NormalizeOptions {
@@ -120,7 +121,7 @@ function detectGenres(text: string): string[] {
   for (const k of GENRE_KEYWORDS) {
     if (text.includes(k)) {
       // 把关键词归类成大类
-      if (/古装|宫|侠|剑|秦|唐|宋|明|清|武侠/.test(k)) found.add('古装/武侠');
+      if (isAncient(k)) found.add('古装/武侠');   // v12.362:收口到 lib/genre-vocab
       else if (/赛博|未来|机甲|外星|太空|AI|科幻/.test(k)) found.add('科幻');
       else if (/恋爱|偶遇|心动|表白|甜宠/.test(k)) found.add('言情');
       else if (/破案|悬疑|凶手|失踪|侦探/.test(k)) found.add('悬疑');

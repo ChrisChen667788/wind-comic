@@ -1,3 +1,4 @@
+import { isAncient, isHorror, isSad } from './genre-vocab';
 /**
  * lib/prompt-templates (v2.13.4)
  *
@@ -36,19 +37,21 @@ export function enhanceIdeaForCreation(rawIdea: string): IdeaEnhancement {
 
   // 检测题材关键词,显式标注
   const detectedGenres: string[] = [];
-  if (/古装|宫|侠|剑|秦|唐|宋|明|清/.test(idea)) detectedGenres.push('古装');
+  // v12.362:收口到 lib/genre-vocab。原来的单字规则把「画面清新明亮」「阳光明媚」判成古装,
+  // 而这里的结果会被写成「题材锁定:古装(用户已指定,严格遵守)」—— 用户从没说过的话。
+  if (isAncient(idea)) detectedGenres.push('古装');
   if (/赛博|未来|机甲|外星|太空|AI|科幻/.test(idea)) detectedGenres.push('科幻');
   if (/恋爱|偶遇|心动|表白|表黑/.test(idea)) detectedGenres.push('言情');
   if (/破案|悬疑|凶手|失踪|侦探/.test(idea)) detectedGenres.push('悬疑');
   if (/职场|公司|老板|创业|加班/.test(idea)) detectedGenres.push('职场');
   if (/校园|学生|高中|大学|宿舍/.test(idea)) detectedGenres.push('校园');
   if (/武侠|江湖|门派|内功|轻功/.test(idea)) detectedGenres.push('武侠');
-  if (/恐怖|鬼|惊悚|血/.test(idea)) detectedGenres.push('惊悚');
+  if (isHorror(idea)) detectedGenres.push('惊悚');   // v12.362:原 /血/ 把「热血沸腾」判成惊悚
 
   // 检测情绪基调
   const detectedMoods: string[] = [];
   if (/喜剧|搞笑|轻松|爆笑|沙雕/.test(idea)) detectedMoods.push('喜剧基调');
-  if (/悲|哭|泪|绝望|心碎|遗憾/.test(idea)) detectedMoods.push('悲情基调');
+  if (isSad(idea)) detectedMoods.push('悲情基调');   // v12.362:原 /悲/ 命中「慈悲」
   if (/温暖|治愈|温馨|甜/.test(idea)) detectedMoods.push('治愈基调');
   if (/紧张|危险|逃|追/.test(idea)) detectedMoods.push('紧张节奏');
 

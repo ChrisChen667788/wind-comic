@@ -1,3 +1,4 @@
+import { isAncient } from './genre-vocab';
 /**
  * Screenwriter enhancement primitives
  *
@@ -163,7 +164,8 @@ export function inferVoiceFingerprintsFromCharacters(
       voiceStyle = '情绪外放,常带感叹/反问';
       sentenceLength = 'long';
       register = 'colloquial';
-    } else if (/古|侠|将军|皇|帝|仙/.test(desc) || /古|侠|将军|皇|帝|仙/.test(c.appearance || '')) {
+    // v12.362:收口到 lib/genre-vocab。原 /古/ 命中「复古」、/帝/ 命中「帝国大厦」
+    } else if (isAncient(desc) || isAncient(c.appearance || '')) {
       voiceStyle = '古雅、端庄,避免现代词';
       register = 'archaic';
     } else if (/孩|童|少年|少女/.test(desc)) {

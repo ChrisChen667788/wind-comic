@@ -1,3 +1,4 @@
+import { isAncient } from './genre-vocab';
 /**
  * v2.20 P0.1 — Style Bible Frame
  *
@@ -36,7 +37,8 @@ export interface StyleBibleInput {
  */
 function getMoodWordsForGenre(genre: string): string {
   const g = genre.toLowerCase();
-  if (/古装|秦|唐|宋|明|清|朝|宫|侠|武|仙|修|汉服|wuxia|xianxia|dynasty/.test(g)) {
+  // v12.362:收口到 lib/genre-vocab(原单字规则命中「清新」「明亮」「修长」)
+    if (isAncient(g)) {
     return 'warm amber lighting, soft volumetric haze, ink-wash painterly grade, jade and crimson palette, low contrast highlights';
   }
   if (/赛博|科幻|未来|cyber|sci-fi|future|mech/.test(g)) {
