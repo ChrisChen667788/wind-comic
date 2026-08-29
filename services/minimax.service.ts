@@ -260,6 +260,19 @@ export class MinimaxService {
 
       const taskId = data.task_id;
       if (!taskId) {
+        // v12.360:MiniMax 有一种**假成功**:HTTP 200 + `base_resp.status_code: 0`(success)
+        // + `metadata.failed_count: 1 / success_count: 0`,却不给 task_id。
+        // 实测那是**内容过滤静默拒绝** —— 触发的角色描述里有「无实体服饰,身体由数据流光纹缠绕」。
+        // 原来一律报「no task_id in response」+ 整个 JSON,看的人无从判断该改 prompt 还是重试。
+        const meta = (data as { metadata?: { failed_count?: string | number; success_count?: string | number } }).metadata;
+        const failed = Number(meta?.failed_count || 0);
+        const succeeded = Number(meta?.success_count || 0);
+        if (failed > 0 && succeeded === 0) {
+          throw new Error(
+            'Minimax 内容过滤静默拒绝(接口报 success 但 failed_count=' + failed + '、无 task_id)——' +
+            '通常是 prompt 里有被判敏感的措辞(如「无实体服饰」「裸」等),改写该处描述后重试',
+          );
+        }
         throw new Error(`Minimax: no task_id in response: ${JSON.stringify(data)}`);
       }
 
@@ -650,6 +663,19 @@ export class MinimaxService {
       // 旧版API：需要轮询
       const taskId = data.task_id;
       if (!taskId) {
+        // v12.360:MiniMax 有一种**假成功**:HTTP 200 + `base_resp.status_code: 0`(success)
+        // + `metadata.failed_count: 1 / success_count: 0`,却不给 task_id。
+        // 实测那是**内容过滤静默拒绝** —— 触发的角色描述里有「无实体服饰,身体由数据流光纹缠绕」。
+        // 原来一律报「no task_id in response」+ 整个 JSON,看的人无从判断该改 prompt 还是重试。
+        const meta = (data as { metadata?: { failed_count?: string | number; success_count?: string | number } }).metadata;
+        const failed = Number(meta?.failed_count || 0);
+        const succeeded = Number(meta?.success_count || 0);
+        if (failed > 0 && succeeded === 0) {
+          throw new Error(
+            'Minimax 内容过滤静默拒绝(接口报 success 但 failed_count=' + failed + '、无 task_id)——' +
+            '通常是 prompt 里有被判敏感的措辞(如「无实体服饰」「裸」等),改写该处描述后重试',
+          );
+        }
         throw new Error(`Minimax: no task_id in response: ${JSON.stringify(data)}`);
       }
 
