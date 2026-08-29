@@ -133,6 +133,26 @@ export function deriveProsody(input: ProsodyInput = {}): ProsodyParams {
  *
  * 注意:词表变动会改变受影响角色的音色分配(已出片的项目不受影响,不会重生成)。
  */
+/**
+ * v12.364:年龄档判定词表。
+ *
+ * **原来用裸字 `老` 判「老年」,而 `老X` 是中文里对任意年龄成年人的通称。** 实测:
+ *   老陈 / 老王 / 老师 / 老板 / 老公 → **全部判成老年**
+ * owner 的出租车故事里正是「司机老陈」(中年人),会被配上老年音色。
+ * `婆` 同理 —— 「老婆」是妻子,不是老人。
+ *
+ * 收紧时漏过一种真正的老年称谓:**「老X头」**(老张头/老王头)——
+ * 是 v12.288 的既有测试拦住的。已补 `老[一-龥]?头`;
+ * 教训:收紧词表时,先跑既有测试再下结论「收紧完成」。
+ *
+ * 改成**必须出现明确表示年长的词**;判不出就不给年龄档,由下游按「青年」兜底
+ * (v12.296 已立的规矩:知性别不知年龄时默认青年,避免落到童声/老声)。
+ */
+const ELDERLY_HINT = /老年|年迈|年老|苍老|老人|老者|老[\u4e00-\u9fa5]?头|老太|老大爷|老奶奶|老婆婆|老爷爷|爷爷|奶奶|大爷|大娘|翁|叟|白发|花甲|古稀|\bold\s+man\b|\bold\s+woman\b|\belderly\b|\belder\b/;
+
+/** 童年档。`孩`/`娃`/`童` 在中文里几乎只表小孩,保留;补常见写法。 */
+const CHILD_HINT = /孩|童|娃|幼|少年|小学生|幼儿|\bkid\b|\bchild\b|\bboy\b|\bgirl\b/;
+
 export const MALE_NAME_HINT = /[男叔爷伯汉][^女]?|先生|大爷|老汉|父亲|爸|哥|弟|父|少爷|公子|郎|侠|帝|将军|大叔|\bmr\b|\bsir\b|\bboy\b/;
 export const FEMALE_NAME_HINT = /女|姐|妹|婆|娘|母亲|妈|母|小姐|夫人|姑|嫂|婶|奶|姨|嬷|妃|公主|\bmrs\b|\bms\b|\bmiss\b|\bgirl\b|\blady\b/;
 
@@ -153,8 +173,8 @@ export function inferTraitsFromName(name?: string | null): { gender?: 'male' | '
   const out: { gender?: 'male' | 'female'; ageGroup?: string } = {};
   const g = genderFromNameHints(n);
   if (g) out.gender = g;
-  if (/老|爷|婆|翁|叟|年迈|奶奶|爷爷|\bold\b|\belder\b/.test(n)) out.ageGroup = '老年';
-  else if (/孩|童|娃|幼|少年|\bkid\b|\bchild\b/.test(n)) out.ageGroup = '童年';
+  if (ELDERLY_HINT.test(n)) out.ageGroup = '老年';
+  else if (CHILD_HINT.test(n)) out.ageGroup = '童年';
   return out;
 }
 
@@ -167,8 +187,8 @@ export function characterProsodyBias(name?: string | null): { pitchDelta: number
   if (MALE_NAME_HINT.test(n) || /\bhe\b|\bhim\b/.test(n)) { pitchDelta -= 2; speedMul *= 0.98; }
   else if (FEMALE_NAME_HINT.test(n) || /\bshe\b|\bher\b/.test(n)) { pitchDelta += 1; }
   // 年龄线索(覆盖性别的语速)
-  if (/老|爷|婆|翁|叟|年迈|大爷|奶奶|爷爷|\bold\b|\belder\b/.test(n)) { pitchDelta -= 1; speedMul = 0.92; }
-  else if (/孩|童|娃|幼|少年|\bkid\b|\bchild\b|\bboy\b|\bgirl\b/.test(n)) { pitchDelta += 2; speedMul = Math.max(speedMul, 1.02); }
+  if (ELDERLY_HINT.test(n)) { pitchDelta -= 1; speedMul = 0.92; }
+  else if (CHILD_HINT.test(n)) { pitchDelta += 2; speedMul = Math.max(speedMul, 1.02); }
   return { pitchDelta, speedMul };
 }
 
