@@ -1,3 +1,5 @@
+import { filterReachable, isMediaReachable } from '@/lib/media-reachable';
+import { pickShotVoice } from '@/lib/shot-voice';
 import { NextResponse } from 'next/server';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { getUserFromRequest } from '@/app/api/auth/lib';
@@ -51,8 +53,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const parse = (s: string | null): any => { try { return s ? JSON.parse(s) : {}; } catch { return {}; } };
   const scriptShots: any[] = parse(scriptAssets[0]?.data)?.shots || [];
-  const dlg = new Map<number, { dialogue?: string; transition?: string; duration?: number }>();
-  for (const s of scriptShots) dlg.set(s.shotNumber, { dialogue: s.dialogue, transition: s.transition, duration: s.duration });
+  const dlg = new Map<number, { dialogue?: string; transition?: string; duration?: number; speaker?: string; characters?: unknown }>();
+  for (const s of scriptShots) dlg.set(s.shotNumber, { dialogue: s.dialogue, transition: s.transition, duration: s.duration, speaker: s.speaker, characters: s.characters });
 
   const clips = videoAssets
     .map((v) => {
@@ -65,6 +67,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         duration: meta?.duration || sc.duration || 4,
         transition: sc.transition || 'cut',
         dialogue: sc.dialogue || '',
+        speaker: sc.speaker,          // v12.374:配音重生要知道谁在说
+        characters: sc.characters,
       };
     })
     .filter((c) => c.videoUrl && (!keepShots || keepShots.includes(c.shotNumber)) && !dropShots.has(c.shotNumber))
@@ -100,9 +104,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // v12.184:自定义 BGM(body.bgmUrl,http/站内)优先于项目 music 资产 —— 用户上传/外链换曲即重合成
   const customBgm = typeof body?.bgmUrl === 'string' && /^(https?:|\/api\/serve-file)/.test(body.bgmUrl) ? body.bgmUrl : '';
-  const musicUrl = fullUrl(customBgm || musicAssets[0]?.persistent_url || parse(musicAssets[0]?.media_urls)?.[0] || '');
+  let musicDropped = false;
+  const musicRaw = customBgm || musicAssets[0]?.persistent_url || parse(musicAssets[0]?.media_urls)?.[0] || '';
+  // v12.374:BGM 走同一条防线 —— 项目 1 的 music 资产同样只剩库里一条记录,文件早没了
+  if (musicRaw && !isMediaReachable(musicRaw)) {
+    musicDropped = true;
+    console.warn(`[recompose] BGM 文件已不在盘上,本次成片无背景音乐:${String(musicRaw).slice(0, 80)}`);
+  }
+  const musicUrl = musicDropped ? '' : fullUrl(musicRaw);
   const keepSet = new Set(clips.map((c) => c.shotNumber));
 
+  let voiceoverDropped = 0;
+  const voiceoverFailed: Array<{ shotNumber: number; voiceId: string; error: string }> = [];
   let voiceoverClips: Array<{ shotNumber: number; audioUrl: string }> = [];
   if (regenVoiceover) {
     // 重生 TTS:为有台词的镜逐条生成配音(原 timeline 的 TTS 临时音频过期/丢失时用)。
@@ -113,19 +126,49 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     for (const c of clips) {
       const line = (c.dialogue || '').trim();
       if (!line) continue;
+      // v12.374:音色在 try 外定 —— catch 里要把它一起报出来,
+      // 「哪一镜、用哪个音色、报什么错」三样齐了才叫可排查。
+      const voiceId = pickShotVoice(c);
       try {
         // v12.187:TTS 语种可传(一键多语版:翻译稿重配即该语种配音;默认 zh 保旧)
         const { normalizeLanguage } = await import('@/lib/language-detect');
         const ttsLang = ttsLangCode(normalizeLanguage(String(body?.language || 'zh'), line));
-        const d = await dispatchTTSGenerate({ text: line, voiceId: 'female-zh', language: ttsLang });
-        if (d.result?.audioUrl) voiceoverClips.push({ shotNumber: c.shotNumber, audioUrl: d.result.audioUrl });
-      } catch (e) { console.warn(`[recompose] TTS 重生失败 shot ${c.shotNumber}:`, e instanceof Error ? e.message : e); }
+        // v12.374:走和主管线同一套选路。原来写死的 'female-zh' 不在 VOICE_CATALOG 内,
+        // MiniMax 直接回 2054 voice id not exist —— 这条重生路径至今一次都没成过。
+        const d = await dispatchTTSGenerate({ text: line, voiceId, language: ttsLang });
+        if (d.result?.audioUrl) {
+          voiceoverClips.push({ shotNumber: c.shotNumber, audioUrl: d.result.audioUrl });
+        } else {
+          // v12.374:dispatch 失败**不抛错**,它返回 { result: null, tried: [...] }。
+          // 原来这里只有 `if (result) push`,于是每一次失败都被无声吞掉 ——
+          // 接口照样 200、配音数永远 0,连一行日志都没有。
+          const why = (d.tried || []).map((t: any) => `${t.id}: ${t.error}`).join(' | ') || '无 provider 可用';
+          voiceoverFailed.push({ shotNumber: c.shotNumber, voiceId, error: why });
+          console.warn(`[recompose] TTS 重生无结果 shot ${c.shotNumber} (voice=${voiceId}):`, why);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        voiceoverFailed.push({ shotNumber: c.shotNumber, voiceId, error: msg });
+        console.warn(`[recompose] TTS 重生失败 shot ${c.shotNumber}:`, msg);
+      }
     }
   } else {
     const voSrc: any[] = parse(timelineAssets[0]?.data)?.voiceoverClips || [];
-    voiceoverClips = voSrc
-      .filter((vo) => keepSet.has(vo.shotNumber) && vo.audioUrl)
-      .map((vo) => ({ shotNumber: vo.shotNumber, audioUrl: fullUrl(vo.audioUrl) }));
+    const inScope = voSrc.filter((vo) => keepSet.has(vo.shotNumber) && vo.audioUrl);
+    // v12.374:URL 非空 ≠ 文件还在。判定放在 fullUrl() 之前 ——
+    // 它会把相对路径包成 http://localhost:3000/...,包完仍指向同一个本地文件,
+    // 先包再判就得多绕一层解析。少一层转换,少一个出错的地方。
+    const voPick = filterReachable(inScope, (vo) => vo.audioUrl);
+    voiceoverDropped = voPick.dropped.length;
+    if (voiceoverDropped > 0) {
+      console.warn(
+        `[recompose] ${voiceoverDropped}/${inScope.length} 段配音的音频文件已不在盘上(镜头 ` +
+          `${voPick.dropped.map((v) => v.shotNumber).join(',')}),已剔除。` +
+          `不剔除的话 ffmpeg 会静默合出一条哑轨,而接口照样报成功。` +
+          `要补回来,用 regenVoiceover 重生。`
+      );
+    }
+    voiceoverClips = voPick.kept.map((vo) => ({ shotNumber: vo.shotNumber, audioUrl: fullUrl(vo.audioUrl) }));
   }
 
   // ── 合成 ──
@@ -221,5 +264,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     mediaUrls: [serveUrl], persistentUrl: serveUrl,
   });
 
-  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, hookCard: hookAppended, endCard: cardAppended, variants: variants.length > 0 ? variants : undefined });
+  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, voiceoverDropped, musicDropped,
+      voiceoverFailed: voiceoverFailed.length ? voiceoverFailed : undefined, hookCard: hookAppended, endCard: cardAppended, variants: variants.length > 0 ? variants : undefined });
 }
