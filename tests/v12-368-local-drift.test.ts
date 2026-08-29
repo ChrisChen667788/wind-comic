@@ -29,21 +29,50 @@ import { imageSignature, imageSignatures, SIGNATURE_DIM } from '@/lib/image-sign
 import { detectDriftOutliers } from '@/lib/drift-detect';
 
 const read = (rel: string) => fs.readFileSync(path.join(process.cwd(), rel), 'utf8');
-const ASSETS = path.join(process.cwd(), 'data/storage/assets');
-const realImages = fs.existsSync(ASSETS)
-  ? fs.readdirSync(ASSETS).filter((f) => /\.(png|jpe?g)$/i.test(f)).slice(0, 3).map((f) => path.join(ASSETS, f))
-  : [];
+/**
+ * **自带夹具,不读 `data/storage/assets`。**
+ *
+ * 第一版就是读那个目录里的 `*.png`,本地有真图所以绿,**CI 挂了**:
+ * 那个目录在 git 里一个文件都没有,CI 里的内容是**同批其它测试写进去的 mock 产物**
+ * (26 字节的假 png),ffmpeg 解不了 → 签名为 null → 断言失败。
+ *
+ * 教训:**测试不该读别的测试会写的目录**。用 ffmpeg 现造两张确定性的纯色图,
+ * 既与环境无关,又能顺便验证「不同颜色 → 签名不同」。
+ */
+import { execFileSync } from 'child_process';
+import os from 'os';
+import ffmpegPath from 'ffmpeg-static';
+
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'sigtest-'));
+function makeSolid(name: string, color: string): string | null {
+  const out = path.join(TMP, name);
+  try {
+    execFileSync((ffmpegPath as unknown as string) || 'ffmpeg',
+      ['-v', 'error', '-y', '-f', 'lavfi', '-i', `color=c=${color}:s=64x64`, '-frames:v', '1', out],
+      { stdio: 'ignore' });
+    return fs.existsSync(out) ? out : null;
+  } catch { return null; }
+}
+const red = makeSolid('red.png', 'red');
+const blue = makeSolid('blue.png', 'blue');
+const realImages = [red, blue].filter((x): x is string => !!x);
 
 describe('v12.368 本地图像签名', () => {
   it('维度固定为 8×8×3 = 192', () => {
     expect(SIGNATURE_DIM).toBe(192);
   });
 
-  it.runIf(realImages.length > 0)('真实图片能算出签名,且每一维在 0..1', async () => {
+  it.runIf(realImages.length > 0)('真图能算出签名,且每一维在 0..1', async () => {
     const sig = await imageSignature(realImages[0]);
     expect(sig).not.toBeNull();
     expect(sig!.length).toBe(SIGNATURE_DIM);
     for (const v of sig!) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); }
+  });
+
+  it.runIf(realImages.length >= 2)('**不同颜色 → 签名不同**(否则它没在测量任何东西)', async () => {
+    const [a, b] = await imageSignatures(realImages);
+    expect(a).not.toBeNull(); expect(b).not.toBeNull();
+    expect(a).not.toEqual(b);
   });
 
   it('文件不存在返回 null —— **不抛**,一镜失败不该让整次检测失败', async () => {
