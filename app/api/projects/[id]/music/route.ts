@@ -38,8 +38,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     url = await svc.generateMusic(prompt, style ? { style } : undefined);
   } catch (e) {
-    // 诚实降级:未配 key / 额度耗尽 → 明确指引,不假装成功
-    return NextResponse.json({ message: `AI 作曲失败:${e instanceof Error ? e.message : '未知错误'}(需配置 MiniMax key 且 music-2.6 有额度)` }, { status: 502 });
+    // v12.376:别用猜测覆盖上游给的真话。
+    // 原文案一律附上「需配置 MiniMax key 且 music-2.6 有额度」—— 而实测真因是
+    // HTTP 410 / status_code 2153「This Music API is no longer available to new users」,
+    // 即这个接口对本账号**永久不可用**:key 是好的、额度也不是问题,
+    // 照那句话去查一辈子也查不出来。现在交给统一分类器判,并把上游原文附在后面。
+    const { normalizeError } = await import('@/lib/pipeline-error');
+    const pe = normalizeError(e, 'unknown');
+    const raw = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      { message: `AI 作曲失败:${pe.userMsg}`, code: pe.code, retryable: pe.retryable, upstream: raw.slice(0, 400) },
+      { status: 502 },
+    );
   }
   if (!url) return NextResponse.json({ message: 'AI 作曲未返回音频' }, { status: 502 });
 
