@@ -17,9 +17,22 @@
 /** 只用**单角色镜**投票:多角色镜里的性别词归属不清,宁可不投。 */
 const MALE_EN = /\b(man|male|boy|gentleman|father|husband|brother|son|his|himself)\b/i;
 const FEMALE_EN = /\b(woman|female|girl|lady|mother|wife|sister|daughter|her|herself)\b/i;
-/** 中文兜底(部分剧本的 visualPrompt 是中文)。 */
-const MALE_CN = /男(人|子|孩|性)|少年|青年男|老者|父亲|丈夫|兄长/;
-const FEMALE_CN = /女(人|子|孩|性)|少女|青年女|妇人|母亲|妻子|姐姐|妹妹/;
+/**
+ * 中文兜底(部分剧本的 visualPrompt 是中文,sceneDescription 则一律是中文)。
+ *
+ * v12.375:补上「她/他」。原词表只认名词性称谓,而中文叙述里最高频的性别标记
+ * 恰恰是**代词** —— 英文侧一直认 `her|his`,中文侧不认,两边不对称。
+ * v12.346 的实测集 visualPrompt 全是英文,英文代词够用,这个缺口就没露出来。
+ * 实际踩到:柳如烟的两个单角色镜,英文 prompt 只写了名字和衣饰
+ * (`silver bracelet on wrist`、`pale cyan shirt`),中文 sceneDescription 里
+ * 明明白白写着「残阳勾勒出**她**侧脸轮廓」—— 0 票,于是散列成了霸道男声。
+ *
+ * 「他」不能裸着用:**「其他」「吉他」里都含「他」**,而且这两个词在剧本里很常见
+ * (「其他人」「吉他声」)。用负向后顾把它们挡掉;「他们/她们」是复数,
+ * 归属不清,一并排除 —— 这与「只认单角色镜」是同一条克制。
+ */
+const MALE_CN = /男(人|子|孩|性)|少年|青年男|老者|父亲|丈夫|兄长|(?<![其吉])他(?!们)/;
+const FEMALE_CN = /女(人|子|孩|性)|少女|青年女|妇人|母亲|妻子|姐姐|妹妹|她(?!们)/;
 
 export type Gender = 'male' | 'female';
 

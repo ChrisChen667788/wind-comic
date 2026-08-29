@@ -121,6 +121,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // 重生 TTS:为有台词的镜逐条生成配音(原 timeline 的 TTS 临时音频过期/丢失时用)。
     // audioUrl 可能是 data:/serve-file?path=,composeVideo 在同进程 downloadFile 直接处理,无需 origin 前缀。
     await import('@/lib/tts-providers/builtins'); // 注册 TTS provider(否则 dispatch 链为空 → 0 配音)
+    // v12.375:音色从**全片唯一入口**领,而不是这里现挑。
+    // resolveAndPersistCast 会读本项目剧本投票出的性别、把结果存下来,
+    // 成片与重配单镜因此拿到同一个嗓 —— 各挑各的正是 v12.338 要防的「重配就换嗓」。
+    const { resolveAndPersistCast } = await import('@/lib/voice-cast');
+    const castNames = Array.from(
+      new Set(
+        clips
+          .flatMap((c) => (Array.isArray(c.characters) ? (c.characters as unknown[]) : []))
+          .filter((x): x is string => typeof x === 'string' && !!x.trim())
+          .map((x) => x.trim()),
+      ),
+    );
+    let cast: Map<string, string> | null = null;
+    try {
+      cast = await resolveAndPersistCast(id, castNames);
+    } catch (e) {
+      // 音色表是增强项,拿不到就退回按名解析,不该让整条重生链失败
+      console.warn('[recompose] 取角色音色表失败,退回按名解析:', e instanceof Error ? e.message : e);
+    }
     const { dispatchTTSGenerate } = await import('@/lib/tts-providers/registry');
     const { ttsLangCode } = await import('@/lib/language-detect');
     for (const c of clips) {
@@ -128,7 +147,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!line) continue;
       // v12.374:音色在 try 外定 —— catch 里要把它一起报出来,
       // 「哪一镜、用哪个音色、报什么错」三样齐了才叫可排查。
-      const voiceId = pickShotVoice(c);
+      const voiceId = pickShotVoice(c, cast);
       try {
         // v12.187:TTS 语种可传(一键多语版:翻译稿重配即该语种配音;默认 zh 保旧)
         const { normalizeLanguage } = await import('@/lib/language-detect');
