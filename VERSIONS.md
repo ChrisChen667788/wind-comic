@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.368**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.369**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.368**:**vitest 4824 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.369**:**vitest 4833 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,22 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.368.0** | 2026-08-29 | `待填` | **📉 画风漂移「接了线,却永远看不到一个数字」—— 两处失效叠在一起**。
+| **v12.369.0** | 2026-08-29 | `待填` | **📖 跨项目角色复用「设计写得很清楚,数据覆盖率 3%」**。
+
+`/api/characters/bible/[name]` 的文件头把交互设计写得**很完整**:用户在创作工坊输入角色名 → 查历史 bible → 命中就提示「已找到「李长安」—— 一键复用?」并回填图/特征/cw。**这是跨项目角色一致性的核心机制**,也是本产品对外讲的护城河之一。
+
+**但它从来没工作过,而且是两层都不通**:
+- 前端**零引用**(接线扫描里的孤儿之一);
+- 更根本的是**数据不在**:owner 的 `global_assets` 有 **73 条**角色,**只有 2 条**带 `metadata.bible`。端点要求 `bible.imageUrl` 非空,于是查任何角色都返回 `{found:false}` —— **覆盖率 3%,等于不存在**。原因是 bible 只在「锁定角色」这条路径写,普通角色不写。
+
+新增 `scripts/backfill-character-bible.mjs` 从**已有资产**补齐:图优先 `persistent_url`(外链会过期);`traits` 取 v12.345 建好的角色库人话档案与 DNA 标签;`role`/`cw` 有锁定记录就用它。三条纪律:**只补不覆盖**(已有 bible 是真实使用攒下的,比推断可信)、**没图就不补**(端点要求 imageUrl,补个空的等于制造假命中)、必须显式传 userId。
+
+**实测:回填 49 条(2 条已有保留、22 条无图跳过)后,端点从「全部未找到」变成全部命中** —— 李长安 / 柳如烟 / 张天佐 / 丽丽 都返回 role + cw + traits,且图指向**最新重生的那张**(柳如烟正是 v12.359 修好负向词后的版本)。
+
+**顺带修一处过期注释**:文件头写着「Auth: 缺 token 时回退到 DB 第一个用户(Demo)」—— 而**代码在 v12.233 就改成 `__no_auth__` 哨兵了**,注释没跟上。一句与实现矛盾的注释比没有注释更糟:读的人会以为那个越权回落还在,进而据此做判断。
+
+验证:**vitest +9 · tsc 0**。回填前已备份 `data/qfmj.db`。 |
+| **v12.368.0** | 2026-08-29 | `b3335a5` | **📉 画风漂移「接了线,却永远看不到一个数字」—— 两处失效叠在一起**。
 
 v12.350 把面板接上了 `/drift-check`,但它要求 `IMAGE_EMBED_MODEL`。owner 没配,面板永远显示「暂不可用」。**那一版我把这条如实写进了版本日志(「这一版交付的是接线 + 正确的降级显示,不是能看到漂移数字」),这一版把它补上。**
 

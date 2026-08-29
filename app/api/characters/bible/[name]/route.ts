@@ -10,7 +10,10 @@
  *        | { found: true, bible: CharacterBible, usedInProjectsCount: number }
  *   400 → { error: 'name required' }
  *
- * Auth: 与 /api/global-assets 一致 — JWT 优先,缺 token 时回退到 DB 第一个用户(Demo)。
+ * Auth: JWT 优先;**无 token 用 `__no_auth__` 哨兵**(v12.233 起),查到的永远是空集。
+ *       v12.369:此处原注释还写着「缺 token 时回退到 DB 第一个用户(Demo)」——
+ *       **代码在 v12.233 已经改掉了,注释没跟上**。一句与实现矛盾的注释比没有注释更糟:
+ *       读的人会以为那个越权回落还在,进而据此做判断。
  */
 
 import { NextRequest, NextResponse } from 'next/server';
