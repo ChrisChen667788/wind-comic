@@ -31,13 +31,20 @@ const CONFLICT_RULES: Array<{ kind: string; note: RegExp; original: RegExp }> = 
     note: /夜|晚上|黄昏|清晨|白天|正午|傍晚|night|dusk|dawn|noon/i,
     original: /夜|晚上|黄昏|清晨|白天|正午|傍晚|晚霞|日出|日落|night|dusk|dawn|noon/i },
   { kind: '天气',
-    note: /雨|雪|雾|晴|阴天|rain|snow|fog|sunny/i,
+    // v12.365:原来 note 侧用裸字 `雨`/`雪`/`雾`,「给她加一把**雨**伞」这类道具描述
+    // 会误报天气冲突(实测 25%)。收紧到**天气语义**;original 侧保持宽松 ——
+    // 冲突要求两边同时命中,note 侧收紧就够了,original 侧宽一点不会产生误报。
+    note: /下雨|雨天|雨夜|暴雨|下雪|雪天|大雾|雾气|起雾|晴天|放晴|阴天|多云|\brain(?:y|ing)?\b|\bsnow(?:y|ing)?\b|\bfoggy?\b|\bsunny\b/i,
     original: /雨|雪|雾|晴|阴天|rain|snow|fog|sunny/i },
   { kind: '景别',
     note: /特写|近景|中景|全景|远景|大远景|close.?up|wide|medium shot/i,
     original: /特写|近景|中景|全景|远景|大远景|close.?up|wide|medium shot/i },
   { kind: '色调',
-    note: /暖|冷|橘|蓝调|黑白|冷色|暖色|warm|cool|monochrome/i,
+    // v12.365:**这条误报最狠**。note 侧用裸字 `冷`/`暖`,而「让他**冷**静下来」
+    // 「他**冷**笑一声」说的是神态不是色调 —— 实测 **96/120(80%)** 的镜头被报色调冲突。
+    // 80% 触发的警告等于没有警告,真冲突反而被无视。收紧到**调色语义**:
+    // 「让气氛更温暖一些」仍算色调意图(暖调),「他性格温暖」不算。
+    note: /色调|调色|色温|暖色|冷色|暖调|冷调|暖光|冷光|暖黄|冷蓝|橘调|橘色|蓝调|黑白|单色|去色|饱和度|\bwarm\s*(?:tone|light|color)\b|\bcool\s*(?:tone|light|color)\b|\bmonochrome\b|\bsaturation\b/i,
     original: /暖|冷|橘|蓝调|黑白|冷色|暖色|色温|warm|cool|monochrome/i },
 ];
 
