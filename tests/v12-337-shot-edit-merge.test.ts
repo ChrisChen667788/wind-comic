@@ -109,7 +109,16 @@ describe('v12.337 · 接线:端点与界面都真的接上了', () => {
 
   it('界面把 note 作为 editNote 送出 —— 不是当 description 送', () => {
     expect(PAGE).toMatch(/editNote:\s*rs\.note/);
-    const call = PAGE.slice(PAGE.indexOf('regenerate-shot'), PAGE.indexOf('regenerate-shot') + 320);
+    // v12.378 加固:锚点 'regenerate-shot' 在本文件出现 2 次(另一处是界面文案),
+    // indexOf 这次恰好命中真调用点 —— 但「恰好」不是保障。锚在带反引号的 URL 上,
+    // 右界也从「+320 个字符」改成语义边界(请求体的收尾)。
+    // 这条是 not.toMatch:窗口一旦切歪,它会**静默通过**,所以先自证窗口切对了。
+    const at = PAGE.indexOf('regenerate-shot`');
+    expect(at, '找不到单镜重生的调用点').toBeGreaterThan(0);
+    const end = PAGE.indexOf('});', at);
+    expect(end).toBeGreaterThan(at);
+    const call = PAGE.slice(at, end);
+    expect(call, '窗口没切到请求体').toContain('shotNumber');
     expect(call, '把 note 当 description 传会抹掉原镜内容').not.toMatch(/description:\s*rs\.note/);
   });
 

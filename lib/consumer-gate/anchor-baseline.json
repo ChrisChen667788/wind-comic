@@ -1,0 +1,34 @@
+{
+  "entries": [
+    {
+      "test": "tests/v12-176-multishot.test.ts",
+      "literal": "[Video] Shot ${board.shotNumber}",
+      "count": 2,
+      "target": "services/hybrid-orchestrator.ts"
+    },
+    {
+      "test": "tests/v12-209-i18n-batch.test.ts",
+      "literal": "STATUS_META",
+      "count": 2,
+      "target": "lib/provider-health.ts"
+    },
+    {
+      "test": "tests/v12-209-i18n-batch.test.ts",
+      "literal": "STATUS_META",
+      "count": 2,
+      "target": "lib/provider-health.ts"
+    },
+    {
+      "test": "tests/v12-289-rendered-transitions.test.ts",
+      "literal": "applyRenderedTransitions",
+      "count": 6,
+      "target": "services/agents/editor-agent.ts"
+    },
+    {
+      "test": "tests/v12-289-rendered-transitions.test.ts",
+      "literal": "v12.289",
+      "count": 3,
+      "target": "services/agents/editor-agent.ts"
+    }
+  ]
+}

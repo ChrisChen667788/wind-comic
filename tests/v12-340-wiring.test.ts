@@ -82,10 +82,23 @@ describe('v12.340 · 发布预检接进面板', () => {
   it('预检拉取失败不打断发布流程(404「还没成片」是正常状态,不是错误)', () => {
     // 断言窗口按**语义**界定:从预检 effect 开头切到它的依赖数组,
     // 而不是围绕 URL 出现位置猜一个字符数(第一版就是这么取错的)。
-    const i = PANEL.indexOf('publish-preflight');
+    // v12.378 修订:上面那句「按语义界定」只解决了右界,**左界仍是个歧义锚点** ——
+    // 'publish-preflight' 在本文件出现 3 次,第一处是 line 19 的**注释**,
+    // 于是窗口切成了 line 19→61,而真正的预检 fetch 在 line 67,**在窗口之外**。
+    // 下面那条 not.toMatch 在一段无关代码里当然通过 —— 是条假绿。
+    // 现在锚在 URL 模板本身(带反引号),那一处才是真调用点。
+    // 先定位到这次预检的 URL(带反引号的那处才是真调用点,不是注释),
+    // 再从它往回找本次 fetch 的起点 —— 窗口要含 fetch 自身、.then/.catch 和状态写入,
+    // 光从 URL 往后切会把 fetch( 落在窗口外。
+    const urlAt = PANEL.indexOf('publish-preflight`');
+    expect(urlAt, '找不到预检 URL').toBeGreaterThan(0);
+    const i = PANEL.lastIndexOf('fetch(', urlAt);
     const end = PANEL.indexOf('}, [projectId]);', i);
     expect(end, '找不到预检 effect 的结尾').toBeGreaterThan(i);
     const block = PANEL.slice(i, end);
+    // 窗口有效性自证:切对了就必然含这次 fetch 本身。窗口一旦切歪,
+    // 下面的 not.toMatch 会在无关代码里静静通过 —— 先让它红。
+    expect(block, '窗口没切到真正的预检 effect').toContain('fetch(');
     expect(block).toContain('setPreflightNote');
     expect(block, '不该把预检失败塞进主错误态').not.toMatch(/setErr\(/);
   });

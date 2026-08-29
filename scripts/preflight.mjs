@@ -24,6 +24,8 @@ const STEPS = [
   { ci: 'Version hash provenance (变更日志可溯源)', cmd: 'npm run check:version-hashes' },
   // v12.326:本地额外多跑一条 —— CI 尚未纳入,但「测试自己是不是摆设」值得每次发版前问一句。
   { ci: '(local only) fake-green 测试门禁', cmd: 'node scripts/fake-green-gate.mjs' },
+  // v12.378:锚点歧义也是一种假绿 —— indexOf 命中 import/注释时,not.toMatch 会在无关代码里静静通过
+  { ci: '(local only) 锚点门禁(indexOf 锚点须唯一)', cmd: 'node scripts/anchor-gate.mjs' },
   // v12.335:README 媒体体积预算。仓库主页图片「加载不出来」的真因是匿名 raw 端点限流
   // (/raw/ 把 429 显示成 404),而诱因是一次页面要拉 37 个文件 / 23MB。压完不设防,
   // 下一版新截图又是 2880×1800 塞回来,所以必须每次发版前问一句。
