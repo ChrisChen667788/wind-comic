@@ -1,6 +1,20 @@
 import { API_CONFIG } from '@/lib/config';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
-import { emotionToMinimaxEmotion } from '@/lib/emotion-tag';
+import { classifyEmotion } from '@/lib/emotion-tag';
+
+/**
+ * v12.363:把「判不出情绪」这件事**变成可观测的**。
+ *
+ * 旧实现里「判定为中性」与「判不出」都返回 neutral,调用方无从区分 ——
+ * 拿 owner 的 223 个真实镜头实测,**63% 属于后者**,而没有任何一条日志。
+ * 词表补全后降到 40%,但剩下的是「暗涌」「毁灭与献祭交织的崇高感」这类文学化描述,
+ * **关键词表覆盖不了**。既然覆盖不了,至少要让它**看得见**,而不是继续静默退化。
+ */
+function _resolveEmotion(raw: string): string {
+  const r = classifyEmotion(raw);
+  if (!r.matched) console.warn(`[emotion] 无法归类「${String(raw).slice(0, 24)}」→ 退回 neutral(情感 TTS 对这一句不生效)`);
+  return r.emotion;
+}
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -993,7 +1007,7 @@ export class MinimaxService {
           speed: options?.speed ?? 1.0,
           vol: options?.vol ?? 0.8,
           pitch: options?.pitch ?? 0,
-          ...(options?.emotion && { emotion: emotionToMinimaxEmotion(options.emotion) }), // v12.211:中文情绪→枚举
+          ...(options?.emotion && { emotion: _resolveEmotion(options.emotion) }), // v12.211 中文情绪→枚举 / v12.363 记录判不出的
         },
         audio_setting: {
           sample_rate: 32000,
