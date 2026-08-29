@@ -4160,13 +4160,24 @@ ${characterBibleBlock}${producerContext}
 
     let isAnimatic = false;
     videoUrl = '';
+    // v12.377:失败原因必须**收集**,不能只打印。
+    // 原来每个引擎的报错只 console.error 到 server 的 stdout,而回落成 Ken Burns 时
+    // 返回值只有 isAnimatic:true —— 「为什么退化」这条信息到 API 边界就没了。
+    // 于是每日重跑脚本只能靠「产出了占位片」倒推「额度耗尽」,进而停掉整轮视频:
+    // 一次网络抖动,就能让当天的视频额度一个都用不上。
+    const engineFailures: Array<{ engine: string; error: string }> = [];
     for (const a of attempts) {
       try {
         videoUrl = await a.gen();
         if (videoUrl && /^(https?:|\/api\/serve-file)/.test(videoUrl)) { console.log(`[Regenerate] Shot ${shotNumber} ✅ ${a.name}`); break; }
         videoUrl = '';
+        engineFailures.push({ engine: a.name, error: '返回了空 URL 或非法 URL' });
       } catch (e) {
-        console.error(`[Regenerate] ${a.name} failed for shot ${shotNumber}:`, e instanceof Error ? e.message.slice(0, 100) : e);
+        // 截断留到 300 字 —— 配额判定要靠报文里的关键词(2056 / balance not enough / 410),
+        // 原来的 100 字会把 base_resp 里的 status_msg 切掉,判据也就跟着没了
+        const msg = e instanceof Error ? e.message.slice(0, 300) : String(e).slice(0, 300);
+        engineFailures.push({ engine: a.name, error: msg });
+        console.error(`[Regenerate] ${a.name} failed for shot ${shotNumber}:`, msg.slice(0, 100));
       }
     }
     if (!videoUrl) {
@@ -4180,7 +4191,11 @@ ${characterBibleBlock}${producerContext}
       console.warn(`[Regenerate] Shot ${shotNumber} 所有引擎失败 → Ken Burns animatic(${dir})`);
     }
     this.update(AgentRole.VIDEO_PRODUCER, { status: 'completed', progress: 100 });
-    return { shotNumber, videoUrl, duration, status: 'completed', isAnimatic } as VideoClip & { isAnimatic: boolean };
+    return {
+      shotNumber, videoUrl, duration, status: 'completed', isAnimatic,
+      // 只在真降级时带出去;成功时没有「原因」可言
+      engineFailures: isAnimatic ? engineFailures : undefined,
+    } as VideoClip & { isAnimatic: boolean; engineFailures?: Array<{ engine: string; error: string }> };
   }
 
   /**

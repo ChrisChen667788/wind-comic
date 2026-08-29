@@ -20,6 +20,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import Database from 'better-sqlite3';
+import { shouldStopForQuota } from '../lib/quota-vocab.mjs';
 
 const ROOT = process.cwd();
 const BASE = process.env.WC_BASE || 'http://localhost:3000';
@@ -97,7 +98,7 @@ const shots = (sd.shots || []).slice(0, LIMIT === Infinity ? undefined : LIMIT);
 console.log(`\n═══ ${project.title.split('\n')[0].slice(0, 40)}`);
 console.log(`    ${projectId} · ${shots.length} 镜 · 引擎 ${PROVIDER}${DRY ? ' · 干跑' : ''}\n`);
 
-const stat = { done: 0, skip: 0, fail: 0, animatic: 0 };
+const stat = { done: 0, skip: 0, fail: 0, animatic: 0, quotaStop: false };
 const t0 = Date.now();
 function log(tag, name, r, ms) {
   if (r === 'skip') { stat.skip++; return console.log(`  ⏭  ${tag} ${name} —— 已在盘上`); }
@@ -163,10 +164,14 @@ if (STEPS.has('videos')) {
     if (DRY) { console.log(`  · 视频 #${s.shotNumber} (${s.duration || 10}s)`); continue; }
     const t = Date.now();
     let animatic = false;
+    let failures = [];
     const r = await sse(`${BASE}/api/projects/${projectId}/regenerate-shot`,
       { shotNumber: s.shotNumber, duration: s.duration || 10, description: s.sceneDescription || '', videoProvider: PROVIDER, cameraMovement: s.cameraMovement || '' },
       (ev, d) => {
-        if (ev.type === 'complete' && d?.isAnimatic === true) animatic = true;
+        if (ev.type === 'complete' && d?.isAnimatic === true) {
+          animatic = true;
+          failures = Array.isArray(d?.engineFailures) ? d.engineFailures : [];
+        }
         return (ev.type === 'complete' || ev.type === 'done') ? (d?.videoUrl || d?.url) : null;
       });
     if (r.ok && animatic) {
@@ -177,8 +182,23 @@ if (STEPS.has('videos')) {
       // 而分镜图正是明天视频的 **i2v 首帧**,先备好,明天的视频额度才花得到刀刃上。
       stat.animatic++;
       console.log(`  ⚠️ 视频 #${s.shotNumber} —— 引擎全部不可用,产出的是 Ken Burns 占位片,不是真视频`);
-      console.log(`  ⛔ 视频额度已耗尽,跳过本项目剩余镜头(图像类步骤继续)`);
-      break;
+      for (const f of failures) console.log(`     · ${f.engine}: ${String(f.error).slice(0, 140)}`);
+
+      // v12.377:**「产出占位片」只说明这一镜失败了,不说明为什么。**
+      // 原来一律推断成「当日额度耗尽」,停掉本项目剩余镜头并对后续项目关掉视频步骤。
+      // 但欠费、接口下线、网络抖动、敏感词拦截都会产出占位片,其中只有配额类
+      // 值得停整轮 —— 8/29 09:00 那轮就是第一镜失败即全停,当天视频额度一个没用上。
+      // 现在照真实报文判:确认是配额/欠费才停,否则继续下一镜。
+      // 报文为空时保守停 —— 拿不到证据时,少花钱比多试错安全。
+      const verdict = shouldStopForQuota(failures);
+      if (verdict.stop) {
+        const why = { arrears: '报文判定为欠费', saturated: '报文判定为配额已满', 'no-evidence': '拿不到失败报文,保守处理' }[verdict.reason];
+        console.log(`  ⛔ ${why},跳过本项目剩余镜头(图像类步骤继续)`);
+        stat.quotaStop = true;
+        break;
+      }
+      console.log(`  ↩︎ 报文不像配额问题,继续下一镜 —— 不因一镜失败放弃整轮`);
+      continue;
     }
     log('视频', `#${s.shotNumber}`, r, Date.now() - t);
   }
@@ -188,7 +208,9 @@ console.log(`\n  合计 生成 ${stat.done} · 跳过 ${stat.skip} · 失败 ${s
 // 退出码有语义:3 = 当日**视频**额度已耗尽。
 // v12.367:调用方收到 3 应当**继续跑后面的项目、但关掉视频步骤**,
 // 而不是整轮退出 —— 图像额度是另一套,停掉它等于白白浪费当天的出图配额。
-if (stat.animatic > 0) {
+// v12.377:退出码 3 只在**确认配额耗尽**时给 —— 它会让调用方关掉后续项目的视频步骤。
+// 一镜因网络抖动降级不该有这个后果。
+if (stat.quotaStop) {
   console.log('  ⛔ 当日视频额度已耗尽 —— 后续项目将只跑图像步骤\n');
   process.exit(3);
 }

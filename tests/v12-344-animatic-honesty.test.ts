@@ -75,9 +75,17 @@ describe('v12.344 重跑脚本必须认得占位片', () => {
    * 保留的核心不变:**占位片必须触发停止,不能继续空烧视频额度**。
    */
   it('出现占位片即停止本项目的视频步骤,不再空烧', () => {
+    // v12.377 修订:本版把「停不停」从「出现过占位片」改成「报文确认是配额/欠费」——
+    // 网络抖动也会产出占位片,照原判据一次抖动就白费一天额度。
+    // v12.344 的意图(占位片不能当成片、该停时要停)未变,原断言锁的是日志字面量。
     expect(script).toMatch(/if \(r\.ok && animatic\)/);
-    expect(script).toMatch(/break;/);
-    expect(script).toMatch(/视频额度已耗尽,跳过本项目剩余镜头/);
+    // 锚点用**调用点**而不是裸名字 —— 裸名字的第一处是 import 语句,
+    // 从那里往后切 500 字还在文件头部。同一个坑今天已经栽了三次。
+    const i = script.indexOf('shouldStopForQuota(failures)');
+    expect(i, '停的判据必须是真实报文,不能是「出现过占位片」').toBeGreaterThan(0);
+    const win = script.slice(i, i + 500);
+    expect(win).toContain('break;');                 // 该停时仍然停
+    expect(win).toContain('跳过本项目剩余镜头');
   });
 
   it('汇总里单列占位片数量,不混进「生成」', () => {
@@ -91,7 +99,15 @@ describe('v12.344 每日额度驱动', () => {
   const daily = fs.readFileSync(path.join(process.cwd(), 'scripts/rerun-daily.sh'), 'utf8');
 
   it('额度耗尽用专属退出码 3,不与普通失败(1)混淆', () => {
-    expect(script).toMatch(/if \(stat\.animatic > 0\)[\s\S]{0,200}process\.exit\(3\)/);
+    // v12.377 修订:原断言锁的是 `stat.animatic > 0` 这个**写法**。
+    // 退出码 3 会让调用方对后续项目一并关掉视频步骤 —— 这个后果只配给
+    // 「确认额度耗尽」,而不是「出现过占位片」(网络抖动也会产出占位片)。
+    // 意图不变,判据换了:改为验「exit(3) 由配额判定驱动」。
+    const i = script.indexOf('process.exit(3)');
+    expect(i).toBeGreaterThan(0);
+    const before = script.slice(Math.max(0, i - 500), i);
+    expect(before).toMatch(/if \(stat\.quotaStop\)/);
+    expect(before).not.toContain('stat.animatic > 0');
     expect(script).toMatch(/process\.exit\(stat\.fail > 0 \? 1 : 0\)/);
   });
 

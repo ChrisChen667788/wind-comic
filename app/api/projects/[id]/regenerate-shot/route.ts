@@ -162,6 +162,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           // 并如实返回 isAnimatic:true —— 但这个标记原来**到 API 边界就被丢掉了**,
           // complete 事件不带它。于是前端和脚本都把「静止图动画」当成真视频,是个假绿。
           const isAnimatic = (result as { isAnimatic?: boolean }).isAnimatic === true;
+            // v12.377:降级原因也要过边界。v12.344 让 isAnimatic 走了出来,
+            // 但「为什么降级」仍留在 server 的 stdout 里 —— 调用方只能靠
+            // 「出现占位片」倒推「额度耗尽」,一次网络抖动就白费一天额度。
+            const engineFailures = (result as { engineFailures?: Array<{ engine: string; error: string }> }).engineFailures;
           let savedUrl = result.videoUrl;
           try {
             const { persistAsset } = await import('@/lib/asset-storage');
@@ -188,6 +192,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
           send('complete', {
             shotNumber,
+              engineFailures,   // v12.377:降级时带上各引擎的真实报错
+              
             videoUrl: savedUrl,
             duration: result.duration || 8,
             version: 2,

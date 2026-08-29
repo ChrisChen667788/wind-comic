@@ -21,7 +21,16 @@ const DAILY = read('scripts/rerun-daily.sh');
 
 describe('v12.367 单项目:视频尽了只跳视频', () => {
   it('占位片只 break 视频循环,不再整轮退出', () => {
-    expect(PROJ).toContain('视频额度已耗尽,跳过本项目剩余镜头(图像类步骤继续)');
+    // v12.377 修订:原断言锁的是那句日志的**完整字面量**。本版把「为什么停」
+    // 换成了按真实报文判(欠费/配额才停),文案随之改成动态拼接 —— 意图未变、
+    // 字面量变了。改为验意图:停的是「本项目剩余镜头」,且明说图像步骤继续。
+    const i = PROJ.indexOf('跳过本项目剩余镜头');
+    expect(i).toBeGreaterThan(0);
+    expect(PROJ.slice(i, i + 60)).toContain('图像类步骤继续');
+    // 「只停视频」的实证:停的是 for 循环(break),不是进程(exit)
+    const win = PROJ.slice(Math.max(0, i - 400), i + 200);
+    expect(win).toContain('break;');
+    expect(win).not.toContain('process.exit');
   });
 
   it('退出码 3 的语义改成「视频额度尽」,并说明调用方该怎么做', () => {
