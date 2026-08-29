@@ -27,7 +27,11 @@ const testsArg = args.find((a) => a.startsWith('--tests='));
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
 const version = pkg.version;                       // 12.276.0
-const vShort = `v${version.replace(/\.0$/, '')}`;  // v12.276
+// v12.370.1:原来是 `version.replace(/\.0$/, '')` —— **只去掉结尾的 `.0`**。
+// 12.370.0 → v12.370 ✓,但 12.370.1 → v12.370.1 ✗,而门禁(tests/v12-291)
+// 要求头部是 major.minor 短号 —— **补丁版发布必红**,而且红在「文档没同步」这种
+// 看起来像流程问题、实则是脚本 bug 的地方。写入端与门禁口径必须一致:一律取前两段。
+const vShort = `v${version.split('.').slice(0, 2).join('.')}`;  // 12.370.1 → v12.370
 
 /**
  * v12.326:骤降防护。
