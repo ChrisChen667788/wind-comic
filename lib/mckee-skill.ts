@@ -487,6 +487,108 @@ ${buildProducerReviewPromptBlock()}`;
 // ═══════════════════════════════════════════
 // 角色视觉提示词生成（增强版 — 年代一致性 + 辨识度 + McKee 11 维结构展平）
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// 年代/风格判定（v12.358 重写）
+// ═══════════════════════════════════════════
+/**
+ * 病根(实测复现,不是推测):原实现把 genre / style / description / appearance
+ * **拼成一个字符串**,再拿一串**单个常用汉字**和**无词界的英文片段**去 match:
+ *
+ *   /古|秦|唐|宋|明|清|朝|宫|侠|武|仙|修|…|ancient|dynasty|…/     → 古风
+ *   /赛博|科幻|未来|ai|机器|太空|cyber|sci-fi|future|mech/        → 赛博朋克
+ *
+ * 于是:
+ *   · `ai` 命中 **`hair`**(还有 `waist`、`fair`、`straight`)→ 任何提到头发的角色变赛博朋克
+ *   · `修` 命中「身姿**修**长」、`清` 命中「**清**澈」、`明` 命中「聪**明**」、`朝` 命中「**朝**气」→ 现代角色变古装
+ *
+ * 实测 owner 的 61 个角色:**21 个被判成 cyberpunk**,而分配与题材完全无关 ——
+ * 「以未来科技为主题的汽车宣传片」拿到 hanfu,新能源汽车广告拿到 cyberpunk,
+ * **同一部年代剧里李长安是 hanfu、柳如烟是 cyberpunk**。
+ *
+ * 三条修法:
+ * ① **权威来源优先**:genre / style 是运营者/导演显式给的,description / appearance 是
+ *    角色的自由文本。原实现把它们拼在一起,导致描述里一个偶然字符能盖过真正的题材。
+ *    现在**先只看 genre+style**;它们判不出来,才降级去看自由文本。
+ * ② **词界与多字词**:英文一律 `\\b…\\b`;中文只用**双字及以上**的实词(古装/汉服/赛博/科幻…),
+ *    不再用单字。单个汉字在自由文本里几乎必然误命中。
+ * ③ **判不出就不加约束**(返回空串),而不是像原来那样默认塞 `modern contemporary setting`。
+ *    强行给一个年代,等于替用户做了他没做的决定 —— 与本仓「判不出就说判不出」的既有约定一致。
+ */
+export interface EraVerdict {
+  /** 拼进 prompt 的约束片段(含尾随逗号空格);判不出为 '' */
+  constraint: string;
+  /** 负向词;无则 '' */
+  negative: string;
+  /** 命中的类别,便于测试与排查 */
+  kind: 'ancient' | 'scifi' | 'fantasy' | 'republic' | 'modern' | 'unknown';
+  /** 依据来自权威字段还是自由文本 */
+  source: 'explicit' | 'freetext' | 'none';
+}
+
+const ERA_RULES: Array<{
+  kind: EraVerdict['kind']; re: RegExp; constraint: string; negative: string;
+}> = [
+  {
+    kind: 'ancient',
+    // 中文只用双字实词;英文加词界
+    re: /古装|古风|汉服|武侠|仙侠|修仙|宫廷|朝代|秦朝|唐朝|宋朝|明朝|清朝|年代剧|\bancient\b|\bdynasty\b|\bwuxia\b|\bxianxia\b|\bhanfu\b|\bimperial\b/i,
+    constraint: 'ancient Chinese hanfu era, period-accurate silk costume and hair, ',
+    negative: ' --no hoodie --no sneakers --no modern --no jeans --no t-shirt',
+  },
+  {
+    kind: 'scifi',
+    // 关键:**没有裸 `ai`** —— 它是 hair/waist/fair/straight 的子串
+    re: /赛博|科幻|未来感|太空|机甲|机器人|\bcyberpunk\b|\bsci-?fi\b|\bfuturistic\b|\bmecha\b|\bspaceship\b|\bandroid\b/i,
+    constraint: 'futuristic sci-fi setting, cyberpunk costume with high-tech accessories, ',
+    negative: ' --no historical --no ancient --no hanfu',
+  },
+  {
+    kind: 'fantasy',
+    re: /中世纪|骑士|魔法|精灵族|奇幻|\bmedieval\b|\bknight\b|\bfantasy\b|\belf\b|\belven\b/i,
+    constraint: 'medieval fantasy setting, period costume and accessories, ',
+    negative: ' --no modern --no contemporary',
+  },
+  {
+    kind: 'republic',
+    re: /民国|旗袍|中山装|\b19[234]0s?\b|\brepublic era\b/i,
+    constraint: 'Republic of China era (1920s-1940s), cheongsam or zhongshan suit, ',
+    negative: '',
+  },
+  {
+    kind: 'modern',
+    re: /现代|都市|当代|职场|校园|写字楼|\bmodern\b|\bcontemporary\b|\burban\b/i,
+    constraint: 'modern contemporary setting, ',
+    negative: '',
+  },
+];
+
+const NO_ERA: EraVerdict = { constraint: '', negative: '', kind: 'unknown', source: 'none' };
+
+/** 在一段文本里找第一条命中的规则。 */
+function matchEra(text: string): typeof ERA_RULES[number] | null {
+  const t = (text || '').trim();
+  if (!t) return null;
+  for (const r of ERA_RULES) if (r.re.test(t)) return r;
+  return null;
+}
+
+export function detectEra(input: {
+  genre?: string; style?: string; description?: string; appearance?: string;
+}): EraVerdict {
+  // ① 权威来源:运营者/导演显式声明的题材与风格
+  const explicit = matchEra(`${input.genre || ''} ${input.style || ''}`);
+  if (explicit) {
+    return { constraint: explicit.constraint, negative: explicit.negative, kind: explicit.kind, source: 'explicit' };
+  }
+  // ② 降级:角色自由文本(启发式,只在没有权威声明时才用)
+  const free = matchEra(`${input.description || ''} ${input.appearance || ''}`);
+  if (free) {
+    return { constraint: free.constraint, negative: free.negative, kind: free.kind, source: 'freetext' };
+  }
+  // ③ 判不出 → 不加约束。强行给一个年代 = 替用户做他没做的决定。
+  return NO_ERA;
+}
+
 export function getCharacterVisualPrompt(name: string, description: string, appearance: string, styleKeywords: string, options?: {
   genre?: string;   // 类型（古装历史/赛博科幻/现代剧情...）
   style?: string;   // 视觉风格
@@ -542,28 +644,14 @@ export function getCharacterVisualPrompt(name: string, description: string, appe
   // ═══ 年代/风格一致性约束 ═══
   // v2.19 P0.1: era constraint trimmed from ~200 chars to ~80 per branch.
   // Per-period costume details were redundant with the structured visual.outfit field.
-  let eraConstraint = '';
+  let eraConstraint: string;
   const genre = (options?.genre || '').toLowerCase();
   const style = (options?.style || '').toLowerCase();
   const allContext = `${genre} ${style} ${description} ${appearance}`.toLowerCase();
 
-  let negativePrompt = '';
-  if (allContext.match(/古|秦|唐|宋|明|清|朝|宫|侠|武|仙|修|汉服|古装|ancient|dynasty|wuxia|xianxia/)) {
-    eraConstraint = 'ancient Chinese hanfu era, period-accurate silk costume and hair, ';
-    negativePrompt = ' --no hoodie --no sneakers --no modern --no jeans --no t-shirt';
-  } else if (allContext.match(/赛博|科幻|未来|ai|机器|太空|cyber|sci-fi|future|mech/)) {
-    eraConstraint = 'futuristic sci-fi setting, cyberpunk costume with high-tech accessories, ';
-    negativePrompt = ' --no historical --no ancient --no hanfu';
-  } else if (allContext.match(/中世纪|骑士|魔法|精灵|medieval|knight|fantasy|elf/)) {
-    eraConstraint = 'medieval fantasy setting, period costume and accessories, ';
-    negativePrompt = ' --no modern --no contemporary';
-  } else if (allContext.match(/民国|1920|1930|1940|republic era/)) {
-    eraConstraint = 'Republic of China era (1920s-1940s), cheongsam or zhongshan suit, ';
-    negativePrompt = '';
-  } else {
-    eraConstraint = 'modern contemporary setting, ';
-    negativePrompt = '';
-  }
+  const era = detectEra({ genre: options?.genre, style: options?.style, description, appearance });
+  eraConstraint = era.constraint;
+  const negativePrompt = era.negative;
 
   // v2.19 P0.1: trim trailing scaffolding from ~250 chars to ~120.
   // Removed: 'highly detailed character design', 'ALL characters must share the

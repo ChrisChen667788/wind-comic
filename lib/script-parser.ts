@@ -596,18 +596,34 @@ function inferEmotionalArc(scene: ParsedScene): string {
   return top.map(t => t.emotion).join('→');
 }
 
+/**
+ * 题材判定(v12.358 重写)。
+ *
+ * 原实现通篇**单字匹配**,在真实剧本文本上几乎必然误命中:
+ *   · `古` 命中「复古/古怪/古老」、`朝` 命中「朝气/朝阳/朝着」、`武` 命中「武汉」
+ *   · `死` 命中「死死盯着」(分镜里极常见)→ 任何片子都成「悬疑」
+ *   · `爱` 命中「可爱/喜爱/爱好」→ 任何片子都成「爱情」
+ *   · `田` 命中「田径」、`乡` 命中「家乡」→ 都市片成「乡村」
+ *
+ * 后果不只是标签难看:结果会被 `prompt-templates` 写成
+ * 「4. 题材锁定:古装(用户已指定,严格遵守)」塞进剧本 prompt ——
+ * **一句用户从没说过的话,却标着「用户已指定」**,后续所有环节都严格遵守它。
+ * 实测:owner 的新能源汽车广告、电商咖啡广告都被锁成了「古装」。
+ *
+ * 改法:一律用**双字及以上的实词**;英文加词界;宁可返回「现代剧情」也不乱贴标签。
+ */
 function detectGenre(text: string): string[] {
   const genres: string[] = [];
 
-  if (/古|朝|宫|侠|武|仙|修炼|灵气|道袍|剑|内功/.test(text)) genres.push('古装仙侠');
-  if (/赛博|科幻|未来|AI|机器人|太空/.test(text)) genres.push('赛博科幻');
-  if (/爱|恋|心动|表白|相爱|嫁|娶/.test(text)) genres.push('爱情');
-  if (/杀|死|案|凶|悬疑|推理|证据/.test(text)) genres.push('悬疑');
-  if (/穿越|重生|系统|金手指|觉醒/.test(text)) genres.push('穿越重生');
-  if (/逆袭|打脸|反杀|碾压|装逼/.test(text)) genres.push('爽文');
-  if (/傻子|废物|看不起|嘲笑|底层/.test(text)) genres.push('逆袭翻身');
-  if (/村|农|田|庄|乡/.test(text)) genres.push('乡村');
-  if (/总裁|公司|商业|豪门/.test(text)) genres.push('都市');
+  if (/古装|古风|汉服|武侠|仙侠|修仙|修炼|宫廷|朝代|灵气|道袍|内功|剑客/.test(text)) genres.push('古装仙侠');
+  if (/赛博|科幻|未来感|机器人|太空|机甲|\bAI\b/.test(text)) genres.push('赛博科幻');
+  if (/恋爱|心动|表白|相爱|暗恋|情愫|求婚/.test(text)) genres.push('爱情');
+  if (/悬疑|推理|凶手|命案|失踪|证据|谋杀/.test(text)) genres.push('悬疑');
+  if (/穿越|重生|金手指|觉醒/.test(text)) genres.push('穿越重生');
+  if (/逆袭|打脸|反杀|碾压/.test(text)) genres.push('爽文');
+  if (/废物|看不起|嘲笑|底层/.test(text)) genres.push('逆袭翻身');
+  if (/乡村|田园|村庄|农家|山村|农田/.test(text)) genres.push('乡村');
+  if (/总裁|公司|职场|商业|豪门|写字楼/.test(text)) genres.push('都市');
   if (/嫂子|寡妇|暧昧|调戏/.test(text)) genres.push('擦边暧昧');
 
   return genres.length > 0 ? genres : ['现代剧情'];
