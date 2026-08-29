@@ -30,8 +30,17 @@ describe('v12.369 回填脚本', () => {
     expect(SCRIPT).toMatch(/优先本地,外链会过期/);
   });
 
+  /**
+   * v12.373 修订:原断言锁的是**那一行代码的写法**
+   * (`if (md.bible?.imageUrl) { kept++; continue; }`)。v12.373 为了同时补
+   * `referenced_by_projects` 把它展开成多行块,**行为一字未变**、断言却红了。
+   * 改成验行为:命中已有 bible 就计入 kept 并跳过后续写 bible 的逻辑。
+   */
   it('**只补不覆盖** —— 已有 bible 原样保留', () => {
-    expect(SCRIPT).toMatch(/if \(md\.bible\?\.imageUrl\) \{ kept\+\+; continue; \}/);
+    const win = SCRIPT.slice(SCRIPT.indexOf('if (md.bible?.imageUrl)'), SCRIPT.indexOf('const imageUrl'));
+    expect(win).toMatch(/kept\+\+; continue;/);
+    // 且这段里不得出现改写 bible 的动作
+    expect(win).not.toMatch(/bible = \{/);
     expect(SCRIPT).toMatch(/比推断出来的可信/);
   });
 

@@ -1,9 +1,9 @@
 # Wind Comic · 完整版本历史 (VERSIONS)
 
-> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.372**)
+> 多智能体 AI 短剧/漫剧生成流水线。本文件汇总从首个公开版本 (v2.12.0) 到当前 (**v12.373**)
 > 的全部版本信息。每条含发布日期 + commit + 关键交付。详细验收数据见 `ROADMAP.md`。
 >
-> 截至 **v12.372**:**vitest 4882 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
+> 截至 **v12.373**:**vitest 4918 全绿,tsc 0 错误**(SQLite/Postgres 双驱动)。v12.218 起进入「加固路线图」(对抗尽调 P0→收官,详见 `docs/ROADMAP-hardening-v12.218.md`)。
 >
 > 仓库:https://github.com/ChrisChen667788/wind-comic
 
@@ -215,7 +215,29 @@
 | **v10.5.2** | 2026-06-11 | `1f767d7` | **首页定位改版:hero 改卖制作台(生成层 = BYO 当下最强引擎)**:① 四语 hero 文案换防 —— 旧「三段式升格把故事搬上银幕」(生成叙事)→ 新「**AI 短剧制作台 · 不止生成**」+「节奏审计 · 质量门禁 · 角色锁脸一致性 · AAF/EDL 进剪辑线 · 团队协作 — 把『能出片』变成『能交付』」(竞品分析三次得出的护城河结论正式上首页)。② CTA 下新增**引擎 chips 行**(i18n 键 heroEngines 四语):「生成层 · 接入当下最强引擎(BYO Key)」+ Veo 3.1 / Kling 3.0 / Seedance 2.0 / Runway Gen-4.5,源码带 **⭐常驻刷新位注释**(每次同步联网核实更新,与 README 表/MARKETING/profile 同步)。③ **竞品整轮联网核验(2026-06-11)**:四引擎仍为生产可用第一梯队;新信号 **HappyHorse-1.0(阿里,2026-04)连续两轮核验占 Artificial Analysis arena 前二** → README 表头加带日期核验注记(公开 BYO API 成熟后入列;不编造能力格 —— 表列阵容未动故 MARKETING/profile 文案本轮无需改)。hero chips 不放 HappyHorse:BYO API 可用性未证,放了违反「诚实 UI」。**验收**:lighthouse 基线→改版后(同 prod build 流程):**perf 72→90(LCP 5.4s→3.6s,视频加载时序方差利好;关键是零退化)、a11y 98/bp 96/seo 100 全持平** ✓;新文案过竞品核验 ✓。验证:**tsc 0 + vitest 2196 + playwright 52 passed + 2 skipped**。 |
 | **v10.5.3** | 2026-06-11 | `f526a0f` | **创作工坊首跑三步引导 + 简易/专业开关(认知过载 P1 收口)**:① **零依赖 coach marks**(`first-run-guide.tsx`):首跑(localStorage 无标记)按「写创意 → 选风格 → ROLL」三步走 —— 页面元素挂 `data-guide` 锚点,半透明遮罩 + 目标琥珀描边 + 就近气泡卡(空间不足自动翻转,目标缺失/jsdom 居中兜底);完成/跳过落标记不再弹;**a11y 纪律延续**:气泡 role=dialog + 复用 `useFocusTrap`(Tab 圈内循环、Escape=跳过、焦点归还)。② **埋点闭环**(验收「首跑完成率可埋点」):新 `ui_events` 表 + repo(事件名白名单正则)+ `POST /api/telemetry/ui-event`(匿名可记、IP 限流 60/min);引导发 shown/step2/step3/completed/skipped —— **完成率 = completed/shown 一条 SQL 可查**。③ **简易/专业开关**(localStorage 记忆):**默认 pro = 与现状逐像素一致(验收条款,老用户零惊吓)**;简易模式只留主干(创意/画风/时长画幅/试拍/ROLL),隐藏模板库、锁脸、多参货架、引擎选择、运镜、风格库、草稿对比五块高级面板。④ journey/a11y spec 预置引导完成标记(防遮罩挡操作/污染 axe 基线)。**验收**(e2e/first-run-guide.spec ×2):首跑三步走完 → 落标记 → ROLL 可达 → **completed 计数 +1 落库** → 刷新不再弹 ✓;简易隐高级/专业=现状/刷新记忆 ✓。验证:**tsc 0 + vitest 2202(+6:埋点仓库 2 + 引导组件 4)+ playwright 54 passed + 4 skipped**。 |
 | **v10.5.4** | 2026-06-12 | `a89b006` | **留存面:继续创作卡 + 周报 digest(阶段十八 B 收官)**:① **「继续创作」卡**(dashboard 顶部)—— 纯函数核心 `lib/next-step.ts`:`pickContinueProject`(优先级 active>draft>最近更新)+ `suggestNextStep`(按状态给建议:draft 区分有无剧本草稿/active 指任务队列/completed 推审计与 EDL/AAF 导出);**空项目态整卡不渲染(验收条款)**,接口失败静默(留存增强非关键路径)。② **周报 digest(复用既有通知系统)**:无应用内 cron → **懒 digest** —— `GET /api/notifications` 时 fire-and-forget 检查:距上次周报 ≥7 天且本周有创作活动(新建/完成计数)→ `createNotification(type=weekly_digest, 来源「青枫周报」)` 落库 + `emitNotification` 走 SSE 实时进铃铛;**7 天幂等一条、零活动不发空周报**。③ 铃铛特判:非 mention 类型原本一律渲染「回复了你」→ 周报会变「青枫周报 回复了你」,type 联合扩 weekly_digest + 动词置空(preview 即正文)。**验收**(e2e/retention.spec ×2):dashboard 渲染继续创作卡 ✓;清旧周报 → 拉通知 → **weekly_digest 入通知中心**(轮询落库 + 列表可见 + 二次拉取幂等仍 1 条)✓。**排雷**:journey 在重复全量跑下被堆积任务占满双槽位 → ROLL 前加**显式排空等待**(独立 300s 预算,槽位空闲才开拍),全量 56 passed 复绿。验证:**tsc 0 + vitest 2212(+10:next-step 4 / digest 4 / 卡片 3,合并计)+ playwright 56 passed + 6 skipped**。**阶段十八 B(激活与定位)全部交付:演示工程 → 一把 key 分级 → 首页改卖制作台 → 首跑引导 → 留存面。** |
-| **v12.372.0** | 2026-08-29 | `待填` | **💀 敏感词净化器对中文是空操作 —— 1026 重试从写出来那天起就是死的**。
+| **v12.373.0** | 2026-08-29 | `待填` | **🎭 把 bible 补齐之后,「主角」和「伙伴」也一起命中了 —— 那比找不到更糟**。
+
+v12.369 我回填了 Character Bible,跨项目复用终于能命中。**但我没验证命中的是什么。** 实测 owner 的库:
+
+```
+主角 79 个项目 · 伙伴 78 个 · 一只橘猫 13 个
+真实角色名(李长安 / 柳如烟 / 悠悠)都只有 1~3 个
+```
+
+界面会提示「📚 已找到「**主角**」—— **79 个历史项目用过** —— 一键复用」,而那 79 个项目彼此毫无关系。**用户一点,就把无关项目的角色图套了进来** —— 找不到只是没帮上忙,**套错是主动帮了倒忙**。
+
+判定**只看名字本身,不看引用次数**:真·系列主角(李长安出现在 3 部)次数同样会高,拿次数当信号、阈值定在哪都会误伤。分界线是「**角色定位** vs **角色身份**」——「主角」描述的是这个人在故事里的功能,不是他是谁。过滤放在**查库之前**,不必要的查询就别做。
+
+**另修一个 v12.369 自己留下的洞**:那一版只补了 `metadata.bible`,**漏了 `referenced_by_projects`** —— 而界面上「N 个历史项目用过」正是靠它。结果 51 个角色里 **42 个显示「0 个历史项目用过」**,提示的可信度被自己抽空了。现在回填时一并补,且**已有 bible 的也补 refs**(bible 是推断、可以保留旧值,但「哪些项目真的用过」是**客观事实**)—— 42 → **只剩 2 个**。
+
+**端到端双向实测**:李长安 → 命中 · **3 个历史项目**;柳如烟 → 命中 · 2 个;主角 / 伙伴 / 男主2 → **未命中(generic_name)**。
+
+**又修一条我昨天自己写错的断言**:v12.369 的测试锁的是那一行代码的**写法**。本版为了同时补 refs 把它展开成多行块,**行为一字未变、断言却红了** —— 锁写法不锁行为,连自己新写的测试也会犯。已改成验行为(命中即 kept 并跳过,且该段内不得改写 bible)。
+
+测试里又栽了一次「indexOf 命中第一处」:`R.indexOf('findCharacterBibleByName')` 命中的是**文件顶部的 import**(offset 808),而不是调用点(1988),断言恒假。已改成匹配 `await findCharacterBibleByName(`。
+
+验证:**vitest +36 · tsc 0**。回填前已备份 `data/qfmj.db`。 |
+| **v12.372.0** | 2026-08-29 | `30c5a4f` | **💀 敏感词净化器对中文是空操作 —— 1026 重试从写出来那天起就是死的**。
 
 顺着 v12.371 的日志继续查:`api_usage_events` 里有两条 `Minimax image-01 error (1026): input new_sensitive`。而代码里 1026 的处理**看起来很完整** —— 视频 / 视频Fast / 图像 / 多参考图,**四条路径都有**「用净化后的 prompt 自动重试一次」。
 

@@ -47,6 +47,16 @@ export async function GET(
     return NextResponse.json({ error: 'name too long' }, { status: 400 });
   }
 
+  // v12.373:**通用占位名不参与跨项目复用。**
+  // v12.369 把 bible 回填好后,「主角」(79 个项目)「伙伴」(78 个)也会命中,
+  // 界面提示「已找到「主角」—— 79 个历史项目用过 —— 一键复用」,
+  // 而那 79 个项目彼此毫无关系。用户一点就把无关角色图套进来 ——
+  // **比找不到更糟:找不到只是没帮上忙,套错是主动帮了倒忙。**
+  const { isGenericCharacterName } = await import('@/lib/generic-character-names');
+  if (isGenericCharacterName(name)) {
+    return NextResponse.json({ found: false, reason: 'generic_name' });
+  }
+
   const userId = resolveUserId(request);
   const hit = await findCharacterBibleByName(userId, name);
   if (!hit) {

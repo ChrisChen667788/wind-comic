@@ -58,13 +58,32 @@ for (const r of db.prepare(`
   if (!lockByName.has(r.character_name)) lockByName.set(r.character_name, r);
 }
 
-const rows = db.prepare("SELECT id, name, metadata FROM global_assets WHERE user_id = ? AND type = 'character'").all(userId);
+/** 角色名 → 真实用过它的项目 id(v12.373:界面「N 个历史项目用过」靠这个)。 */
+const projectsByName = new Map();
+for (const r of db.prepare(`
+  SELECT DISTINCT pa.name, pa.project_id
+    FROM project_assets pa JOIN projects p ON p.id = pa.project_id
+   WHERE p.user_id = ? AND pa.type = 'character'`).all(userId)) {
+  if (!projectsByName.has(r.name)) projectsByName.set(r.name, []);
+  projectsByName.get(r.name).push(r.project_id);
+}
+
+const rows = db.prepare("SELECT id, name, metadata, referenced_by_projects FROM global_assets WHERE user_id = ? AND type = 'character'").all(userId);
 let filled = 0, kept = 0, noImage = 0;
 console.log(`\nCharacter Bible 回填 · ${rows.length} 条角色资产${DRY ? '(干跑)' : ''}\n`);
 
 for (const r of rows) {
   const md = j(r.metadata);
-  if (md.bible?.imageUrl) { kept++; continue; }   // 已有的不动
+  if (md.bible?.imageUrl) {
+    // v12.373:bible 不动(真实使用攒下的更可信),但 refs 该补还是要补 ——
+    // 它是客观事实(哪些项目真的用过),不是推断。
+    const pj = projectsByName.get(r.name) || [];
+    const ex = (() => { try { return JSON.parse(r.referenced_by_projects || '[]'); } catch { return []; } })();
+    if (!DRY && pj.length > ex.length) {
+      db.prepare('UPDATE global_assets SET referenced_by_projects = ? WHERE id = ?').run(JSON.stringify(pj), r.id);
+    }
+    kept++; continue;
+  }
 
   const imageUrl = imgByName.get(r.name);
   if (!imageUrl) { noImage++; continue; }         // 没图就没 bible —— 端点也要求 imageUrl
@@ -84,10 +103,17 @@ for (const r of rows) {
     lastUsedProjectId: md.firstProjectId || undefined,
   };
 
-  console.log(`  ✅ ${r.name.padEnd(10)} role=${bible.role} cw=${bible.cw} traits=${bible.traits ? '有' : '无'}`);
+  // v12.373:**同时补 referenced_by_projects。**
+  // v12.369 只补了 bible,漏了这一列 —— 而界面上「N 个历史项目用过」正是靠它,
+  // 于是 51 个角色里 42 个显示「0 个历史项目用过」,提示的可信度被自己抽空了。
+  const projIds = projectsByName.get(r.name) || [];
+  const existingRefs = (() => { try { return JSON.parse(r.referenced_by_projects || '[]'); } catch { return []; } })();
+  const refs = existingRefs.length >= projIds.length ? existingRefs : projIds;
+
+  console.log(`  ✅ ${r.name.padEnd(10)} role=${bible.role} cw=${bible.cw} traits=${bible.traits ? '有' : '无'} 项目${refs.length}`);
   if (!DRY) {
-    db.prepare('UPDATE global_assets SET metadata = ? WHERE id = ?')
-      .run(JSON.stringify({ ...md, bible }), r.id);
+    db.prepare('UPDATE global_assets SET metadata = ?, referenced_by_projects = ? WHERE id = ?')
+      .run(JSON.stringify({ ...md, bible }), JSON.stringify(refs), r.id);
   }
   filled++;
 }
