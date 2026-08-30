@@ -91,6 +91,41 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     srtUrl,
   };
   const mediaUrls = segments.map((s) => s.audioUrl).filter(Boolean) as string[];
+
+  // ── v12.384:两道闸,都必须挡在 delete **之前** ──────────────────────────
+  //
+  // ① 落盘全失败不能报成功。persistAsset 返回 null 时上面是静默跳过的
+  //    (audioUrl 留 null、persistedAudio 不增),而响应里的 `rendered` 取自
+  //    rendered.rendered —— 那是 **TTS 的成功数**,与落盘无关。于是「TTS 全成功、
+  //    落盘全失败」会返回 ok:true + rendered:true,库里躺着一条 mediaUrls 为空的
+  //    静音轨。owner 看到「解说已生成」,合成成片,交片时才发现没有声音;
+  //    而 MiniMax 的音频外链几小时就过期,想补只能再花一次额度。
+  //
+  // ② 更要命的是顺序:原来是**先 delete 再 create**。注释写着「失败可重跑」,
+  //    可失败时旧的那条已经被删了 —— 重跑一次失败,就把上一次成功的成果一起毁掉。
+  //    「可重跑」的前提是失败不破坏现状,所以这两道闸必须在 delete 前面。
+  if (rendered.segments.length > 0 && persistedAudio === 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'audio_persist_failed',
+        message:
+          `解说音频落盘全部失败(TTS 已合成 ${rendered.okCount} 段,但一段都没存下来)。` +
+          `已保留上一次的解说音轨、未做任何改动 —— 请重试。`,
+        ttsOk: rendered.okCount,
+        persistedAudio,
+      },
+      { status: 502 },
+    );
+  }
+  if (rendered.segments.length > 0 && persistedAudio < rendered.okCount) {
+    // 部分失败仍然落库(有总比没有强),但**必须说出来**,不能混在成功里
+    console.warn(
+      `[narration] ${rendered.okCount - persistedAudio}/${rendered.okCount} 段音频落盘失败,` +
+        `成片里这几段会是静音`,
+    );
+  }
+
   // v9.0.1: 走 asset-repo (双驱动); narration 清旧 + 落新, 失败可重跑
   await deleteAssetsByType(id, 'narration');
   await createAsset({
@@ -101,9 +136,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   return NextResponse.json({
     ok: true,
     enabled: true,
+    // v12.384:`rendered` 是 **TTS** 的成功标志,`segments` 是**文本**段总数 ——
+    // 两个都不回答「有几段真的有声音」。不补这两个字段的话,
+    // 「10 段文本、TTS 全成、只落盘 3 段」看起来和全成功一模一样。
     rendered: rendered.rendered,
     persistedAudio,
     segments: segments.length,
+    audioSegments: mediaUrls.length,
+    partialAudio: mediaUrls.length < rendered.okCount,
     srtUrl,
     totalDurationSec: rendered.totalDurationSec,
     timeline: narrationToTimelineSegments(data),
