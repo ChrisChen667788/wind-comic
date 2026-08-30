@@ -88,13 +88,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const { concatVideos } = await import('@/services/video-composer');
     const { outputPath, count } = await concatVideos(urls, aspect, tmpDir);
-    // 持久化:从 tmp 落到 storage(否则重启/清理后 URL 失效);失败兜底用 tmp serve-file URL
+    // 持久化:从 tmp 落到 storage(否则重启/清理后 URL 失效)。
+    //
+    // v12.386:原来这里写着「失败兜底用 tmp serve-file URL」—— 那个兜底是**自相矛盾**的。
+    // 下面的 finally 会 `fs.rmSync(tmpDir)`,而它在 Response 交给 Next 发出**之前**就跑完了:
+    // 客户端拿到的 videoUrl 指向一个**已经被删掉**的文件,点下载即 404;
+    // 这条死链还会被 upsertAsset 写进库,重进页面依然打不开,
+    // 而 ffmpeg 辛苦拼好的整季文件已经没了,只能整季重导。
+    //
+    // 与别处的 `persisted?.url || 远程URL` 要分开看:那些兜底的是引擎 CDN 外链,
+    // 会过期但几天内能用,是**降级**;兜底到自己马上要删的临时文件,是**兜了个空**。
+    // 所以这里不兜 —— 落盘失败就如实报失败,也不往库里写死链。
     const tmpUrl = `${serveFilePathUrl(outputPath)}`;
     const persisted = await persistAsset(tmpUrl, { ext: '.mp4' }).catch(() => null);
-    const videoUrl = persisted?.url || tmpUrl;
+    if (!persisted?.url) {
+      return NextResponse.json(
+        {
+          error: '整季合集已拼好,但落盘失败 —— 临时文件即将被清理,无法提供下载链接。请重试。',
+          code: 'season_persist_failed',
+          count,
+          skipped,
+        },
+        { status: 502 },
+      );
+    }
+    const videoUrl = persisted.url;
     await upsertAsset({
       projectId: anchor.id, type: 'season_video', name: '整季合集',
-      data: { seriesId: id, count, aspect, skipped }, mediaUrls: [videoUrl], persistentUrl: persisted?.url || null,
+      data: { seriesId: id, count, aspect, skipped }, mediaUrls: [persisted.url], persistentUrl: persisted.url,
     });
     return NextResponse.json({ ok: true, videoUrl, count, skipped });
   } catch (e) {
