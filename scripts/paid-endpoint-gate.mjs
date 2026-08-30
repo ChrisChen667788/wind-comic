@@ -34,6 +34,18 @@ const PAID_SIGNALS = [
   /new MinimaxService|MinimaxService\(/,
   /generateImage|generateVideo|generateMusic/,
   /useCreative:\s*true/,
+
+  // ── v12.388:间接付费路径 ────────────────────────────────────────────────
+  // 上面那些认的都是「直接调付费 SDK」。而 /api/create 走的是
+  // `new AgentOrchestrator()` + `startProduction(idea)` —— 一条特征都不命中,
+  // 于是它顶着「完全无鉴权、单次 ¥5–30」大摇大摆通过了 v12.382 的门禁。
+  // 一个只认直接调用的付费门禁,会漏掉所有把花钱包了一层的入口 ——
+  // 而那恰恰是最贵的那类(编排器一跑就是整条管线)。
+  /new AgentOrchestrator|AgentOrchestrator\(/,
+  /new HybridOrchestrator|HybridOrchestrator\(/,
+  /\.startProduction\(/,
+  /runCreatePipeline|createPipeline\(/,
+  /\bregenerateShot\(|\bgenerateStoryboard\(/,
 ];
 
 /** 「已经守住了」的特征 */

@@ -11,6 +11,8 @@
  * Auth: 登录用户.
  */
 import { NextResponse } from 'next/server';
+import { requireProjectAccess } from '@/lib/auth-guard';
+import { guardPaidEndpoint } from '@/lib/paid-endpoint-guard';
 import { getUserFromRequest } from '../../../../auth/lib';
 import { db } from '@/lib/db';
 import { normalizeAssetRow } from '@/lib/asset-storage';
@@ -29,8 +31,18 @@ const CONCURRENCY = 3;
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const payload = getUserFromRequest(request);
-  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // v12.388:此前**只验登录、不验归属** —— 文件抬头的注释也只写了「Auth: 登录用户」,
+  // 说明是写码时就漏的,不是后来被删的。后果是典型 IDOR:任意登录用户拿着别人的
+  // projectId 就能 POST 这里,服务端会对**受害者项目**的每张分镜图调 GPT-4o Vision,
+  // 结果里原样返回对方的画面描述、台词、情绪标注 —— 既烧 owner 的额度,
+  // 又把他的私有创作内容读走。同目录其他写操作路由早就有归属校验了。
+  //
+  // 而且本文件抬头自己写着「vision 调用**按镜烧钱**」,却连付费守卫都没有 ——
+  // 两道闸一起补:先确认「这项目是不是你的」,再确认「你还有额度」。
+  const _g = await requireProjectAccess(request, id, 'edit');
+  if (!_g.ok) return NextResponse.json({ error: _g.message }, { status: _g.status });
+  const _paid = await guardPaidEndpoint(request, { pendingCostCny: 1 });
+  if (!_paid.ok) return _paid.response;
 
   // storyboard assets — 图 + description
   const storyboards = db
