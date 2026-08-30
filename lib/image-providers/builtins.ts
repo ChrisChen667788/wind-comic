@@ -10,6 +10,7 @@
  */
 
 import { registerImageProvider } from './registry';
+import { usableRefs } from './refs';
 import type { ImageGenerateInput } from './types';
 import '@/lib/mock-providers'; // v10.4.0: mock 三件套常驻注册(MOCK_ENGINES=1 才 available)
 // v12.238(issue #11):GPT Image / Nano Banana 走同一套 plugin registry —— 注册即入链,
@@ -89,12 +90,8 @@ registerImageProvider({
   async generate(input: ImageGenerateInput) {
     const svc = await getMinimaxService();
     if (!svc) throw new Error('Minimax service unavailable');
-    const refs = [
-      ...(input.referenceImages || []),
-      ...(input.cref ? [input.cref] : []),
-      ...(input.sref ? [input.sref] : []),
-    ].filter((u) => u && u.startsWith('http'));
-    const dedupedRefs = Array.from(new Set(refs)).slice(0, 4);
+    // v12.393:口径收敛到 lib/image-providers/refs —— 选路时判的就是这个数
+    const dedupedRefs = usableRefs(input);
     if (dedupedRefs.length === 0) throw new Error('Minimax multi-ref needs at least 1 ref');
     const url = await svc.generateImageWithRefs(input.prompt, dedupedRefs, {
       aspectRatio: input.aspectRatio || '16:9',
@@ -148,11 +145,9 @@ registerImageProvider({
         : 'https://api.vectorengine.ai';
     const model = process.env.IMAGE_MODEL || 'flux.1-kontext-pro';
     if (!key) throw new Error('no image gateway key');
-    const refUrls = [
-      ...(input.referenceImages || []),
-      ...(input.cref ? [input.cref] : []),
-      ...(input.sref ? [input.sref] : []),
-    ].filter((u) => u && u.startsWith('http')).slice(0, 4);
+    // v12.393:同上。这一处原来**不去重** —— 传三张相同的图会真的发三份给网关,
+    // 既浪费带宽也可能被上游当成三张不同的参考图处理。
+    const refUrls = usableRefs(input);
     const refHint = refUrls.length > 0 ? ` [Reference images: ${refUrls.join(' , ')}]` : '';
     const res = await fetch(`${base}/v1/images/generations`, {
       method: 'POST',

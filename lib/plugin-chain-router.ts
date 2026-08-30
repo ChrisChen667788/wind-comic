@@ -92,11 +92,11 @@ async function runWithPlugin<T>(
 
 async function tryImagePlugin(input: ImageGenerateInput): Promise<PluginAttempt<string>> {
   const { dispatchImageGenerate } = await import('./image-providers/registry');
-  const refCount = [
-    ...(input.referenceImages || []),
-    ...(input.cref ? [input.cref] : []),
-    ...(input.sref ? [input.sref] : []),
-  ].filter((u) => !!u).length;
+  // v12.393:与 provider 同一口径。原来这里只 `.filter(u => !!u)` ——
+  // 而 provider 内部还要求 http 前缀并去重,于是一个 data: URI 会让
+  // router 算出 1、provider 算出 0,v12.371 的 minRefImages 下界形同虚设。
+  const { countUsableRefs } = await import('./image-providers/refs');
+  const refCount = countUsableRefs(input);
   const r = await dispatchImageGenerate(input, { refCount });
   if (!r.result) {
     const reasons = r.tried.map((t) => t.error).join(' | ').slice(0, 60);
