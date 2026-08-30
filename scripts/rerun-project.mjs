@@ -98,12 +98,32 @@ const shots = (sd.shots || []).slice(0, LIMIT === Infinity ? undefined : LIMIT);
 console.log(`\n═══ ${project.title.split('\n')[0].slice(0, 40)}`);
 console.log(`    ${projectId} · ${shots.length} 镜 · 引擎 ${PROVIDER}${DRY ? ' · 干跑' : ''}\n`);
 
-const stat = { done: 0, skip: 0, fail: 0, animatic: 0, quotaStop: false };
+const stat = { done: 0, skip: 0, fail: 0, animatic: 0, quotaStop: false, imageQuotaStop: false };
 const t0 = Date.now();
 function log(tag, name, r, ms) {
   if (r === 'skip') { stat.skip++; return console.log(`  ⏭  ${tag} ${name} —— 已在盘上`); }
   if (r.ok) { stat.done++; return console.log(`  ✅ ${tag} ${name}  ${(ms / 1000).toFixed(0)}s`); }
-  stat.fail++; console.log(`  ❌ ${tag} ${name}  ${r.error}`);
+  stat.fail++;
+  console.log(`  ❌ ${tag} ${name}  ${r.error}`);
+
+  // v12.395:**图像也要按报文判配额**。v12.377 给视频加了这个判定,图像侧一直没接 ——
+  // 于是额度耗尽后,剩下的角色/场景/分镜会被一个个全试一遍,每个都必然失败。
+  // owner 的日志里同样 4 个场景图在 09:00 / 14:00 / 20:00 各白跑一轮,一天 12 次。
+  //
+  // 真实报文长这样(青云top 的口径,quota-vocab 的注释里记过):
+  //   image(flux-2-pro) 401: {"error":{"message":"Token quota exhausted (request id: …)"}}
+  // 既不是 402 也不含 insufficient,但 ARREARS_RE 认得 `quota.*exhaust`。
+  //
+  // 注意**只停图像、不碰视频**:两套额度是分开的(v12.367 的教训 ——
+  // 那次反过来,视频尽了却把图像也停了,卡住 53 张图)。
+  if (!stat.imageQuotaStop) {
+    const v = shouldStopForQuota([{ engine: tag, error: String(r.error || '') }]);
+    if (v.stop && v.reason !== 'no-evidence') {
+      stat.imageQuotaStop = true;
+      const why = v.reason === 'arrears' ? '报文判定为欠费/额度耗尽' : '报文判定为配额已满';
+      console.log(`  ⛔ ${why},跳过本项目剩余图像步骤(视频额度是另一套,不受影响)`);
+    }
+  }
 }
 
 // ---------- 1. 角色图(作 cref,必须先于分镜) ----------
@@ -111,6 +131,7 @@ if (STEPS.has('chars')) {
   const rows = db.prepare(`SELECT name, persistent_url FROM project_assets WHERE project_id=? AND type='character' ORDER BY name`).all(projectId);
   const seen = new Set();
   for (const r of rows) {
+    if (stat.imageQuotaStop) break;   // v12.395:图像额度已判定耗尽,别再一个个白试
     if (seen.has(r.name)) continue; seen.add(r.name);
     if (onDisk(r.persistent_url)) { log('角色', r.name, 'skip'); continue; }
     if (DRY) { console.log(`  · 角色 ${r.name}`); continue; }
@@ -128,6 +149,7 @@ if (STEPS.has('scenes')) {
   const rows = db.prepare(`SELECT name, persistent_url FROM project_assets WHERE project_id=? AND type='scene' ORDER BY name`).all(projectId);
   const seen = new Set();
   for (const r of rows) {
+    if (stat.imageQuotaStop) break;   // v12.395:图像额度已判定耗尽,别再一个个白试
     if (seen.has(r.name)) continue; seen.add(r.name);
     if (onDisk(r.persistent_url)) { log('场景', r.name, 'skip'); continue; }
     if (DRY) { console.log(`  · 场景 ${r.name}`); continue; }
@@ -144,6 +166,7 @@ if (STEPS.has('scenes')) {
 if (STEPS.has('boards')) {
   for (const s of shots) {
     const row = db.prepare(`SELECT persistent_url FROM project_assets WHERE project_id=? AND type='storyboard' AND shot_number=? ORDER BY updated_at DESC LIMIT 1`).get(projectId, s.shotNumber);
+    if (stat.imageQuotaStop) break;   // v12.395:同上
     if (row && onDisk(row.persistent_url)) { log('分镜', `#${s.shotNumber}`, 'skip'); continue; }
     if (DRY) { console.log(`  · 分镜 #${s.shotNumber}`); continue; }
     const t = Date.now();
