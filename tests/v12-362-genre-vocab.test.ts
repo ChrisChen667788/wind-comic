@@ -50,6 +50,22 @@ describe('v12.362 词表本身', () => {
     expect(isSad(t)).toBe(false);
   });
 
+  // v12.396:补正例。此前 isSad 全仓**只有上面那两条负例** ——
+  // 把它改成 `() => false` 跑全量测试仍然全绿(实证过),
+  // 而它唯一的消费方 prompt-templates 会因此永远不给 LLM 加「悲情基调」。
+  // 同批的 isAncient / isHorror 看着也只有负例,但实证下来都有间接正例保护
+  // (detectGenreKind 与 lock() 的「题材锁定」字段覆盖到了);
+  // 只有 isSad 落在 detectedMoods 这条没人验的支线上。
+  it.each([
+    ['悲伤的结局让她彻底崩溃', '悲伤'],
+    ['主角最终陷入绝望', '绝望'],
+    ['凄凉的冬夜,老人独自离世', '凄凉'],
+    ['她在雨里痛哭', '痛哭'],
+    ['a tragic ending', 'tragic'],
+  ])('%s 判为悲情(%s)', (t) => {
+    expect(isSad(t)).toBe(true);
+  });
+
   it.each([
     ['古装武侠短剧,侠客夜探山庄', 'ancient'],
     ['赛博朋克风格的机甲战斗', 'scifi'],

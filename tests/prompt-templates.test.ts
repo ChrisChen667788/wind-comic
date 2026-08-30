@@ -13,6 +13,22 @@ import {
 } from '@/lib/prompt-templates';
 
 describe('enhanceIdeaForCreation', () => {
+
+  // v12.396:把 isSad → detectedMoods → prompt 这条链锁住。
+  // 单元层的正例只能证明「正则认得悲伤」,证明不了「它真的进了给 LLM 的 prompt」——
+  // 而中间那一环(detectedMoods)恰恰是全仓唯一没人验的那条支线。
+  it('悲情故事会给 LLM 带上「悲情基调」', () => {
+    const out = enhanceIdeaForCreation('主角最终陷入绝望,凄凉收场');
+    const text = typeof out === 'string' ? out : JSON.stringify(out);
+    expect(text, '窗口自证:确实产出了增强后的 prompt').toContain('制作要求');
+    expect(text).toMatch(/情绪基调[::][^\n]*悲情/);
+  });
+
+  it('不悲的故事不该被加上悲情基调', () => {
+    const out = enhanceIdeaForCreation('慈悲为怀的老人开了家面馆,街坊都爱去');
+    const text = typeof out === 'string' ? out : JSON.stringify(out);
+    expect(text).not.toMatch(/悲情基调/);
+  });
   it('appends 制作要求 with three-act structure to any idea', () => {
     const out = enhanceIdeaForCreation('暮色城市中的旅人');
     expect(out.enhancedIdea).toContain('暮色城市中的旅人');
