@@ -8,6 +8,7 @@
  * 干跑:?dryRun=1 只报告不删。
  */
 import { NextResponse } from 'next/server';
+import { shouldRefuseSweep } from '@/lib/cleanup-guard';
 import fs from 'fs';
 import path from 'path';
 import { cleanup } from '@/lib/asset-storage';
@@ -36,6 +37,8 @@ function referencedBasenames(): Set<string> | null {
     ).all() as Array<{ persistent_url?: string; media_urls?: string }>;
     const names = new Set<string>();
     const RE = /([A-Za-z0-9._-]+\.(?:mp4|mov|webm|png|jpe?g|webp|mp3|wav|m4a|srt|edl|xml|aaf))/g;
+    const KEY_RE = /key=([0-9a-zA-Z_-]{8,})/g;
+    const KNOWN_EXTS = ['mp4', 'mov', 'webm', 'png', 'jpg', 'jpeg', 'webp', 'mp3', 'wav', 'm4a', 'srt'];
     for (const r of rows) {
       for (const raw of [r.persistent_url || '', r.media_urls || '']) {
         if (!raw) continue;
@@ -64,6 +67,19 @@ function referencedBasenames(): Set<string> | null {
         for (const blob of decoded === raw ? [raw] : [raw, decoded]) {
           RE.lastIndex = 0;
           for (const m of blob.matchAll(RE)) names.add(m[1]);
+          // v12.398:`?key=` 形态的引用**抽不出文件名** —— storage 是内容寻址的,
+          // 磁盘上叫 `<sha256>.mp4`,而 URL 里只有 `?key=<sha256>`、没有扩展名,
+          // 上面那个要求后缀的正则一个都抓不到。实测 613 条引用是这种形态,
+          // 而 data/storage/assets 里 160 个文件按当前引用集**受保护数是 0**。
+          // 它今天不在清理列表里(只扫 composed / exports / media),
+          // 所以还没出事 —— 但哪天有人把 storage 加进来,160 个素材会一次删光。
+          // 把 key 也收进保护名单,顺便把「key + 常见扩展名」的组合也加上,
+          // 这样按文件名比对的 sweepDir 也能认得。
+          KEY_RE.lastIndex = 0;
+          for (const m of blob.matchAll(KEY_RE)) {
+            names.add(m[1]);
+            for (const ext of KNOWN_EXTS) names.add(`${m[1]}.${ext}`);
+          }
         }
       }
     }
@@ -74,26 +90,50 @@ function referencedBasenames(): Set<string> | null {
   }
 }
 
-function sweepDir(dir: string, maxAgeDays: number, dryRun: boolean, referenced: Set<string> | null): { removed: number; freedMB: number; skippedReferenced: number } {
+function sweepDir(dir: string, maxAgeDays: number, dryRun: boolean, referenced: Set<string> | null): { removed: number; freedMB: number; skippedReferenced: number; refused?: boolean } {
   let removed = 0, freed = 0, skippedReferenced = 0;
   if (referenced === null) return { removed: 0, freedMB: 0, skippedReferenced: 0 };  // 读不到引用 → 不删
   try {
     if (!fs.existsSync(dir)) return { removed: 0, freedMB: 0, skippedReferenced: 0 };
     const cutoff = Date.now() - maxAgeDays * 24 * 3600 * 1000;
+    // v12.398:遍历只**统计**,删除挪到自检之后 —— 边走边删的话,
+    // 等发现「一个都没被引用」时,前面的已经删掉了。
+    const tally = { total: 0, referenced: 0, doomed: [] as Array<{ path: string; size: number }> };
     const walk = (d: string) => {
       for (const f of fs.readdirSync(d)) {
         const p = path.join(d, f);
         const st = fs.statSync(p);
         if (st.isDirectory()) { walk(p); continue; }
-        if (referenced.has(f)) { skippedReferenced++; continue; }   // 被引用 → 永不删
-        if (st.mtimeMs < cutoff) {
-          freed += st.size;
-          if (!dryRun) fs.unlinkSync(p);
-          removed++;
-        }
+        tally.total++;
+        if (referenced.has(f)) { tally.referenced++; continue; }   // 被引用 → 永不删
+        if (st.mtimeMs < cutoff) tally.doomed.push({ path: p, size: st.size });
       }
     };
     walk(dir);
+
+    // v12.398:**先数一遍,再决定删不删**。
+    //
+    // v12.394 那个 bug 的形态是「保护名单恒空」—— 正则从 URL 编码路径里抽出
+    // `2Ffinal-xxx.mp4`,与磁盘上的真名永远对不上,于是**每一个**被引用的成片
+    // 都被判成孤儿。那次 owner 丢了 30 个项目 534 个素材。
+    //
+    // 这道自检就是冲着那种形态来的:一个非空目录里**一个文件都没被引用**,
+    // 在正常运行的系统里几乎不可能 —— 远比「引用集算错了」更不可能。
+    // 与其相信自己的正则,不如在这一刻停手:少清一次磁盘,总好过再删一次素材。
+    //
+    // dryRun 也走这条 —— 否则演练说「会删 100 个」而真跑却拒绝,两边对不上更让人困惑。
+    // v12.399:判据抽到 lib/cleanup-guard —— asset-storage 那条清理路径要用同一份。
+    const verdict = shouldRefuseSweep(tally, dir);
+    if (verdict.refuse) {
+      console.error(`[cleanup-media] ${verdict.reason}`);
+      return { removed: 0, freedMB: 0, skippedReferenced: 0, refused: true };
+    }
+    for (const d of tally.doomed) {
+      if (!dryRun) fs.unlinkSync(d.path);
+      freed += d.size;
+      removed++;
+    }
+    skippedReferenced = tally.referenced;
   } catch { /* 单目录失败不阻塞其他 */ }
   return { removed, freedMB: Math.round(freed / 1024 / 1024), skippedReferenced };
 }
