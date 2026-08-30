@@ -8,6 +8,7 @@
  * Auth: 与其它项目级只读报告端点(consistency / publish-readiness)一致,只读不强制登录。
  */
 import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { dialogueLinesFromShots, buildLipSyncPlan } from '@/lib/lipsync-plan';
 import type { ScriptShot } from '@/types/agents';
 import { NextResponse } from 'next/server';
@@ -25,7 +26,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const scriptRows = await listAssetsByType(id, 'script');
   let script: { shots?: ScriptShot[] } = {};
-  try { script = JSON.parse(scriptRows[0]?.data || '{}'); } catch { script = {}; }
+  try { script = JSON.parse(pickScriptAsset(scriptRows).row?.data || '{}'); } catch { script = {}; }
   const shots: ScriptShot[] = Array.isArray(script.shots) ? script.shots : [];
 
   const lines = dialogueLinesFromShots(shots);

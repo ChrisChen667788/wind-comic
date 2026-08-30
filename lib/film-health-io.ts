@@ -3,6 +3,7 @@
  * 单项目与系列聚合(/api/series/[id]/health)共用。判定仍在 film-health(纯函数)。
  */
 import { db } from '@/lib/db';
+import { pickScriptAsset } from './script-asset';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { probeMediaFull, buildFilmHealthReport, type FilmHealthReport } from './film-health';
 import { serveFileToLocalPath } from './first-frame';
@@ -28,7 +29,7 @@ export async function buildProjectHealth(projectId: string): Promise<ProjectHeal
   const finalProbe = finalUrl ? await probeMediaFull(toLocalPath(finalUrl)) : null;
 
   const scriptRows = await listAssetsByType(projectId, 'script');
-  let script: any = parseJson(scriptRows[0]?.data);
+  let script: any = parseJson(pickScriptAsset(scriptRows).row?.data);
   if (!Array.isArray(script?.shots)) {
     const r = db.prepare('SELECT script_data FROM projects WHERE id = ?').get(projectId) as any;
     script = parseJson(r?.script_data) || {};

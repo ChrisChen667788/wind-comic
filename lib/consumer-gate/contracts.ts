@@ -77,6 +77,24 @@ export const RUNTIME_ONLY_GAPS: Array<{ gap: string; incident: string; guardedBy
 
 export const CONTRACTS: GateContract[] = [
   {
+    id: 'script-asset-must-use-pickScriptAsset',
+    rule: '读 script 资产必须走 lib/script-asset 的 pickScriptAsset,禁止直接取 scriptRows[0] / scriptAssets[0]',
+    incident:
+      'v12.381:一个项目的 script 资产可以有好几条 —— 主稿 +「一键多语」产出的 script-<lang> + script-original 备份。' +
+      'listAssetsByType 是 ORDER BY shot_number,而 script 的 shot_number 全是 NULL,顺序实际由插入次序决定。' +
+      'localize 自己写了一份过滤、pull-sheet 与 recompose 各自直接取 [0] —— 三份实现三种行为。' +
+      'v12.381 立了唯一入口却**只手工接了三个消费方**,v12.383 的全仓扫描又挖出三个漏网的:' +
+      'pull-sheet/import(读写都落在 [0],CSV 回灌会把改动 merge 进俄语稿、主稿一字未改,接口还是 200)、' +
+      'pull-sheet/replicate(用俄语台词和角色名起一个全新项目)、pull-sheet/save-template。' +
+      '手工枚举消费方漏了一半 —— 这正是本门禁存在的理由。',
+    entry: 'pickScriptAsset(rows, language) from lib/script-asset',
+    // 只拦「script 资产数组取第一条」这个具体写法。变量名两种拼法都收 ——
+    // 实测仓库里 recompose 叫 scriptAssets、pull-sheet 系叫 scriptRows。
+    forbid: /\bscript(Assets|Rows)\s*\[\s*0\s*\]/,
+    scope: ['app/api', 'lib', 'services'],
+    allow: [],
+  },
+  {
     id: 'outbound-fetch-must-use-safeFetch',
     rule: '任何服务端出站 HTTP 必须走 lib/ssrf-guard 的 safeFetch(它逐跳重验重定向),禁止裸 fetch(',
     incident:

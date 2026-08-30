@@ -10,6 +10,7 @@
  * 版权:复刻 = 同结构新内容(主体替换 + 重生成),不复制原片素材。
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
 import { listAssetsByType, getAsset } from '@/lib/repos/asset-repo';
@@ -31,8 +32,11 @@ function firstUrl(mediaUrls: string | null): string | null {
 }
 
 async function loadFactorySheet(projectId: string): Promise<PullSheet> {
+  // v12.383:这条的伤害最大 —— buildReplicaScript 会把选中稿的 characters/dialogue
+  // 原样写进新项目。选错稿的后果是:想复刻一部中文短剧,得到的新项目里
+  // 角色名和台词全是俄语版内容,而且是**一整个新项目**,不是一处小错。
   const scriptRows = await listAssetsByType(projectId, 'script');
-  let script: any = parseJson(scriptRows[0]?.data);
+  let script: any = parseJson(pickScriptAsset(scriptRows).row?.data);
   if (!Array.isArray(script?.shots)) {
     const r = db.prepare('SELECT title, script_data FROM projects WHERE id = ?').get(projectId) as
       | { title?: string; script_data?: string } | undefined;

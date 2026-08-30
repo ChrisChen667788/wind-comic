@@ -8,6 +8,7 @@
  * POST → 合成全片对白配音(覆盖式)。无 TTS 引擎(缺 MINIMAX_API_KEY)→ 200 {configured:false} + 提示。
  */
 import { NextResponse } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { listAssetsByType, deleteAssetsByType, createAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { deriveProsody } from '@/lib/tts-prosody';
@@ -58,7 +59,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const scriptRows = await listAssetsByType(id, 'script');
   let script: { shots?: ScriptShot[] } = {};
-  try { script = JSON.parse(scriptRows[0]?.data || '{}'); } catch { script = {}; }
+  try { script = JSON.parse(pickScriptAsset(scriptRows).row?.data || '{}'); } catch { script = {}; }
   const shots: ScriptShot[] = Array.isArray(script.shots) ? script.shots : [];
   const dialogueShots = shots.filter((s) => (s.dialogue || '').trim());
   if (!dialogueShots.length) return NextResponse.json({ ok: false, message: '无对白镜 —— 无需合成配音' });

@@ -7,6 +7,7 @@
  *   默认 private(私有);也可 public 分享。需登录 + 源项目归属。
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { db } from '@/lib/db';
 import { listAssetsByType, getAsset } from '@/lib/repos/asset-repo';
 import { getOwnedProject } from '@/lib/repos/project-repo';
@@ -27,8 +28,11 @@ function firstUrl(mediaUrls: string | null): string | null {
 }
 
 async function loadFactorySheet(projectId: string): Promise<PullSheet> {
+  // v12.383:同样漏接 v12.381 的唯一入口。这里的实际影响比 import 小 ——
+  // 模板存的 perShot 只有 shotNumber/shotSize/cameraMovement/durationSec,不含台词与角色名 ——
+  // 但 sheet.title 会取自选中的那条稿,多语版项目下模板标题会变成外语。
   const scriptRows = await listAssetsByType(projectId, 'script');
-  let script: any = parseJson(scriptRows[0]?.data);
+  let script: any = parseJson(pickScriptAsset(scriptRows).row?.data);
   if (!Array.isArray(script?.shots)) {
     const r = db.prepare('SELECT title, script_data FROM projects WHERE id = ?').get(projectId) as
       | { title?: string; script_data?: string } | undefined;

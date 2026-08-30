@@ -6,6 +6,7 @@
  * 别用 db.prepare 直查/直写)。auth + 项目归属;返回变更摘要供前端展示。
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { listAssetsByType, updateAssetBySelector } from '@/lib/repos/asset-repo';
 import { getOwnedProject, updateProjectById } from '@/lib/repos/project-repo';
 import { getUserFromRequest } from '../../../../auth/lib';
@@ -36,8 +37,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // script:资产优先,回退 projects.script_data(与 pull-sheet GET 同款取数)
+  // v12.383:CSV 回灌是**读一条、算 merge、再写回同一条**,所以取稿和写回必须
+  // 指向同一条资产 —— 而且得是选出来的那条,不是 [0]。
+  // v12.381 立了 pickScriptAsset 这个唯一入口,却只接了三个消费方,本路由漏了:
+  // 多语版项目里 script-ru 一旦排到 [0],owner 在 Excel 改好的分镜会被 merge 进俄语稿,
+  // 中文主稿一个字没改,而 projects.script_data 同步成中俄混杂内容 —— 接口还是 200。
   const scriptRows = await listAssetsByType(id, 'script');
-  let script: any = parseJson(scriptRows[0]?.data);
+  const scriptPick = pickScriptAsset(scriptRows);
+  let script: any = parseJson(scriptPick.row?.data);
   let source: 'asset' | 'project' = 'asset';
   if (!Array.isArray(script?.shots)) {
     script = parseJson((project as any).script_data) || {};
@@ -51,9 +58,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (changes.length > 0) {
     // 双写:有 script 资产则更新之;projects.script_data 始终同步(项目页读它)
-    if (source === 'asset' && scriptRows[0]) {
+    if (source === 'asset' && scriptPick.row) {
       // selector 无 shotNumber 时按 name 匹配 —— 必须带上资产名,否则 name=undefined 匹配 0 行静默丢写
-      await updateAssetBySelector(id, { type: 'script', name: scriptRows[0].name }, { data: merged });
+      await updateAssetBySelector(id, { type: 'script', name: scriptPick.row.name }, { data: merged });
     }
     await updateProjectById(id, { script_data: JSON.stringify(merged) });
   }

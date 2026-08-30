@@ -5,6 +5,7 @@
  * → `extractTemplate`(算质量分 + 标签)→ `saveTemplate` 落 film_templates。payload 带一键起片预填。
  */
 import { NextResponse } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { requireUser, requireProjectAccess } from '@/lib/auth-guard';
 import { getDbDriver } from '@/lib/db-driver';
 import { getUserFromRequest } from '../../../auth/lib';
@@ -43,7 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // 分镜
   const scriptRows = await listAssetsByType(id, 'script');
   let script: { shots?: ScriptShot[] } = {};
-  try { script = JSON.parse(scriptRows[0]?.data || '{}'); } catch { script = {}; }
+  try { script = JSON.parse(pickScriptAsset(scriptRows).row?.data || '{}'); } catch { script = {}; }
   const shots: ScriptShot[] = Array.isArray(script.shots) ? script.shots : [];
 
   // 质量信号 → 模板质量分

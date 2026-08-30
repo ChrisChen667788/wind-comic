@@ -13,6 +13,7 @@
  * Auth: 与 vision-audit GET 一致 (只读公开),不强制登录。
  */
 import { getProjectAudits, aggregateFilmAudit } from '@/lib/vision-audit';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { getLatestQualityScore } from '@/lib/quality-scores';
 import { evaluateQualityGate } from '@/lib/quality-gate';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
@@ -40,7 +41,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const scriptRows = await listAssetsByType(id, 'script');
     let script: { shots?: ScriptShot[] } = {};
-    try { script = JSON.parse(scriptRows[0]?.data || '{}'); } catch { script = {}; }
+    try { script = JSON.parse(pickScriptAsset(scriptRows).row?.data || '{}'); } catch { script = {}; }
     const shots: ScriptShot[] = Array.isArray(script.shots) ? script.shots : [];
     const plan = buildLipSyncPlan(dialogueLinesFromShots(shots));
     lipSync = { lines: plan.lines, readiness: plan.readiness, level: plan.level };

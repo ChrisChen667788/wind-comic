@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { buildAAF } from '@/lib/aaf-export';
 import { type EdlShot, type EdlAudio } from '@/lib/edl-export';
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const scriptRows = await listAssetsByType(projectId, 'script');
   let script: any = {};
-  try { script = JSON.parse(scriptRows[0]?.data || '{}'); } catch { script = {}; }
+  try { script = JSON.parse(pickScriptAsset(scriptRows).row?.data || '{}'); } catch { script = {}; }
   const shotsData: any[] = Array.isArray(script.shots) ? script.shots : [];
   if (!shotsData.length) return NextResponse.json({ error: '剧本/分镜尚未生成' }, { status: 404 });
 

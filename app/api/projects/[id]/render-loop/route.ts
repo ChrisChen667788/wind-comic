@@ -10,6 +10,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { pickScriptAsset } from '@/lib/script-asset';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { createSSEResponse } from '@/lib/sse';
 import {
@@ -25,7 +26,7 @@ export const dynamic = 'force-dynamic';
 async function snapshot(projectId: string) {
   const scriptRows = await listAssetsByType(projectId, 'script');
   let script: any = {};
-  try { script = JSON.parse(scriptRows[0]?.data || '{}'); } catch { script = {}; }
+  try { script = JSON.parse(pickScriptAsset(scriptRows).row?.data || '{}'); } catch { script = {}; }
   const shots: ShotLike[] = Array.isArray(script.shots) ? script.shots : [];
   const [videoAssets, storyboardAssets] = await Promise.all([
     listAssetsByType(projectId, 'video') as Promise<AssetLike[]>,
