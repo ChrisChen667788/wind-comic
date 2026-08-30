@@ -14,6 +14,7 @@
  */
 
 import fs from 'fs';
+import { shouldRefuseSweep } from './cleanup-guard';
 import path from 'path';
 import crypto from 'crypto';
 import { getStorageDriver, LOCAL_STORAGE_ROOT } from './storage';
@@ -376,22 +377,40 @@ export function cleanup(opts?: { maxAgeDays?: number; dryRun?: boolean }): {
 
   let removed = 0, skippedReferenced = 0, freed = 0;
   try {
+    // v12.399:先**统计**一遍再决定删不删 —— 与 cleanup-media 的 sweepDir 同一道防线。
+    // 边走边删的话,等发现「一个文件都没被引用」时,前面的已经删掉了。
+    const tally = { total: 0, referenced: 0 };
+    const doomed: Array<{ path: string; size: number }> = [];
     for (const f of fs.readdirSync(STORAGE_ROOT)) {
       const p = path.join(STORAGE_ROOT, f);
       let stat: fs.Stats;
       try { stat = fs.statSync(p); } catch { continue; }
       if (!stat.isFile()) continue;
+      tally.total++;
       // v12.343:必须与 resolveByKey 的**前缀匹配**同语义。原来这里用「去扩展名」,
       // 对 `<key>png`(缺点)反推出 `<key>png` ≠ 引用表里的 `<key>` → 误判孤儿。
       // 存量坏文件也靠这行保住(源头修了,但已落盘的还在)。
       const m = f.match(/^([a-f0-9]{16,64})/i);
       const key = m ? m[1] : f.replace(/\.[^.]*$/, '');
-      if (referenced.has(key)) { skippedReferenced++; continue; }   // 被引用 → 永不删
+      if (referenced.has(key)) { tally.referenced++; continue; }   // 被引用 → 永不删
       if (stat.mtimeMs >= cutoff) continue;
-      if (!opts?.dryRun) fs.unlinkSync(p);
-      freed += stat.size;
+      doomed.push({ path: p, size: stat.size });
+    }
+
+    // v12.399:这条 storage 路径此前**没有**这道自检 —— v12.398 只给 sweepDir 加了。
+    // 而它管着 160 个素材文件,同一个病要犯第二次的话就是它。
+    const verdict = shouldRefuseSweep(tally, 'storage/assets');
+    if (verdict.refuse) {
+      console.error(`[storage-cleanup] ${verdict.reason}`);
+      return { removed: 0, skippedReferenced: 0, freedMB: 0, aborted: 'refused-nothing-referenced' };
+    }
+
+    for (const d of doomed) {
+      if (!opts?.dryRun) fs.unlinkSync(d.path);
+      freed += d.size;
       removed++;
     }
+    skippedReferenced = tally.referenced;
   } catch (e) {
     console.warn('[storage-cleanup] 遍历中断:', e instanceof Error ? e.message : e);
   }
