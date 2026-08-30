@@ -95,6 +95,27 @@ jobs:
       - name: Version hash provenance (变更日志可溯源)
         run: npm run check:version-hashes
 
+      # v12.389:下面两道是 v12.378 / v12.382 建的,此前**只在本地 preflight 里跑** ——
+      # 而 preflight 的结语写的是「与 CI Security job 同步」。那句话当时就是不准的:
+      # 本地 8 步、CI 只有 4 步。真忘了跑 preflight 就推,CI 照样绿,门禁等于没有。
+      # 两道都是纯静态扫描(只读源码、不依赖本地环境),没有任何理由不进 CI。
+      - name: Anchor gate (indexOf 锚点须唯一且存在)
+        run: node scripts/anchor-gate.mjs
+
+      - name: Paid endpoint gate (会花钱的路由须鉴权)
+        run: node scripts/paid-endpoint-gate.mjs
+
+      # v12.389:元门禁 —— preflight 里标着「CI 会跑」的步骤,必须真的出现在本文件里。
+      # 不加这条的话,下次再新建门禁又会悄悄只留在本地,而 preflight 依旧宣称「已同步」。
+      # v12.390:三类假绿检测(零断言 / 悬空断言 / 否定式断言没有窗口自证)。
+      # v12.326 建它时注释只写了「CI 尚未纳入」,没说为什么不能进 —— 它是纯 TS AST
+      # 静态分析,读的就是仓库里的测试文件,进 CI 没有任何障碍。
+      - name: Fake-green gate (测试自己不能是摆设)
+        run: node scripts/fake-green-gate.mjs
+
+      - name: Preflight/CI parity (别再自称同步却没同步)
+        run: node scripts/preflight-parity.mjs
+
   e2e:
     name: E2E smoke (Playwright)
     runs-on: ubuntu-latest
