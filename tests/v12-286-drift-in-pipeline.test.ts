@@ -91,7 +91,10 @@ describe('v12.286 · 主管线接线', () => {
     expect(block).toMatch(/不自动重生/);
     expect(block).toMatch(/成本与失控风险/);
     // 也不该偷偷调重生
-    const seg = SRC.slice(i, SRC.indexOf('return rendered;', i));
+    const _segEnd = SRC.indexOf('return rendered;', i);
+    expect(_segEnd, '找不到窗口右界,slice(i, -1) 切出来的不是想验的东西').toBeGreaterThan(i);
+    const seg = SRC.slice(i, _segEnd);
+    expect(seg, '窗口自证').toContain('漂移');
     expect(seg).not.toMatch(/regenerateShot\(|regenerate\(/);
   });
 });

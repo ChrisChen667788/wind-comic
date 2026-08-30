@@ -174,7 +174,11 @@ describe('v12.328 · 本地读盘必须走验签入口(消费方门禁当场拦�
 
   it('解析不出就返回 null,不退化成「当作裸路径」', () => {
     const i = ROUTE.indexOf('async function shotVideoPath');
-    const block = ROUTE.slice(i, ROUTE.indexOf('export async function GET'));
+    const _end = ROUTE.indexOf('export async function GET');
+    expect(i, '找不到 shotVideoPath').toBeGreaterThan(0);
+    expect(_end, '窗口右界在左界之前').toBeGreaterThan(i);
+    const block = ROUTE.slice(i, _end);
+    expect(block, '窗口自证').toContain('shotVideoPath');
     expect(block, '兜底不能把任意字符串当路径用').not.toMatch(/return url/);
   });
 

@@ -121,7 +121,10 @@ describe('v12.309 · 接线', () => {
   it('runShot 内不得直接改共享数组(那会让顺序随网络抖动而变)', () => {
     const i = SRC.indexOf('const runShot = async');
     const j = SRC.indexOf('await Promise.all(', i);
+    expect(i, '找不到 runShot').toBeGreaterThan(0);
+    expect(j, '窗口右界在左界之前 —— 切出来是空串,下面三条 not.* 会全部静默通过').toBeGreaterThan(i);
     const body = SRC.slice(i, j);
+    expect(body, '窗口自证').toContain('runShot');
     expect(body, 'runShot 内不该 push voiceoverClips').not.toContain('voiceoverClips.push');
     expect(body, 'runShot 内不该 push audioWarnings').not.toContain('audioWarnings.push');
     expect(body, 'emit 也要缓冲,否则聊天记录顺序随机').not.toContain("ctx.emit('agentTalk'");

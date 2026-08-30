@@ -53,7 +53,10 @@ describe('v12.367 每日驱动:降级而不是停机', () => {
 
   it('降级后跑的是图像三步,不含 videos', () => {
     expect(DAILY).toContain('--only=chars,scenes,boards');
-    const win = DAILY.slice(DAILY.indexOf('VIDEO_BUDGET_LEFT" -eq 1'));
+    const _at = DAILY.indexOf('VIDEO_BUDGET_LEFT" -eq 1');
+    expect(_at, '找不到额度分支').toBeGreaterThan(0);
+    const win = DAILY.slice(_at);
+    expect(win, '窗口自证').toContain('--only=');
     expect(win).not.toMatch(/--only=[a-z,]*videos/);
   });
 

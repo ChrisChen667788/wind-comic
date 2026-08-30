@@ -291,7 +291,9 @@ describe('v12.316 · **接线**:造好没接线是这个仓最顽固的病(本�
 
   it('有问题也存 —— 出画/遮挡有时是故意的(与 v12.294「只报不拦」同一取舍)', () => {
     const i = ROUTE.indexOf('await saveStageScene');
+    expect(i, '找不到 saveStageScene 调用点').toBeGreaterThan(0);
     const before = ROUTE.slice(Math.max(0, i - 300), i);
+    expect(before.length, '窗口为空,下面那条 not.* 会静默通过').toBeGreaterThan(0);
     expect(before, '不该因为体检有问题就拒存').not.toMatch(/issues\.length[^\n]*return/);
   });
 

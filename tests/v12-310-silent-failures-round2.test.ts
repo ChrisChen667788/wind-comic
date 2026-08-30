@@ -79,7 +79,11 @@ describe('v12.310 · ② 少了镜头必须说出来', () => {
     const i = COMP.indexOf('const skippedShots: number[]');
     // 窗口要在 `if (localClips.length === 0)` **之前**收住 —— 那之后是「全失败才抛」的老行为,
     // 框进来会让断言误红(第一次写就栽在这)。
-    const block = COMP.slice(i, COMP.indexOf('if (localClips.length === 0)', i));
+    const _end = COMP.indexOf('if (localClips.length === 0)', i);
+    expect(i).toBeGreaterThan(0);
+    expect(_end, '窗口右界找不到').toBeGreaterThan(i);
+    const block = COMP.slice(i, _end);
+    expect(block, '窗口自证').toContain('skippedShots');
     expect(block).not.toMatch(/throw new Error/);
   });
 

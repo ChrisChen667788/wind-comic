@@ -48,6 +48,8 @@ describe('v12.278 · ① 审计结果必须随 script 落库', () => {
     expect(i, 'updateAsset 应仍是 Zustand set').toBeGreaterThan(0);
     // 它附近不该出现服务端写入 —— 若哪天改成落库,这条会提醒重新评估本版修法
     const near = store.slice(i, i + 400);
+    // v12.390:否定式断言前先自证窗口 —— 切歪时 not.toMatch 必然通过
+    expect(near, '窗口没切到 updateAsset').toContain('updateAsset');
     expect(near).not.toMatch(/fetch\(|await\s+api|axios/);
   });
 });

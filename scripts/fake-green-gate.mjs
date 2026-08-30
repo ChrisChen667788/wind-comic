@@ -49,7 +49,7 @@ const files = [];
   }
 })(ROOT);
 
-const findings = { zero: [], dangling: [] };
+const findings = { zero: [], dangling: [], unwitnessed: [] };
 
 for (const file of files) {
   const src = ts.createSourceFile(file, fs.readFileSync(file, 'utf-8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -67,16 +67,61 @@ for (const file of files) {
         const body = node.arguments[1];
         if (body && (ts.isArrowFunction(body) || ts.isFunctionExpression(body)) && body.body) {
           let hasExpect = false;
+          // v12.390:第三类假绿 —— 「否定式断言 + 没有自证的窗口」。
+          //   sliced   本 it 内由 .slice()/.substring() 得来的变量名
+          //   negated  被 expect(V).not.xxx 断言过的变量名 → 行号
+          //   positive 被 expect(V).<非 not matcher> 断言过的变量名
+          const sliced = new Set();
+          const negated = new Map();
+          const positive = new Set();
           const scan = (n) => {
+            if (ts.isVariableDeclaration(n) && n.name && ts.isIdentifier(n.name) && n.initializer) {
+              const init = n.initializer.getText(src);
+              if (/\.(slice|substring|substr)\s*\(/.test(init)) sliced.add(n.name.text);
+            }
             if (ts.isCallExpression(n)) {
               const f = n.expression;
               const root = ts.isIdentifier(f) ? f.text
                 : ts.isPropertyAccessExpression(f) ? rootIdent(f) : '';
               if (root === 'expect') hasExpect = true;
+
+              if (ts.isPropertyAccessExpression(f)) {
+                let inner = f.expression;
+                let isNot = false;
+                if (ts.isPropertyAccessExpression(inner) && inner.name.text === 'not') {
+                  isNot = true;
+                  inner = inner.expression;
+                }
+                if (ts.isCallExpression(inner) && ts.isIdentifier(inner.expression)
+                    && inner.expression.text === 'expect' && inner.arguments.length) {
+                  const a0 = inner.arguments[0];
+                  if (isNot) {
+                    // 否定侧只认**裸变量**:expect(V).not.xxx —— 那才是会静默通过的形态
+                    if (ts.isIdentifier(a0) && !negated.has(a0.text)) negated.set(a0.text, lineOf(n));
+                  } else {
+                    // 正向侧放宽到**根标识符**:expect(V.length).toBeGreaterThan(0)、
+                    // expect(V.trim()).toContain(...) 都已经自证了窗口切到了东西。
+                    // 判得太死会逼人补一条没意义的断言去哄门禁 —— 那本身就是新的假绿。
+                    if (ts.isIdentifier(a0)) positive.add(a0.text);
+                    else if (ts.isPropertyAccessExpression(a0) || ts.isCallExpression(a0)) {
+                      const r = rootIdent(a0);
+                      if (r) positive.add(r);
+                    }
+                  }
+                }
+              }
             }
             ts.forEachChild(n, scan);
           };
           ts.forEachChild(body.body, scan);
+
+          for (const [v, ln] of negated) {
+            if (sliced.has(v) && !positive.has(v)) {
+              findings.unwitnessed.push(
+                `${file}:${ln}  「${title}」 对切片变量 ${v} 只有 not.* 断言,没有正向断言自证窗口切对了`,
+              );
+            }
+          }
 
           const key = `${file} :: ${title}`;
           const allowed = Object.keys(ALLOW).some((k) => key.startsWith(k) && ALLOW[k]);
@@ -102,7 +147,7 @@ function rootIdent(pa) {
   return ts.isIdentifier(e) ? e.text : '';
 }
 
-const total = findings.zero.length + findings.dangling.length;
+const total = findings.zero.length + findings.dangling.length + findings.unwitnessed.length;
 const show = (label, arr) => {
   if (!arr.length) { console.log(`✅ ${label}: 0`); return; }
   console.log(`❌ ${label}: ${arr.length}`);
@@ -111,6 +156,7 @@ const show = (label, arr) => {
 console.log(`扫描 ${files.length} 个测试文件(根目录: ${ROOT})\n`);
 show('零断言(跑了等于没跑)', findings.zero);
 show('悬空断言(永远不会失败)', findings.dangling);
+show('否定式断言没有窗口自证(切错窗口会静默通过)', findings.unwitnessed);
 
 if (total > 0) {
   console.error(`\n❌ fake-green: ${total} 处。测试是门禁,门禁自己不能是摆设。`);

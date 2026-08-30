@@ -43,7 +43,10 @@ describe('v12.340 · 三条规矩写进了脚本,不是写进注意事项', () =
   });
 
   it('**默认不带 --sync** —— 它会删远端独有文件', () => {
-    const up = SRC.slice(SRC.indexOf("sh('modelscope', ['upload', REPO, '.'"), SRC.indexOf("sh('modelscope', ['upload', REPO, '.'") + 200);
+    const _at = SRC.indexOf("sh('modelscope', ['upload', REPO, '.'");
+    expect(_at, '找不到上传命令').toBeGreaterThan(0);
+    const up = SRC.slice(_at, _at + 200);
+    expect(up, '窗口自证').toContain('upload');
     expect(up, '默认上传命令里不该有 --sync').not.toContain('--sync');
     expect(SRC, '要提供只读预览删除清单的方式').toContain('--preview-deletes');
   });
