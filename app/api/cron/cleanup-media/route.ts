@@ -35,10 +35,35 @@ function referencedBasenames(): Set<string> | null {
        WHERE persistent_url IS NOT NULL OR media_urls IS NOT NULL`,
     ).all() as Array<{ persistent_url?: string; media_urls?: string }>;
     const names = new Set<string>();
+    const RE = /([A-Za-z0-9._-]+\.(?:mp4|mov|webm|png|jpe?g|webp|mp3|wav|m4a|srt|edl|xml|aaf))/g;
     for (const r of rows) {
-      for (const blob of [r.persistent_url || '', r.media_urls || '']) {
-        for (const m of blob.matchAll(/([A-Za-z0-9._-]+\.(?:mp4|mov|webm|png|jpe?g|webp|mp3|wav|m4a|srt|edl|xml|aaf))/g)) {
-          names.add(m[1]);
+      for (const raw of [r.persistent_url || '', r.media_urls || '']) {
+        if (!raw) continue;
+        // v12.394:**先解码再抽文件名**。
+        //
+        // DB 里的成片 URL 是 serveFilePathUrl() 用 encodeURIComponent 生成的:
+        //   /api/serve-file?path=%2FUsers%2F…%2Fcomposed%2Ffinal-1788071173502.mp4&sig=…
+        // 而上面那个字符类不含 `%`,匹配从 `2F` 起步,抽出来的是
+        // **「2Ffinal-1788071173502.mp4」**;而 sweepDir 比对的是磁盘上的真名
+        // 「final-1788071173502.mp4」—— `referenced.has(f)` 于是**恒为 false**。
+        //
+        // `referenced.has()` 是这段清理逻辑**唯一**的保护(其余只有 mtime 阈值),
+        // 保护恒假 = 所有被引用的成片在 7 天后照删不误。实测:composed 目录 16 个成片,
+        // 修复前受保护 **0 个**;库里有 124 条这种 URL 编码形态的资产。
+        // owner 那次「30 个项目 534 个素材被清空」,机制就在这里。
+        //
+        // 解码串与原串**都**扫一遍:没编码的 URL 解码后不变(只扫一次),
+        // 而多扫一遍原串能兜住「解码失败」「双重编码」这类边角 —— 引用集只会变大,
+        // 而这个集合是**保护名单**,宁可多留不该多删。
+        let decoded = raw;
+        try {
+          decoded = decodeURIComponent(raw);
+        } catch {
+          // 非法转义(如孤立的 %)会抛 —— 保持原串,至少不比以前差
+        }
+        for (const blob of decoded === raw ? [raw] : [raw, decoded]) {
+          RE.lastIndex = 0;
+          for (const m of blob.matchAll(RE)) names.add(m[1]);
         }
       }
     }
