@@ -1,5 +1,6 @@
 import { filterReachable, isMediaReachable } from '@/lib/media-reachable';
 import { pickShotVoice, isKnownVoiceId } from '@/lib/shot-voice';
+import { deriveProsody } from '@/lib/tts-prosody';
 import { pickScriptAsset } from '@/lib/script-asset';
 import { NextResponse } from 'next/server';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
@@ -64,8 +65,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   scriptFellBackFrom = scriptPick.fellBack ? scriptPick.requested : null;
   const scriptShots: any[] = parse(scriptPick.row?.data ?? null)?.shots || [];
-  const dlg = new Map<number, { dialogue?: string; transition?: string; duration?: number; speaker?: string; characters?: unknown }>();
-  for (const s of scriptShots) dlg.set(s.shotNumber, { dialogue: s.dialogue, transition: s.transition, duration: s.duration, speaker: s.speaker, characters: s.characters });
+  const dlg = new Map<number, { dialogue?: string; transition?: string; duration?: number; speaker?: string; characters?: unknown; emotion?: string; emotionTemperature?: number }>();
+  for (const s of scriptShots) dlg.set(s.shotNumber, { dialogue: s.dialogue, transition: s.transition, duration: s.duration, speaker: s.speaker, characters: s.characters, emotion: s.emotion, emotionTemperature: s.emotionTemperature });
 
   const clips = videoAssets
     .map((v) => {
@@ -80,6 +81,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         dialogue: sc.dialogue || '',
         speaker: sc.speaker,          // v12.374:配音重生要知道谁在说
         characters: sc.characters,
+        emotion: sc.emotion,                 // v12.400:韵律按情绪推,得先把情绪带过来
+        emotionTemperature: sc.emotionTemperature,
       };
     })
     .filter((c) => c.videoUrl && (!keepShots || keepShots.includes(c.shotNumber)) && !dropShots.has(c.shotNumber))
@@ -208,7 +211,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const ttsLang = ttsLangCode(normalizeLanguage(String(body?.language || 'zh'), line));
         // v12.374:走和主管线同一套选路。原来写死的 'female-zh' 不在 VOICE_CATALOG 内,
         // MiniMax 直接回 2054 voice id not exist —— 这条重生路径至今一次都没成过。
-        const d = await dispatchTTSGenerate({ text: line, voiceId, language: ttsLang });
+        // v12.400:韵律也要带上。主路径 shot-audio 会按情绪推导语速/音高
+        // (deriveProsody,v2.9 起;v12.274 还逐档配过),而本路由**一个都不传** ——
+        // 同一句台词走重合成出来就是平读:该急的地方不急,该沉的地方不沉。
+        // 这是 twin-path-scan 当场扫出来的:dispatchTTSGenerate 有 8 处调用、
+        // 7 种传参形态,而 shot-audio 与 voice-retake 都传 speed/pitch,只有这里没有。
+        const prosody = deriveProsody({ emotion: c.emotion, emotionTemperature: c.emotionTemperature });
+        const d = await dispatchTTSGenerate({
+          text: line, voiceId, language: ttsLang,
+          speed: prosody.speed, pitch: prosody.pitch,
+        });
         if (d.result?.audioUrl) {
           voiceoverClips.push({ shotNumber: c.shotNumber, audioUrl: d.result.audioUrl });
         } else {
