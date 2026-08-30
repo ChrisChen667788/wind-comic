@@ -31,8 +31,19 @@ vi.mock('@/lib/plan-gate', async (orig) => {
   return { ...actual, checkPlan: vi.fn(() => ({ ok: true, current: 'pro', required: 'pro', userId: 'u' })) };
 });
 
+// v12.382:basic 模式此前**完全没有鉴权** —— checkPlan 只在 mode==='pro' 时才调,
+// 而它的注释明说「未登录用户当 free」:不 401、只降级。于是裸 curl 提交 32000 字剧本
+// 就能用 owner 的 key 调 creative LLM。现在入口先过 guardPaidEndpoint。
+// 这里默认放行,代表**已登录的免费用户** —— 本文件绝大多数用例测的是那个身份;
+// 「未登录该被挡下」单独一条用例覆盖。注意区分:免费用户 ≠ 未登录用户。
+vi.mock('@/lib/paid-endpoint-guard', () => ({
+  guardPaidEndpoint: vi.fn(async () => ({ ok: true, userId: 'u' })),
+}));
+
 // 真正 import route handler (依赖 mock 已生效)
 import { POST } from '@/app/api/polish-script/route';
+import { guardPaidEndpoint } from '@/lib/paid-endpoint-guard';
+const mockPaidGuard = guardPaidEndpoint as unknown as ReturnType<typeof vi.fn>;
 import { checkPlan } from '@/lib/plan-gate';
 const mockCheckPlan = checkPlan as unknown as ReturnType<typeof vi.fn>;
 
@@ -81,6 +92,32 @@ afterEach(() => {
 // ──────────────────────────────────────────────────
 // 输入校验
 // ──────────────────────────────────────────────────
+describe('POST /api/polish-script · 鉴权(v12.382)', () => {
+  it('未登录 → 401,且**不打 LLM**(先扣钱再鉴权等于没鉴权)', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    mockPaidGuard.mockResolvedValueOnce({
+      ok: false,
+      response: new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 }),
+    });
+    const res = await POST(mkReq({ script: '一段够长的剧本内容,用来触发正常流程。' }) as any);
+    expect(res.status).toBe(401);
+    expect(fetchSpy, '鉴权失败还去打 LLM = owner 照样被扣钱').not.toHaveBeenCalled();
+    mockPaidGuard.mockResolvedValue({ ok: true, userId: 'u' });
+  });
+
+  it('已登录的免费用户 basic 模式照常出稿 —— 免费用户 ≠ 未登录用户', async () => {
+    // 这条是 v12.2.9 起就有的意图,本版加鉴权时必须保住:
+    // 守卫要的是「登录」,不是「付费 plan」。
+    mockCheckPlan.mockReturnValueOnce({ ok: false, current: 'free', required: 'pro', userId: 'u' } as any);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ polished: '润过的稿', summary: 's', notes: [] }) } }],
+    }), { status: 200 })));
+    const res = await POST(mkReq({ script: '一段够长的剧本内容,用来触发正常流程。' }) as any);
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('POST /api/polish-script · 输入校验', () => {
   it('缺 script → 400', async () => {
     const res = await POST(mkReq({}) as any);

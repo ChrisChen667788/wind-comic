@@ -29,6 +29,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { guardPaidEndpoint } from '@/lib/paid-endpoint-guard';
 import { API_CONFIG } from '@/lib/config';
 import { robustJsonParse, stripJsonWrapper } from '@/lib/polish-json';
 import { buildPolishPrompt, type PolishMode } from '@/lib/polish-prompts';
@@ -38,6 +39,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  // v12.382:basic 模式此前**完全绕过鉴权**。checkPlan 只在 mode==='pro' 时才调,
+  // 而它的注释明说「未登录用户当 free」—— 不 401、只降级。于是裸 curl 提交
+  // 32000 字剧本就能用 owner 的 key 调 creative LLM,费用记在他账上,
+  // 而且没有登录态 → cost-log 一条记录都写不下,事后连「谁花的」都查不到。
+  const _paid = await guardPaidEndpoint(request, { pendingCostCny: 0.2 });
+  if (!_paid.ok) return Response.json({ error: '需要登录' }, { status: _paid.response.status });
   let body: any = {};
   try { body = await request.json(); } catch {}
 

@@ -6,6 +6,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { guardPaidEndpoint } from '@/lib/paid-endpoint-guard';
 import { API_CONFIG } from '@/lib/config';
 import { callLLMWithFallback } from '@/lib/llm-client';
 
@@ -14,6 +15,13 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
+  // v12.382:付费端点必须先过守卫(鉴权 + 预算)。此前**完全没有鉴权** ——
+  // 裸 curl 就能用 owner 的 key 去调 creative LLM,费用全记在他账上,
+  // 而且因为没有登录态,cost-log 连一条记录都写不下,发现时只剩「余额怎么没了」。
+  // 同类端点(narration/synthesize、cameo/preview、character-traits/from-face)早就加了,
+  // 这几个是漏网的。
+  const _paid = await guardPaidEndpoint(request, { pendingCostCny: 0.2 });
+  if (!_paid.ok) return _paid.response;
   let body: any = {};
   try { body = await request.json(); } catch { /* swallow */ }
 
