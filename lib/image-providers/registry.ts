@@ -97,6 +97,43 @@ export async function dispatchImageGenerate(
       tried.push({ id: p.id, error: _msg });
     }
   }
+
+  // ── v12.397:主轮全失败后,允许「丢掉参考图」再试一轮 ────────────────────
+  //
+  // owner 的重跑日志里,场景图三个 provider 全挂:
+  //   Minimax multi-ref needs at least 1 ref | flux-2-pro 401 Token quota exhausted | MJ submit failed
+  // 而第四个 provider `minimax-single`(纯 T2I)**一次都没被试过** ——
+  // 它的 `maxRefImages: 0`,而 selectProviders 判「refCount > maxRefImages → 排除」,
+  // 于是只要传了任何参考图(哪怕只是风格锚),它就永远出不了场。
+  //
+  // 结果是「宁可一张图都没有,也不肯出一张没有风格锚的图」。
+  // 而对场景图来说参考图是**加分项**不是必需品:有当然更好,
+  // 没有也总比整个项目卡在这里强。
+  //
+  // 两条边界:
+  //   · 只在**主轮全失败**之后才走,不抢正常路径,也不改变正常情况下的选路顺序;
+  //   · **必须如实标注 refsIgnored** —— 静默降级正是这一系列一直在消灭的东西,
+  //     调用方得知道这张图为什么和同项目的其它图不一致。
+  if (selection.refCount > 0) {
+    const noRefChain = selectProviders({ ...selection, refCount: 0 }).filter(
+      (p) => !chain.some((c) => c.id === p.id),
+    );
+    for (const p of noRefChain) {
+      try {
+        const r = await p.generate({ ...input, referenceImages: [], cref: undefined, sref: undefined });
+        if (r && r.imageUrl && (r.imageUrl.startsWith('http') || r.imageUrl.startsWith('data:'))) {
+          console.warn(`[ImageProviders] 主轮全失败,已用 ${p.id} 无参考图出图 —— 这张没有风格锚`);
+          return { result: { ...r, refsIgnored: true }, tried };
+        }
+        tried.push({ id: `${p.id}(no-ref)`, error: 'provider returned empty/invalid imageUrl' });
+      } catch (e) {
+        const _msg = e instanceof Error ? e.message : String(e);
+        markProviderDownIfFatal(p.id, _msg);
+        tried.push({ id: `${p.id}(no-ref)`, error: _msg });
+      }
+    }
+  }
+
   return { result: null, tried };
 }
 

@@ -102,7 +102,8 @@ async function tryImagePlugin(input: ImageGenerateInput): Promise<PluginAttempt<
     const reasons = r.tried.map((t) => t.error).join(' | ').slice(0, 60);
     throw new Error(`image plugin chain empty / all-failed: ${reasons || 'no providers'}`);
   }
-  return { value: r.result.imageUrl, provider: r.result.provider };
+  // v12.397:降级标记要透出插件链边界,否则标了也没人看得见
+  return { value: r.result.imageUrl, provider: r.result.provider + (r.result.refsIgnored ? '(no-ref)' : '') };
 }
 
 /** registry 里的**内置** provider id —— 它们只是老引擎的 adapter,不算「用户新接的」。 */

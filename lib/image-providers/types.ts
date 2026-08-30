@@ -71,6 +71,12 @@ export interface ImageGenerateResult {
   upstreamId?: string;
   /** 可选: 上游服务的 cost (¥), 用于 cost_log */
   estCostCny?: number;
+  /**
+   * v12.397:这张图是**丢掉参考图**生成的 —— 只有在主轮所有支持参考图的 provider
+   * 都失败之后才会走到那一轮。必须让调用方知道:它没有风格锚 / 角色锁,
+   * 和同项目的其它图会不一致。静默降级正是本系列一直在消灭的东西。
+   */
+  refsIgnored?: boolean;
 }
 
 export interface ImageProvider {

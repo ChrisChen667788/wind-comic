@@ -72,7 +72,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // 持久化 + 更新该资产(只换图,data 保留)
   const persisted = await persistAsset(gen.result.imageUrl, { ext: '.png' }).catch(() => null);
   const finalUrl = persisted?.url || gen.result.imageUrl;
-  await upsertAsset({ projectId: id, type, name, data: adata, mediaUrls: [finalUrl], persistentUrl: persisted?.url || null });
+  // v12.397:如果这张是**丢掉参考图**出的(主轮所有支持 ref 的 provider 都挂了),
+  // 必须记进资产、也必须告诉调用方 —— 它没有风格锚,和同项目其它图不是一套。
+  // 只把 URL 存下来、不说它是怎么来的,就是又一次静默降级。
+  const refsIgnored = gen.result.refsIgnored === true;
+  await upsertAsset({
+    projectId: id, type, name,
+    data: refsIgnored ? { ...adata, refsIgnored: true } : adata,
+    mediaUrls: [finalUrl], persistentUrl: persisted?.url || null,
+  });
 
-  return NextResponse.json({ ok: true, imageUrl: finalUrl });
+  return NextResponse.json({ ok: true, imageUrl: finalUrl, ...(refsIgnored ? { refsIgnored: true } : {}) });
 }

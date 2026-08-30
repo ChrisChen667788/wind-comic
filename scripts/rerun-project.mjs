@@ -140,6 +140,8 @@ if (STEPS.has('chars')) {
       method: 'POST', headers: H, body: JSON.stringify({ type: 'character', name: r.name }),
     });
     const j = await res.json().catch(() => ({}));
+    // v12.397:无参考图降级要显示出来 —— 图出来了,但没有风格锚,和同项目其它图不是一套
+    if (res.ok && j.refsIgnored) console.log(`  ⚠️ 角色 ${r.name} —— 主轮全失败,这张是**无参考图**出的(没有风格锚)`);
     log('角色', r.name, res.ok && j.imageUrl ? { ok: true } : { ok: false, error: j.error || `HTTP ${res.status}` }, Date.now() - t);
   }
 }
@@ -158,6 +160,8 @@ if (STEPS.has('scenes')) {
       method: 'POST', headers: H, body: JSON.stringify({ type: 'scene', name: r.name }),
     });
     const j = await res.json().catch(() => ({}));
+    // v12.397:无参考图降级要显示出来 —— 图出来了,但没有风格锚,和同项目其它图不是一套
+    if (res.ok && j.refsIgnored) console.log(`  ⚠️ 场景 ${r.name} —— 主轮全失败,这张是**无参考图**出的(没有风格锚)`);
     log('场景', r.name, res.ok && j.imageUrl ? { ok: true } : { ok: false, error: j.error || `HTTP ${res.status}` }, Date.now() - t);
   }
 }
