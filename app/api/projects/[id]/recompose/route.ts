@@ -1,5 +1,5 @@
 import { filterReachable, isMediaReachable } from '@/lib/media-reachable';
-import { pickShotVoice } from '@/lib/shot-voice';
+import { pickShotVoice, isKnownVoiceId } from '@/lib/shot-voice';
 import { pickScriptAsset } from '@/lib/script-asset';
 import { NextResponse } from 'next/server';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
@@ -165,6 +165,35 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       // 音色表是增强项,拿不到就退回按名解析,不该让整条重生链失败
       console.warn('[recompose] 取角色音色表失败,退回按名解析:', e instanceof Error ? e.message : e);
     }
+
+    // v12.387:**用户手动指定的音色优先于自动分配**。
+    // 主路径 shot-audio 的优先级链是 force > overrides > routing > default
+    // (`effectiveVoice`,v9.7.7 起),而本路由只读 cast、**完全不读 voice-overrides** ——
+    // owner 在 Character Studio 把某个角色的嗓子调好了,一走重合成/本地化/广告工作台
+    // 触发的配音重生,他设的音色就被自动分配顶掉,而且没有任何提示。
+    //
+    // 这里不改 pickShotVoice 的签名:overrides 的优先级本来就在 cast 之上,
+    // 直接盖进同一张表即可,语义完全一致。改的是内存里的 Map,
+    // 不会把 overrides 写回持久化的 voice-cast(那会让「手动」和「自动」混成一团)。
+    let overrideCount = 0;
+    try {
+      const ovRows = await listAssetsByType(id, 'voice-overrides');
+      const overrides: Record<string, string> = JSON.parse(ovRows[0]?.data || '{}')?.overrides || {};
+      const entries = Object.entries(overrides);
+      if (entries.length) {
+        if (!cast) cast = new Map<string, string>();
+        for (const [name, voice] of entries) {
+          // overrides 是持久化数据,也可能躺着历史脏值 —— 同 v12.375 的理由,取出来仍要过目录校验
+          if (typeof voice === 'string' && isKnownVoiceId(voice)) {
+            cast.set(String(name).trim(), voice);
+            overrideCount++;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[recompose] 读手动音色覆盖失败,本次用自动分配:', e instanceof Error ? e.message : e);
+    }
+    if (overrideCount) console.log(`[recompose] 应用了 ${overrideCount} 条手动音色覆盖`);
     const { dispatchTTSGenerate } = await import('@/lib/tts-providers/registry');
     const { ttsLangCode } = await import('@/lib/language-detect');
     for (const c of clips) {
