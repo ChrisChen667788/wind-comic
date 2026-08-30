@@ -13,6 +13,40 @@ export const dynamic = 'force-dynamic';
  *   - shotNumber: 重新生成某个镜头视频
  *   - stage: 'video' | 'editor' | 'storyboard' 等，重新执行某个阶段
  */
+/**
+ * v12.385:重生出来的视频**必须落盘**,再把持久 URL 一起写进资产。
+ *
+ * 项目级路由 `app/api/projects/[id]/regenerate-shot` 在 v12.343 就这么做了,
+ * 而**本文件(顶层路由)一直没跟上** —— 它才是最高频的重生入口:
+ * video-node / editor-node / review-node / pull-sheet-table 点「重生此镜」
+ * 走的都是这里。
+ *
+ * 后果:DB 里 media_urls 存的是引擎的 CDN 外链、persistent_url 是 null。
+ * 那种链接三五天就 403。owner 花了真金白银重生一镜、看到「完成」,
+ * 几天后视频消失;而下一次 recompose 的 fullUrl() 取的正是 media_urls[0],
+ * 于是自动重合成静默地拿到一条死链。
+ *
+ * 落盘失败不阻塞(至少把外链存下来还能救几天),但要留下痕迹。
+ */
+async function persistRegenerated(videoUrl: string): Promise<{ url: string } | null> {
+  try {
+    const { persistAsset } = await import('@/lib/asset-storage');
+    const p = await persistAsset(videoUrl).catch(() => null);
+    if (!p?.url) {
+      console.warn(`[Regenerate] 落盘失败,回退外链(会过期):${String(videoUrl).slice(0, 80)}`);
+      return null;
+    }
+    // 刻意返回**对象**而不是裸字符串:调用处于是能写成 `_saved?.url ?? null`,
+    // 落进 v12.347 门禁认可的安全形态 —— 那道门禁要求 persistentUrl 的赋值
+    // 一眼能看出「这是落盘结果,不是外链」。第一版我返回 string,门禁当场拦下,
+    // 拦得对:函数名叫 persistRegenerated 是我知道,门禁只看得见形态。
+    return { url: p.url };
+  } catch (e) {
+    console.warn('[Regenerate] 落盘异常:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const { projectId, shotNumber, stage, videoProvider, cameraMovement, dryRun, force, tailFrameUrl: bodyTailFrameUrl } = await request.json();
 
@@ -117,16 +151,21 @@ export async function POST(request: NextRequest) {
             });
 
             // 更新DB(v12.154:如实存降级标记)
+            const _saved = await persistRegenerated(result.videoUrl);
             await updateAssetBySelector(
               projectId, { type: 'video', shotNumber },
-              { mediaUrls: [result.videoUrl], data: { duration: result.duration, status: 'completed', isAnimatic: !!(result as any).isAnimatic }, bumpVersion: true },
+              { mediaUrls: [_saved?.url || result.videoUrl], persistentUrl: _saved?.url ?? null, data: { duration: result.duration, status: 'completed', isAnimatic: !!(result as any).isAnimatic }, bumpVersion: true },
             );
 
             send('regenerateComplete', {
               shotNumber,
-              videoUrl: result.videoUrl,
+              videoUrl: _saved?.url || result.videoUrl,
               duration: result.duration,
               status: 'completed',
+              // v12.385:批量路径(下面那处)一直带着这个标记,单镜路径漏了 ——
+              // 于是引擎全挂、回落 Ken Burns 占位片时,前端照样显示「重新生成完成!」
+              // 加绿勾。owner 以为补渲成功,直接合成,成片里混进静止图缓推。
+              isAnimatic: !!(result as any).isAnimatic,
             });
             send('status', { message: `镜头 ${shotNumber} 重新生成完成!` });
           } catch (e) {
@@ -191,9 +230,10 @@ export async function POST(request: NextRequest) {
                 duration: 8,
                 videoProvider: videoProvider || 'veo',
               }) as any;
+              const _savedBatch = await persistRegenerated(result.videoUrl);
               await updateAssetBySelector(
                 projectId, { type: 'video', shotNumber: sn },
-                { mediaUrls: [result.videoUrl], data: { duration: result.duration, status: 'completed', isAnimatic: !!result.isAnimatic }, bumpVersion: true },
+                { mediaUrls: [_savedBatch?.url || result.videoUrl], persistentUrl: _savedBatch?.url ?? null, data: { duration: result.duration, status: 'completed', isAnimatic: !!result.isAnimatic }, bumpVersion: true },
               );
               if (!result.isAnimatic) okCount++; else animaticCount++;
               send('regenerateComplete', { shotNumber: sn, videoUrl: result.videoUrl, duration: result.duration, status: 'completed', isAnimatic: !!result.isAnimatic });
@@ -277,9 +317,10 @@ export async function POST(request: NextRequest) {
             // 更新DB
             for (const v of videos) {
               if (v.videoUrl && !v.videoUrl.startsWith('data:')) {
+                const _savedStage = await persistRegenerated(v.videoUrl);
                 await updateAssetBySelector(
                   projectId, { type: 'video', shotNumber: v.shotNumber },
-                  { mediaUrls: [v.videoUrl], bumpVersion: true },
+                  { mediaUrls: [_savedStage?.url || v.videoUrl], persistentUrl: _savedStage?.url ?? null, bumpVersion: true },
                 );
               }
             }

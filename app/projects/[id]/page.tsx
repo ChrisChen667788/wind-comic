@@ -201,7 +201,14 @@ export default function ProjectDetailPage() {
           try {
             const ev = JSON.parse(line.slice(6));
             if (ev.type === 'status') setRerenderMsg(ev.data?.message || '');
-            if (ev.type === 'regenerateComplete') setRerenderMsg(`镜头 ${ev.data?.shotNumber} 补渲完成 ✅`);
+            // v12.385:降级成占位片时不能报「完成 ✅」—— 那正是 owner 最需要知道的一刻
+            if (ev.type === 'regenerateComplete') {
+              setRerenderMsg(
+                ev.data?.isAnimatic
+                  ? `镜头 ${ev.data?.shotNumber} 引擎不可用,产出的是占位片(不是真视频)⚠️`
+                  : `镜头 ${ev.data?.shotNumber} 补渲完成 ✅`,
+              );
+            }
             if (ev.type === 'regenerateError') setRerenderMsg(`镜头 ${ev.data?.shotNumber} 失败:${ev.data?.error || ''}`);
             if (ev.type === 'batchDone') setRerenderMsg(`补渲完成:成功 ${ev.data?.ok}/${ev.data?.total}${ev.data?.fail ? `,失败 ${ev.data.fail}(引擎仍不可用?看创作页引擎天气)` : ''}`);
           } catch { /* 跳过坏行 */ }

@@ -82,9 +82,19 @@ function VideoNodeComponent({ data }: NodeProps) {
               const st = useProjectWorkspaceStore.getState();
               const videoAsset = st.assets.find(a => a.type === 'video' && a.shotNumber === shotNumber);
               if (videoAsset) {
+                // v12.385:isAnimatic 必须一路带进 store。后端本版才开始在**单镜**事件里发它,
+                // 而这里原来写的是 `data: { duration, status }` —— 一个**全新对象**,
+                // 会把资产上原有的 isAnimatic:true 一起抹掉。于是引擎全挂、回落 Ken Burns
+                // 占位片时界面照样绿勾,本次会话的「降级镜头」计数也跟着归零,
+                // 直到刷新页面才从 DB 读回来。
                 st.updateAsset(videoAsset.id, {
                   mediaUrls: [event.data.videoUrl],
-                  data: { duration: event.data.duration, status: 'completed' },
+                  data: {
+                    ...(videoAsset.data as Record<string, unknown> | undefined),
+                    duration: event.data.duration,
+                    status: 'completed',
+                    ...(event.data.isAnimatic != null ? { isAnimatic: !!event.data.isAnimatic } : {}),
+                  },
                   version: videoAsset.version + 1,
                 });
               }
