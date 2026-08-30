@@ -85,10 +85,16 @@ describe('全仓现状', () => {
   });
 
   it('preflight 9 步里 8 步在 CI —— 只剩媒体体积预算是本地的', () => {
-    const out = execFileSync('npm', ['run', 'preflight'], { cwd: ROOT, encoding: 'utf-8' });
-    const m = out.match(/其中 (\d+) 步 CI 也会跑,(\d+) 步仅本地/);
-    expect(m).toBeTruthy();
-    expect(Number(m![1])).toBeGreaterThanOrEqual(8);
-    expect(Number(m![2])).toBeLessThanOrEqual(1);
+    // v12.391 修正:第一版这里跑的是 `npm run preflight` 整条命令 ——
+    // 于是 preflight 里**任何一步**失败都会连累这条测试,而它想验的只是
+    // 「有几步标了 CI 会跑」。实际就栽了:一次 rebase 改写了提交哈希,
+    // version-hash 那步判红,这条无关的测试跟着红。
+    // 单元测试不该依赖一条会因无关原因失败的重命令 —— 直接读 STEPS 数就够了。
+    const pre = fs.readFileSync(path.join(ROOT, 'scripts/preflight.mjs'), 'utf-8');
+    const steps = [...pre.matchAll(/\{\s*ci:\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g)].map((m) => m[2]);
+    expect(steps.length, '解析不出步骤,解析器该更新了').toBeGreaterThanOrEqual(9);
+    const localOnly = steps.filter((t) => t.includes('(local only)'));
+    expect(steps.length - localOnly.length, 'CI 上跑的步数').toBeGreaterThanOrEqual(8);
+    expect(localOnly.length, '只剩媒体体积预算留在本地').toBeLessThanOrEqual(1);
   });
 });

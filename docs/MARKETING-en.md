@@ -68,7 +68,7 @@
 >
 > 5. **Provider-agnostic LLM.** Every LLM call routes through one OpenAI-compatible `chat/completions` endpoint via subprocess (to dodge Next.js Turbopack's fetch quirks). Swap providers by editing 3 env vars. Tested on OpenAI, Anthropic-via-OpenRouter, DeepSeek-r1, Qwen, MiniMax, GLM, Kimi, local Ollama. See `docs/llm-providers.md`.
 >
-> 8 months, v2.0 → v12.390.1.1.1, 5087 vitest tests, TypeScript strict, MIT. Honestly happy for criticism — `docs/COMPETITIVE-GAP-2026-05.md` is our own self-audit of where we still lose vs Sora/Kling/Higgsfield.
+> 8 months, v2.0 → v12.391.1.1.1, 5087 vitest tests, TypeScript strict, MIT. Honestly happy for criticism — `docs/COMPETITIVE-GAP-2026-05.md` is our own self-audit of where we still lose vs Sora/Kling/Higgsfield.
 >
 > github.com/ChrisChen667788/wind-comic
 
