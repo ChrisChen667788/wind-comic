@@ -2,16 +2,13 @@
  * 可灵 AI (Kling) Service - 快手视频生成
  * 支持文生视频、图生视频，中文理解强
  */
+import { fetchWithTimeout } from '@/lib/fetch-timeout';
+import { classifyPollStatus, terminalPollMessage } from '@/lib/poll-policy';
 import { API_CONFIG } from '@/lib/config';
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 /** 带超时的 fetch */
-function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 30_000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
-}
 
 type ProgressCallback = (progress: number, status: string) => void;
 
@@ -440,7 +437,13 @@ export class KlingService {
           }, 15_000
         );
         if (!response2.ok) {
-          throw new Error(`Kling query error: ${response.status}`);
+          // v12.405:补上 v12.329 的抖动保护 —— 这个 service 此前完全没接 poll-policy,
+          // 任何一次 5xx/超时都会把**已经在生成、已经计费**的任务直接判死。
+          // 只有终局状态才抛;瞬时抖动继续等。
+          if (classifyPollStatus(response2.status) === 'terminal') {
+            throw new Error(terminalPollMessage('Kling', response2.status));
+          }
+          continue;
         }
         const data2 = await response2.json();
         const result = this.extractResult(data2, i, maxAttempts, onProgress);

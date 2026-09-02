@@ -26,7 +26,9 @@ import { classifyPollStatus, terminalPollMessage } from '@/lib/poll-policy';
 
 const strip = (t: string) =>
   t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-const KELING = strip(fs.readFileSync('services/keling.service.ts', 'utf-8'));
+// v12.405:keling.service.ts 已删(Kling 的第二份实现,残缺)。断言迁到幸存的 kling.service.ts ——
+// 它此前**完全没接 poll-policy**,任何一次 5xx 都会把已在生成、已计费的任务直接判死。
+const KELING = strip(fs.readFileSync('services/kling.service.ts', 'utf-8'));
 const VIDU = strip(fs.readFileSync('services/vidu.service.ts', 'utf-8'));
 const HH = strip(fs.readFileSync('services/happyhorse.service.ts', 'utf-8'));
 
@@ -64,9 +66,14 @@ describe('v12.329 · 判定本身', () => {
 describe('v12.329 · Keling / Vidu:瞬时抖动不再丢掉已在跑的任务', () => {
   for (const [name, src] of [['Keling', KELING], ['Vidu', VIDU]] as const) {
     it(`${name} 非 200 时先判定,再决定 throw 还是继续`, () => {
-      expect(src).toContain('classifyPollStatus(response.status)');
-      const i = src.indexOf('classifyPollStatus(response.status)');
-      const block = src.slice(i - 120, i + 320);
+      // v12.405:此前这里写死 `classifyPollStatus(response.status)`,锁的是**变量名**。
+      // Kling 的轮询有两个端点(image2video 失败要回落 text2video),失败的是 `response2`,
+      // 于是行为完全正确、断言却红了 —— 和 v12.122 那条是同一个毛病。改成锁行为:
+      // 判定函数被调用过,且它周围既有「瞬时继续」也有「终局抛错」。
+      const m = /classifyPollStatus\((\w+)\.status\)/.exec(src);
+      expect(m, `${name} 里没有任何 classifyPollStatus 调用`).not.toBeNull();
+      const i = src.indexOf(m![0]);
+      const block = src.slice(Math.max(0, i - 200), i + 400);
       expect(block, '瞬时应继续轮询').toMatch(/continue/);
       expect(block, '永久应立刻抛').toMatch(/terminalPollMessage/);
     });

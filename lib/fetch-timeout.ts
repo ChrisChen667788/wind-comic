@@ -3,6 +3,7 @@
  *
  * v12.304 抽出。此前 `veo.service.ts` 与 `minimax.service.ts` **各有一份一字不差的复制**,
  * 而 `keling.service.ts` / `happyhorse.service.ts` 干脆用裸 `fetch` —— 没有任何超时。
+ * (v12.405:keling.service.ts 已删除,它是 Kling 的第二份实现;现由 `kling.service.ts` 接本模块。)
  *
  * 裸 fetch 的后果不是「慢一点」:网关**接受 TCP 连接但不返回 HTTP 响应**时,
  * `await fetch(...)` 会一直挂到 OS socket 超时(通常数分钟)。轮询循环因此卡在第一次迭代,

@@ -2,6 +2,9 @@
  * v12.304 — 出站请求没有超时,网关半死时能挂住数十分钟。
  *
  * `keling.service.ts` 与 `happyhorse.service.ts` 的建任务与轮询全是**裸 `fetch`**。
+ * (v12.405:keling.service.ts 已删除 —— 它是 Kling 的第二份实现且是残缺的那份;
+ *  断言已迁到幸存的 `kling.service.ts`。**先迁断言再删文件** ——
+ *  顺序反了就等于把这项保障静默丢掉。)
  * 后果不是「慢一点」:网关**接受 TCP 连接但不返回 HTTP 响应**时,`await fetch(...)`
  * 会一直挂到 OS socket 超时(通常数分钟)。于是轮询循环卡在**第一次迭代**,
  * `maxAttempts × interval` 那套「10 分钟上限」根本轮不到生效 ——
@@ -108,7 +111,8 @@ describe('v12.304 · fetchWithTimeout 真的会超时', () => {
 
 describe('v12.304 · 四个 service 都接上了,且只有一份实现', () => {
   const SITES = [
-    'services/keling.service.ts',
+    // v12.405:keling.service.ts 已删(Kling 的第二份实现,残缺),断言迁到幸存者
+    'services/kling.service.ts',
     'services/happyhorse.service.ts',
     'services/veo.service.ts',
     'services/minimax.service.ts',
@@ -123,7 +127,7 @@ describe('v12.304 · 四个 service 都接上了,且只有一份实现', () => {
   });
 
   it('**keling / happyhorse 的裸 fetch 必须消失**(建任务与轮询各一处)', () => {
-    for (const f of ['services/keling.service.ts', 'services/happyhorse.service.ts']) {
+    for (const f of ['services/kling.service.ts', 'services/happyhorse.service.ts']) {
       const s = strip(fs.readFileSync(f, 'utf-8'));
       expect(s, `${f} 仍有裸 fetch(`).not.toMatch(/await fetch\(/);
       expect((s.match(/fetchWithTimeout\(/g) || []).length, `${f} 应有两处`).toBeGreaterThanOrEqual(2);

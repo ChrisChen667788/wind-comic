@@ -12,7 +12,7 @@ import {
 import { OpenAIImageService } from './openai-image.service';
 import { MinimaxService } from './minimax.service';
 import { ViduService } from './vidu.service';
-import { KelingService } from './keling.service';
+import { KlingService } from './kling.service';
 import { VeoService, hasVeo } from './veo.service';
 
 export class AgentOrchestrator {
@@ -21,7 +21,16 @@ export class AgentOrchestrator {
   private imageService: OpenAIImageService;
   private minimaxService: MinimaxService;
   private viduService: ViduService;
-  private kelingService: KelingService;
+  /**
+   * v12.405:此前这里是 `KelingService`(services/keling.service.ts)——
+   * 同一个供应商的**第二份实现**,而且是残缺的那份:写死 `model_name: 'kling-v1'`
+   * 与 `mode: 'std'`(最老的模型 + 标准档),不传 aspect_ratio,不裁 prompt 长度,
+   * 没有 4K / 运镜 / Elements。仓库别处(provider 注册表,17 处调用)用的都是
+   * `KlingService` 的 `kling-v3`,README 竞品表也写着「Kling 3.0」——
+   * **只有 `/api/create` 这条路上的用户,一直在拿 v1 标准档出片。**
+   * 典型的「主路径修好了、旁路没跟上」,而且旧的那条恰恰是用户进来撞到的。
+   */
+  private kelingService: KlingService;
   private veoService: VeoService | null;
 
   constructor() {
@@ -32,7 +41,7 @@ export class AgentOrchestrator {
     this.imageService = new OpenAIImageService();
     this.minimaxService = new MinimaxService();
     this.viduService = new ViduService();
-    this.kelingService = new KelingService();
+    this.kelingService = new KlingService();
     this.veoService = hasVeo() ? new VeoService() : null;
     this.agents = new Map();
     this.initializeAgents();
