@@ -2,6 +2,11 @@
  * 可灵 AI (Kling) Service - 快手视频生成
  * 支持文生视频、图生视频，中文理解强
  */
+import {
+  planMultiShot, worthMultiShot, multiShotBody,
+  KLING_MULTISHOT_MAX_SHOTS, KLING_MULTISHOT_TOTAL_MAX_SEC,
+  type ShotSpec, type MultiShotPlan,
+} from '@/lib/kling-multishot';
 import { fetchWithTimeout } from '@/lib/fetch-timeout';
 import { classifyPollStatus, terminalPollMessage } from '@/lib/poll-policy';
 import { API_CONFIG } from '@/lib/config';
@@ -38,6 +43,79 @@ export class KlingService {
   /**
    * Generate video from image + prompt
    */
+  /**
+   * v12.406:一次调用出多个**连贯**镜头(Kling 3.0 独有)。
+   *
+   * 与 `generateVideo` 的区别不只是「省调用次数」——
+   * 同一次生成内的镜间一致性由模型自己保证,比我们事后用角色 DNA + vision retry
+   * 去拼要稳。这正是竞品对比表第三列「我们用了多少」为 0 的那一行:
+   * 能力早接进来了(注册表里就是 kling-v3),只是从没调用过。
+   *
+   * **返回值带 overflow**:放不进本次调用(超 6 镜或超 15 秒)的镜头会被原样回传,
+   * 由调用方另行生成 —— 绝不静默丢弃。这个项目吃过「静默丢东西」的亏。
+   */
+  async generateMultiShot(
+    shots: ShotSpec[],
+    options?: {
+      firstFrameUrl?: string;
+      aspectRatio?: string;
+      modelOverride?: string;
+      onProgress?: ProgressCallback;
+    }
+  ): Promise<{ videoUrl: string; plan: MultiShotPlan; model: string }> {
+    if (!this.apiKey || this.apiKey.startsWith('your_')) {
+      throw new Error('KELING_API_KEY is not configured');
+    }
+
+    const model = options?.modelOverride || process.env.KELING_VIDEO_MODEL || 'kling-v3';
+    // 多镜是 v3 独有 —— 在别的模型上传这些字段属于「上游静默忽略」,
+    // 会得到一个看起来正常、实际只有一个镜头的成片。必须提前拒绝。
+    if (!model.startsWith('kling-v3')) {
+      throw new Error(
+        `Kling 多镜连贯仅 kling-v3 支持(当前 ${model})——` +
+        `在其它模型上这些字段会被静默忽略,产出一个「看起来正常但只有一镜」的成片`
+      );
+    }
+
+    const plan = planMultiShot(shots);
+    if (!worthMultiShot(plan)) {
+      throw new Error(
+        `多镜规划后只剩 ${plan.shots.length} 个镜头(上限 ${KLING_MULTISHOT_MAX_SHOTS} 镜 / ` +
+        `${KLING_MULTISHOT_TOTAL_MAX_SEC} 秒)——不值得走多镜,请用单镜路径`
+      );
+    }
+
+    const body: Record<string, any> = {
+      model_name: model,
+      mode: 'std',
+      ...multiShotBody(plan),
+    };
+    if (options?.aspectRatio) body.aspect_ratio = options.aspectRatio;
+    if (options?.firstFrameUrl) body.image_url = options.firstFrameUrl;
+
+    const endpoint = options?.firstFrameUrl ? 'image2video' : 'text2video';
+    console.log(
+      `[Kling] 多镜连贯 ${plan.shots.length} 镜 / ${plan.totalSec}s (${model} · ${endpoint})` +
+      (plan.overflow.length ? ` — ${plan.overflow.length} 镜溢出,交还调用方单独生成` : '')
+    );
+
+    const response = await fetchWithTimeout(`${this.baseURL}/v1/videos/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }, 30_000);
+
+    if (!response.ok) {
+      throw new Error(`Kling 多镜提交失败 (${response.status}): ${(await response.text()).slice(0, 300)}`);
+    }
+    const data = await response.json();
+    const taskId = data?.data?.task_id;
+    if (!taskId) throw new Error(`Kling 多镜:响应里没有 task_id: ${JSON.stringify(data).slice(0, 300)}`);
+
+    const videoUrl = await this.pollResult(taskId, 60, options?.onProgress);
+    return { videoUrl, plan, model };
+  }
+
   async generateVideo(
     imageUrl: string,
     prompt: string,
