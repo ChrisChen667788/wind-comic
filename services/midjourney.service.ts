@@ -17,6 +17,7 @@ function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 30_000): P
 type MJProgressCallback = (progress: string, status: string) => void;
 
 // v2.17 P0.2: API 用量追踪
+import { buildMjParams } from '@/lib/midjourney-params';
 import { recordApiCall as _trackApiCall } from '@/lib/api-usage-tracker';
 function _trackMjError(error: unknown, method: string): void {
   const msg = error instanceof Error ? error.message : String(error);
@@ -47,12 +48,13 @@ export class MidjourneyService {
    * 生成单张图片（imagine 4宫格 → 自动 U1 upscale → 返回单图 URL）
    *
    * 这是业界标准流程：MJ 默认输出 2×2 四宫格，必须 upscale 后才能用作
-   * 角色参考图(--cref)、场景参考图(--sref)、或视频首帧(first_frame)。
+   * 角色参考图(V7 --oref / V6 --cref)、场景参考图(--sref)、或视频首帧(first_frame)。
    */
   async generateImage(prompt: string, options?: {
     aspectRatio?: string;
     style?: string;
-    cref?: string;  // --cref 角色一致性参考图URL
+    /** 角色一致性参考图 URL。V7 走 --oref,V6 走 --cref —— 由 buildMjParams 按版本决定 */
+    cref?: string;
     sref?: string;  // --sref 风格一致性参考图URL
     cw?: number;    // --cw 角色权重 0-100
     upscaleIndex?: 1 | 2 | 3 | 4; // 选择四宫格中的哪一张（默认 U1）
@@ -72,16 +74,25 @@ export class MidjourneyService {
     cref?: string;
     sref?: string;
     cw?: number;
+    /** v12.404: V7 Omni Reference 权重 1–1000(默认 100) */
+    ow?: number;
     upscaleIndex?: 1 | 2 | 3 | 4;
     skipUpscale?: boolean;
   }): Promise<string> {
     let fullPrompt = prompt;
 
-    // 追加 Midjourney 参数
-    if (options?.cref) fullPrompt += ` --cref ${options.cref} --cw ${options.cw ?? 100}`;
-    if (options?.sref) fullPrompt += ` --sref ${options.sref}`;
-    if (options?.aspectRatio) fullPrompt += ` --ar ${options.aspectRatio}`;
-    if (options?.style) fullPrompt += ` --style ${options.style}`;
+    // v12.404:参数按版本切,且**版本显式声明**。
+    // 此前这里写死 `--cref/--cw` 而全仓从不指定版本 —— 若网关默认是 V7,
+    // 这个参数就是无效的,而 MJ 不会因此报错:它照样出图,只是角色不锁了。
+    // 「失败长得像成功」正是最难发现的那一类。详见 lib/midjourney-params.ts。
+    fullPrompt += buildMjParams({
+      cref: options?.cref,
+      sref: options?.sref,
+      aspectRatio: options?.aspectRatio,
+      style: options?.style,
+      cw: options?.cw,
+      ow: options?.ow,
+    });
 
     console.log(`[MJ] Submit imagine: ${fullPrompt.slice(0, 120)}...`);
 
