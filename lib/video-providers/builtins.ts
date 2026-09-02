@@ -43,11 +43,14 @@ async function getMinimax() {
   return minimaxSvc;
 }
 
-async function getVidu() {
+async function getVidu(): Promise<import('@/services/vidu.service').ViduService | null> {
   if (viduSvc) return viduSvc;
   const m = await import('@/services/vidu.service');
   if (!process.env.VIDU_API_KEY) return null;
-  viduSvc = new (m as any).ViduService();
+  // v12.403:此前这里 `new (m as any).ViduService()`,返回值也是 any ——
+  // 于是下面给它传了个官方根本没有的 `style` 字段,tsc 一声不吭。
+  // any 会把契约整个抹掉,而抹掉契约的地方正是「传了不生效」最容易发生的地方。
+  viduSvc = new m.ViduService();
   return viduSvc;
 }
 
@@ -238,7 +241,8 @@ registerVideoProvider({
   supportsText2Video: false,
   supportsLastFrame: false,
   supportsSubjectReference: false,
-  maxDurationSec: 8,
+  // v12.403:Q3 官方支持 1–16s(此前写死 8,把 Q3 的长镜能力挡在门外)
+  maxDurationSec: 16,
   available: () => !!process.env.VIDU_API_KEY,
   async generate(input: VideoGenerateInput) {
     if (!input.firstFrameUrl) throw new Error('Vidu requires firstFrameUrl (I2V only)');
@@ -246,10 +250,10 @@ registerVideoProvider({
     if (!svc) throw new Error('Vidu service unavailable');
     const url = await svc.generateVideo(input.firstFrameUrl, input.prompt, {
       duration: input.durationSec,
-      style: input.style,
     });
     if (!url) throw new Error('Vidu returned empty url');
-    return { videoUrl: url, provider: 'vidu' };
+    // provider 里带上**实际发出的模型**,决策日志才有复盘价值
+    return { videoUrl: url, provider: 'vidu', model: svc.lastModel };
   },
 });
 

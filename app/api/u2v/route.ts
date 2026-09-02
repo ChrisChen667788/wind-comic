@@ -73,7 +73,11 @@ export async function routeVideoByDuration(
       try {
         const vd = new ViduService();
         const v = await vd.generateVideo(imageUrl, prompt, { duration: 15 });
-        return { videoUrl: v, model: 'Vidu-Q3-Pro-15s' };
+        // v12.403:标签必须来自**实际发出的模型**。此前这里硬编 'Vidu-Q3-Pro-15s',
+        // 而当时的 ViduService 根本不传 model —— 决策日志里记着一件没发生过的事。
+        // 这个项目有「逐镜可审计决策日志」,一条撒谎的记录比没有记录更糟:
+        // 它会让复盘从错误的前提开始。
+        return { videoUrl: v, model: `${vd.lastModel}-15s` };
       } catch (e) {
         console.warn('[U2V] Vidu 15s failed, trying Kling 10s:', e instanceof Error ? e.message : e);
       }
