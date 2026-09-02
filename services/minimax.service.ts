@@ -1,3 +1,10 @@
+import {
+  apiVersionFor, buildCreateRequest, pollPath, parsePollResponse,
+  defaultVideoModel, isModelUnavailableError, LEGACY_VIDEO_MODEL,
+  hasRealImage,
+  videoCreatePath,
+  type MinimaxApiVersion,
+} from '@/lib/minimax-video-api';
 import { API_CONFIG } from '@/lib/config';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { classifyEmotion } from '@/lib/emotion-tag';
@@ -192,6 +199,8 @@ export class MinimaxService {
     _retryCount?: number;
     /** v7.0.2: 内部用 — 已尝试过 Fast 兜底, 防重入 */
     _noFastFallback?: boolean;
+    /** v12.402: 内部用 — 套餐不支持 H3 时回落到 legacy 模型,防重入 */
+    _forceModel?: string;
   }): Promise<string> {
     // 快速失败:聚合网关上 Minimax 视频路径不存在,直接抛错让 orchestrator 跳到下一引擎
     if (!this.videoEndpointAvailable) {
@@ -231,39 +240,29 @@ export class MinimaxService {
       // 不满足该条件 → hasRealImage=false → 模型选成 Hailuo-2.3 文生视频,
       // 用户上传的参考图被静默丢掉。这里改成"非 data:、非空"即认为有图,
       // 让本地上传也能走 I2V-01 真图生视频。
-      const hasRealImage = !!imageUrl && (imageUrl.startsWith('http') || imageUrl.startsWith('data:image/')); // v12.154:base64 首帧(本地图转)也算真图
-
-      // v2.22 fix: I2V-01 已被当前套餐 EOL (实测 2061 "your current token plan
-      // not support model"). 改成统一用 Hailuo 2.3 — T2V 和 I2V 同一个模型,
-      // 传 first_frame_image 时自动按 I2V 跑. 可被 env MINIMAX_VIDEO_MODEL 覆盖
-      // (例如有 Hailuo-02 plan 时设 'MiniMax-Hailuo-02').
-      const model = process.env.MINIMAX_VIDEO_MODEL || 'MiniMax-Hailuo-2.3';
-
-      const body: Record<string, any> = {
+      // v12.402:模型 → 接口版本 → 请求体,全部由 `lib/minimax-video-api.ts` 单点决定。
+      // v1 与 V2 的请求体/轮询路径/状态字面量/取片方式四处都不一样,写成 if/else
+      // 就是这个项目反复栽的那个形态:同一语义两份实现。
+      const model = options?._forceModel || defaultVideoModel();
+      const req = buildCreateRequest({
         model,
         prompt: effectivePrompt,
-        prompt_optimizer: true,
-      };
+        imageUrl,
+        aspectRatio: options?.aspectRatio,
+        duration: options?.duration,
+      });
 
-      // 只有真实图片 URL 才传 first_frame_image
-      if (hasRealImage) {
-        body.first_frame_image = imageUrl;
-      } else if (options?.aspectRatio) {
-        // v12.14.0 横竖屏:I2V 跟首帧比例;纯 T2V(Hailuo 无首帧)默认 16:9,
-        // 竖屏项目兜底带上 aspect_ratio(网关/模型支持则生效,不支持则忽略,不影响成败)。
-        body.aspect_ratio = options.aspectRatio;
-      }
-
-      console.log(`[Minimax] Generating video (${model}): ${hasRealImage ? 'image-to-video' : 'text-to-video'}`);
+      const mode = hasRealImage(imageUrl) ? 'image-to-video' : 'text-to-video';
+      console.log(`[Minimax] Generating video (${model} · ${req.version} · ${mode})`);
       console.log(`[Minimax] Prompt: ${prompt.slice(0, 100)}...`);
 
-      const response = await fetchWithTimeout(`${this.baseURL}/v1/video_generation`, {
+      const response = await fetchWithTimeout(`${this.baseURL}${req.path}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(req.body),
       });
 
       const data = await response.json();
@@ -305,8 +304,8 @@ export class MinimaxService {
 
       console.log(`[Minimax] Task created: ${taskId}`);
 
-      // 轮询结果
-      const videoUrl = await this.pollResult(taskId);
+      // 轮询结果(版本决定路径与状态解析)
+      const videoUrl = await this.pollResult(taskId, undefined, req.version);
       return videoUrl;
     } catch (error) {
       if (isSensitiveContentError(error) && retryCount === 0) {
@@ -316,6 +315,23 @@ export class MinimaxService {
       // v7.0.2: 标准版日额度用尽 (2/天) → 自动路由到 Fast 版 (768P/6s, 独立 2/天 额度).
       // 覆盖 base_resp 业务错误 (如 2056 usage limit) 与 HTTP 层配额错误两种来源.
       const emsg = error instanceof Error ? error.message : String(error);
+      // v12.402:**套餐不支持该模型** → 回落到 legacy 并大声记日志。
+      // 与「额度用尽」严格区分:额度用尽换模型没用(要换 Fast 那条独立额度),
+      // 套餐不支持换模型才有用。默认已翻到官方推荐的 H3,但账号不一定开通 ——
+      // 历史上 I2V-01 就报过 2061 "your current token plan not support model"。
+      // **不静默替换**:静默替换会让人以为自己在用 H3,而实际不是。
+      if (!options?._forceModel && isModelUnavailableError(emsg)) {
+        const attempted = defaultVideoModel();
+        if (attempted !== LEGACY_VIDEO_MODEL) {
+          console.warn(
+            `[Minimax] ⚠️ 当前套餐用不了 ${attempted} —— 本次回落到 legacy 的 ${LEGACY_VIDEO_MODEL}。` +
+            `注意 2.3 系列已被官方降为 legacy,随时可能像 Music API 那样被无预告停掉;` +
+            `请在 MiniMax 控制台开通 H3,或显式设 MINIMAX_VIDEO_MODEL 以消除本条告警。原始错误:${emsg.slice(0, 120)}`,
+          );
+          return await this.generateVideo(imageUrl, prompt, { ...options, _forceModel: LEGACY_VIDEO_MODEL });
+        }
+      }
+
       if (!options?._noFastFallback && isMinimaxVideoQuotaError(emsg)) {
         console.warn(`[Minimax] 标准版视频额度用尽 — 自动路由到 Fast 版 (独立额度): ${emsg.slice(0, 80)}`);
         try {
@@ -359,7 +375,7 @@ export class MinimaxService {
       console.log(`[Minimax-Fast] T2V ${model} (separate daily quota)`);
       console.log(`[Minimax-Fast] Prompt: ${effectivePrompt.slice(0, 100)}...`);
 
-      const response = await fetchWithTimeout(`${this.baseURL}/v1/video_generation`, {
+      const response = await fetchWithTimeout(`${this.baseURL}${videoCreatePath(model)}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -393,7 +409,7 @@ export class MinimaxService {
       const taskId = data.task_id;
       if (!taskId) throw new Error(`Minimax-Fast: no task_id`);
       console.log(`[Minimax-Fast] Task created: ${taskId}`);
-      return await this.pollResult(taskId);
+      return await this.pollResult(taskId, undefined, apiVersionFor(model));
     } catch (error) {
       if (isSensitiveContentError(error) && retryCount === 0) {
         return await this.generateVideoFast(prompt, { ...options, _retryCount: 1 });
@@ -468,8 +484,9 @@ export class MinimaxService {
     const S2V_IDENTITY_ANCHOR = ' Keep the character’s facial features, hairstyle, and outfit strictly consistent and unchanged throughout.';
     const anchoredPrompt = prompt.includes('strictly consistent') ? prompt : `${prompt.trimEnd()}${S2V_IDENTITY_ANCHOR}`;
 
+    const S2V_MODEL = 'S2V-01';
     const body: Record<string, any> = {
-      model: 'S2V-01',
+      model: S2V_MODEL,
       prompt: anchoredPrompt,
       // v12.9.0 一致性优化(官方实测):prompt_optimizer=true 会「改写」prompt,把锁材质/服装的
       // 锚点句改掉 → 跨镜服装/外观漂移(头号一致性杀手)。结构化 prompt 必须关。可 env 覆盖。
@@ -490,7 +507,7 @@ export class MinimaxService {
     console.log(`[Minimax-S2V] ExtraRefs: ${body.reference_images?.length || 0}`);
     console.log(`[Minimax-S2V] Prompt: ${prompt.slice(0, 100)}...`);
 
-    const response = await fetchWithTimeout(`${this.baseURL}/v1/video_generation`, {
+    const response = await fetchWithTimeout(`${this.baseURL}${videoCreatePath(S2V_MODEL)}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
@@ -519,19 +536,19 @@ export class MinimaxService {
     }
 
     console.log(`[Minimax-S2V] Task created: ${taskId}`);
-    return await this.pollResult(taskId);
+    return await this.pollResult(taskId, undefined, apiVersionFor(S2V_MODEL));
   }
 
   // 轮询结果
   // v12.105.0:上限 env 可配(MINIMAX_VIDEO_POLL_TIMEOUT_MS,默认 10min)。实测坑:Hailuo 队列
   // 慢时段任务实际在跑,5min(60×5s)就放弃 = 任务费照扣却丢镜,还连累整片掉兜底。
-  private async pollResult(taskId: string, maxAttempts?: number): Promise<string> {
+  private async pollResult(taskId: string, maxAttempts?: number, version: MinimaxApiVersion = 'v1'): Promise<string> {
     const timeoutMs = Number(process.env.MINIMAX_VIDEO_POLL_TIMEOUT_MS) || 10 * 60_000;
     const attempts = maxAttempts ?? Math.max(12, Math.round(timeoutMs / 5000));
     for (let i = 0; i < attempts; i++) {
       await this.sleep(5000);
 
-      const response = await fetchWithTimeout(`${this.baseURL}/v1/query/video_generation?task_id=${taskId}`, {
+      const response = await fetchWithTimeout(`${this.baseURL}${pollPath(version, taskId)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -543,31 +560,23 @@ export class MinimaxService {
       }
 
       const data = await response.json();
-      const status = data.status;
-      const fileId = data.file_id;
-      const videoUrl = data.video_url;
+      // v12.402:状态字面量两版完全不同(v1 'Success'/'Fail' vs V2 'succeeded'/'failed'/'cancelled'),
+      // 取片方式也不同(v1 可能只给 file_id 要再换一次,V2 直接给 content.url)。全部由单点模块判定。
+      const poll = parsePollResponse(version, data);
 
-      console.log(`[Minimax] Poll #${i + 1}: status=${status}, file_id=${fileId || 'none'}`);
+      console.log(`[Minimax] Poll #${i + 1} (${version}): status=${poll.rawStatus || 'unknown'}`);
 
-      // Minimax 可能返回不同的状态字段格式
-      if (status === 'Success' || status === 'success') {
-        // 优先用 video_url，其次用 file_id 构造下载链接
-        if (videoUrl) return videoUrl;
-        if (fileId) {
-          return await this.getFileUrl(fileId);
-        }
-        // 检查嵌套结构
-        if (data.output?.video_url) return data.output.video_url;
-        if (data.result?.video_url) return data.result.video_url;
-
+      if (poll.state === 'success') {
+        if (poll.videoUrl) return poll.videoUrl;
+        if (poll.fileId) return await this.getFileUrl(poll.fileId);
         throw new Error(`Minimax: success but no video URL in response: ${JSON.stringify(data).slice(0, 300)}`);
       }
 
-      if (/^fail(ed)?$/i.test(status || '')) { // v12.122:实测网关返回 'Fail'(无 -ed),旧 ===Failed 永不命中
-        throw new Error(`Minimax video generation failed: ${data.error || data.base_resp?.status_msg || 'unknown'}`);
+      if (poll.state === 'failed') {
+        throw new Error(`Minimax video generation failed: ${poll.error || 'unknown'}`);
       }
 
-      // Processing / Queueing — 继续等待
+      // pending(v1 Processing/Queueing · V2 queued/running)— 继续等待
     }
 
     const mins = Math.round(((Number(process.env.MINIMAX_VIDEO_POLL_TIMEOUT_MS) || 10 * 60_000)) / 60000);
