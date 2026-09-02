@@ -1,5 +1,8 @@
 # 竞品功能缺口 · 2026-05 增量版
 
+> ⏳ **这是一份历史轮次的分析,不代表当前状态。** 最新一轮见 [`COMPETITIVE-GAP-2026-08.md`](./COMPETITIVE-GAP-2026-08.md)(结论台账:[`competitive/claims.json`](./competitive/claims.json))。
+> 保留它是因为**每一轮的结论都是下一轮的可证伪假设** —— 要判断某条判断是变准了还是变错了,得看得见它当初是怎么写的。
+
 > 基础: [competitive-analysis-and-upgrade-plan.md](./competitive-analysis-and-upgrade-plan.md) (2026-04-08)
 > 本文针对用户 2026-05-04 提问 — "对比 Seedance 2.0 / 海螺 / 可灵 / Vidu, 我们目前的创作工坊还缺哪些实用功能".
 > 范围: 只列**可以在 v2.14 ~ v2.16 内交付**的功能, 不重复已经在 ROADMAP 落账的项 (Cameo / Polish Pro / Stripe).

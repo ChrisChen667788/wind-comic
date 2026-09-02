@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.400</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.401</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -224,33 +224,46 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **5174 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **5187 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
 
 ## 🥊 跟竞品比
 
-> 阵容核验 **2026-08-07**(Artificial Analysis 盲投竞技场,数值经独立二次检索复核):**两周内又出两个重量级新品** —— **MiniMax H3(Hailuo 3.0)** 7-31 发布、**8-03 开放权重**(排除美/欧/英/韩授权),33B 全模态、2K/24fps、原生立体声,空降 **T2V 带音频榜次席(Elo 1238)**、I2V 第三(1190),并拿下**视频编辑(带音频)榜首**;**字节 Seedance 2.5** 7-31 公开发布,**单次原生 30 秒**(当前最长)、原生 4K 10bit、最多 **50 个参考输入**、支持区域编辑。当前 T2V 带音频:Gemini Omni Flash(1244)→ MiniMax H3(1238)→ Seedance 2.0 720p(1224)→ Wan 2.7(1161)→ HappyHorse-1.1(1148);I2V 带音频:Seedance 2.0 720p(1198)→ Gemini Omni Flash(1191)→ MiniMax H3(1190)。**Kling 3.0** 是短剧综合首选(**原生 4K / 最高 60fps / 最长 15s / 最多 6 连贯镜头 / 自带多语对白+口型**,$0.084–0.112/s);**Veo 3.1** 企业安全牌(2025-10-15 预览,2026-01-13 加 4K 与竖版;4K $0.60/s);**Wan 2.7** 最便宜带音频 API($0.10/s)。**⚠️ Sora 2 API 距停服仅约 6 周(2026-09-24),须立即迁移。**
-> **🔴 首个同构开源竞品出现**:港大 **ViMax**(MIT,5.6k★,12 Agent 剧本→分镜→角色→视频)、**OpenMontage**(24k★,无独立 UI)。**「开源」本身不再是差异点** —— 但经逐项核对,ViMax 无配音/TTS、无节奏审计、无 EDL/AAF、无协作。**截至 2026-08,全部已查竞品中无一同时具备「节奏审计 + EDL/AAF 剪辑线导出 + 开源自托管」** —— 这是当下真实的护城河边界。
+> 阵容核验 **2026-08-31**(Artificial Analysis 盲投竞技场;6 路并行联网调研 + 关键数值独立二次检索复核。完整分析见 [`docs/COMPETITIVE-GAP-2026-08.md`](docs/COMPETITIVE-GAP-2026-08.md)):**榜首易主,且由国内模型拿下** —— T2V 带音频:**Wan 3.0(1242)** → Gemini Omni Flash(1237,较上轮 1244 下滑)。新进入者 **xAI Grok Imagine Video 1.5**(6-16):**7 路视觉参考同帧锚定**(角色+场景+道具+风格)+ 原生音频 + 语音克隆,$0.08(480p)/$0.14(720p)/$0.25/s(1080p)——**参考路数超过我们现有的 cref+sref 两路**。**Kling 3.0** 仍是短剧综合首选(原生 4K / 60fps / 15s / **6 连贯镜头** / 自带多语对白+口型,$0.084–0.112/s);**Veo 3.1**(2025-10-15 首发,2026-01-13 加 4K 与竖屏)的 **Scene Extension 可把成片接到 60s+ —— 但那是拼接,单次生成上限仍是 8–10s**;内置自研音视频联合生成(**Lyria 3 是 Google 另一个独立音乐模型,不是 Veo 的音频组件**),$0.40/s 起。注:Veo 3.1 自身 T2V+音频 Elo 约 1091,榜上的 1237 是 Gemini Omni Flash —— 那是另一个产品,别混为一谈。**✅ Sora 2 API 停服(2026-09-24)已由 OpenAI 官方确认,本项目 v12.173/207 起已有防护**:退役日前每次告警、退役日后自动从模型链剔除走 fallback,链空才抛(`tests/v12-173-sora-sunset.test.ts` 守着)——**这条不是待办**。
+> **🔴 开源同构竞品规模翻了两到十倍,并新增三个**:**OpenMontage** 24k→**54.7k★**(AGPL)、港大 **ViMax** 5.6k→**12.2k★**(MIT)、新增 **DramaClaw** 4.8k★(Elastic 2.0,**非 FOSS、禁 SaaS 转售**)、**BigBanana** 1.8k★(CC BY-NC-SA,**禁商用**)、**Novella AI** 89★(MIT,全本地)。**但逐项核对后,护城河边界仍然成立** —— 无一同时具备「**情绪节奏审计 + EDL/AAF 剪辑线导出 + 开源自托管商用**」:最接近的 OpenMontage 已补上 TTS 与多语发行,可它的「节奏审计」是 **anti-slideshow 画面静态检测**(判像不像幻灯片),不是情绪节奏/反转/cliffhanger 审计;**无 EDL/AAF**;「协作」是生产状态看板而非 Yjs 多用户联合编辑。**边界在收窄,不是在扩大。**
+> **🇨🇳 国产阵营:时长与参考路数双双突破,而我们在用的两个引擎都该升版了** —— **Seedance 2.5**(7-31)与 **Wan 3.0**(8-24 正式上线)双双做到**原生 30s 单镜头**;Seedance 支持 **50 个参考素材**、按 token 计费(¥42–70/百万 tokens);Wan 3.0 720P 折后 **¥0.42/s**,还能**文档直转视频**(PPT/Word/PDF→30s)。**Vidu Q3** 是国产里唯一明确打「短剧/漫剧工业化」的(7 参考图多主体锁定 + 6 类电影特效 + 口型驱动,Turbo 1080p ≈¥0.41/s);**PixVerse C1**(4-08)短剧垂直定位最明确(分镜宫格直出 + 多人对白口型)。**⚠️ 两条自查结论**:① `services/minimax.service.ts:240` 默认 `MiniMax-Hailuo-2.3`(`.env.local` 未覆盖,即实际就跑它),而 **2.3 / 2.3-Fast 已被官方降为 legacy**,H3(V2)才是推荐路径 —— **我们把 MiniMax H3 当竞品写进了对照表,自己却还在调它的上一代**。这是当前最紧迫的注册表更新项;② **两条 Vidu 调用路径不一致**:`qyt-vidu.service.ts` 钉死 `viduq3`,而 `vidu.service.ts` **一个模型字段都不传**、跑供应商默认值 —— 和 MJ「全仓未指定版本走网关默认」同一个病:**供应商换默认值时我们会静默改变行为,且事后无从复盘**。
 > **⭐ BYO 架构再次接住这波**:榜上模型基本都开放 API,填 key 即为本管线可调度引擎 —— 竞品越强,本管线越强。
-> 结论不变:**生成层已是红海(竞品在出片/多镜/音频都第一梯队),Wind Comic 护城河收窄到「制作/平台层」**——节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO。
+> **⚠️ 也要说清劣势**:生成质量不由我们决定(不训模型,上限即所接引擎上限);**零门槛比不过** Coze 3.0 这类零代码平台(市场 YoY +214%,差距会被放大);**当前无作曲能力**(MiniMax Music 已对新用户停服,只剩自备 BGM 通道);而且**已接入的特色能力普遍没用满** —— Veo 的 Scene Extension、Kling 的多镜连贯与自带口型、Kontext 的局部重绘都还没调用,这是当下性价比最高的一块。
+> 结论不变:**生成层已是红海(且国内模型在领跑),Wind Comic 护城河在「制作/平台层」**——节奏审计、EDL/AAF、实时协作、发布预检、自托管、开源、BYO。
 
-| 能力 | Veo 3.1 | Kling 3.0 | Seedance 2.0 | Runway Gen-4.5 | Grok Imagine 1.5 | HappyHorse-1.1 | **Wind Comic** |
+| 能力 | Veo 3.1 | Kling 3.0 | Seedance 2.5 | Gemini Omni Flash | MiniMax H3 | ViMax (open-source) | **青枫漫剧 Wind Comic** |
 |---|---|---|---|---|---|---|---|
-| 一句 prompt 多镜叙事 | ⚠️ | ✅ 故事板模式 | ✅ 原生多镜 | ⚠️ | ⚠️ (单条片) | ⚠️ (单条片) | **✅ 8 智能体 编剧→剪辑 流水线** |
-| 跨镜角色一致性 | ✅ | ✅ | ✅ | ✅ 参考图 | ✅ | ✅ 参考图生视频 | **✅ cref+sref+8 维 DNA+vision 重生** |
-| 全片画风锁定 | ✅ | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | **✅ Style Bible 帧** |
-| 原生对白 + 音效 | ✅ | ✅ | ✅ | ⚠️ | ✅ | ✅ 单次生成即带音频 | **✅ 逐角色 TTS + 口型** |
-| 中文字幕真渲染(烧入)| ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ libass + PingFang 烧入** |
-| 竖屏短剧 trope | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12 模板 + 9:16 默认** |
-| 实时协作时间线 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Yjs CRDT + Y.Map 锁 + 光标** |
-| 可自部署 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Next.js + SQLite + Web Audio** |
-| 接你自己 LLM | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12+ provider 走 .env** |
-| 开源 | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ 权重部分开放 | **✅ MIT** |
-| 单镜改 prompt 重生 | ⚠️ | ✅ | ⚠️ | ✅ 运动笔刷 | ⚠️ | ✅ video-edit 端点 | **✅ + 用户上传参考图** |
-| 节奏 / 冲突审计 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 每镜评分 + 反转检测** |
-| 智能剪辑(卡点 + 情绪节奏 + 一句指令调风格)| ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 卡点对齐 · 情绪节奏 · 侧重强调 · 转场审美 · 「快节奏燃向/慢叙抒情」一句话调风格(BYO LLM)** |
+| 一句 prompt 多镜叙事 | ⚠️ | ✅ storyboard mode | ✅ multi-shot native, 30s single take | ⚠️(单段生成,多镜叙事非强项) | ⚠️ (4~15s single take) | ✅ 12-agent script→video | **✅ 8-agent script→edit pipeline** |
+| 跨镜角色一致性 | ✅ | ✅ | ✅ up to 50 reference inputs | ✅ 多模态统一 | ✅ reference-to-video | ✅ character extractor agent | **✅ cref + sref + 8-dim DNA + vision retry** |
+| 全片画风锁定 | ✅ | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | **✅ Style Bible Frame** |
+| 原生对白 + 音效 | ✅ | ✅ 多语对白+口型 | ✅ | ✅ 4 模态原生一体 | ✅ 原生立体声 | ❌ 无配音模块 | **✅ per-character TTS + lip-sync** |
+| 中文字幕真渲染(烧入) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ libass + open-license CJK font burn** |
+| 竖屏短剧 trope | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ 12 templates + 9:16 default** |
+| 实时协作时间线 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ Yjs CRDT + Y.Map locks + cursors** |
+| 可自部署 | ❌ | ❌ | ❌ | ❌ | ⚠️ 权重开放(排除美/欧/英/韩) | ✅ 本地部署 | **✅ Next.js + SQLite/Postgres** |
+| 接你自己 LLM(OpenAI / Claude / DeepSeek / 本地) | ❌ | ❌ | ❌ | ❌(它自己就是模型) | ❌ | ⚠️ 需改代码 | **✅ 12+ providers via .env** |
+| 开源 | ❌ | ❌ | ❌ | ❌ | ⚠️ 权重部分开放 | ✅ MIT | **✅ MIT** |
+| 单镜改 prompt 重生 | ⚠️ | ✅ | ⚠️ | ✅ motion brush | ✅ 对话式迭代编辑(招牌能力) | ✅ video-edit 端点 | **✅ + reference image upload** |
+| 节奏 / 冲突审计 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ v2 (v12.275): shot score + reversal detection **plus** conflict-curve shape (escalating / flat / front-loaded / no-climax), drag-segment localisation to exact shot ranges, opening-density check, and duration-rhythm analysis — every finding names the shots to fix** |
+| 智能剪辑(卡点 + 情绪节奏 + 一句指令调风格) | ❌ | ❌ | ❌ | ❌ | ⚠️(对话式改片,非结构化卡点/情绪剪辑) | ❌ | **✅ beat-snap · emotion pacing · emphasis · transition aesthetics · "fast & hype/slow & lyrical" in one line (BYO LLM)** |
+| 首尾帧锁定(image_tail 镜间衔接) | ❌ | ✅ | ✅ | ⚠️ | ✅ (I2V) | ❌ | **✅ Kling FLF wired into main pipeline, per-shot tail-frame picker** |
+| 多角色人脸卡司库(成片后可改) | ❌ | ✅ 主体库 | ✅ 角色管理 | ⚠️ | ⚠️ | ❌ | **✅ 3-slot cast + cross-shot subject_reference injection** |
+| 一键本地化(译稿 + 重配音) | ❌ | ⚠️ dub only | ❌ | ❌ | ❌ | ❌ | **✅ 8-lang translate → apply → re-TTS, honest degradation** |
+| 按剧生成免版税 AI 配乐 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ MiniMax music-2.6, style-prompt → project BGM** |
+| 逐镜可审计决策日志(引擎/成本/一致性) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ decision log + cost drill-down + quality score** |
+| 情绪感知 TTS(映射到原生枚举) | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ | ❌ | **✅ CN emotion → MiniMax speech-2.8-hd enum, live A/B verified** |
+| 口型接进主管线(对白镜自动触发) | ✅ | ✅ | ⚠️ | ⚠️ | ✅ 原生 | ❌ | **⚠️ Kling lip-sync — zh/en only (needs public video URL + audio ≥2s); ja/ko/ru degrade to none; honest skip on non-face** |
+| 全站 i18n(中/英/日/韩/俄,全部 UI) | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ❌(是模型不是 app) | ❌ | **✅ 5-language core UI, ~400 keys (component-level string cleanup ongoing)** |
+
+> **关于这张表**:本轮把它与英文 README 的对照表**合并到同一套列与行** —— 此前两份 README 各维护一张,中文那张还停在 `Seedance 2.0`、且把 Runway 的原生音频标成受限,而英文那张早已是 `Seedance 2.5` + `MiniMax H3`。**同一个事实两处各写各的,迟早对不上**,现已统一,并由 `tests/v12-401-competitive-cadence.test.ts` 锁住:两表行数或列头不一致即红。
+> 原中文表独有的 **Runway Gen-4.5 / Grok Imagine 1.5 / HappyHorse-1.1** 三列未并入(新表多出 8 行,我没有逐项核实过的值可填)——它们连同本轮新入场的 **Wan 3.0**(T2V+音频 Elo 榜首 1242 · 原生 30s)、**Vidu Q3**(国产唯一短剧工业化定位)、**PixVerse C1**,统一在 [`docs/COMPETITIVE-GAP-2026-08.md`](docs/COMPETITIVE-GAP-2026-08.md) 的三列表里对比(**竞品单点最强 / 我们接了没有 / 我们用了多少**)。**编出来的对照表比没有对照表更糟**,所以宁可不填。
 
 > ⚠️ 表示该 provider 有这能力但形态受限 (例如"只能在付费 Pro 档通过 UI 面板用").
 
@@ -359,7 +372,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 5174/5174 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 5187/5187 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

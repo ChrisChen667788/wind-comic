@@ -4,7 +4,7 @@
   <img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.400</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.401</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -19,7 +19,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-5174%2F5174-2ea44f"  alt="5174 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-5187%2F5187-2ea44f"  alt="5187 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -252,20 +252,20 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/llm-providers.md) for the full matrix.
 
-### 10. **5174 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **5187 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
 
 ## 🥊 vs. competitors
 
-> 阵容核验 **2026-08-07**(Artificial Analysis 盲投竞技场,榜单数值经独立二次检索复核):**两周内又出两个重量级新品**。**① MiniMax H3(Hailuo 3.0)**:7-31 发布、**8-03 开放权重**(HuggingFace;授权排除美/欧/英/韩),33B 全模态单次生成、2K/24fps、原生立体声,**空降 T2V 带音频榜次席(Elo 1238)、I2V 第三(1190),并拿下「视频编辑(带音频)」榜首**。**② 字节 Seedance 2.5**:7-31 公开发布,**单次原生 30 秒**(当前最长)、原生 4K 10bit、最多 **50 个参考输入**、支持区域编辑。
-> **当前榜单** —— 带音频文生视频:Gemini Omni Flash(1244)→ **MiniMax H3(1238)** → Seedance 2.0 720p(1224)→ Wan 2.7(1161)→ HappyHorse-1.1(1148);带音频图生视频:**Seedance 2.0 720p(1198)** → Gemini Omni Flash(1191)→ MiniMax H3(1190)→ Grok Imagine 1.5(1114)→ HappyHorse-1.1(1111)。**Veo 3.1** 仍是画质/物理的企业安全牌(2025-10-15 公开预览,2026-01-13 更新加 4K 与原生 9:16 竖版;8s/次、可链式拼至 ~148s;$0.40/s 720p–1080p、4K $0.60/s、Fast $0.15/s);**Kling 3.0** 是短剧综合首选 —— **原生最高 4K / 最高 60fps / 最长 15s、最多 6 个连贯镜头,且自带原生音频**(中/英/日/韩/西 多语对白 + 口型同步),API 约 $0.084–0.112/s;**Wan 2.7** 是最便宜的带音频 API($0.10/s)。**⚠️ Sora 2 距 API 停服仅剩约 6 周(2026-09-24,消费端已于 4-26 下线),仍在其上开发的项目须立即迁移。**
+> Lineup verified **2026-08-31** (Artificial Analysis arena; 6 parallel web-research lenses + key figures independently re-checked. Full analysis: [`docs/COMPETITIVE-GAP-2026-08.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/COMPETITIVE-GAP-2026-08.md)): **the top slot changed hands, and a Chinese model took it** — T2V-with-audio: **Wan 3.0 (1242)** → Gemini Omni Flash (1237, down from 1244). New entrant **xAI Grok Imagine Video 1.5** (Jun 16): **7 simultaneous visual reference anchors** (character + scene + prop + style) plus native audio and voice cloning, $0.08 (480p) / $0.14 (720p) / $0.25/s (1080p) — **more reference slots than our current cref+sref pair**. **Kling 3.0** remains the all-round pick for short drama (native 4K / 60fps / 15s / **6 coherent shots** / built-in multilingual dialogue + lip-sync, $0.084–0.112/s); **Veo 3.1** (first shipped 2025-10-15; 4K and vertical added 2026-01-13) can reach 60s+ via **Scene Extension — but that is stitching; the single-generation ceiling is still 8–10s**. It uses its own joint audio-visual generation (**Lyria 3 is a separate Google music model, not Veo's audio component**), from $0.40/s. Note: Veo 3.1's own T2V+audio Elo is ~1091 — the 1237 on the board belongs to Gemini Omni Flash, a different product. **✅ The Sora 2 API shutdown (2026-09-24) is confirmed by OpenAI — and this project has been guarded since v12.173/207**: warn before the date, auto-drop from the model chain after it (falling back to veo/kling), throw only if the chain empties (`tests/v12-173-sora-sunset.test.ts` locks it). **Not an open action item.**
+> **🇨🇳 The domestic camp broke through on both shot length and reference count — and two engines we already ship are behind.** **Seedance 2.5** (7-31) and **Wan 3.0** (8-24 GA) both do **native 30s single takes**; Seedance accepts **50 reference inputs** (token-billed, ¥42–70/M tokens), Wan 3.0 runs **¥0.42/s at 720P** and converts documents straight to video (PPT/Word/PDF → 30s). **Vidu Q3** is the only Chinese model explicitly positioned for short-drama industrialisation (7 reference images with multi-subject locking, 6 cinematic effect packs, lip-sync driving; Turbo 1080p ≈¥0.41/s). **PixVerse C1** (4-08) is the most narrowly short-drama-vertical of all (storyboard-grid output + multi-speaker lip-sync). **⚠️ Two findings about our own stack, which matter more than any competitor:** ① `services/minimax.service.ts:240` defaults to `MiniMax-Hailuo-2.3` (nothing overrides it in `.env.local`, so that is what actually runs) — but **2.3 / 2.3-Fast are marked legacy by the vendor**; H3 (V2 API) is the recommended path, and this vendor has pulled an endpoint before with no notice (Music API: 410 + 2153). **We list MiniMax H3 as a competitor column in the table below while still calling its previous generation.** ② **our two Vidu call paths disagree**: `qyt-vidu.service.ts` pins `viduq3`, while `vidu.service.ts` **sends no model field at all** and rides whatever the vendor defaults to — the same disease as Midjourney「no version pinned anywhere, gateway default wins」: when the vendor changes its default our behaviour changes silently, and we cannot reconstruct afterwards which model produced a given shot. Both are queued as v12.402 / v12.403.
 >
-> <sub>*本段 8 条高风险数值经独立二次检索复核,**4 条被推翻并已按订正值写入**(Kling 3.0 曾被误记为「1080p/10s/无原生音频」、Veo 3.1 发布日、Runway Gen-4.5 发布日、Gemini Omni Flash 定价)。榜单 Elo 为 2026-08-07 快照,随投票持续变动。*</sub>
+> <sub>*This round re-checked every high-risk figure with an independent second search, and **two claims I had already written into this README were overturned**: **Veo 3.1** first shipped **2025-10-15** (2026-01-13 was a feature update), its 60s+ is **Scene Extension stitching — the single-generation ceiling is still 8–10s**, and **Lyria 3 is a separate Google music model, not Veo's audio component**; and **Runway Gen-4.5 has had native audio since 2025-12-11** — the earlier draft called its absence a fatal flaw, which was simply wrong. Elo figures are arena snapshots and move with voting.*</sub>
 > **⭐ BYO 架构再次接住这波**:榜上模型基本都开放 API,填 key 即成为本管线可调度的引擎 —— **竞品越强,本管线越强**。
 
-> **🔴 首个同构开源竞品出现,「开源」不再是差异点本身。** 港大 **ViMax**(MIT,5.6k★,12 个专职 Agent:编剧/分镜师/角色提取/参考图选择 → 端到端出片)已覆盖「剧本→分镜→角色→视频」主干;另有 **OpenMontage**(24k★,MIT)以 Agent 技能包形式覆盖研究→脚本→资产→剪辑,但**无独立 UI**(依附 Claude Code/Cursor 等编程环境)。**诚实结论:差异化必须从「开源」下沉到「开源 + 制作层纵深」** —— 经逐项核对,ViMax **无配音/TTS、无节奏审计、无 EDL/AAF 剪辑线导出、无团队协作**;OpenMontage 无产品 UI、无原生角色一致性。**截至 2026-08,全部已查竞品(含闭源 SaaS)中,没有任何一个同时具备「节奏审计 + EDL/AAF 剪辑线导出 + 开源自托管」三项** —— 这才是当下真实的护城河边界。
+> **🔴 The open-source lookalikes grew two-to-ten-fold, and three new ones appeared — but the moat boundary still holds.** **OpenMontage** 24k→**54.7k★** (AGPL), HKU **ViMax** 5.6k→**12.2k★** (MIT), plus new entrants **DramaClaw** 4.8k★ (Elastic 2.0 — **not FOSS, SaaS resale prohibited**), **BigBanana** 1.8k★ (CC BY-NC-SA, **non-commercial**), and **Novella AI** 89★ (MIT, fully local). Checked item by item, **none of them has all three of「emotional-pacing audit + EDL/AAF timeline export + open-source self-hostable for commercial use」**: the closest, OpenMontage, has added TTS and multi-language delivery, but its "pacing audit" is **anti-slideshow static-frame detection** (does it look like a slideshow), not emotional-pacing / reversal / cliffhanger auditing; it has **no EDL/AAF**; and its "collaboration" is a production status board, not Yjs multi-user co-editing. **The boundary is narrowing, not widening.**
 > **v12.214→244 双线推进**。**产品层**:GPT Image / Nano Banana(Gemini)接入插件式图像 provider 链(issue #11,社区 @flobo3 提议,`OPENAI_IMAGE_ENABLED` / `GEMINI_API_KEY` 门控、原生 i2i 接角色一致性契约);**多集连续生成补上「剧情记忆」**(第 N 集 Writer 注入前几集前情提要 + 承接纪律,对标红果/阅文的 60~100 集连续,此前各集独立成篇)。**平台/工程层**:六轮独立对抗复检把安全洞从 CRITICAL 到 LOW 全清(SSRF 逐跳重验重定向 + IPv6 全隧道变体 / serve-file 签名能力 URL / WebSocket 鉴权 / 预算护栏),并把反复踩的「改了守卫却没跟到消费方」这个病**固化成 CI 入库门禁**(`npm run gate:consumer`,零容忍,上线即抓到 2 个人肉复检漏掉的真 SSRF)。
 > 结论不变:**生成层已是红海(竞品在出片/多镜/音频都第一梯队),Wind Comic 护城河收窄到「制作/平台层」**——节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO。
 
@@ -517,7 +517,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 5174/5174 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 5187/5187 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/CONTRIBUTING.md) for the repo's contribution guide.
 

@@ -1,0 +1,193 @@
+{
+  "_readme": [
+    "竞品分析的**可证伪假设台账**。",
+    "",
+    "为什么是这个形状:竞品分析最容易变成「查一轮、写一篇、然后放着过期」。",
+    "对外 README 上挂着三周前的 Elo 和价格,看起来是核实过的 —— 那比没有数字更糟。",
+    "",
+    "所以这里不存「结论」,存**会过期的断言**:每条都写清「怎样才算被推翻」,",
+    "下一轮拿出来逐条重验。这是策略迭代分析的做法 —— 上一轮的结论是下一轮的假设。",
+    "",
+    "scripts/competitive-scan.mjs 读它:超过 14 天就报警,并据此生成本轮任务书。",
+    "每轮分析完必须更新 lastReviewedOn,否则下一轮的到期检查就是假的。"
+  ],
+  "lastReviewedOn": "2026-09-02",
+  "reviewIntervalDays": 14,
+  "methodology": {
+    "sources": "必须联网核实;每个数值给来源 URL + 检索日期;查不到写「未核实」,不猜",
+    "crossCheck": "Elo / 价格 / 时长 / 分辨率 / 星数等硬指标,由独立 agent 二次检索复核",
+    "threeColumns": "分清三件事:①竞品有什么 ②我们接了没有 ③我们用了多少 —— 历史几轮的差距多数出在第③列",
+    "falsifiable": "结论写成「截至 X 日,无竞品同时具备 A+B+C」这种能被下一轮推翻的形式"
+  },
+  "claims": [
+    {
+      "id": "C1-moat-boundary",
+      "statement": "截至 2026-08-31,开源侧无一同时具备「情绪节奏审计 + EDL/AAF 剪辑线导出 + 开源自托管商用」",
+      "kind": "护城河边界",
+      "assertedOn": "2026-08-31",
+      "evidence": "逐项核对 OpenMontage(54.7k★/AGPL:有 TTS+多语+预算审批,但节奏审计是 anti-slideshow 画面检测、无 EDL/AAF、协作只是状态看板)、ViMax(12.2k★/MIT:无 TTS/节奏审计/EDL-AAF/协作)、DramaClaw(4.8k★/Elastic 2.0 非 FOSS)、BigBanana(1.8k★/CC BY-NC-SA 禁商用)、Novella AI(89★/MIT 全本地但早期)",
+      "falsifyBy": "任一 FOSS 许可项目同时具备这三项;或 OpenMontage 补上 EDL/AAF 与情绪节奏审计(它最接近,重点盯它)",
+      "trend": "边界在收窄 —— OpenMontage 半年内 24k→54.7k★ 且补上了 TTS 与多语"
+    },
+    {
+      "id": "C2-generation-commoditized",
+      "statement": "生成层已红海:竞品在出片质量/多镜连贯/原生音频上都是第一梯队,Wind Comic 不在生成层竞争",
+      "kind": "战场判断",
+      "assertedOn": "2026-08-31",
+      "evidence": "T2V+音频 Elo 榜首易主:Wan 3.0(1242)超过 Gemini Omni Flash(1237,较上轮 1244 下滑);国内模型领跑",
+      "falsifyBy": "出现开源可自托管且质量进入第一梯队的生成模型,使「自己跑模型」重新成为差异点"
+    },
+    {
+      "id": "C3-byo-absorbs",
+      "statement": "BYO 架构使「竞品越强,本管线越强」——榜上模型基本都开放 API,填 key 即可调度",
+      "kind": "架构判断",
+      "assertedOn": "2026-08-07",
+      "evidence": "已接入 MiniMax / Kling / Veo / Vidu / HappyHorse / Midjourney / flux 网关",
+      "falsifyBy": "头部模型转向封闭生态(仅自家 App 可用、无公开 API),使 BYO 接不到最强的那几个"
+    },
+    {
+      "id": "C4-sora-sunset",
+      "statement": "OpenAI Sora 2 API 于 2026-09-24 停服;Wind Comic 自 v12.173/207 起已有自动剔除防护,**非待办**",
+      "kind": "供应链风险",
+      "assertedOn": "2026-08-31",
+      "evidence": "OpenAI deprecations 页确认(复核 accurate=true);veo.service.ts 退役日前告警/日后剔除/链空才抛;tests/v12-173-sora-sunset.test.ts",
+      "falsifyBy": "2026-09-24 之后实测一次:配 Sora 模型链时是否真的自动剔除并走通 fallback"
+    },
+    {
+      "id": "C5-music-gap",
+      "statement": "MiniMax Music API 已对新用户停用(410/2153),Wind Comic 当前无可用的 AI 作曲能力,只有自备 BGM 通道",
+      "kind": "能力缺口",
+      "assertedOn": "2026-08-30",
+      "evidence": "实测 410 + status_code 2153「no longer available to new users」;v12.379 已补自备上传通道",
+      "falsifyBy": "接入 ElevenLabs Music v2 / YuE / ACE-Step 任一并跑通,或 MiniMax 恢复开放",
+      "options": "ElevenLabs Music v2($0.15/min,授权语料商用最干净,与 TTS 同厂同 key)· YuE(Apache-2.0 可自托管)· ACE-Step 1.5(Apache-2.0,消费级 GPU)"
+    },
+    {
+      "id": "C6-mj-cref-deprecated",
+      "statement": "Midjourney V7 下 `--cref` 已被 `--oref`(Omni Reference)取代,而 midjourney.service.ts:81 仍在发 `--cref` 且未指定版本 —— 角色锁脸可能已在 MJ 路径上静默失效",
+      "kind": "静默失效风险",
+      "assertedOn": "2026-08-31",
+      "evidence": "调研标 verified;代码核对:仍拼 --cref,全仓与 .env.local 均未指定 MJ 版本,走网关默认",
+      "falsifyBy": "实测一次 MJ 出图并检查网关实际版本;若仍是 V6 则 --cref 有效,本条降级为「随时会发生」",
+      "note": "**本轮无 MJ 额度可验,如实标为待实测**。可观测信号:若失效,cameo-vision-retry 触发率会异常升高"
+    },
+    {
+      "id": "C7-features-underused",
+      "statement": "已接入引擎的特色能力普遍没用满:Veo Scene Extension、Kling 多镜连贯与自带口型、Kontext 局部重绘,均为「接了但没调用」",
+      "kind": "自身差距",
+      "assertedOn": "2026-08-31",
+      "evidence": "逐个核对 provider 调用点:只用了基础 t2v/i2v 与 t2i",
+      "falsifyBy": "v12.402–405 落地后逐项复核调用点"
+    },
+    {
+      "id": "C8-onboarding-gap",
+      "statement": "零门槛是最大战略劣势:Coze 3.0 等零代码平台 5 分钟出片,Wind Comic 要装/配 key/懂流水线;AI 短剧市场 YoY +214%,差距会被放大",
+      "kind": "战略劣势",
+      "assertedOn": "2026-08-31",
+      "evidence": "Coze 3.0「内容创作行业技能包」+ 100 并行 agent 零代码编排;市场增速数据来自调研(标 unverified,需复核)",
+      "falsifyBy": "提供一行 Docker 起 / 预置 demo 工程后,重新评估上手时间"
+    },
+    {
+      "id": "C9-minimax-hailuo-legacy",
+      "statement": "我们默认在用的 MiniMax-Hailuo-2.3 / 2.3-Fast 已被官方降为 legacy,官方推荐路径是 H3(V2 API)",
+      "kind": "自有依赖已落后",
+      "assertedOn": "2026-09-02",
+      "evidence": "代码实测:`services/minimax.service.ts:240` 为 `process.env.MINIMAX_VIDEO_MODEL || 'MiniMax-Hailuo-2.3'`,而 `.env.local` **未设** `MINIMAX_VIDEO_MODEL` —— 即实际跑的就是这个默认值;兜底路径(同文件 ~335 行)用 `Hailuo-2.3-Fast`。供应商侧:2.3 / 2.3-Fast 已标 legacy,H3(V2 API)为推荐路径,且 H3 自带免费音频输入 + 口型自动对齐。旁证:本项目英文 README 的竞品对照表已把 **MiniMax H3** 列为竞品列 —— **我们把它当竞品写进表里,自己却还在调它的上一代**。",
+      "falsifyBy": "MiniMax 官方模型列表不再把 2.3 标为 legacy;或 H3 在 V2 API 之外另有兼容路径使升级成为 no-op",
+      "trend": "风险上升 —— MiniMax Music API 曾无预告停服(410 + 2153),同一供应商对 legacy 端点没有宽限期承诺",
+      "actionVersion": "v12.402"
+    },
+    {
+      "id": "C10-vidu-model-unpinned",
+      "statement": "我们有两条并存的 Vidu 调用路径:`qyt-vidu.service.ts` 钉死 `viduq3`,而 `vidu.service.ts` 根本不传 `model` 字段 —— 后者跑的是供应商默认值,我方无从得知成片出自哪个模型",
+      "kind": "自有依赖未钉版本(双路径漂移)",
+      "assertedOn": "2026-09-02",
+      "evidence": "代码实测:`services/qyt-vidu.service.ts:28` 为 `process.env.QYT_VIDU_MODEL || 'viduq3'`;`services/vidu.service.ts` 的请求体只有 `image_url/prompt/duration/style`,**无任何模型标识**。两条都是活路径:前者经 `lib/video-providers/builtins.ts:184-190`,后者经 `builtins.ts:48-50` 与 `app/api/u2v/route.ts:74`。(初稿曾断言「Vidu 停在 2.0 级别」——**查代码后推翻**:一条已在 Q3,另一条压根没钉版本。)",
+      "falsifyBy": "Vidu 的 `/v1/video/generate` 官方字段表证实该端点不接受 `model` 参数(即「不传」是正确用法);或该端点已废弃、只剩 qyt 一条路径",
+      "trend": "与 MJ「全仓未指定版本、走网关默认」是同一个病:**不钉版本 = 供应商换默认值时我们静默改变行为且事后无从复盘**。Vidu Q3 的短剧特效包与 7 参考图多主体锁定,只有钉住版本才谈得上「用上了」。",
+      "actionVersion": "v12.403"
+    },
+    {
+      "id": "C11-native-30s-shot",
+      "statement": "原生 30s 单镜头已在国产阵营落地(Seedance 2.5 于 7-31、Wan 3.0 于 8-24),而拼接式长镜(Veo Scene Extension)单次上限仍是 8–10s",
+      "kind": "能力代差",
+      "assertedOn": "2026-09-02",
+      "evidence": "Seedance 2.5 支持 50 个参考素材、按 token 计费(¥42–70/百万);Wan 3.0 720P 折后 ¥0.42/s 且支持文档直转视频;Veo 3.1 的 60s+ 经复核确认为 Scene Extension 拼接实现",
+      "falsifyBy": "实测 30s 原生片段在 20s 后出现明显漂移/崩坏,则「原生 30s」名不副实,拼接路线反而更稳",
+      "trend": "单镜时长这条轴国产已领先海外闭源;我们的「镜头太碎」痛点有了拼接之外的第二条解法",
+      "actionVersion": "v12.407"
+    },
+    {
+      "id": "C12-verification-caught-two-errors",
+      "statement": "本轮初稿有两处事实错误被独立二次检索拦下:Veo 3.1 首发日期/Lyria 3 归属/60s+ 性质,以及「Runway Gen-4.5 无原生音频」",
+      "kind": "方法论自查",
+      "assertedOn": "2026-09-02",
+      "evidence": "交叉复核判定 Veo 3.1 条目 accurate:false —— 首发为 2025-10-15(2026-01-13 是功能更新)、Lyria 3 是 Google 独立音乐模型而非 Veo 音频组件、60s+ 系 Scene Extension 拼接;Runway 条目 accurate:false —— Gen-4.5 自 2025-12-11 起已有原生音频。两处均已在 README/GAP/ROADMAP 中更正",
+      "falsifyBy": "若后续发现更正本身有误(如 Gen-4.5 音频实为 beta 限量),说明二次检索深度仍不足",
+      "trend": "结论:单轮调研的自信度不可信,「数值经独立二次检索复核」必须保留为每轮硬要求 —— 本轮 2/N 条目被推翻",
+      "actionVersion": null
+    }
+  ],
+  "watchlist": [
+    {
+      "area": "国外视频模型",
+      "targets": [
+        "Google Veo",
+        "Runway",
+        "Luma Ray",
+        "Pika",
+        "xAI Grok Imagine",
+        "Adobe Firefly Video",
+        "Meta Movie Gen"
+      ]
+    },
+    {
+      "area": "国内视频模型",
+      "targets": [
+        "快手可灵 Kling",
+        "字节 Seedance/即梦",
+        "生数 Vidu",
+        "阿里通义万相 Wan",
+        "MiniMax 海螺",
+        "腾讯混元",
+        "智谱清影",
+        "爱诗 PixVerse"
+      ]
+    },
+    {
+      "area": "开源同构竞品",
+      "targets": [
+        "港大 ViMax",
+        "OpenMontage",
+        "GitHub 新出现的 multi-agent video / AI short drama 项目"
+      ]
+    },
+    {
+      "area": "Agent 范式",
+      "targets": [
+        "Anthropic Claude agents",
+        "OpenAI AgentKit",
+        "Google Gemini Enterprise",
+        "Manus",
+        "Devin",
+        "月之暗面 Kimi"
+      ]
+    },
+    {
+      "area": "上游三件套",
+      "targets": [
+        "图像:Midjourney/flux/Seedream/Qwen-Image",
+        "TTS:MiniMax/ElevenLabs/CosyVoice/豆包",
+        "音乐:Suno/Udio/开源替代"
+      ]
+    },
+    {
+      "area": "产品层竞品",
+      "targets": [
+        "国内 AI 短剧平台",
+        "Captions/HeyGen/Descript/Opus Clip",
+        "抖音/快手/小红书自带 AI 创作工具"
+      ]
+    }
+  ]
+}
