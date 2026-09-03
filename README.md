@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.413</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.414</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -473,6 +473,22 @@ Every model call is provider-pluggable (priority chain + automatic fallback). Cr
 ---
 
 ## 🏁 Quick start
+
+### Zero-key trial (one command, **no API key needed**)
+
+```bash
+docker compose -f docker-compose.demo.yml up
+```
+
+Then open <http://localhost:3100>.
+
+> ⚠️ **Honest note**: demo mode runs the deterministic mock engines (`MOCK_ENGINES=1` — SVG storyboards,
+> solid-colour clips, sine-wave audio). It demonstrates **the pipeline and the product shape**, and is
+> **not representative of real generation quality**. Every artifact is labelled as mock — passing a
+> placeholder off as a finished film is exactly the thing this project keeps hunting down.
+> Add a single API key to switch to real engines.
+
+### Full setup (real engines)
 
 ```bash
 # 1. clone + install

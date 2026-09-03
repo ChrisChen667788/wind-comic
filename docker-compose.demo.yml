@@ -1,0 +1,40 @@
+# docker-compose.demo.yml — 零 key 试用(v12.414)
+#
+# 为什么要有它:竞品复核连着两轮把「上手门槛」判为**最大战略劣势**,而且这一轮
+# 逐条核过 —— Dockerfile 有,但没有预构建镜像、没有 demo 工程,Quick Start 仍是
+# 「git clone → npm install → 手工编辑 .env.local 填至少 3 个付费 API key → npm run dev」。
+# 零代码平台那边是浏览器打开就能出片。差距不在功能,在**第一分钟**。
+#
+# 这个 compose 把第一分钟压到一条命令:
+#     docker compose -f docker-compose.demo.yml up
+# 然后打开 http://localhost:3100 —— **不需要任何 API key**。
+#
+# 诚实声明(重要):demo 模式跑的是 MOCK_ENGINES=1 的确定性假引擎
+#(SVG 分镜 / ffmpeg 纯色短片 / 正弦 WAV),用来展示**流水线与产品形态**,
+# 不是真实生成质量。产物上都带 mock 标识 —— 拿占位片冒充成片,
+# 正是这个项目一直在消灭的那种事。要看真实质量,配一个 key 即可切真引擎。
+services:
+  wind-comic-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wind-comic:demo
+    ports:
+      - "3100:3100"
+    environment:
+      # 零 key 试用的全部开关就这两行
+      MOCK_ENGINES: "1"
+      APP_URL: "http://localhost:3100"
+      # 演示用固定密钥(仅本地 demo;真部署必须换掉)
+      JWT_SECRET: "demo-only-not-for-production"
+      NEXTAUTH_SECRET: "demo-only-not-for-production"
+      PORT: "3100"
+      NODE_ENV: "production"
+      # 让首跑就有东西看,而不是一个空工作台
+      SEED_DEMO_PROJECT: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
