@@ -13,6 +13,7 @@ import {
 import { MinimaxService } from './minimax.service';
 import { VeoService, hasVeo } from './veo.service';
 import { VEO_SEGMENT_SEC } from '@/lib/veo-scene-extension';
+import { createTaskBudget } from '@/lib/task-budget';
 import { MidjourneyService, hasMidjourney } from './midjourney.service';
 import { KlingService, hasKling } from './kling.service';
 import { HappyHorseService, getHappyHorseService, happyHorseAspectSupported } from '@/services/happyhorse.service'; // v12.272 / v12.294 画幅门禁
@@ -308,6 +309,14 @@ export class HybridOrchestrator {
   private openai: OpenAI | null;
   private minimaxService: MinimaxService | null;
   private veoService: VeoService | null;
+  /**
+   * v12.413:单次出片任务的预算闸。与 budget-enforce(按用户按月)分工不同 ——
+   * 那道闸粒度太粗:一次「一键成片」内部连着几十次付费调用,中途没有刹车点,
+   * 等月上限拦住时这一单已经花掉了。这里是**任务内**的闸,超限**暂停待确认**
+   * 而不是硬失败(硬失败会把前面已经花钱生成的东西一起丢掉,双输)。
+   * 未设 TASK_BUDGET_CNY 时 limit=0 = 不拦,行为与此前完全一致。
+   */
+  private taskBudget = createTaskBudget();
   private mjService: MidjourneyService | null;
   private klingService: KlingService | null;
   private happyhorseService: HappyHorseService | null; // v12.272
@@ -1067,7 +1076,14 @@ export class HybridOrchestrator {
     // gemini-image / gpt-image 都返回 **data: URI**(b64_json / inlineData),一律不匹配 →
     // 这两条付费路径**从不记账**,预算护栏与成本面板对它们完全失明。补上 data: 前缀。
     if (url && /^(https?:|data:|\/api\/serve-file)/.test(url) && process.env.MOCK_ENGINES !== '1') {
-      void recordCostLog({ userId: this.userId, projectId: this.projectId, engine: 'image', costCny: estimateImageCostCny(), metadata: { label: opts?.label } });
+      const _imgCost = estimateImageCostCny();
+      // v12.413:先问再花 —— 花完再拦就没意义了
+      const _imgGate = this.taskBudget.request(_imgCost, '分镜出图');
+      if (!_imgGate.allowed) {
+        this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `⏸ ${_imgGate.message}` });
+        throw new Error(`任务预算暂停:${_imgGate.message}`);
+      }
+      void recordCostLog({ userId: this.userId, projectId: this.projectId, engine: 'image', costCny: _imgCost, metadata: { label: opts?.label } });
     }
     return url;
   }
@@ -3521,6 +3537,18 @@ ${shots.map((s, i) => {
       const clipNativeAudio = wantNativeAudio && isNativeAudioProvider(ranVideoProvider);
       if (clipNativeAudio) {
         this.emit('consistencyStatus', { shotNumber: board.shotNumber, type: 'nativeAudio', provider: ranVideoProvider });
+      }
+
+      // v12.413:视频是最贵的一步 —— 出片后记账时同步走任务预算闸,
+      // 并在此汇报里程碑(视频是「导演→编剧→分镜→视频」链条的最后一环,
+      // 也是最自然的人工确认点)。
+      if (videoUrl && isValidVideoUrl(videoUrl) && process.env.MOCK_ENGINES !== '1') {
+        const _vidCost = estimateVideoCostCny(8, videoRateForProvider(usedVideoEngine));
+        const _vidGate = this.taskBudget.request(_vidCost, '视频生成');
+        if (!_vidGate.allowed) {
+          this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: `⏸ ${_vidGate.message}` });
+        }
+        this.emit('agentTalk', { role: AgentRole.DIRECTOR, text: this.taskBudget.milestone(`Shot ${board.shotNumber} 完成`) });
       }
 
       // v12.4.0:视频成本落库(每个真出片的镜头记一笔;mock 模式零成本不记)。fire-and-forget。
