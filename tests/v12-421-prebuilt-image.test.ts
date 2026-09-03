@@ -93,6 +93,26 @@ describe('v12.421 · 预构建镜像', () => {
     }
   });
 
+  it('Dockerfile 里 COPY 的每个源路径都必须真实存在 —— 否则镜像根本构建不出来', () => {
+    // 这条是被 v12.421 第一次真跑构建才逼出来的:Dockerfile 里有一行
+    // `COPY --from=builder /app/drizzle ./drizzle`,而**这个项目根本没用 drizzle**
+    // (无依赖、无 config、无目录;建表在 lib/db.ts)。buildkit 报 "/app/drizzle": not found,
+    // 也就是说这个镜像**从来就构建不出来** —— 连带 README 的 Docker 说明和 v12.414
+    // 的零 key 试用一直都不成立。一个从没被执行过的构建,和没有构建是一回事。
+    //
+    // 静态检查挡不住所有情况(构建期产物如 .next 本来就不在仓库里),
+    // 但「COPY 一个仓库里压根没有、也不由构建产生的目录」是能查的。
+    const buildArtifacts = new Set(['.next', 'node_modules']);
+    const copies = [...DOCKERFILE.matchAll(/COPY\s+(?:--\S+\s+)*\S*\/app\/(\S+)\s/g)].map((m) => m[1]);
+    expect(copies.length, '窗口自证:一条 COPY 都没解析出来').toBeGreaterThan(2);
+
+    for (const src of copies) {
+      const top = src.split('/')[0];
+      if (buildArtifacts.has(top)) continue; // 构建期产物,仓库里本就没有
+      expect(fs.existsSync(top), `Dockerfile COPY 了 ${src},但仓库里没有 ${top} —— 镜像会构建失败`).toBe(true);
+    }
+  });
+
   it('发布走 GHCR + 内置令牌 —— 不需要 owner 录任何密钥', () => {
     expect(WORKFLOW).toContain('ghcr.io');
     expect(WORKFLOW).toContain('secrets.GITHUB_TOKEN');

@@ -74,7 +74,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
+# v12.421:此处原有 `COPY --from=builder /app/drizzle ./drizzle` —— 而**这个项目根本没用 drizzle**:
+# 无 drizzle 依赖、无 drizzle.config.ts、仓库里也没有 drizzle/ 目录;建表在 lib/db.ts 里做。
+# 也就是说这一行让镜像**从来就构建不出来**(buildkit 报 "/app/drizzle": not found)。
+# 连带后果:README 上的 Docker 说明、v12.414 的零 key 试用(docker compose up --build),
+# 一直都是不成立的 —— 一个从没被执行过的构建,和没有构建是一回事。
+# 是 v12.421 第一次真把它跑起来才发现的。
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
 # SQLite 数据目录(volume mount)
