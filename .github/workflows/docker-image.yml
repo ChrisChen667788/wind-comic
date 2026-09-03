@@ -14,6 +14,12 @@
 # ## 多架构
 # 同时出 amd64 与 arm64:owner 用 Apple Silicon,而绝大多数服务器是 amd64。
 # 只出一个架构的话,总有一半人 `docker pull` 下来跑不了(或者悄悄走 qemu 慢十倍)。
+#
+# ⚠️ 已知代价:arm64 走 QEMU 交叉编译,`npm ci` + `next build` 在模拟层上实测跑了
+# **约 40 分钟**。可接受(触发有 paths 过滤,只在真影响镜像时跑),但不理想。
+# 更好的做法是用 GitHub 的原生 arm64 runner(`ubuntu-24.04-arm`)按架构分 job、
+# 再合成 manifest —— 那是个结构性改动,留给后续版本做,**先让这条链绿起来**。
+# (这里如实写着「还没做」,而不是写成已经做了 —— 注释描述的必须是代码真在做的事。)
 name: Docker image
 
 on:
@@ -90,7 +96,11 @@ jobs:
       - name: Smoke test the published image
         run: |
           set -euo pipefail
-          IMAGE="${REGISTRY}/${IMAGE_NAME}:sha-$(git rev-parse --short HEAD)"
+          # docker 仓库名**必须全小写**,而 github.repository 带大写(ChrisChen667788/…)。
+          # docker/metadata-action 会自动转小写,所以 push 那步是对的;
+          # 这行是我手写的,漏了转换 —— 于是镜像明明推上去了,冒烟却报
+          # 「repository name must be lowercase」(exit 125)。
+          IMAGE="$(echo "${REGISTRY}/${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]'):sha-$(git rev-parse --short HEAD)"
           echo "拉起 $IMAGE"
           docker run -d --name smoke -p 3100:3100 \
             -e MOCK_ENGINES=1 \

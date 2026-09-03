@@ -136,6 +136,31 @@ describe('v12.421 · 预构建镜像', () => {
     expect(WORKFLOW.slice(i)).toContain('fc-match');
   });
 
+  it('所有镜像引用必须全小写 —— docker 仓库名不接受大写', () => {
+    // 这条是被 CI 逼出来的:我在冒烟步骤里手写 `${REGISTRY}/${IMAGE_NAME}`,
+    // 而 github.repository 是 `ChrisChen667788/wind-comic`(带大写)。
+    // docker/metadata-action 会自动转小写,所以 push 那步是对的;手写那行没有,
+    // 于是镜像明明推上去了,冒烟却报「repository name must be lowercase」(exit 125)——
+    // **构建成功、发布成功,只有验证那步倒了**,而它正是用来证明镜像可用的那一步。
+    const refs: Array<[string, string]> = [];
+    for (const [file, src] of [
+      ['docker-compose.demo.yml', COMPOSE],
+      ['README.md', fs.readFileSync('README.md', 'utf-8')],
+      ['README.zh-CN.md', fs.readFileSync('README.zh-CN.md', 'utf-8')],
+    ] as const) {
+      for (const m of src.matchAll(/ghcr\.io\/[^\s:"']+/g)) refs.push([file, m[0]]);
+    }
+    expect(refs.length, '窗口自证:一处镜像引用都没找到').toBeGreaterThan(2);
+    for (const [file, ref] of refs) {
+      expect(ref, `${file} 里的镜像引用有大写:${ref}`).toBe(ref.toLowerCase());
+    }
+
+    // workflow 里凡是手写拼接镜像名的地方,都必须显式转小写
+    const i = WORKFLOW.indexOf('IMAGE=');
+    expect(i, 'workflow 里找不到手写的镜像名拼接').toBeGreaterThan(0);
+    expect(WORKFLOW.slice(i, i + 200), '手写拼接没转小写 —— github.repository 带大写').toContain('tr ');
+  });
+
   it('demo compose 默认拉镜像,本地 build 退为兜底', () => {
     expect(COMPOSE).toContain('ghcr.io/chrischen667788/wind-comic');
     expect(COMPOSE).toContain('pull_policy: missing');
