@@ -1,0 +1,45 @@
+# selfhost/video/docker-compose.yml — 自托管视频端点(v12.420)
+#
+# ⚠️ 先把话说清楚:**这里不含模型权重,也不替你装推理环境。**
+# 它做的是编排:收请求 → 起你指定的推理命令 → 把产出的 mp4 交回去。
+# 权重几十 GB、显存要求实打实,那些必须你自己准备 —— 声称「一键跑起 Wan 2.7」是谎话。
+# 这个 compose 消灭的是「还得自己写一个 HTTP 服务」这一步,而那一步的门槛不低。
+#
+# 用法:把 VIDEO_CMD 换成你本地已经能跑通的推理命令,占位符会被替换:
+#   {prompt} {out} {duration} {aspect} {image} {model}
+# 命令跑完后 {out} 那个文件必须存在 —— 否则本服务如实报错,不返回空成功。
+#
+#   docker compose -f selfhost/video/docker-compose.yml up
+#
+# 然后在 Wind Comic 侧:
+#   SELFHOST_VIDEO_URL=http://localhost:8188/generate
+#   SELFHOST_VIDEO_MODEL=wan2.7
+services:
+  wind-comic-selfhost-video:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - ./server.mjs:/app/server.mjs:ro
+      # 挂进你的模型与推理脚本
+      - ${MODELS_DIR:-./models}:/models
+      - selfhost-out:/out
+    ports:
+      - "8188:8188"
+    environment:
+      PORT: "8188"
+      OUT_DIR: "/out"
+      # 上游拿到的 url 要能被 Wind Comic 访问到 —— 容器内的 localhost 不是宿主的 localhost
+      PUBLIC_BASE_URL: "http://localhost:8188"
+      # 显存是硬约束,并发跑只会一起 OOM
+      MAX_CONCURRENT: "1"
+      TASK_TIMEOUT_MS: "1200000"
+      # ↓↓↓ 换成你自己的推理命令 ↓↓↓
+      VIDEO_CMD: >-
+        python /models/wan2.7/infer.py
+        --prompt {prompt}
+        --out {out}
+        --seconds {duration}
+        --aspect {aspect}
+    command: ["node", "/app/server.mjs"]
+volumes:
+  selfhost-out:

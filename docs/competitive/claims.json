@@ -163,7 +163,10 @@
       "evidence": "services/selfhost-video.service.ts 只约定最小 HTTP 契约(POST → url | task_id),仓库未提供任何可直接跑的推理服务",
       "falsifyBy": "提供了开箱即用的 Wan/LTX 推理包(或 compose 服务),用户 docker compose up 即可自托管出片",
       "trend": "这是「造好没接线」的变体:接口有了,但离用户真能用还差一层",
-      "actionVersion": "v12.420"
+      "actionVersion": "v12.420",
+      "lastVerdict": "resolved",
+      "lastVerdictOn": "2026-09-03",
+      "lastVerdictNote": "v12.420 已给出可直接跑的参考实现(`selfhost/video/server.mjs` + compose + README,零依赖)。**而且在做这件事时发现一个更难看的问题**:`lib/ssrf-guard` 默认拒绝 localhost,而自托管端点最自然的地址就是 localhost —— v12.411 的视频与 v12.410 的音乐**两条路一次都跑不通过**,`.env.example` 里我写的示例正是那个被自己守卫拒掉的地址。已加极窄例外(origin 须逐字出现在部署者填的 env 里)。"
     },
     {
       "id": "C15-cjk-text-in-frame",

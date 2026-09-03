@@ -170,6 +170,31 @@ export type SsrfVerdict = { ok: true } | { ok: false; reason: string };
  * `allowPrivate` 供本地开发/自测显式开(默认关)。生产**永远**不允许开:
  * 这类开关一旦能在生产生效,等于把整个防线做成了一个环境变量。
  */
+/**
+ * 装了哪些自托管端点 —— **只有这些 env 里逐字写着的 origin** 才允许指向内网。
+ *
+ * 加新条目前先问一句:这个 env 是**部署者填的**,还是可能被请求内容影响的?
+ * 只有前者能进这张表。混进一个后者,这道守卫就等于没有了。
+ */
+const OPERATOR_ENDPOINT_ENVS = [
+  'SELFHOST_VIDEO_URL',   // v12.411 自托管视频
+  'MUSIC_SELFHOST_URL',   // v12.410 自托管音乐(ACE-Step / YuE)
+  'LIPSYNC_API_URL',      // 自托管口型(wav2lip / SadTalker / MuseTalk)
+  'COMFYUI_URL',
+] as const;
+
+export function isOperatorConfiguredOrigin(origin: string): boolean {
+  if (!origin) return false;
+  for (const key of OPERATOR_ENDPOINT_ENVS) {
+    const raw = process.env[key];
+    if (!raw) continue;
+    try {
+      if (new URL(raw).origin === origin) return true;
+    } catch { /* env 里写的不是合法 URL → 不放行 */ }
+  }
+  return false;
+}
+
 export async function assertOutboundUrlSafe(rawUrl: string): Promise<SsrfVerdict> {
   let u: URL;
   try {
@@ -184,6 +209,23 @@ export async function assertOutboundUrlSafe(rawUrl: string): Promise<SsrfVerdict
   const allowPrivate =
     process.env.SSRF_ALLOW_PRIVATE === '1' && process.env.NODE_ENV !== 'production';
   if (allowPrivate) return { ok: true };
+
+  // v12.420:**运维显式配置的自托管端点**是唯一合法的内网例外。
+  //
+  // 病象:v12.411 接了自托管视频端点、v12.410 接了自托管音乐,而两者最自然的地址
+  // 就是 `http://localhost:8188/...` —— 结果被这道守卫拒掉,**接了却用不了**。
+  // 我在 .env.example 里写的示例正是 localhost,它根本调不通。
+  //
+  // 为什么不用 SSRF_ALLOW_PRIVATE:那是**全局**开关且生产禁用 ——
+  // 为一条端点把整道防线撤掉,是拿一个真实的安全边界换一个功能,不划算。
+  //
+  // 这里的例外窄到只有一种形态:**origin 必须逐字出现在下面这几个 env 里**。
+  // SSRF 防的是「URL 来自不可信内容」,而这些 env 是部署者自己填的 ——
+  // 两者性质不同。而且判据落在 env 上,任何从请求内容里冒出来的 origin
+  // 都不可能命中它,所以放行面不会因为调用方写错而扩大。
+  if (isOperatorConfiguredOrigin(u.origin)) {
+    return { ok: true };
+  }
 
   const host = normalizeHost(u.hostname);
 
