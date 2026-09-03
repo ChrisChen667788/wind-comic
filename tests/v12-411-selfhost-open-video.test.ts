@@ -37,9 +37,18 @@ afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); fetchMock.mockReset
 /** 按 5s 步进推时钟直到 promise 落定(一次性推太猛会触发内部 abort 定时器) */
 async function runWithClock<T>(p: Promise<T>, steps = 40): Promise<T> {
   let done = false;
-  const wrapped = p.then((v) => { done = true; return v; }, (e) => { done = true; throw e; });
+  let outcome: { ok: true; value: T } | { ok: false; error: unknown } | null = null;
+  // **立刻接住** —— 否则在推时钟的这段时间里,它是一个「已拒绝但还没人处理」的 promise。
+  // Node 20 会把它报成 unhandled rejection 让整个 vitest 退出 1,而 Node 25 不报:
+  // 本地 5294 全绿、CI 却红,真因就在这里。「本地绿推不出 CI 绿」的又一个具体形态。
+  p.then(
+    (value) => { outcome = { ok: true, value }; done = true; },
+    (error) => { outcome = { ok: false, error }; done = true; },
+  );
   for (let i = 0; i < steps && !done; i++) await vi.advanceTimersByTimeAsync(5000);
-  return wrapped;
+  if (!outcome) throw new Error('runWithClock: promise 未在给定步数内落定');
+  if ((outcome as { ok: boolean }).ok) return (outcome as { ok: true; value: T }).value;
+  throw (outcome as { ok: false; error: unknown }).error;
 }
 
 describe('v12.411 · 自托管开源视频端点', () => {

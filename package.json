@@ -1,6 +1,6 @@
 {
   "name": "wind-comic",
-  "version": "12.416.0",
+  "version": "12.417.0",
   "description": "Wind Comic — multi-agent AI pipeline that turns a one-line idea into a finished short-form drama: script → cinematic storyboards → video, with built-in character consistency, beat-aligned editing, and an open agent ensemble.",
   "main": "index.js",
   "homepage": "https://github.com/ChrisChen667788/wind-comic",
@@ -17,7 +17,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run",
+    "test": "node --unhandled-rejections=strict ./node_modules/vitest/vitest.mjs run",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
