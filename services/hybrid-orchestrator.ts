@@ -1097,6 +1097,9 @@ export class HybridOrchestrator {
     cref?: string; sref?: string; cw?: number;
     referenceImages?: string[];
     sketchUrl?: string; sketchLock?: boolean; sketchMeta?: { shotSize?: string; angle?: string; movement?: string }; // v12.135 镜头语言草图锁
+    /** v12.416:这一镜要在**画面里**渲染的确切文字(片头字卡/对白框/招牌)。
+     *  没有确切文字就无从验证画对没有,那会退化成「让模型自由发挥写点像字的东西」。 */
+    onScreenText?: string;
   }): Promise<string> {
     // v12.135(issue #2 调研落地,默认关):镜头语言草图锁 —— 某镜带草图且开启时,
     // 把草图作首要构图参考并入 refs + 追加「锁定构图/机位」提示,让出图遵循草图空间布局。
@@ -1235,6 +1238,28 @@ export class HybridOrchestrator {
       minimaxAvailable: !!this.minimaxService?.isImageAvailable(),
       kontextAvailable: !!veKey || !!qytKey,
     }), validRefs.length, !!this.falFluxService));
+    // v12.416:这一镜要不要在**画面里**写汉字。
+    // libass 字幕是后期叠加的一层字;片头字卡 / 对白框 / 招牌上的字得长在画面里、
+    // 跟着透视和光线走 —— 叠一层替代不了。而通用图像模型画汉字基本是乱码,
+    // 它不报错,只画出一堆像汉字的鬼画符:又一个「失败长得像成功」。
+    // 所以有确切文字时,把这一镜交给有字形对齐能力的引擎;没有这种引擎就
+    // **明确回落到叠字并说明原因**,而不是让通用模型硬画。
+    const { detectTextInFrame, routeTextInFrame } = await import('@/lib/text-in-frame');
+    const textNeed = detectTextInFrame({
+      shotType: opts?.label,
+      description: prompt,
+      onScreenText: opts?.onScreenText,
+    });
+    if (textNeed.kind !== 'none') {
+      const textRoute = routeTextInFrame(textNeed, [route.primary, ...route.fallbacks]);
+      console.log(`[TextInFrame] ${label}: ${textRoute.reason}`);
+      if (textRoute.engine) {
+        route.fallbacks = [route.primary, ...route.fallbacks].filter((e) => e !== textRoute.engine);
+        route.primary = textRoute.engine as typeof route.primary;
+        if (textRoute.promptSuffix) prompt = `${prompt}\n${textRoute.promptSuffix}`;
+      }
+    }
+
     console.log(`[ImageRouter] ${label}: refs=${validRefs.length} → primary=${route.primary} fallbacks=[${route.fallbacks.join(',')}] (${route.reason})`);
 
     // engine 执行器 — 每个 engine 抽成一个 thunk, router 按顺序串行 try
