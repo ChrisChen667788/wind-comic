@@ -20,8 +20,12 @@ export const API_CONFIG = {
     creativeBaseURL: process.env.CREATIVE_BASE_URL || process.env.DEEPSEEK_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
     creativeApiKey: process.env.CREATIVE_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || '',
     // v7.0: 全局 LLM 兜底 —— 任何主 LLM 异常/欠费 → 路由到 MiniMax (OpenAI 兼容)
-    fallbackBaseURL: process.env.LLM_FALLBACK_BASE_URL || 'https://api.minimaxi.com/v1',
-    fallbackApiKey: process.env.LLM_FALLBACK_API_KEY || process.env.MINIMAX_API_KEY || '',
+    // v12.419:改成 getter —— 与同文件模型 ID 一致的理由(「扫描采用后免重启生效」)。
+    // 此前这两项在**模块加载时就求值**:进程起来之后再设 LLM_FALLBACK_API_KEY
+    // (管理界面改配置、或测试里注入)一律不生效,而表现是「配了但没用上」,
+    // 没有任何报错。写这一版时就是被它绊住的 —— 自动挑选独立评分方读到的是空 key。
+    get fallbackBaseURL() { return process.env.LLM_FALLBACK_BASE_URL || 'https://api.minimaxi.com/v1'; },
+    get fallbackApiKey() { return process.env.LLM_FALLBACK_API_KEY || process.env.MINIMAX_API_KEY || ''; },
     // v12.94.0 OpenRouter 档(70+ provider 自动健康路由;配 key 即启用)
     openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
     openrouterBaseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',

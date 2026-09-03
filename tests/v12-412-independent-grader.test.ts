@@ -30,13 +30,25 @@ afterEach(() => {
 });
 
 describe('v12.412 · 独立评分上下文', () => {
-  it('什么都不配时回落主配置,且**如实标为自评**(零回归,但不粉饰)', () => {
+  it('什么都不配时回落通用档模型', () => {
     for (const k of KEYS) delete process.env[k];
     const g = resolveGraderConfig();
     expect(g.model).toBe(API_CONFIG.openai.model);
-    expect(g.independent, '没配就该是 false —— 这才是当下的真实状态').toBe(false);
-    expect(g.reason).toContain('自评');
-    expect(g.reason, '要告诉人怎么才能真正独立').toContain('GRADER_MODEL');
+  });
+
+  it('v12.419 订正:判独立性要比**剧本作者**(creativeModel),不是通用档', () => {
+    // v12.412 拿 grader 与 cfg.model 比 —— 而 grader 用的就是 cfg.model,
+    // 所以它永远报「自评中」。可被评的内容是 writer-agent 用 creativeModel 写的,
+    // 两者本机实测就是两个模型(claude-fable-5 vs claude-opus-5)。
+    // 于是那一版之后,每跑一次审计都打印一句不成立的告警 ——
+    // 每次都响的告警,到真出问题那次也没人看。
+    for (const k of KEYS) delete process.env[k];
+    const g = resolveGraderConfig();
+    expect(g.authorModel, '必须把作者模型带出来,否则无从判断比的是谁').toBe(API_CONFIG.openai.creativeModel);
+    if (API_CONFIG.openai.creativeModel !== API_CONFIG.openai.model) {
+      expect(g.independent, '作者与评分本就是两个模型 → 独立,不该再报自评').toBe(true);
+      expect(g.reason).toContain('剧本作者');
+    }
   });
 
   it('换成另一个模型才算独立', () => {
@@ -48,11 +60,13 @@ describe('v12.412 · 独立评分上下文', () => {
     expect(g.reason).toContain('独立评分');
   });
 
-  it('把 GRADER_MODEL 设成与生成同一个模型,不算独立 —— 这正是要防的自欺', () => {
+  it('把 GRADER_MODEL 设成与**剧本作者**同一个模型,不算独立 —— 这正是要防的自欺', () => {
     for (const k of KEYS) delete process.env[k];
-    process.env.GRADER_MODEL = API_CONFIG.openai.model;
+    process.env.GRADER_MODEL = API_CONFIG.openai.creativeModel;
     const g = resolveGraderConfig();
-    expect(g.independent, '配了个同名模型就宣称独立 = 假绿').toBe(false);
+    expect(g.independent, '配了个与作者同名的模型就宣称独立 = 假绿').toBe(false);
+    expect(g.reason).toContain('自评');
+    expect(g.reason, '要告诉人怎么才能真正独立').toContain('GRADER_MODEL');
   });
 
   it('端点或凭据不同也算独立(同模型不同供应商仍是另一个判官)', () => {
