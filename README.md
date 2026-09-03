@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-5293%2F5293-2ea44f"  alt="5293 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-5294%2F5294-2ea44f"  alt="5294 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -250,7 +250,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **5293 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **5294 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -380,6 +380,29 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 ---
 
 ## 🎬 Screenshots
+
+### 📸 v12.402 – v12.416 screenshots (captured 2026-09-03)
+
+> All captured by `node scripts/capture-v12-416.mjs` against real local data (1440×900 @2x, downscaled to 1600px wide).
+> The script has **blank-page detection** and **near-duplicate detection**: a screen that failed to render, or one where
+> "the tab was clicked but the view never changed", is deleted and reported honestly —
+> **one screenshot masquerading as two is worse than one missing.**
+
+| | |
+|---|---|
+| ![Landing](assets/v12-416/01-landing.jpg) Landing | ![Projects](assets/v12-416/02-projects.jpg) My projects |
+| ![Assets](assets/v12-416/03-assets.jpg) Asset library | ![Health](assets/v12-416/04-health-engines.jpg) Engine health · model radar |
+| ![Usage](assets/v12-416/05-usage.jpg) Usage & cost | ![Templates](assets/v12-416/06-templates.jpg) Template market |
+| ![Workshop](assets/v12-416/07-project-workshop.jpg) Project workshop (script / cameo lock / character sheets) | |
+
+> Only one project-page shot, and that is an empirical result rather than laziness: clicking the tabs and scrolling the
+> body both leave the view unchanged (the page uses an inner scroll container). Both dead ends are recorded in the
+> capture script so the next person does not retry them.
+
+**Measured performance** (local dev server, `curl` time-to-first-byte): landing **46 ms**;
+console pages (projects / assets / engine health / usage) **22–38 ms**.
+Tests: **5294 passing · 0 failing**; preflight **10/10**; CI all five jobs green.
+
 
 Below is the **foundational v3 pipeline** (the v6 studio screens are in the [New in v6](#-new-in-v6--from-demo-to-studio) section above). Every panel is **a real puppeteer capture of the running app** (run `node scripts/capture-screenshots.mjs` / `node scripts/capture-v6.mjs` to refresh).
 
@@ -531,7 +554,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 5293/5293 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 5294/5294 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 

@@ -224,7 +224,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **5293 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **5294 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -270,6 +270,27 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ---
 
 ## 🎬 实机截图
+
+### 📸 v12.402 – v12.416 实机截图(2026-09-03 实拍)
+
+> 全部由 `node scripts/capture-v12-416.mjs` 在本机真实数据上抓取(1440×900 @2x → 压至 1600px 宽)。
+> 脚本带**空壳检测**与**近重复检测**:页面没渲染出来、或「点了 tab 但视图没换」的图会被自动删掉并如实汇报 ——
+> 截图是拿来对外展示的,**同一张冒充两张比缺一张更糟**。
+
+| | |
+|---|---|
+| ![落地页](assets/v12-416/01-landing.jpg) 落地页 | ![我的项目](assets/v12-416/02-projects.jpg) 我的项目 |
+| ![素材库](assets/v12-416/03-assets.jpg) 素材库 | ![引擎健康](assets/v12-416/04-health-engines.jpg) 引擎健康 · 模型雷达 |
+| ![用量](assets/v12-416/05-usage.jpg) 用量与成本 | ![模板市场](assets/v12-416/06-templates.jpg) 模板市场 |
+| ![项目工作台](assets/v12-416/07-project-workshop.jpg) 项目工作台(剧本 / Cameo 锁脸 / 角色档案) | |
+
+> 项目页只出一张,是实测后的结论:点 tab 与滚动 body 都不换视图(该页用内部滚动容器),
+> 两条路都试过并写进了脚本注释,避免下次重复踩。
+
+**实测性能**(本机 dev server,`curl` 首字节):落地页 TTFB **46ms**;
+控制台各页(项目 / 素材 / 引擎健康 / 用量)TTFB **22–38ms**。
+测试:**5294 全绿 · 0 失败**;preflight **10/10**;CI 五 job 全绿。
+
 
 下面是 **v3 基础流水线** 的实拍(v6 工作室新界面见上方 [v6 新增](#-v6-新增--从能跑的-demo-进化成能用的工作室) 一节)。每张图都是 `node scripts/capture-screenshots.mjs` / `node scripts/capture-v6.mjs` 自动捕获的实跑界面, 不是 mockup.
 
@@ -385,7 +406,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 5293/5293 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 5294/5294 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 
