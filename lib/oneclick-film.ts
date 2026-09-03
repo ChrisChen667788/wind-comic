@@ -11,6 +11,7 @@
  */
 import { bindElements, elementCompleteness, type ReferenceElement, type ElementBinding } from './reference-elements';
 import { buildRebirthPlan, type AuditedShotLike, type RebirthShot } from './rebirth-plan';
+import { planRepairs, type RepairDecision } from './repair-strategy';
 import { evaluateQualityGate, type FilmAuditLike, type QualityDimsLike, type QualityGateResult } from './quality-gate';
 
 export interface OneClickConfig {
@@ -89,6 +90,14 @@ export interface IterationVerdict {
   gate: QualityGateResult;
   /** decision=rebirth 时:本轮要自动重拍的弱镜(优先级 + focusHint) */
   rebirthShots: RebirthShot[];
+  /**
+   * v12.408:每个弱镜是「局部重绘」还是「整张重生」。
+   * 此前一律整张重生 —— 贵,而且会把这一镜里**本来已经对的部分**
+   * (角色长相、光线、构图)一起重新掷骰子,常见结果是「修好了动作、人却变样了」,
+   * 于是又触发下一轮重生。Kontext 的 `editImage()` 早就存在但零调用方,
+   * 正是竞品复核里 C7 说的「接入成本已付、能力一直躺着」。
+   */
+  repairs: RepairDecision[];
   round: number;
   message: string;
 }
@@ -105,23 +114,28 @@ export function decideIteration(plan: OneClickPlan, input: IterationInput): Iter
   const rebirth = buildRebirthPlan(input.audits || [], { threshold: plan.rebirthThreshold });
 
   if (gate.ready) {
-    return { decision: 'done', gate, rebirthShots: [], round, message: `第 ${round} 轮达标 — ${gate.message}` };
+    return { decision: 'done', gate, rebirthShots: [], repairs: [], round, message: `第 ${round} 轮达标 — ${gate.message}` };
   }
   // gate block
   const canRebirth = round < plan.maxRebirthRounds + 1 && rebirth.count > 0;
   if (canRebirth) {
+    const { decisions, editCount, regenerateCount } = planRepairs(rebirth.shots);
     return {
       decision: 'rebirth',
       gate,
       rebirthShots: rebirth.shots,
+      repairs: decisions,
       round,
-      message: `第 ${round} 轮未达标(${gate.message})— 自动重拍 ${rebirth.count} 个弱镜后进下一轮`,
+      message:
+        `第 ${round} 轮未达标(${gate.message})— 自动修 ${rebirth.count} 个弱镜后进下一轮` +
+        `(局部重绘 ${editCount} · 整张重生 ${regenerateCount})`,
     };
   }
   return {
     decision: 'blocked',
     gate,
     rebirthShots: rebirth.shots,
+    repairs: planRepairs(rebirth.shots).decisions,
     round,
     message: rebirth.count === 0
       ? `未达标但无可自动修复的弱镜(${gate.message})— 建议人工介入`

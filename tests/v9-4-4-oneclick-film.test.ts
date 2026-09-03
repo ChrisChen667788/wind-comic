@@ -57,7 +57,13 @@ describe('v9.4.3 · decideIteration(闭环自愈裁决)', () => {
     expect(v.decision).toBe('rebirth');
     expect(v.rebirthShots.length).toBeGreaterThan(0);
     expect(v.rebirthShots[0].shotNumber).toBe(2); // 最低分先拍
-    expect(v.message).toMatch(/自动重拍/);
+    // v12.408:此前这里断言 message 匹配 /自动重拍/ —— 锁的是**文案**。
+    // 现在弱镜分两种修法(局部重绘 / 整张重生),「重拍」二字已不准确,
+    // 文案改成「自动修 … (局部重绘 N · 整张重生 M)」后这条就红了,而行为一字未变。
+    // 改成锁行为:确实排出了要修的镜,且每一镜都有明确的修法。
+    expect(v.repairs, '每个弱镜都要有修法').toHaveLength(v.rebirthShots.length);
+    expect(v.repairs.every((r) => r.mode === 'edit' || r.mode === 'regenerate')).toBe(true);
+    expect(v.message, '消息里要能看出本轮修了几个').toMatch(/\d+ 个弱镜/);
   });
 
   it('门禁 block + 已到最大轮数 → blocked(交人工)', () => {
