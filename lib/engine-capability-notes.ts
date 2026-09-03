@@ -8,6 +8,7 @@
  * 消费方:/api/api-status(引擎天气条,env 触发)+ 成片体检(env + 项目语种触发)。
  */
 import { lipsyncLangCode, isSupportedLanguage, languageDisplayName, type TargetLanguage } from './language-detect';
+import { decideLipsyncForLanguage } from './lipsync-language-gate';
 
 export interface CapabilityNote {
   key: string;
@@ -42,13 +43,25 @@ export function engineCapabilityNotes(
   // ② 口型语种:口型模型仅 zh/en 音素,ja/ko/ru 已诚实降级为 none(错口型比无口型更伤)。
   //    仅当项目语种真的命中时提示(zh/en 不打扰)。
   const lang = (opts.language || '').trim();
-  if (lang && isSupportedLanguage(lang) && lipsyncLangCode(lang as TargetLanguage) === 'none') {
-    notes.push({
-      key: 'lipsyncNone',
-      label: '口型同步',
-      severity: 'info',
-      text: `当前语种(${languageDisplayName(lang as TargetLanguage)})口型模型无对应音素,口型同步已诚实降级为「无」(错口型比无口型更伤观感);可灵 lip-sync 端点仅支持 zh/en 台词(语音需 ≥2s)`,
-    });
+  // v12.418:这条提示此前只看语言,而「能不能上口型」现在是 语言 × 装了什么引擎。
+  // 装了语种无关引擎时还提示「已降级为无」,就是在报一件已经不成立的事。
+  if (lang && isSupportedLanguage(lang)) {
+    const d = decideLipsyncForLanguage(lang as TargetLanguage);
+    if (!d.enabled) {
+      notes.push({
+        key: 'lipsyncNone',
+        label: '口型同步',
+        severity: 'info',
+        text: `当前语种(${languageDisplayName(lang as TargetLanguage)})口型模型无对应音素,口型同步已诚实降级为「无」(错口型比无口型更伤观感);可灵 lip-sync 端点仅支持 zh/en 台词(语音需 ≥2s)。**配 SYNC_SO_API_KEY 可解开 ja/ko/ru** —— Sync.so lipsync-2 对齐波形而非音素,不依赖语种`,
+      });
+    } else if (d.langCode === 'any') {
+      notes.push({
+        key: 'lipsyncAgnostic',
+        label: '口型同步',
+        severity: 'info',
+        text: `当前语种(${languageDisplayName(lang as TargetLanguage)})本无音素表,但已配置语种无关引擎(Sync.so lipsync-2,对齐波形而非音素)—— 口型同步可用`,
+      });
+    }
   }
 
   // ③ 运镜画质权衡:KLING_CAMERA_MODEL 显式启用 = 带运镜的镜降到 v1-5 pro(画质次于 v3)。

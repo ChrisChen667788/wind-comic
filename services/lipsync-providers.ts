@@ -128,6 +128,31 @@ class KlingLipSyncProvider implements LipSyncProvider {
   }
 }
 
+/**
+ * v12.418:Sync.so 模型不再写死。
+ *
+ * 此前硬编 `lipsync-1.9.0-beta` —— **一个 beta 版**,而官方当前主线是 lipsync-2 /
+ * lipsync-2-pro。这是本轮反复出现的同一个病(MiniMax 钉在 legacy、Vidu 不传 model、
+ * MJ 不声明版本):**把版本写死,然后忘掉它**。beta 版尤其危险:它随时可能下线,
+ * 而下线后返回的错误长得像「参数不对」,人会去查请求体。
+ *
+ * 官方枚举(2026-09-03 核 https://sync.so/docs/api-reference/api/generate-api/create):
+ *   sync-3 · lipsync-2 · lipsync-2-pro · lipsync-1.9.0-beta · react-1
+ */
+const SYNCSO_MODELS = ['lipsync-2', 'lipsync-2-pro', 'sync-3', 'lipsync-1.9.0-beta', 'react-1'] as const;
+const SYNCSO_SYNC_MODES = ['bounce', 'loop', 'cut_off', 'silence', 'remap'] as const;
+
+export function syncSoModel(): string {
+  const m = process.env.SYNCSO_MODEL;
+  // 乱填就回落默认,而不是把一个必然 400 的请求送出去
+  return m && (SYNCSO_MODELS as readonly string[]).includes(m) ? m : 'lipsync-2';
+}
+
+export function syncSoSyncMode(): string {
+  const m = process.env.SYNCSO_SYNC_MODE;
+  return m && (SYNCSO_SYNC_MODES as readonly string[]).includes(m) ? m : 'bounce';
+}
+
 // ─── Sync.so (https://sync.so) — 业内 lipsync 专家 ─────────────────────────────
 class SyncSoLipSyncProvider implements LipSyncProvider {
   name: LipSyncProviderName = 'syncso';
@@ -151,14 +176,18 @@ class SyncSoLipSyncProvider implements LipSyncProvider {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'lipsync-1.9.0-beta',
+            model: syncSoModel(),
             input: [
               { type: 'video', url: videoUrl },
               { type: 'audio', url: audioUrl },
             ],
             options: {
               output_format: 'mp4',
-              sync_mode: 'cut_off', // 视频长于音频时截掉多的
+              // v12.418:此前写死 'cut_off' —— 视频长于音频时**把画面截掉**。
+              // 短剧里那是可见的:一镜播到一半没了。'bounce' 让画面回弹填满音频时长,
+              // 观感上远好过硬切。可用 SYNCSO_SYNC_MODE 覆盖(官方枚举:
+              // bounce | loop | cut_off | silence | remap)。
+              sync_mode: syncSoSyncMode(),
             },
           }),
         },

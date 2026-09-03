@@ -176,14 +176,14 @@
       "actionVersion": "v12.416"
     },
     {
-      "id": "C16-lipsync-zero-calls",
-      "statement": "真人脸唇形重塑为零:Kling 口型已接入但子功能零调用,Sync.so 未接入",
-      "kind": "接了没用",
+      "id": "C16-lipsync-language-gap",
+      "statement": "真正的口型缺口不是「没接」,而是 ja/ko/ru 在语言表里被判为 none —— 它们永远走不到已经存在的语种无关引擎",
+      "kind": "能力缺口(上一轮结论已订正)",
       "assertedOn": "2026-09-03",
-      "evidence": "Kling 口型同步支持 5 语言(复核纠正:非 20+,20+ 是 HeyGen 的数据被张冠李戴);Sync.so Lipsync-2-Pro 任意语言且含免费 API 层",
-      "falsifyBy": "口型同步已在主管线被调用并有产物",
-      "trend": "与 C7 同型 —— 接入成本已付、能力躺着",
-      "actionVersion": "v12.417"
+      "evidence": "**上一轮那条断言是错的,已订正**:调研说「Kling 口型已接入但子功能零调用」,代码实证推翻 —— `services/agents/editor-agent.ts:598` 主管线里真的在调 `syncMouthToAudio`;且 Sync.so **早就存在**于 `services/lipsync-providers.ts`(`SYNCSO_API_KEY`),不是缺失项。真实缺口是 `lib/language-detect.ts` 把 ja/ko/ru 的 lipsync 判为 `none`(v12.179/196 的理由是「错口型比无口型更伤」,当时只有 zh/en 音素表),于是这三种语言在更早的一步就被拦下,永远到不了语种无关的 Sync.so。v12.418 已加 `lib/lipsync-language-gate.ts` 按「语言 × 引擎能力」判定。",
+      "falsifyBy": "ja/ko/ru 在配了 SYNCSO_API_KEY 的部署上仍拿不到口型;或实测发现 Sync.so 对日语同样错位(那样这条解锁本身就是错的,应退回诚实降级)",
+      "trend": "教训:**别人的结论要先自己核一遍**,尤其当它让你去「补一个缺失的东西」时 —— 我照着它差点新建第三份 Sync.so 实现",
+      "actionVersion": "v12.418"
     }
   ],
   "watchlist": [

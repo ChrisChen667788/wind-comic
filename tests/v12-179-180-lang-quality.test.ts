@@ -14,10 +14,31 @@ describe('v12.179 · 口型语种', () => {
     expect(lipsyncLangCode('zh')).toBe('zh');
     expect(lipsyncLangCode('en')).toBe('en');
   });
-  it('接线锁:orchestrator none 跳过口型', () => {
-    const o = (fs.readFileSync('services/hybrid-orchestrator.ts','utf-8')+fs.readFileSync('services/agents/writer-agent.ts','utf-8')+fs.readFileSync('services/agents/editor-agent.ts','utf-8'));
-    expect(o).toContain("lsLang === 'none'");
-    expect(o).toContain('跳过口型');
+  it('接线锁:没有合适引擎时必须跳过口型(锁行为,不锁写法)', async () => {
+    // v12.418:此前这条断言 `o).toContain("lsLang === 'none'")` —— 锁的是**那一行写法**。
+    // 而 v12.418 把判定从「只看语言」改成「语言 × 当前装了什么引擎」
+    //(Sync.so 是语种无关的,配了它 ja/ko/ru 就该解开),行为更准了,这条却红了。
+    // 与 v12.122 / v9.4.4 那两条是同一个毛病:锁写法,重构一次红一次。
+    // 改成直接过生产判定函数。
+    const { decideLipsyncForLanguage } = await import('@/lib/lipsync-language-gate');
+    const prev = process.env.SYNCSO_API_KEY;
+    try {
+      delete process.env.SYNCSO_API_KEY;
+      for (const lang of ['ja', 'ko', 'ru'] as const) {
+        const d = decideLipsyncForLanguage(lang);
+        expect(d.enabled, `${lang} 没有合适引擎时不该上口型`).toBe(false);
+        expect(d.reason, '要说清为什么跳过').toMatch(/错口型比无口型更伤|诚实降级/);
+      }
+      expect(decideLipsyncForLanguage('zh').enabled).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.SYNCSO_API_KEY;
+      else process.env.SYNCSO_API_KEY = prev;
+    }
+
+    // 消费方确实接了这条判定(而不是各自再判一遍)
+    const consumers = ['services/agents/editor-agent.ts', 'lib/engine-capability-notes.ts']
+      .map((f) => fs.readFileSync(f, 'utf-8')).join('');
+    expect(consumers).toContain('decideLipsyncForLanguage(');
   });
 });
 

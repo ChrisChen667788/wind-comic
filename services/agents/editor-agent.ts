@@ -75,6 +75,7 @@ import { getLatestQualityScore, buildWriterFeedbackHint } from '@/lib/quality-sc
 import { recordCostLog, estimateVideoCostCny, estimateImageCostCny, videoRateForProvider } from '@/lib/repos/cost-log-repo';
 // v12.6.1(#2):目标语种检测 —— 锁台词/旁白/TTS/口型语种,visualPrompt 仍英文。
 import { detectLanguage, ttsLangCode, lipsyncLangCode, buildLanguageDirective, SUPPORTED_LANGUAGES, type TargetLanguage } from '@/lib/language-detect';
+import { decideLipsyncForLanguage } from '@/lib/lipsync-language-gate';
 // v12.7.0:editor TTS 走注册表(vectorengine-tts 50 > minimax-tts 100),vectorengine 进主路径。
 import { dispatchTTSGenerate, ttsEngineConfigured } from '@/lib/tts-providers/registry';
 // v12.29.0(P1):原生音画一体 —— NATIVE_AV=1 时,真由原生音频引擎出片的有台词镜跳 TTS,用成片自带音轨。
@@ -588,14 +589,23 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
                 console.log(`[LipSync] shot ${v.shotNumber} skipped — audio is non-http (likely local TTS)`);
                 continue;
               }
-              // v12.179:ko/ru 等音素差异过大的语种标 none —— 用 en viseme 驱动会口型-发音严重错位,
-              // 错口型比无口型更伤观感;跳过口型保留原视频(字幕/配音不受影响)。
-              const lsLang = lipsyncLangCode(ctx.targetLanguage());
-              if (lsLang === 'none') {
-                console.log(`[Lipsync] 语种 ${ctx.targetLanguage()} 无适配音素表,跳过口型(诚实降级)`);
+              // v12.179 的判断(错口型比无口型更伤)依然成立,但它**受限于当时的引擎**:
+              // 口型模型只有 zh/en 音素表。v12.418 起,若装了**语种无关**引擎
+              // (Sync.so lipsync-2,对齐波形而非音素),ja/ko/ru 就能解开 ——
+              // 「有没有口型」不再只由语言决定,而是 语言 × 当前装了什么引擎。
+              const lsDecision = decideLipsyncForLanguage(ctx.targetLanguage());
+              if (!lsDecision.enabled) {
+                console.log(`[Lipsync] ${lsDecision.reason}`);
                 continue;
               }
-              const r = await lipsync.syncMouthToAudio(videoUrl, v.audioUrl, { language: lsLang });
+              if (lsDecision.langCode === 'any') {
+                console.log(`[Lipsync] ${lsDecision.reason}`);
+              }
+              // langCode 'any' 表示走语种无关引擎;它不看 language 字段,
+              // 传 'en' 只是满足类型,不会影响对齐结果。
+              const r = await lipsync.syncMouthToAudio(videoUrl, v.audioUrl, {
+                language: lsDecision.langCode === 'any' ? 'en' : lsDecision.langCode,
+              });
               if (r.applied && r.videoUrl && r.videoUrl.startsWith('http')) {
                 videoEntry.videoUrl = r.videoUrl;
                 appliedCount++;
