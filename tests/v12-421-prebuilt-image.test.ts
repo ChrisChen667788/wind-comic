@@ -53,7 +53,9 @@ describe('v12.421 · 预构建镜像', () => {
   it('**构建期自证**:字体解析不到就让镜像构建失败,而不是静默发方框镜像', () => {
     // fc-match 找不到时会静默回退,所以必须检查它解析到的确实是 Noto
     expect(DOCKERFILE).toContain('fc-match');
-    expect(DOCKERFILE).toContain('grep -qi noto');
+    // 锁行为不锁写法:只要「解析结果里必须出现 Noto」这件事还在做就行 ——
+    // 第一版这里写死 `grep -qi noto`,我把判定换成 case 匹配后它就红了,而行为没变。
+    expect(DOCKERFILE, '没有任何一处校验解析结果是不是 Noto').toMatch(/[Nn]oto\*?\)|grep -qi noto/);
     const i = DOCKERFILE.indexOf('fc-match');
     const block = DOCKERFILE.slice(i, i + 600);
     expect(block, '解析不到必须 exit 1,不能只打印一句就过').toContain('exit 1');
@@ -61,6 +63,24 @@ describe('v12.421 · 预构建镜像', () => {
     for (const f of ['Noto Sans CJK SC', 'Noto Sans JP', 'Noto Sans KR']) {
       expect(DOCKERFILE, `没验 ${f}`).toContain(f);
     }
+  });
+
+  it('泛 CJK 字体不提供独立的 JP/KR 家族 —— 必须有别名映射把代码要的名字接过去', () => {
+    // 这条不是我推理出来的:Docker workflow 第一次跑时,Dockerfile 的构建期自证
+    // 当场报「字体「Noto Sans JP」解析不到 Noto(回退到了 DejaVu Sans)」。
+    // 本机没有 docker,我验不了字体包提供哪些 family 名 —— 是那道自证替我验的。
+    const alias = fs.readFileSync('docker/font-aliases.conf', 'utf-8');
+    expect(alias, '窗口自证:这不是 fontconfig 配置?').toContain('<fontconfig>');
+    for (const [want, target] of [['Noto Sans JP', 'Noto Sans CJK JP'], ['Noto Sans KR', 'Noto Sans CJK KR']]) {
+      expect(alias, `没把 ${want} 映射过去`).toContain(want);
+      expect(alias, `${want} 的映射目标不对`).toContain(target);
+    }
+    // 别名文件必须真被装进镜像,否则写了等于没写
+    expect(DOCKERFILE).toContain('docker/font-aliases.conf');
+    expect(DOCKERFILE).toContain('/etc/fonts/conf.d/');
+    // 装完还要重建缓存,否则 fontconfig 读不到
+    const i = DOCKERFILE.indexOf('font-aliases.conf');
+    expect(DOCKERFILE.slice(i), '装了别名却没 fc-cache,等于没生效').toContain('fc-cache');
   });
 
   it('这些字体名必须与 subtitle-burn 在 Linux 下真正要的那几个一致', () => {

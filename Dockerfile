@@ -50,13 +50,25 @@ ENV NODE_ENV=production \
 # 所以这里检查它解析到的确实是 Noto;解析不到就让镜像构建**失败**,
 # 而不是静默发一个把中文烧成方框的镜像。
 RUN apk add --no-cache ffmpeg ttf-dejavu font-noto-cjk fontconfig \
- && fc-cache -f \
- && for f in "Noto Sans CJK SC" "Noto Sans JP" "Noto Sans KR"; do \
-      fc-match --format='%{family}' "$f" | grep -qi noto \
-        || { echo "❌ 字体「$f」解析不到 Noto(回退到了 $(fc-match --format='%{family}' "$f"))—— 字幕会烧成方框,拒绝构建"; exit 1; }; \
-    done \
  && addgroup -g 1001 -S nodejs \
  && adduser -S -u 1001 -G nodejs nextjs
+
+# `font-noto-cjk` 给的是**泛 CJK 家族**(Noto Sans CJK SC/TC/JP/KR),
+# 没有独立的 `Noto Sans JP` / `Noto Sans KR` —— 而 subtitle-burn 请求的正是后者。
+# 这不是猜的:上面那道自证在 Docker workflow 第一次跑时就把它拦了下来
+#(「字体「Noto Sans JP」解析不到 Noto(回退到了 DejaVu Sans)」)。
+# 在镜像内做名字映射,而不是改代码 —— `Noto Sans JP` 是真实存在的独立字体,
+# 本机装了它的用户请求它是对的;问题只出在这个镜像里,就在这个镜像里解决。
+COPY docker/font-aliases.conf /etc/fonts/conf.d/99-wind-comic-cjk.conf
+RUN fc-cache -f \
+ && for f in "Noto Sans CJK SC" "Noto Sans JP" "Noto Sans KR"; do \
+      resolved="$(fc-match --format='%{family}' "$f")"; \
+      case "$resolved" in \
+        *Noto*) : ;; \
+        *) echo "❌ 字体「$f」解析到了 $resolved 而不是 Noto —— 字幕会烧成方框,拒绝构建"; exit 1 ;; \
+      esac; \
+    done \
+ && echo "✅ 中日韩字幕字体自证通过"
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
