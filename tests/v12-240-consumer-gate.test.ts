@@ -10,7 +10,7 @@
  *   · **指纹不含行号**:上面插一行注释就让老债变「新违规」的话,CI 会无故变红,
  *     人被无故的红弄烦之后就会关掉门禁 —— 假红对门禁的杀伤力不亚于假绿。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { stripComments, runConsumerGate, type Violation } from '@/lib/consumer-gate/scan';
@@ -75,14 +75,27 @@ describe('v12.240 指纹稳定性(防假红)', () => {
 });
 
 describe('v12.240 基线分区:只拦新增', () => {
+  /**
+   * v12.421:此前这两条各自跑一遍 `runConsumerGate(ROOT)` —— 那是**全仓扫描**,
+   * 本机高负载下单次就要几十秒,于是两条都撞上 vitest 默认的 5s 超时,
+   * 报出来是「Test timed out」。而门禁 CLI 本身是通过的(0 违规)——
+   * 也就是说这红灯与代码无关,纯粹是测试自己太慢。
+   *
+   * 那不是「负载抖动,重跑就好」:扫描本来就贵,而这里白扫了两遍。
+   * 提到 beforeAll 只扫一次,并给足超时 —— 一条会因为机器忙就红的测试,
+   * 迟早会被人当成噪音忽略,而它守的是「有人绕过唯一入口」这种真问题。
+   */
+  let scanned: ReturnType<typeof runConsumerGate>;
+  beforeAll(() => { scanned = runConsumerGate(ROOT); }, 180_000);
+
   it('当前仓库没有「新增违规」—— 否则说明有人绕过唯一入口且没登记', () => {
-    const { fresh } = partition(ROOT, runConsumerGate(ROOT));
+    const { fresh } = partition(ROOT, scanned);
     const detail = fresh.map((f) => `${f.contractId} @ ${f.file}:${f.line} ${f.snippet}`).join('\n');
     expect(fresh, `新增违规:\n${detail}`).toEqual([]);
   });
 
   it('基线里的条目都还能对上(还清的债应及时移除)', () => {
-    const { stale } = partition(ROOT, runConsumerGate(ROOT));
+    const { stale } = partition(ROOT, scanned);
     // 只提示不失败:清理债的过程中会短暂出现 stale,不该因此阻断
     if (stale.length) console.warn(`[gate] 基线有 ${stale.length} 条已还清,建议 --update 收敛`);
     expect(Array.isArray(stale)).toBe(true);

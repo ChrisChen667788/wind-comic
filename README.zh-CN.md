@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.420</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.421</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -356,10 +356,17 @@ KPI 卡: 平均冲突分 / 反转数 / 通过状态. 每镜柱状图 + 反转 ar
 ### 零 key 试用(一条命令,**不需要任何 API key**)
 
 ```bash
-docker compose -f docker-compose.demo.yml up
+docker run -p 3100:3100 -e MOCK_ENGINES=1 -e JWT_SECRET=demo -e NEXTAUTH_SECRET=demo \
+  ghcr.io/chrischen667788/wind-comic:latest
 ```
 
-然后打开 <http://localhost:3100>。
+然后打开 <http://localhost:3100>。**不需要 clone、不需要 npm install、不需要本地构建。**
+
+想连着 compose 一起跑(带演示工程):
+
+```bash
+docker compose -f docker-compose.demo.yml up
+```
 
 > ⚠️ **诚实声明**:demo 模式跑的是 `MOCK_ENGINES=1` 的确定性假引擎(SVG 分镜 / 纯色短片 / 正弦音),
 > 用来展示**流水线与产品形态**,**不代表真实生成质量**。产物均带 mock 标识 ——

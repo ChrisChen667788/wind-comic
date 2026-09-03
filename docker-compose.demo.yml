@@ -5,7 +5,7 @@
 # 「git clone → npm install → 手工编辑 .env.local 填至少 3 个付费 API key → npm run dev」。
 # 零代码平台那边是浏览器打开就能出片。差距不在功能,在**第一分钟**。
 #
-# 这个 compose 把第一分钟压到一条命令:
+# 这个 compose 把第一分钟压到一条命令,且 v12.421 起**直接拉预构建镜像、不必本地 build**:
 #     docker compose -f docker-compose.demo.yml up
 # 然后打开 http://localhost:3100 —— **不需要任何 API key**。
 #
@@ -15,10 +15,18 @@
 # 正是这个项目一直在消灭的那种事。要看真实质量,配一个 key 即可切真引擎。
 services:
   wind-comic-demo:
+    # v12.421:**默认拉预构建镜像**,不再要求本地 build。
+    # v12.414 把上手压到了一条命令,但那条命令要 npm ci + next build,几分钟起步、
+    # 还得本机有构建环境 —— 竞品复核里 C8 的证伪条件写得很明白:
+    # 「可直接 docker pull 并 docker run 一行拉起的预构建镜像(**无需本地 build**)」。
+    #
+    # `build:` 保留着,是**兜底不是主路**:改了本地代码想试,或镜像还没发出来时,
+    # `docker compose -f docker-compose.demo.yml up --build` 仍然可用。
+    image: ghcr.io/chrischen667788/wind-comic:latest
+    pull_policy: missing
     build:
       context: .
       dockerfile: Dockerfile
-    image: wind-comic:demo
     ports:
       - "3100:3100"
     environment:

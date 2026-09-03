@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.420</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.421</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -500,10 +500,17 @@ Every model call is provider-pluggable (priority chain + automatic fallback). Cr
 ### Zero-key trial (one command, **no API key needed**)
 
 ```bash
-docker compose -f docker-compose.demo.yml up
+docker run -p 3100:3100 -e MOCK_ENGINES=1 -e JWT_SECRET=demo -e NEXTAUTH_SECRET=demo \
+  ghcr.io/chrischen667788/wind-comic:latest
 ```
 
-Then open <http://localhost:3100>.
+Then open <http://localhost:3100>. **No clone, no npm install, no local build.**
+
+Prefer compose (also seeds a demo project):
+
+```bash
+docker compose -f docker-compose.demo.yml up
+```
 
 > ⚠️ **Honest note**: demo mode runs the deterministic mock engines (`MOCK_ENGINES=1` — SVG storyboards,
 > solid-colour clips, sine-wave audio). It demonstrates **the pipeline and the product shape**, and is

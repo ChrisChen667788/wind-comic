@@ -1,0 +1,114 @@
+# .github/workflows/docker-image.yml — 预构建镜像(v12.421)
+#
+# ## 为什么要有它
+# v12.414 把上手门槛压到了一条命令(`docker compose -f docker-compose.demo.yml up`),
+# 但那条命令**要在本地构建** —— npm ci + next build,几分钟起步,还得本机有构建环境。
+# 竞品复核连着两轮把上手门槛判为最大战略劣势,而 C8 的证伪条件写得很明白:
+# 「提供可直接 docker pull 并以 docker run 一行拉起的**预构建镜像**(无需本地 build)」。
+#
+# ## 为什么发到 GHCR 而不是 Docker Hub
+# GHCR 用仓库内置的 `GITHUB_TOKEN` 就能推 —— **不需要 owner 录任何密钥**。
+# Docker Hub 要 DOCKERHUB_TOKEN,那是一次人工介入,而且密钥一旦要人转交就有泄露面。
+# 能不引入密钥就把事办了,就不引入。
+#
+# ## 多架构
+# 同时出 amd64 与 arm64:owner 用 Apple Silicon,而绝大多数服务器是 amd64。
+# 只出一个架构的话,总有一半人 `docker pull` 下来跑不了(或者悄悄走 qemu 慢十倍)。
+name: Docker image
+
+on:
+  push:
+    branches: [main]
+    # 只在真正影响镜像内容时构建 —— 每次文档改动都跑一遍多架构构建太浪费
+    tags: ['v*']
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'app/**'
+      - 'lib/**'
+      - 'services/**'
+      - 'components/**'
+      - 'drizzle/**'
+      - 'scripts/**'
+      - '.github/workflows/docker-image.yml'
+  # 发版打 tag 时也出一份带版本号的
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU (arm64 交叉构建)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          # 内置令牌 —— 不需要 owner 配任何 secret
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 构建成功 ≠ 镜像能用。真拉起来打一次首页,再说它可用。
+      # (Dockerfile 里已有构建期字体自证;这里验的是运行期。)
+      - name: Smoke test the published image
+        run: |
+          set -euo pipefail
+          IMAGE="${REGISTRY}/${IMAGE_NAME}:sha-$(git rev-parse --short HEAD)"
+          echo "拉起 $IMAGE"
+          docker run -d --name smoke -p 3100:3100 \
+            -e MOCK_ENGINES=1 \
+            -e JWT_SECRET=ci-smoke-not-for-prod \
+            -e NEXTAUTH_SECRET=ci-smoke-not-for-prod \
+            "$IMAGE"
+          for i in $(seq 1 40); do
+            if curl -sf -o /dev/null http://localhost:3100/; then
+              echo "✅ 首页可访问(第 ${i} 次探测)"
+              # 字幕字体在运行期也要真的在 —— 构建期自证过一次,这里再确认没被后续层弄丢
+              docker exec smoke fc-match --format='%{family}' 'Noto Sans CJK SC' | grep -qi noto \
+                && echo "✅ 中文字幕字体在位" \
+                || { echo "❌ 运行期解析不到 CJK 字体"; exit 1; }
+              docker rm -f smoke >/dev/null
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ 镜像起来了但首页 40 次探测都不通"
+          docker logs smoke | tail -50
+          exit 1

@@ -36,8 +36,25 @@ ENV NODE_ENV=production \
     PORT=3100 \
     HOSTNAME=0.0.0.0
 
-# ffmpeg (用于本地合成) + 基础字体 (用于字幕渲染)
-RUN apk add --no-cache ffmpeg ttf-dejavu \
+# ffmpeg(本地合成)+ 字幕字体
+#
+# v12.421:此前只装 `ttf-dejavu` —— **它没有任何中日韩字形**。
+# 而 lib/subtitle-burn.ts 在 Linux 下给的字体名是 `Noto Sans CJK SC` / `Noto Sans JP` /
+# `Noto Sans KR`,解析不到时 libass 会回退到 DejaVu,于是**每一个汉字都烧成方框**。
+# 这是一个中文短剧产品的官方镜像,中文字幕烧不出来,成片就是废的 ——
+# 而它不会报错:镜像构建成功、容器起得来、片子也出得来,只是字看不了。
+# 又一个「失败长得像成功」。
+#
+# 构建期自证:本机没有 docker,我无法实测这个包到底提供哪些 family 名。
+# 与其猜,不如让**构建本身**来证明 —— `fc-match` 找不到时会静默回退,
+# 所以这里检查它解析到的确实是 Noto;解析不到就让镜像构建**失败**,
+# 而不是静默发一个把中文烧成方框的镜像。
+RUN apk add --no-cache ffmpeg ttf-dejavu font-noto-cjk fontconfig \
+ && fc-cache -f \
+ && for f in "Noto Sans CJK SC" "Noto Sans JP" "Noto Sans KR"; do \
+      fc-match --format='%{family}' "$f" | grep -qi noto \
+        || { echo "❌ 字体「$f」解析不到 Noto(回退到了 $(fc-match --format='%{family}' "$f"))—— 字幕会烧成方框,拒绝构建"; exit 1; }; \
+    done \
  && addgroup -g 1001 -S nodejs \
  && adduser -S -u 1001 -G nodejs nextjs
 
