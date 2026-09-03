@@ -1,3 +1,7 @@
+import {
+  planExtension, isExtendUnsupported, VEO_SEGMENT_SEC, VEO_EXTEND_MAX_SEGMENTS,
+  type ExtendOutcome,
+} from '@/lib/veo-scene-extension';
 import { API_CONFIG } from '@/lib/config';
 import { fetchWithTimeout } from '@/lib/fetch-timeout';
 import { veoSizeFromAspect } from '@/lib/video-aspect'; // v12.14.0 横竖屏
@@ -52,6 +56,9 @@ export class VeoService {
   private apiKey: string;
   private baseURL: string;
   private model: string;
+  /** v12.407:最近一次成功建任务的 id / 模型 —— Scene Extension 的入参 */
+  public lastTaskId?: string;
+  public lastTaskModel?: string;
   private format: 'unified' | 'openai';
   /** 模型级 fallback 链 — 主模型失败时依次尝试 */
   private fallbackModels: string[];
@@ -131,6 +138,10 @@ export class VeoService {
           : await this.createTaskUnified(prompt, imageUrl, options);
 
         console.log(`[Veo] Task created on ${m}: ${taskId}`);
+        // v12.407:续接需要**前一次任务的 task_id**(不是视频 URL)。
+        // 此前这个 id 轮询完就丢了,所以 Scene Extension 根本无从谈起。
+        this.lastTaskId = taskId;
+        this.lastTaskModel = m;
         const videoUrl = await this.pollResult(taskId, 60, options?.onProgress);
 
         // 成功, 恢复原始配置 (下次调用仍然先用用户选定的主模型)
@@ -257,6 +268,97 @@ export class VeoService {
     return taskId;
   }
 
+  /**
+   * v12.407 · Scene Extension —— 把成片接到更长,**而不是让单次生成变长**。
+   *
+   * 竞品复核里我把「Veo 3.1 单次 60s+」写进过 README,被二次检索当场推翻:
+   * 那是续接拼出来的,单次上限仍是 8–10s。所以这里的参数、日志、返回值
+   * 一律说「段」,不说「时长上限」—— 免得下一个人重犯同一个错。
+   *
+   * 三条硬约束:
+   * ① 续接的入参是**前一次任务的 task_id**,不是视频 URL(故主流程要留住它);
+   * ② 网关不一定暴露续接端点 —— 那不是生成失败,不该按失败处理;
+   * ③ **续接失败绝不能把已经生成、已经计费的首段一起丢掉**。
+   *    这个项目的老毛病就是「一处失败拖垮整体」;首段是真金白银出来的,
+   *    接不上就把首段还回去 + 说明原因,由调用方决定接受短片还是重试。
+   */
+  async generateExtended(
+    imageUrl: string,
+    prompt: string,
+    targetSec: number,
+    options?: { onProgress?: (p: number, s: string) => void },
+  ): Promise<ExtendOutcome> {
+    const plan = planExtension(targetSec);
+    const firstUrl = await this.generateVideo(imageUrl, prompt, { duration: VEO_SEGMENT_SEC, ...options });
+
+    if (plan.extendCount === 0) {
+      return { videoUrl: firstUrl, segments: 1, approxSec: VEO_SEGMENT_SEC };
+    }
+    if (plan.shortfallSec > 0) {
+      console.warn(
+        `[Veo] 目标 ${targetSec}s 超过链长上限(${VEO_EXTEND_MAX_SEGMENTS} 段 × ${VEO_SEGMENT_SEC}s)——` +
+        `按 ${plan.plannedSec}s 规划,缺口 ${plan.shortfallSec}s`,
+      );
+    }
+
+    let url = firstUrl;
+    let segments = 1;
+    let stoppedBecause: string | undefined;
+
+    for (let i = 0; i < plan.extendCount; i++) {
+      const prevTaskId = this.lastTaskId;
+      if (!prevTaskId) {
+        stoppedBecause = '上一段没有留下 task_id,无法续接';
+        break;
+      }
+      try {
+        const taskId = await this.createExtendTask(prevTaskId, prompt);
+        this.lastTaskId = taskId;
+        url = await this.pollResult(taskId, 60, options?.onProgress);
+        segments++;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        stoppedBecause = isExtendUnsupported(msg)
+          ? `网关未提供续接端点(${msg.slice(0, 80)})`
+          : `第 ${segments + 1} 段续接失败(${msg.slice(0, 80)})`;
+        console.warn(`[Veo] Scene Extension 在第 ${segments + 1} 段停下:${stoppedBecause} —— 保留已生成的 ${segments} 段`);
+        break;
+      }
+    }
+
+    return {
+      videoUrl: url,
+      segments,
+      approxSec: segments * VEO_SEGMENT_SEC,
+      stoppedBecause,
+    };
+  }
+
+  /** 建续接任务。入参是**前一次的 task_id**,不是视频 URL。 */
+  private async createExtendTask(prevTaskId: string, prompt: string): Promise<string> {
+    const response = await fetchWithTimeout(`${this.baseURL}/v1/video/extend`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: this.lastTaskModel || this.model,
+        task_id: prevTaskId,
+        prompt,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Veo extend error (${response.status}): ${error.slice(0, 300)}`);
+    }
+    const data = await response.json();
+    const taskId = data.id || data.task_id;
+    if (!taskId) throw new Error(`Veo extend: no task_id in response: ${JSON.stringify(data).slice(0, 200)}`);
+    return taskId;
+  }
+
   // ─── OpenAI async format: POST /v1/videos ───
 
   private async createTaskOpenAI(
@@ -375,7 +477,11 @@ export class VeoService {
     ].includes(s)) {
       return 'processing';
     }
-    if (['completed', 'succeed', 'success', 'finished'].includes(s)) {
+    // v12.407:补 'succeeded' / 'complete'。此前只认 succeed/success/completed/finished ——
+    // 网关一旦返回 'succeeded'(MiniMax V2、Vidu 等都用这个词),这里判不出完成,
+    // 就会把**已经生成、已经计费**的任务白轮到超时。与 v12.122 的 Kling 'Fail'(无 -ed)同型:
+    // 状态字面量差一个后缀,表现却是「任务失败」,人会去查生成侧,查不到真因。
+    if (['completed', 'complete', 'succeed', 'succeeded', 'success', 'finished'].includes(s)) {
       return 'completed';
     }
     if (['failed', 'cancelled', 'canceled', 'error', 'video_generation_failed'].includes(s)) {
