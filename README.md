@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.414</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.415</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-5245%2F5245-2ea44f"  alt="5245 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-5293%2F5293-2ea44f"  alt="5293 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -250,7 +250,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **5245 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **5293 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -263,7 +263,7 @@ Every feature listed above is in `main`, type-checked, unit-tested, and visible 
 > <sub>*This round re-checked every high-risk figure with an independent second search, and **two claims I had already written into this README were overturned**: **Veo 3.1** first shipped **2025-10-15** (2026-01-13 was a feature update), its 60s+ is **Scene Extension stitching — the single-generation ceiling is still 8–10s**, and **Lyria 3 is a separate Google music model, not Veo's audio component**; and **Runway Gen-4.5 has had native audio since 2025-12-11** — the earlier draft called its absence a fatal flaw, which was simply wrong. Elo figures are arena snapshots and move with voting.*</sub>
 > **⭐ BYO 架构再次接住这波**:榜上模型基本都开放 API,填 key 即成为本管线可调度的引擎 —— **竞品越强,本管线越强**。
 
-> **🔴 The open-source lookalikes grew two-to-ten-fold, and three new ones appeared — but the moat boundary still holds.** **OpenMontage** 24k→**54.7k★** (AGPL), HKU **ViMax** 5.6k→**12.2k★** (MIT), plus new entrants **DramaClaw** 4.8k★ (Elastic 2.0 — **not FOSS, SaaS resale prohibited**), **BigBanana** 1.8k★ (CC BY-NC-SA, **non-commercial**), and **Novella AI** 89★ (MIT, fully local). Checked item by item, **none of them has all three of「emotional-pacing audit + EDL/AAF timeline export + open-source self-hostable for commercial use」**: the closest, OpenMontage, has added TTS and multi-language delivery, but its "pacing audit" is **anti-slideshow static-frame detection** (does it look like a slideshow), not emotional-pacing / reversal / cliffhanger auditing; it has **no EDL/AAF**; and its "collaboration" is a production status board, not Yjs multi-user co-editing. **The boundary is narrowing, not widening.**
+> **🔴 We overclaimed last round — four "only we have this" claims retracted (verified 2026-09-03).** This is not competitors catching up; the claims were **too broad to begin with**: ① "EDL/AAF export is unique to us" — **Descript has had it**: Timeline Export covers Premiere XML, FCPXML, Reaper (EDL) and **Pro Tools/Logic (AAF)**. ② "the only MIT, self-hostable end-to-end AI short-drama platform" — **false**: `EvoLinkAI/ai-short-drama` (MIT + Docker + novel→script→storyboard→image→video→voice→film) qualifies too, alongside LocalMiniDrama, Toonflow, huobao-drama and others. ③ "BYO multi-provider registry is unique" — **PopShort.AI already ships cross-vendor models** (Veo 3.1 / Kling / Seedance / Nano Banana Pro). ④ "no competitor does pacing/reversal auditing" — **Volcano Drama** publicly claims a multi-agent verification mechanism with 200+ shot strategies optimising conflict, reversal and climax. **What survives, stated narrowly**: Volcano Drama optimises *inline during generation*, and Descript exports but has neither pacing audit nor an open licence — so as of 2026-09-03, **no single product has all three of「pacing audit hardened into an independent blocking engineering gate + EDL/AAF export + open-source self-hostable for commercial use」**. Note this is **narrower** than last round: "pacing audit" alone no longer holds; it must be "an independent blocking gate". Open-source scale: OpenMontage **54.7k★** (AGPL), ViMax **12.2k★** (MIT), DramaClaw 4.8k★ (Elastic 2.0, not FOSS), BigBanana 1.8k★ (non-commercial), Novella AI 89★ (MIT). Full analysis: [`docs/COMPETITIVE-GAP-2026-09.md`](docs/COMPETITIVE-GAP-2026-09.md).
 > **v12.214→244 双线推进**。**产品层**:GPT Image / Nano Banana(Gemini)接入插件式图像 provider 链(issue #11,社区 @flobo3 提议,`OPENAI_IMAGE_ENABLED` / `GEMINI_API_KEY` 门控、原生 i2i 接角色一致性契约);**多集连续生成补上「剧情记忆」**(第 N 集 Writer 注入前几集前情提要 + 承接纪律,对标红果/阅文的 60~100 集连续,此前各集独立成篇)。**平台/工程层**:六轮独立对抗复检把安全洞从 CRITICAL 到 LOW 全清(SSRF 逐跳重验重定向 + IPv6 全隧道变体 / serve-file 签名能力 URL / WebSocket 鉴权 / 预算护栏),并把反复踩的「改了守卫却没跟到消费方」这个病**固化成 CI 入库门禁**(`npm run gate:consumer`,零容忍,上线即抓到 2 个人肉复检漏掉的真 SSRF)。
 > 结论不变:**生成层已是红海(竞品在出片/多镜/音频都第一梯队),Wind Comic 护城河收窄到「制作/平台层」**——节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO。
 
@@ -531,7 +531,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 5245/5245 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 5293/5293 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 

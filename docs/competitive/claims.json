@@ -11,7 +11,7 @@
     "scripts/competitive-scan.mjs 读它:超过 14 天就报警,并据此生成本轮任务书。",
     "每轮分析完必须更新 lastReviewedOn,否则下一轮的到期检查就是假的。"
   ],
-  "lastReviewedOn": "2026-09-02",
+  "lastReviewedOn": "2026-09-03",
   "reviewIntervalDays": 14,
   "methodology": {
     "sources": "必须联网核实;每个数值给来源 URL + 检索日期;查不到写「未核实」,不猜",
@@ -27,7 +27,10 @@
       "assertedOn": "2026-08-31",
       "evidence": "逐项核对 OpenMontage(54.7k★/AGPL:有 TTS+多语+预算审批,但节奏审计是 anti-slideshow 画面检测、无 EDL/AAF、协作只是状态看板)、ViMax(12.2k★/MIT:无 TTS/节奏审计/EDL-AAF/协作)、DramaClaw(4.8k★/Elastic 2.0 非 FOSS)、BigBanana(1.8k★/CC BY-NC-SA 禁商用)、Novella AI(89★/MIT 全本地但早期)",
       "falsifyBy": "任一 FOSS 许可项目同时具备这三项;或 OpenMontage 补上 EDL/AAF 与情绪节奏审计(它最接近,重点盯它)",
-      "trend": "边界在收窄 —— OpenMontage 半年内 24k→54.7k★ 且补上了 TTS 与多语"
+      "trend": "边界在收窄 —— OpenMontage 半年内 24k→54.7k★ 且补上了 TTS 与多语",
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-03",
+      "lastVerdictNote": "本轮收窄:「节奏审计」不再成立(火山剧创有生成内联多 Agent 校验),必须写成「**独立可拦截工程门禁**」才站得住;且 EDL/AAF 已非独有(Descript 有)"
     },
     {
       "id": "C2-generation-commoditized",
@@ -35,7 +38,10 @@
       "kind": "战场判断",
       "assertedOn": "2026-08-31",
       "evidence": "T2V+音频 Elo 榜首易主:Wan 3.0(1242)超过 Gemini Omni Flash(1237,较上轮 1244 下滑);国内模型领跑",
-      "falsifyBy": "出现开源可自托管且质量进入第一梯队的生成模型,使「自己跑模型」重新成为差异点"
+      "falsifyBy": "出现开源可自托管且质量进入第一梯队的生成模型,使「自己跑模型」重新成为差异点",
+      "lastVerdict": "overturned",
+      "lastVerdictOn": "2026-09-03",
+      "lastVerdictNote": "**已推翻**:Wan 2.7(Apache 2.0)与 LTX-2.5(宽松商业许可)已进第一梯队,LTX-2 在 AA 榜 I2V 第 3 / T2V 第 4 高于闭源 Sora 2 Pro"
     },
     {
       "id": "C3-byo-absorbs",
@@ -43,7 +49,10 @@
       "kind": "架构判断",
       "assertedOn": "2026-08-07",
       "evidence": "已接入 MiniMax / Kling / Veo / Vidu / HappyHorse / Midjourney / flux 网关",
-      "falsifyBy": "头部模型转向封闭生态(仅自家 App 可用、无公开 API),使 BYO 接不到最强的那几个"
+      "falsifyBy": "头部模型转向封闭生态(仅自家 App 可用、无公开 API),使 BYO 接不到最强的那几个",
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-03",
+      "lastVerdictNote": "Seedance 2.0 海外 API 曾被中止(2026-03,好莱坞六大集体停止函,纠纷未和解)—— 「授权禁止第三方编排」已真实发生在榜首模型上"
     },
     {
       "id": "C4-sora-sunset",
@@ -69,7 +78,10 @@
       "assertedOn": "2026-08-31",
       "evidence": "调研标 verified;代码核对:仍拼 --cref,全仓与 .env.local 均未指定 MJ 版本,走网关默认",
       "falsifyBy": "实测一次 MJ 出图并检查网关实际版本;若仍是 V6 则 --cref 有效,本条降级为「随时会发生」",
-      "note": "**本轮无 MJ 额度可验,如实标为待实测**。可观测信号:若失效,cameo-vision-retry 触发率会异常升高"
+      "note": "**本轮无 MJ 额度可验,如实标为待实测**。可观测信号:若失效,cameo-vision-retry 触发率会异常升高",
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-03",
+      "lastVerdictNote": "MJ 侧确认 V7 起 --cref 被静默忽略、当前默认已到 V8.2;我方 v12.404 已代码级修复,但真机出图验收未做"
     },
     {
       "id": "C7-features-underused",
@@ -77,7 +89,10 @@
       "kind": "自身差距",
       "assertedOn": "2026-08-31",
       "evidence": "逐个核对 provider 调用点:只用了基础 t2v/i2v 与 t2i",
-      "falsifyBy": "v12.402–405 落地后逐项复核调用点"
+      "falsifyBy": "v12.402–405 落地后逐项复核调用点",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-03",
+      "lastVerdictNote": "**本轮被逐处 grep 证实**,直接催生 v12.409:generateExtended / editImage / repairs 当时全仓零命中"
     },
     {
       "id": "C8-onboarding-gap",
@@ -85,7 +100,10 @@
       "kind": "战略劣势",
       "assertedOn": "2026-08-31",
       "evidence": "Coze 3.0「内容创作行业技能包」+ 100 并行 agent 零代码编排;市场增速数据来自调研(标 unverified,需复核)",
-      "falsifyBy": "提供一行 Docker 起 / 预置 demo 工程后,重新评估上手时间"
+      "falsifyBy": "提供一行 Docker 起 / 预置 demo 工程后,重新评估上手时间",
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-03",
+      "lastVerdictNote": "v12.414 已给出一条命令的零 key 试用;但仍无预构建镜像"
     },
     {
       "id": "C9-minimax-hailuo-legacy",
@@ -126,6 +144,46 @@
       "falsifyBy": "若后续发现更正本身有误(如 Gen-4.5 音频实为 beta 限量),说明二次检索深度仍不足",
       "trend": "结论:单轮调研的自信度不可信,「数值经独立二次检索复核」必须保留为每轮硬要求 —— 本轮 2/N 条目被推翻",
       "actionVersion": null
+    },
+    {
+      "id": "C13-overclaimed-uniqueness",
+      "statement": "我们对外宣称的四条「独有」(EDL/AAF 导出 / 唯一 MIT 自托管端到端 / BYO 注册表 / 节奏审计)本轮被逐一推翻 —— 不是被追上,是当初说过头了",
+      "kind": "自我校准",
+      "assertedOn": "2026-09-03",
+      "evidence": "Descript Timeline Export 含 Reaper EDL 与 Pro Tools/Logic AAF(官方帮助文档);EvoLinkAI/ai-short-drama 为 MIT + Docker + 端到端;PopShort.AI 公开集成 Veo 3.1/Kling/Seedance/Nano Banana Pro;火山剧创公开声称多 Agent 校验优化冲突/反转/高潮。四条均已在 README 收回并改写为更窄的成立版本",
+      "falsifyBy": "若发现这四条推翻本身有误(如 Descript 的 AAF 实为第三方插件),则说明二次复核仍不够深",
+      "trend": "说过头本身是一种劣势:它让人低估真实竞争强度,也让真正站得住的那条(独立可拦截门禁)被淹没",
+      "actionVersion": "v12.415"
+    },
+    {
+      "id": "C14-selfhost-contract-only",
+      "statement": "v12.411 接入的是自托管**契约**,不是可直接用的推理包 —— 用户仍需自己把 Wan 2.7 / LTX-2.5 包一层",
+      "kind": "接了但没到位",
+      "assertedOn": "2026-09-03",
+      "evidence": "services/selfhost-video.service.ts 只约定最小 HTTP 契约(POST → url | task_id),仓库未提供任何可直接跑的推理服务",
+      "falsifyBy": "提供了开箱即用的 Wan/LTX 推理包(或 compose 服务),用户 docker compose up 即可自托管出片",
+      "trend": "这是「造好没接线」的变体:接口有了,但离用户真能用还差一层",
+      "actionVersion": "v12.420"
+    },
+    {
+      "id": "C15-cjk-text-in-frame",
+      "statement": "帧内中文文字渲染是真缺口:libass 字幕烧录是后期叠加,不等于生成层字体嵌入",
+      "kind": "能力缺口",
+      "assertedOn": "2026-09-03",
+      "evidence": "Seedream 5.0(Glyph-Aligned ByT5,14 语言,$0.04/张)与 Qwen-Image 2.0(20B MMDiT)已做到商业级汉字;漫剧对白框/片头字卡是短剧垂直场景的核心视觉需求",
+      "falsifyBy": "已接入任一具备帧内中文渲染的图像 provider 并在片头/字卡路径被调用",
+      "trend": "这是短剧垂直定位下最实的一个缺口,且竞品已有成熟方案",
+      "actionVersion": "v12.416"
+    },
+    {
+      "id": "C16-lipsync-zero-calls",
+      "statement": "真人脸唇形重塑为零:Kling 口型已接入但子功能零调用,Sync.so 未接入",
+      "kind": "接了没用",
+      "assertedOn": "2026-09-03",
+      "evidence": "Kling 口型同步支持 5 语言(复核纠正:非 20+,20+ 是 HeyGen 的数据被张冠李戴);Sync.so Lipsync-2-Pro 任意语言且含免费 API 层",
+      "falsifyBy": "口型同步已在主管线被调用并有产物",
+      "trend": "与 C7 同型 —— 接入成本已付、能力躺着",
+      "actionVersion": "v12.417"
     }
   ],
   "watchlist": [

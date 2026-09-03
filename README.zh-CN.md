@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.414</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.415</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -224,7 +224,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **5245 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **5293 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -232,7 +232,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ## 🥊 跟竞品比
 
 > 阵容核验 **2026-08-31**(Artificial Analysis 盲投竞技场;6 路并行联网调研 + 关键数值独立二次检索复核。完整分析见 [`docs/COMPETITIVE-GAP-2026-08.md`](docs/COMPETITIVE-GAP-2026-08.md)):**榜首易主,且由国内模型拿下** —— T2V 带音频:**Wan 3.0(1242)** → Gemini Omni Flash(1237,较上轮 1244 下滑)。新进入者 **xAI Grok Imagine Video 1.5**(6-16):**7 路视觉参考同帧锚定**(角色+场景+道具+风格)+ 原生音频 + 语音克隆,$0.08(480p)/$0.14(720p)/$0.25/s(1080p)——**参考路数超过我们现有的 cref+sref 两路**。**Kling 3.0** 仍是短剧综合首选(原生 4K / 60fps / 15s / **6 连贯镜头** / 自带多语对白+口型,$0.084–0.112/s);**Veo 3.1**(2025-10-15 首发,2026-01-13 加 4K 与竖屏)的 **Scene Extension 可把成片接到 60s+ —— 但那是拼接,单次生成上限仍是 8–10s**;内置自研音视频联合生成(**Lyria 3 是 Google 另一个独立音乐模型,不是 Veo 的音频组件**),$0.40/s 起。注:Veo 3.1 自身 T2V+音频 Elo 约 1091,榜上的 1237 是 Gemini Omni Flash —— 那是另一个产品,别混为一谈。**✅ Sora 2 API 停服(2026-09-24)已由 OpenAI 官方确认,本项目 v12.173/207 起已有防护**:退役日前每次告警、退役日后自动从模型链剔除走 fallback,链空才抛(`tests/v12-173-sora-sunset.test.ts` 守着)——**这条不是待办**。
-> **🔴 开源同构竞品规模翻了两到十倍,并新增三个**:**OpenMontage** 24k→**54.7k★**(AGPL)、港大 **ViMax** 5.6k→**12.2k★**(MIT)、新增 **DramaClaw** 4.8k★(Elastic 2.0,**非 FOSS、禁 SaaS 转售**)、**BigBanana** 1.8k★(CC BY-NC-SA,**禁商用**)、**Novella AI** 89★(MIT,全本地)。**但逐项核对后,护城河边界仍然成立** —— 无一同时具备「**情绪节奏审计 + EDL/AAF 剪辑线导出 + 开源自托管商用**」:最接近的 OpenMontage 已补上 TTS 与多语发行,可它的「节奏审计」是 **anti-slideshow 画面静态检测**(判像不像幻灯片),不是情绪节奏/反转/cliffhanger 审计;**无 EDL/AAF**;「协作」是生产状态看板而非 Yjs 多用户联合编辑。**边界在收窄,不是在扩大。**
+> **🔴 上一轮说过头了 —— 本轮把四条「独有」逐一收回(核验 2026-09-03)**。这不是被竞品追上,是**当初就说过头了**:① 「EDL/AAF 导出竞品独有」—— **Descript 早有** Timeline Export(Premiere XML · FCPXML · Reaper EDL · **Pro Tools/Logic AAF**);② 「唯一 MIT 开源可自托管的端到端短剧平台」—— **不成立**,`EvoLinkAI/ai-short-drama`(MIT + Docker + 小说→成片全链)同样满足,另有 LocalMiniDrama / Toonflow / huobao-drama 等多个活跃项目;③ 「BYO 多 provider 注册表独有」—— **PopShort.AI 已公开集成**跨厂商模型(Veo 3.1 / Kling / Seedance / Nano Banana Pro);④ 「节奏/反转审计竞品无对应项」—— **火山剧创**公开声称「多 Agent 校验 + 200+ 爆款镜头策略,智能优化冲突/反转/高潮」。**收窄之后仍然站得住的那条**:火山剧创是**生成内联优化**、Descript 有导出但无节奏审计也不开源 —— 截至 2026-09-03,**仍无一家同时具备「节奏审计固化为可拦截的独立工程门禁 + EDL/AAF 导出 + 开源自托管商用」**。请注意这比上一轮**窄**:上一轮写「节奏审计」,这一轮必须写「**独立可拦截门禁**」才成立。开源阵营规模:OpenMontage **54.7k★**(AGPL)、ViMax **12.2k★**(MIT)、DramaClaw 4.8k★(Elastic 2.0,非 FOSS)、BigBanana 1.8k★(禁商用)、Novella AI 89★(MIT)。完整分析见 [`docs/COMPETITIVE-GAP-2026-09.md`](docs/COMPETITIVE-GAP-2026-09.md)。
 > **🇨🇳 国产阵营:时长与参考路数双双突破,而我们在用的两个引擎都该升版了** —— **Seedance 2.5**(7-31)与 **Wan 3.0**(8-24 正式上线)双双做到**原生 30s 单镜头**;Seedance 支持 **50 个参考素材**、按 token 计费(¥42–70/百万 tokens);Wan 3.0 720P 折后 **¥0.42/s**,还能**文档直转视频**(PPT/Word/PDF→30s)。**Vidu Q3** 是国产里唯一明确打「短剧/漫剧工业化」的(7 参考图多主体锁定 + 6 类电影特效 + 口型驱动,Turbo 1080p ≈¥0.41/s);**PixVerse C1**(4-08)短剧垂直定位最明确(分镜宫格直出 + 多人对白口型)。**⚠️ 两条自查结论**:① `services/minimax.service.ts:240` 默认 `MiniMax-Hailuo-2.3`(`.env.local` 未覆盖,即实际就跑它),而 **2.3 / 2.3-Fast 已被官方降为 legacy**,H3(V2)才是推荐路径 —— **我们把 MiniMax H3 当竞品写进了对照表,自己却还在调它的上一代**。这是当前最紧迫的注册表更新项;② **两条 Vidu 调用路径不一致**:`qyt-vidu.service.ts` 钉死 `viduq3`,而 `vidu.service.ts` **一个模型字段都不传**、跑供应商默认值 —— 和 MJ「全仓未指定版本走网关默认」同一个病:**供应商换默认值时我们会静默改变行为,且事后无从复盘**。
 > **⭐ BYO 架构再次接住这波**:榜上模型基本都开放 API,填 key 即为本管线可调度引擎 —— 竞品越强,本管线越强。
 > **⚠️ 也要说清劣势**:生成质量不由我们决定(不训模型,上限即所接引擎上限);**零门槛比不过** Coze 3.0 这类零代码平台(市场 YoY +214%,差距会被放大);**当前无作曲能力**(MiniMax Music 已对新用户停服,只剩自备 BGM 通道);而且**已接入的特色能力普遍没用满** —— Veo 的 Scene Extension、Kling 的多镜连贯与自带口型、Kontext 的局部重绘都还没调用,这是当下性价比最高的一块。
@@ -385,7 +385,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 5245/5245 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 5293/5293 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 
