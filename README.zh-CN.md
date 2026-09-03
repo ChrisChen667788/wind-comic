@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.411</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.412</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>

@@ -19,6 +19,7 @@
  * 单测: tests/v3-4-vision-audit.test.ts.
  */
 
+import { resolveGraderConfig } from './grader-config';
 import OpenAI from 'openai';
 import { nanoid } from 'nanoid';
 import { API_CONFIG } from './config';
@@ -190,10 +191,19 @@ export async function auditShotVsScript(
     return null;
   }
 
-  const client = new OpenAI({ apiKey: API_CONFIG.openai.apiKey, baseURL: API_CONFIG.openai.baseURL });
+  // v12.412:走独立评分配置。默认回落主配置(零回归),但**是否真独立是算出来的**——
+  // 没真正独立时如实标 false 并大声记日志,而不是配了个开关就宣称「已用独立评分」。
+  const grader = resolveGraderConfig();
+  if (!grader.independent) {
+    console.warn(`[VisionAudit] ${grader.reason}`);
+  } else {
+    console.log(`[VisionAudit] ${grader.reason}`);
+  }
+
+  const client = new OpenAI({ apiKey: grader.apiKey, baseURL: grader.baseURL });
   try {
     const resp = await client.chat.completions.create({
-      model: API_CONFIG.openai.model,
+      model: grader.model,
       temperature: 0.2,
       response_format: { type: 'json_object' },
       messages: [
