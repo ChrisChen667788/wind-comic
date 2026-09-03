@@ -45,6 +45,13 @@ const CAPABILITIES = [
     why: 'v12.408 造好分流后零调用 —— 整张重生会把已经对的部分一起重新掷骰子',
   },
   {
+    name: 'BGM 供应商兜底链(单点依赖 = 供应商替我们决定功能生死)',
+    symbol: 'generateMusic(',
+    producer: 'lib/music-providers.ts',
+    consumers: ['app', 'services'],
+    why: 'v12.410 之前 7 处调用点全部直连 MiniMax,而它已停服(410 + 2153,无预告)—— 整项能力断服',
+  },
+  {
     name: '弱镜修复分流(局部重绘 vs 整张重生)',
     symbol: 'chooseRepairStrategy(',
     producer: 'lib/repair-strategy.ts',

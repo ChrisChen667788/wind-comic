@@ -631,6 +631,18 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         const highlightNote = highlightShots.length > 0
           ? `，在第${highlightShots.map(h => h.shotNumber).join('、')}镜头处需要情感高潮`
           : '';
+        // v12.410:此前这五处**全部直连** ctx.minimaxService.generateMusic ——
+        // 而 MiniMax Music 已对新用户停服(410 + 2153,无预告),于是整项 BGM 能力断服。
+        // 只改 /api/.../music 路由而不改这里,就是这个项目最常犯的
+        // 「主路径修好了、旁路没跟上」。统一走注册表。
+        const bgm = async (prompt: string, durationSec: number, style?: string): Promise<string> => {
+        await import('@/lib/music-providers-builtin');
+        const { generateMusic } = await import('@/lib/music-providers');
+        const out = await generateMusic({ prompt, durationSec, style });
+        console.log(`[Editor] BGM 由 ${out.provider} 生成`);
+        return out.url;
+        };
+
         let musicPrompt = `${genre}风格配乐，情绪基调：${dominantEmotion}${highlightNote}，时长约${totalDuration}秒，适合短片叙事`;
         // v12.13.1(打斗劲爆度第二波):动作片要高能驱动配乐 —— 强劲鼓点/打击乐撑节奏,而非柔和氛围。
         if (actionMode) {
@@ -670,18 +682,9 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           });
           try {
             const [a1, a2, a3] = await Promise.all([
-              ctx.minimaxService.generateMusic(
-                moodPromptForAct(1, dominantEmotion, genre),
-                { duration: Math.min(actDurations.act1, 120), style: genre },
-              ),
-              ctx.minimaxService.generateMusic(
-                moodPromptForAct(2, dominantEmotion, genre),
-                { duration: Math.min(actDurations.act2, 120), style: genre },
-              ),
-              ctx.minimaxService.generateMusic(
-                moodPromptForAct(3, dominantEmotion, genre),
-                { duration: Math.min(actDurations.act3, 120), style: genre },
-              ),
+              bgm(moodPromptForAct(1, dominantEmotion, genre), Math.min(actDurations.act1, 120), genre),
+              bgm(moodPromptForAct(2, dominantEmotion, genre), Math.min(actDurations.act2, 120), genre),
+              bgm(moodPromptForAct(3, dominantEmotion, genre), Math.min(actDurations.act3, 120), genre),
             ]);
             const concatPath = await concatActBgms([
               { url: a1, durationSec: actDurations.act1, act: 1 },
@@ -698,17 +701,11 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
             // 三幕生成或拼接失败 → 退回 single-segment 路径
             console.warn('[Editor] Multi-act BGM failed, fallback to single segment:', e instanceof Error ? e.message : e);
             ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: `⚠️ 三幕配乐失败, 退回单段 BGM` });
-            musicUrl = await ctx.minimaxService.generateMusic(musicPrompt, {
-              duration: Math.min(totalDuration, 120),
-              style: genre,
-            });
+            musicUrl = await bgm(musicPrompt, Math.min(totalDuration, 120), genre);
           }
         } else {
           // 短视频或 act 未标 → 单段 BGM (v2.14 P1.2 路径)
-          musicUrl = await ctx.minimaxService.generateMusic(musicPrompt, {
-            duration: Math.min(totalDuration, 120),
-            style: genre,
-          });
+          musicUrl = await bgm(musicPrompt, Math.min(totalDuration, 120), genre);
         }
 
         console.log(`[Editor] Music generated: ${musicUrl.slice(0, 80)}...`);

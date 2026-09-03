@@ -36,7 +36,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const svc = new MinimaxService();
   let url: string;
   try {
-    url = await svc.generateMusic(prompt, style ? { style } : undefined);
+    // v12.410:改走 provider 注册表 —— 此前直连 MiniMax 一家,而它已对新用户停服(410 + 2153,无预告),
+    // 于是「按剧生成 BGM」这项写在 README 上的能力实际是**断服状态**:一点就 502。
+    // 单点依赖 + 无兜底 = 供应商替我们决定功能生死。
+    await import('@/lib/music-providers-builtin');
+    const { generateMusic } = await import('@/lib/music-providers');
+    const out = await generateMusic({ prompt, style, durationSec: (body as any)?.durationSec });
+    url = out.url;
+    console.log(`[Music] BGM 由 ${out.provider} 生成`);
   } catch (e) {
     // v12.376:别用猜测覆盖上游给的真话。
     // 原文案一律附上「需配置 MiniMax key 且 music-2.6 有额度」—— 而实测真因是
