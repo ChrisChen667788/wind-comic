@@ -35,6 +35,11 @@ describe('v12.203 · prosody 角色纠偏 + AI 作曲', () => {
   // 不必读源码猜。以下四条都是真调 POST 并检查它实际返回/实际落库的东西。
   it('行为:music 路由成功时真的把 music 资产落库(type=music + mediaUrls)', async () => {
     const saved: any[] = [];
+    // v12.410:music 路由改走 provider 注册表(此前直连 MiniMax 一家,而它已停服 410,
+    // 整项 BGM 能力断服)。注册表按 `available()` 门控 —— 没配 key 的 provider 直接跳过,
+    // 而不是拿空 key 去调、换回一个看不懂的 401。旧路由不检查 key 就直接 new,
+    // 所以这条测试此前不设 key 也能过;现在要让某一家真的可用。
+    process.env.MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || 'test-key';
     vi.doMock('@/services/minimax.service', () => ({
       MinimaxService: class { async generateMusic() { return 'https://cdn.example/bgm.mp3'; } },
     }));

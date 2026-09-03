@@ -231,6 +231,48 @@ registerVideoProvider({
   },
 });
 
+// ─── Provider 0: 自托管开源端点 ────────────────────────────────────────────
+// v12.411:本轮竞品复核**推翻了上一轮的 C2**(「开源侧进不了第一梯队」)——
+// Wan 2.7(Apache 2.0,1080p/15s/原生音频,RTX 4090 可跑)与 LTX-2.5
+// (宽松商业许可,16GB 显存,AA 榜 I2V 第 3 / T2V 第 4,高于闭源 Sora 2 Pro)
+// 都已进入第一梯队。而此前这张注册表**全是闭源商业 API** ——
+// 一个主打「MIT 开源、可自托管」的项目,用户能自托管应用,却必须为每一帧
+// 向别人付费并承担别人的停服风险。停服不是假设:MiniMax Music 停过(v12.410),
+// Seedance 2.0 海外 API 因好莱坞版权停止函中止过(2026-03,至今未和解)。
+//
+// 优先级刻意排在**最前**(数字最小):自托管零边际成本,配了就该优先用;
+// 没配 SELFHOST_VIDEO_URL 时 available() 为 false,整条链行为与此前完全一致(零回归)。
+registerVideoProvider({
+  id: 'selfhost',
+  name: '自托管开源端点(Wan / LTX 等)',
+  priority: 10,
+  supportsImage2Video: true,
+  supportsText2Video: true,
+  supportsLastFrame: false,
+  supportsSubjectReference: false,
+  // Wan 2.7 官方 1080p 最长 15s;自建服务可用 SELFHOST_VIDEO_MAX_SEC 覆盖
+  maxDurationSec: Number(process.env.SELFHOST_VIDEO_MAX_SEC) || 15,
+  available: () => {
+    try {
+      // 用 require 而非顶层 import:未配置时不该把这个模块也加载进来
+      const m = require('@/services/selfhost-video.service');
+      return !!m.hasSelfhostVideo?.();
+    } catch { return false; }
+  },
+  async generate(input: VideoGenerateInput) {
+    const { SelfhostVideoService } = await import('@/services/selfhost-video.service');
+    const svc = new SelfhostVideoService();
+    const url = await svc.generateVideo(input.prompt, {
+      imageUrl: input.firstFrameUrl,
+      durationSec: input.durationSec,
+      aspectRatio: input.aspectRatio,
+    });
+    if (!url) throw new Error('自托管端点返回空 url');
+    // 带上实际模型 —— 决策日志要能复盘是哪一版权重出的片
+    return { videoUrl: url, provider: 'selfhost', model: svc.lastModel };
+  },
+});
+
 // ─── Provider 4: Vidu ─────────────────────────────────────────────────────
 // 优先级 90 — I2V only, T2V 不支持. 用作 Veo/Kling/Minimax 都跪了的最后兜底.
 registerVideoProvider({
