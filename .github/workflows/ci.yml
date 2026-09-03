@@ -104,6 +104,8 @@ jobs:
 
       - name: Paid endpoint gate (会花钱的路由须鉴权)
         run: node scripts/paid-endpoint-gate.mjs
+      - name: 接线门禁(造好的能力必须有调用方)
+        run: node scripts/wired-capability-gate.mjs
 
       # v12.389:元门禁 —— preflight 里标着「CI 会跑」的步骤,必须真的出现在本文件里。
       # 不加这条的话,下次再新建门禁又会悄悄只留在本地,而 preflight 依旧宣称「已同步」。

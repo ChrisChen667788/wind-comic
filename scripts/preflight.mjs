@@ -28,6 +28,7 @@ const STEPS = [
   { ci: '锚点门禁(indexOf 锚点须唯一)', cmd: 'node scripts/anchor-gate.mjs' },
   // v12.382:会花 owner 钱的路由必须先鉴权 —— 一次扫描找出 5 个裸奔的
   { ci: '付费端点门禁(会花钱的路由须鉴权)', cmd: 'node scripts/paid-endpoint-gate.mjs' },
+  { ci: '接线门禁(造好的能力必须有调用方)', cmd: 'node scripts/wired-capability-gate.mjs' },
   // v12.335:README 媒体体积预算。仓库主页图片「加载不出来」的真因是匿名 raw 端点限流
   // (/raw/ 把 429 显示成 404),而诱因是一次页面要拉 37 个文件 / 23MB。压完不设防,
   // 下一版新截图又是 2880×1800 塞回来,所以必须每次发版前问一句。

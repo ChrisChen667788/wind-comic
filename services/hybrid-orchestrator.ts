@@ -12,6 +12,7 @@ import {
 } from '@/types/agents';
 import { MinimaxService } from './minimax.service';
 import { VeoService, hasVeo } from './veo.service';
+import { VEO_SEGMENT_SEC } from '@/lib/veo-scene-extension';
 import { MidjourneyService, hasMidjourney } from './midjourney.service';
 import { KlingService, hasKling } from './kling.service';
 import { HappyHorseService, getHappyHorseService, happyHorseAspectSupported } from '@/services/happyhorse.service'; // v12.272 / v12.294 画幅门禁
@@ -3310,11 +3311,34 @@ ${shots.map((s, i) => {
             } else if (engine === 'veo' && this.veoService) {
               // ★ v2.8: Veo 3.1 multi-reference — 把整个 bundle 拍平给 ingredient-to-video
               const veoRefs = flattenBundleToUrls(mrBundle, 4).filter((u) => u !== firstFrameUrl);
+              const onProgress = (progress: number, status: string) => {
+                this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status });
+              };
+
+              // v12.409:此处**写死 duration: 8**,而同一 switch 里别的引擎都用 shot?.duration ——
+              // 剧本写 15s 的镜,走 Veo 只出 8s,而且不报错。v12.407 造好了 Scene Extension
+              // 却没有任何调用方(竞品复核的 agent 逐处 grep 后当场点出「全仓零命中」),
+              // 于是「造好没接线」这个病,我在讲这个病的那一版里自己又犯了一次。
+              //
+              // 续接是**多次生成**,成本随段数线性上涨,所以只在剧本确实要更长时才用,
+              // 且段数有上限(VEO_MAX_SEGMENTS,默认 3 段 ≈ 24s)。
+              const wantSec = Number(shot?.duration) || 0;
+              const maxSeg = Math.max(1, Number(process.env.VEO_MAX_SEGMENTS) || 3);
+              if (wantSec > VEO_SEGMENT_SEC) {
+                const capped = Math.min(wantSec, maxSeg * VEO_SEGMENT_SEC);
+                const outcome = await this.veoService.generateExtended(firstFrameUrl, enhancedPrompt, capped, { onProgress });
+                console.log(
+                  `[Hybrid] Shot ${board.shotNumber} Veo 续接:${outcome.segments} 段 ≈ ${outcome.approxSec}s` +
+                  (outcome.stoppedBecause ? `(提前停止:${outcome.stoppedBecause})` : ''),
+                );
+                return outcome.videoUrl;
+              }
+
               return await this.veoService.generateVideo(firstFrameUrl, enhancedPrompt, {
-                duration: 8,
+                duration: VEO_SEGMENT_SEC,
                 aspectRatio: this.videoAspect(), // v12.14.0 横竖屏(竖屏 720x1280,不再默认 16:9)
                 referenceImages: veoRefs.length > 0 ? veoRefs : undefined,
-                onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
+                onProgress,
               });
             } else if (engine === 'happyhorse' && this.happyhorseService) {
               // v12.272:百炼专属异步端点(建任务→轮询),单次联合生成视频+音频。

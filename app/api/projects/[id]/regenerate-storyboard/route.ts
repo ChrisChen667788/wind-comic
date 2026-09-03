@@ -41,6 +41,25 @@ interface RegenInput {
   sketchLock?: boolean;
   sketchUrl?: string;
   sketchMeta?: { shotSize?: string; angle?: string; movement?: string };
+  /**
+   * v12.409 · 审计驱动的修复上下文。给了这三项,本端点才可能走 Kontext 局部重绘;
+   * 不给则一律整张重生(与历史行为完全一致,零回归)。
+   *
+   * v12.408 建好了 `repair-strategy` 的分流,却**没有任何调用方** ——
+   * 我在那一版的说明里写「造好不接线正是这一版要治的病」,然后自己就没接。
+   * 竞品复核的 agent 逐处 grep 后当场指出:`editImage()` 全仓零命中。
+   * 这一版把它真正接通。
+   */
+  repair?: {
+    /** 要在其上做局部重绘的底图(通常是本镜上一版分镜图) */
+    baseImageUrl: string;
+    /** Vision Audit 给的分数 */
+    score: number;
+    /** 最弱维度 —— 决定「局部改」还是「整体重来」 */
+    weakestDimension?: 'sceneMatch' | 'actionMatch' | 'moodMatch' | 'composition' | null;
+    /** 针对性修补提示 */
+    focusHint?: string;
+  };
 }
 
 function getProjectContext(projectId: string): {
@@ -116,7 +135,7 @@ export async function POST(
   try { body = await request.json(); }
   catch { return new Response('Invalid JSON', { status: 400 }); }
 
-  const { shotNumber, customPrompt, useStyleBible, useCref, aspectRatio, referenceImageUrl, sketchLock, sketchUrl: bodySketchUrl, sketchMeta } = body;
+  const { shotNumber, customPrompt, useStyleBible, useCref, aspectRatio, referenceImageUrl, sketchLock, sketchUrl: bodySketchUrl, sketchMeta, repair } = body;
   if (!shotNumber || typeof shotNumber !== 'number') {
     return new Response('shotNumber required', { status: 400 });
   }
@@ -187,6 +206,40 @@ export async function POST(
             const mine = sketches.filter((a: any) => assetShotNumber(a) === shotNumber).slice(-1)[0] as any;
             effectiveSketchUrl = (mine && assetFirstMediaUrl(mine)) || undefined; // v12.138:蛇形行兼容(live 抓获)
           } catch { /* 无草图 → 不锁 */ }
+        }
+
+        // ── v12.409:审计驱动的修复先走局部重绘 ──────────────────────────
+        // 整张重生会把这一镜里**本来已经对的部分**(角色长相、光线、构图)
+        // 一起重新掷骰子,常见结果是「修好了动作、人却变样了」。
+        // 局部重绘保住已对的部分,也更便宜。
+        // 失败则**自动回落整张重生** —— 修不成不能变成这一镜没了。
+        if (repair?.baseImageUrl?.startsWith('http')) {
+          const { chooseRepairStrategy } = await import('@/lib/repair-strategy');
+          const decision = chooseRepairStrategy({
+            shotNumber,
+            score: Number(repair.score) || 0,
+            priority: 1,
+            weakestDimension: repair.weakestDimension ?? null,
+            focusHint: repair.focusHint || customPrompt,
+          } as any);
+
+          send('status', { message: `Shot ${shotNumber}:${decision.mode === 'edit' ? '局部重绘' : '整张重生'} — ${decision.reason}` });
+
+          if (decision.mode === 'edit' && decision.editPrompt) {
+            try {
+              const { FalFluxService } = await import('@/services/fal-flux.service');
+              const edited = await new FalFluxService().editImage(repair.baseImageUrl, decision.editPrompt);
+              if (edited && !edited.startsWith('data:')) {
+                await persistStoryboard(projectId, shotNumber, edited, decision.editPrompt);
+                send('complete', { shotNumber, imageUrl: edited, prompt: decision.editPrompt, mode: 'edit' });
+                controller.close();
+                return;
+              }
+              send('status', { message: '局部重绘返回空 — 回落整张重生' });
+            } catch (e) {
+              send('status', { message: `局部重绘失败(${e instanceof Error ? e.message.slice(0, 80) : e})— 回落整张重生` });
+            }
+          }
         }
 
         // 走 orchestrator 的 generateImage (private), 用 hack 暴露
