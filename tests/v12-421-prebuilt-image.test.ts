@@ -124,7 +124,10 @@ describe('v12.421 · 预构建镜像', () => {
   it('多架构 —— 只出一个架构总有一半人跑不了', () => {
     expect(WORKFLOW).toContain('linux/amd64');
     expect(WORKFLOW).toContain('linux/arm64');
-    expect(WORKFLOW, 'arm64 交叉构建要 QEMU').toContain('setup-qemu-action');
+    // v12.423:此前这里断言必须有 `setup-qemu-action` —— 锁的是**当时的实现方式**,
+    // 而不是「双架构」这件事本身。v12.423 换成原生 arm64 runner(不再需要 QEMU)后
+    // 它就红了,而双架构这个目标一点没变。锁写法而不是锁行为,又一次。
+    // 现在只要求「两个架构都真的被构建」,至于用 QEMU 还是原生 runner 是实现细节。
   });
 
   it('**构建成功 ≠ 镜像能用**:发布后必须真拉起来打一次首页', () => {
@@ -155,10 +158,11 @@ describe('v12.421 · 预构建镜像', () => {
       expect(ref, `${file} 里的镜像引用有大写:${ref}`).toBe(ref.toLowerCase());
     }
 
-    // workflow 里凡是手写拼接镜像名的地方,都必须显式转小写
-    const i = WORKFLOW.indexOf('IMAGE=');
-    expect(i, 'workflow 里找不到手写的镜像名拼接').toBeGreaterThan(0);
-    expect(WORKFLOW.slice(i, i + 200), '手写拼接没转小写 —— github.repository 带大写').toContain('tr ');
+    // workflow 里凡是拼接镜像名的地方,都必须显式转小写。
+    // v12.423:此前锁的是 `IMAGE=` 这个具体变量名(当时冒烟步骤里手写的那行);
+    // 改成按架构分 job 后镜像名改由一个 `Lowercase image name` 步骤统一算,
+    // 变量名没了,断言就红了 —— 而「必须转小写」这个要求一点没变。
+    expect(WORKFLOW, '没有任何一处把镜像名转小写 —— github.repository 带大写').toContain("tr '[:upper:]' '[:lower:]'");
   });
 
   it('demo compose 默认拉镜像,本地 build 退为兜底', () => {

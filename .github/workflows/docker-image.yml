@@ -1,45 +1,50 @@
-# .github/workflows/docker-image.yml — 预构建镜像(v12.421)
+# .github/workflows/docker-image.yml — 预构建镜像(v12.421 建,v12.423 改原生 arm64)
 #
 # ## 为什么要有它
-# v12.414 把上手门槛压到了一条命令(`docker compose -f docker-compose.demo.yml up`),
-# 但那条命令**要在本地构建** —— npm ci + next build,几分钟起步,还得本机有构建环境。
-# 竞品复核连着两轮把上手门槛判为最大战略劣势,而 C8 的证伪条件写得很明白:
-# 「提供可直接 docker pull 并以 docker run 一行拉起的**预构建镜像**(无需本地 build)」。
+# v12.414 把上手门槛压到了一条命令,但那条命令**要在本地构建** —— npm ci + next build,
+# 几分钟起步,还得本机有构建环境。竞品复核连着两轮把上手门槛判为最大战略劣势,
+# 而 C8 的证伪条件写得很明白:「可直接 docker pull 并 docker run 一行拉起的
+# **预构建镜像**(无需本地 build)」。
 #
 # ## 为什么发到 GHCR 而不是 Docker Hub
 # GHCR 用仓库内置的 `GITHUB_TOKEN` 就能推 —— **不需要 owner 录任何密钥**。
-# Docker Hub 要 DOCKERHUB_TOKEN,那是一次人工介入,而且密钥一旦要人转交就有泄露面。
-# 能不引入密钥就把事办了,就不引入。
+# Docker Hub 要 DOCKERHUB_TOKEN,那是一次人工介入,且密钥一旦要人转交就多一个泄露面。
 #
-# ## 多架构
-# 同时出 amd64 与 arm64:owner 用 Apple Silicon,而绝大多数服务器是 amd64。
-# 只出一个架构的话,总有一半人 `docker pull` 下来跑不了(或者悄悄走 qemu 慢十倍)。
+# ## 多架构:为什么从 QEMU 换成原生 runner(v12.423)
+# v12.421 用 `platforms: linux/amd64,linux/arm64` 一次性出双架构,arm64 走 QEMU 模拟。
+# **实测代价:最近一次完整构建 43 分钟**(另一次 13 分钟是命中了缓存)。
+# `npm ci` + `next build` 在模拟层上跑,慢的是 CPU 密集的那一段,缓存救不了。
 #
-# ⚠️ 已知代价:arm64 走 QEMU 交叉编译,`npm ci` + `next build` 在模拟层上实测跑了
-# **约 40 分钟**。可接受(触发有 paths 过滤,只在真影响镜像时跑),但不理想。
-# 更好的做法是用 GitHub 的原生 arm64 runner(`ubuntu-24.04-arm`)按架构分 job、
-# 再合成 manifest —— 那是个结构性改动,留给后续版本做,**先让这条链绿起来**。
-# (这里如实写着「还没做」,而不是写成已经做了 —— 注释描述的必须是代码真在做的事。)
+# 现在按架构分 job,各自跑在**原生**机器上(`ubuntu-latest` / `ubuntu-24.04-arm`),
+# 再由第三个 job 把两个 digest 合成一个 manifest list。两边并行,总时长约等于慢的那一边。
+#
+# `ubuntu-24.04-arm` 对**公开仓库免费**(2025-08 GA,4 vCPU)。本仓库是 public,可用。
+# ⚠️ 这个标签在私有仓库会直接让 workflow 失败 —— 若将来转私有,得回退 QEMU 或付费 runner。
+#
+# ## 为什么是「按 digest 推 + 合 manifest」而不是各自打 tag
+# 两个 job 各自 `push` 同一个 tag 的话,后完成的那个会**覆盖**先完成的,
+# 最终 tag 只指向一个架构 —— 而且不报错,拉的人只是发现自己的架构不对。
+# 所以各 job 只按 digest 推(不带 tag),由 merge job 用 `imagetools create` 把两个
+# digest 合成一个 manifest list,tag 只在那一步落一次。
 name: Docker image
 
 on:
   push:
     branches: [main]
-    # 只在真正影响镜像内容时构建 —— 每次文档改动都跑一遍多架构构建太浪费
     tags: ['v*']
+    # 只在真正影响镜像内容时构建 —— 每次文档改动都跑一遍多架构构建太浪费
     paths:
       - 'Dockerfile'
       - '.dockerignore'
+      - 'docker/**'
       - 'package.json'
       - 'package-lock.json'
       - 'app/**'
       - 'lib/**'
       - 'services/**'
       - 'components/**'
-      - 'drizzle/**'
       - 'scripts/**'
       - '.github/workflows/docker-image.yml'
-  # 发版打 tag 时也出一份带版本号的
   workflow_dispatch:
 
 permissions:
@@ -51,13 +56,23 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # ── 每个架构一个 job,各自跑在原生机器上 ────────────────────────────
   build:
-    runs-on: ubuntu-latest
+    name: build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false # 一个架构挂了,另一个的结果仍值得看(便于判断是通用问题还是架构相关)
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            # 公开仓库免费的原生 arm64 runner(2025-08 GA)。私有仓库用这个标签会失败。
+            runner: ubuntu-24.04-arm
+            arch: arm64
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up QEMU (arm64 交叉构建)
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
@@ -67,41 +82,52 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          # 内置令牌 —— 不需要 owner 配任何 secret
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Derive tags
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,format=short
-            type=semver,pattern={{version}}
+      # docker 仓库名必须全小写,而 github.repository 带大写(v12.421 在冒烟那步栽过一次)。
+      # 这里一次算好,后面所有地方都用它,不再各自转换。
+      - name: Lowercase image name
+        id: img
+        run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          # 按 digest 推,**不带 tag** —— 两个 job 打同一个 tag 会互相覆盖,
+          # 最终 tag 只指向一个架构,而且不报错。
+          outputs: type=image,name=${{ steps.img.outputs.name }},push-by-digest=true,name-canonical=true,push=true
+          # 缓存按架构分开,否则两个架构会互相污染对方的层
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
-      # 构建成功 ≠ 镜像能用。真拉起来打一次首页,再说它可用。
-      # (Dockerfile 里已有构建期字体自证;这里验的是运行期。)
-      - name: Smoke test the published image
+      # ⚠️ 不能用 job-level `outputs` 传 digest:矩阵下每个实例都会写同一组 output,
+      # **后完成的覆盖先完成的**,于是永远只拿得到一个架构的 digest(另一个是空串)。
+      # 这是 GitHub Actions 的既有行为,不是配置写错。官方多架构示例用的是 artifact。
+      - name: Export digest to artifact
+        run: |
+          mkdir -p /tmp/digests
+          # 文件名用 digest 本身(去掉 sha256: 前缀),内容为空 —— merge 只需要文件名
+          echo -n > "/tmp/digests/${{ matrix.arch }}"
+          echo -n "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.arch }}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: /tmp/digests/${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 1
+
+      # 各架构自测:只能测自己这台机器的架构,但那正是它该测的 ——
+      # arm64 的镜像在 arm64 机器上跑,不经模拟层,结果才作数。
+      - name: Smoke test this arch
         run: |
           set -euo pipefail
-          # docker 仓库名**必须全小写**,而 github.repository 带大写(ChrisChen667788/…)。
-          # docker/metadata-action 会自动转小写,所以 push 那步是对的;
-          # 这行是我手写的,漏了转换 —— 于是镜像明明推上去了,冒烟却报
-          # 「repository name must be lowercase」(exit 125)。
-          IMAGE="$(echo "${REGISTRY}/${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]'):sha-$(git rev-parse --short HEAD)"
-          echo "拉起 $IMAGE"
+          IMAGE="${{ steps.img.outputs.name }}@${{ steps.build.outputs.digest }}"
+          echo "拉起 $IMAGE (${{ matrix.platform }})"
           docker run -d --name smoke -p 3100:3100 \
             -e MOCK_ENGINES=1 \
             -e JWT_SECRET=ci-smoke-not-for-prod \
@@ -110,7 +136,8 @@ jobs:
           for i in $(seq 1 40); do
             if curl -sf -o /dev/null http://localhost:3100/; then
               echo "✅ 首页可访问(第 ${i} 次探测)"
-              # 字幕字体在运行期也要真的在 —— 构建期自证过一次,这里再确认没被后续层弄丢
+              # 字幕字体在运行期也要真的在。Dockerfile 里有构建期自证,这里确认没被后续层弄丢。
+              # 两个架构都要验 —— font-noto-cjk 在 arm64 上是不同的包文件。
               docker exec smoke fc-match --format='%{family}' 'Noto Sans CJK SC' | grep -qi noto \
                 && echo "✅ 中文字幕字体在位" \
                 || { echo "❌ 运行期解析不到 CJK 字体"; exit 1; }
@@ -122,3 +149,67 @@ jobs:
           echo "❌ 镜像起来了但首页 40 次探测都不通"
           docker logs smoke | tail -50
           exit 1
+
+  # ── 把两个 digest 合成一个 manifest list,tag 只在这里落一次 ──────────
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase image name
+        id: img
+        run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.name }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: false
+
+      - name: Create manifest list
+        run: |
+          set -euo pipefail
+          NAME='${{ steps.img.outputs.name }}'
+          AMD=$(cat /tmp/digests/digest-amd64/amd64 2>/dev/null || true)
+          ARM=$(cat /tmp/digests/digest-arm64/arm64 2>/dev/null || true)
+          # 两个 digest 缺一不可 —— 少一个就会合出一个只有单架构的 manifest,
+          # 而那不报错:另一半架构的人拉下来才发现跑不了。
+          if [ -z "$AMD" ] || [ -z "$ARM" ]; then
+            echo "❌ digest 不齐(amd64='$AMD' arm64='$ARM')—— 拒绝合成只有单架构的 manifest"
+            exit 1
+          fi
+          TAGS=$(echo '${{ steps.meta.outputs.tags }}' | while read -r t; do [ -n "$t" ] && printf ' -t %s' "$t"; done)
+          # shellcheck disable=SC2086
+          docker buildx imagetools create $TAGS "$NAME@$AMD" "$NAME@$ARM"
+
+      - name: Verify the manifest really has both architectures
+        run: |
+          set -euo pipefail
+          NAME='${{ steps.img.outputs.name }}'
+          SHA_TAG="$NAME:sha-$(echo '${{ github.sha }}' | cut -c1-7)"
+          echo "检查 $SHA_TAG"
+          OUT=$(docker buildx imagetools inspect "$SHA_TAG" --raw)
+          # 合成成功 ≠ 合对了。逐个确认两种架构都在 manifest 里 ——
+          # 少一个的话,那一半用户拉下来才会发现,而那时已经发出去了。
+          for a in amd64 arm64; do
+            echo "$OUT" | grep -q "\"architecture\":\"$a\"" \
+              && echo "  ✅ $a 在 manifest 里" \
+              || { echo "  ❌ manifest 里没有 $a"; echo "$OUT" | head -40; exit 1; }
+          done
