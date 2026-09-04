@@ -208,8 +208,16 @@ jobs:
           OUT=$(docker buildx imagetools inspect "$SHA_TAG" --raw)
           # 合成成功 ≠ 合对了。逐个确认两种架构都在 manifest 里 ——
           # 少一个的话,那一半用户拉下来才会发现,而那时已经发出去了。
+          #
+          # ⚠️ 用 jq 解析,**不要 grep 字符串**:第一版写的是
+          # `grep -q '"architecture":"arm64"'`,而 --raw 输出是**带空格的 pretty JSON**
+          # (`"architecture": "arm64"`),于是永远匹配不上 —— manifest 明明合对了,
+          # 校验却报红。那是个**会误报的门禁**,而会误报的门禁只会训练人忽略门禁。
+          ARCHES=$(echo "$OUT" | jq -r '[.manifests[]?.platform | select(.os != "unknown") | .architecture] | unique | join(" ")')
+          echo "  manifest 里的架构:$ARCHES"
           for a in amd64 arm64; do
-            echo "$OUT" | grep -q "\"architecture\":\"$a\"" \
-              && echo "  ✅ $a 在 manifest 里" \
-              || { echo "  ❌ manifest 里没有 $a"; echo "$OUT" | head -40; exit 1; }
+            case " $ARCHES " in
+              *" $a "*) echo "  ✅ $a 在 manifest 里" ;;
+              *) echo "  ❌ manifest 里没有 $a"; echo "$OUT" | jq '.manifests[]?.platform'; exit 1 ;;
+            esac
           done

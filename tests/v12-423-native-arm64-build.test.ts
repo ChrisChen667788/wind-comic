@@ -73,6 +73,26 @@ describe('v12.423 · 原生 arm64 构建', () => {
     expect(block, '校验不通过要 exit 1').toContain('exit 1');
   });
 
+  it('架构校验必须解析 JSON,不能 grep 字符串 —— 否则是个会误报的门禁', () => {
+    // 第一版写的是 `grep -q '"architecture":"arm64"'`,而 `imagetools inspect --raw`
+    // 输出的是**带空格的 pretty JSON**(`"architecture": "arm64"`)—— 永远匹配不上。
+    // 结果:manifest 明明合对了(两个架构都在),校验却报红。
+    // 已用真实 manifest 实证:jq 版识别出 `amd64 arm64`,grep 版不命中。
+    //
+    // 这比「少了个架构」更糟:**一个会误报的门禁只会训练人忽略门禁**,
+    // 而它守的正是「别把单架构镜像发出去」这种拉的人才发现的问题。
+    const i = WF.indexOf('Verify the manifest');
+    expect(i, '找不到校验步骤').toBeGreaterThan(0);
+    const block = WF.slice(i);
+    expect(block, '校验没用 jq 解析').toContain('jq -r');
+    expect(
+      /grep -q .*architecture/.test(block),
+      '又退回 grep 字符串了 —— JSON 排版一变就误报',
+    ).toBe(false);
+    // buildx 会在 manifest 里放 attestation(platform 是 unknown/unknown),必须排除掉
+    expect(block, '没排除 attestation 的 unknown 平台').toContain('unknown');
+  });
+
   it('缓存按架构分开 —— 否则两个架构互相污染对方的层', () => {
     expect(WF).toMatch(/cache-from:\s*type=gha,scope=/);
     expect(WF).toMatch(/cache-to:\s*type=gha,mode=max,scope=/);
