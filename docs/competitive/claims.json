@@ -11,7 +11,7 @@
     "scripts/competitive-scan.mjs 读它:超过 14 天就报警,并据此生成本轮任务书。",
     "每轮分析完必须更新 lastReviewedOn,否则下一轮的到期检查就是假的。"
   ],
-  "lastReviewedOn": "2026-09-03",
+  "lastReviewedOn": "2026-09-04",
   "reviewIntervalDays": 14,
   "methodology": {
     "sources": "必须联网核实;每个数值给来源 URL + 检索日期;查不到写「未核实」,不猜",
@@ -133,7 +133,10 @@
       "evidence": "Seedance 2.5 支持 50 个参考素材、按 token 计费(¥42–70/百万);Wan 3.0 720P 折后 ¥0.42/s 且支持文档直转视频;Veo 3.1 的 60s+ 经复核确认为 Scene Extension 拼接实现",
       "falsifyBy": "实测 30s 原生片段在 20s 后出现明显漂移/崩坏,则「原生 30s」名不副实,拼接路线反而更稳",
       "trend": "单镜时长这条轴国产已领先海外闭源;我们的「镜头太碎」痛点有了拼接之外的第二条解法",
-      "actionVersion": "v12.407"
+      "actionVersion": "v12.407",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-04",
+      "lastVerdictNote": "经 24 条独立复核确认成立,且比原断言更强:Seedance 2.5(2026-07-31)与 Wan 3.0(2026-08-24)的 30s 都是**一次 API 调用直出的连续片段**,不是拼接。但要补一句原断言没说的:**两者都是 API-only**,权重都没开放 —— 30s 拿不到自托管路径。v12.422 已接 Wan 3.0。"
     },
     {
       "id": "C12-verification-caught-two-errors",
@@ -164,9 +167,9 @@
       "falsifyBy": "提供了开箱即用的 Wan/LTX 推理包(或 compose 服务),用户 docker compose up 即可自托管出片",
       "trend": "这是「造好没接线」的变体:接口有了,但离用户真能用还差一层",
       "actionVersion": "v12.420",
-      "lastVerdict": "resolved",
-      "lastVerdictOn": "2026-09-03",
-      "lastVerdictNote": "v12.420 已给出可直接跑的参考实现(`selfhost/video/server.mjs` + compose + README,零依赖)。**而且在做这件事时发现一个更难看的问题**:`lib/ssrf-guard` 默认拒绝 localhost,而自托管端点最自然的地址就是 localhost —— v12.411 的视频与 v12.410 的音乐**两条路一次都跑不通过**,`.env.example` 里我写的示例正是那个被自己守卫拒掉的地址。已加极窄例外(origin 须逐字出现在部署者填的 env 里)。"
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-04",
+      "lastVerdictNote": "比原断言更糟:不只是「只有契约没有推理包」,而是**30s 这一档根本没有开源权重可跑**。Wan 3.0 的 GitHub 仓库挂着 Apache-2.0 却只有 README、无 checkpoint;LTX-2.5 Fast 上限 20s、Wan 2.2 约 15s。自托管路径当前的天花板是 20s。"
     },
     {
       "id": "C15-cjk-text-in-frame",
@@ -187,6 +190,26 @@
       "falsifyBy": "ja/ko/ru 在配了 SYNCSO_API_KEY 的部署上仍拿不到口型;或实测发现 Sync.so 对日语同样错位(那样这条解锁本身就是错的,应退回诚实降级)",
       "trend": "教训:**别人的结论要先自己核一遍**,尤其当它让你去「补一个缺失的东西」时 —— 我照着它差点新建第三份 Sync.so 实现",
       "actionVersion": "v12.418"
+    },
+    {
+      "id": "C17-registry-overstated-caps",
+      "statement": "provider 注册表里的 maxDurationSec 曾有两处高于实际钉住端点的能力(Veo 10 vs 实际 8、LTX 20 vs 实际 10),而这类虚报在「请求写死 8s」的年代永远不会被行使",
+      "kind": "自有配置失真",
+      "assertedOn": "2026-09-04",
+      "evidence": "Veo 3.1 单次 duration 枚举只有 4/6/8(官方文档,4K 更锁 8s);60s+ 是 Scene Extension 续接。我们钉的 LTX_MODEL 默认 `fal-ai/ltx-2.3/text-to-video` 是 Pro 变体,枚举 6/8/10 —— 20s 属于没钉的 /fast 变体。两处均经多源独立复核。v12.422 已按实际端点修正,并让「用哪个端点」与「声称能做多长」必须一起改。",
+      "falsifyBy": "官方放宽了单次枚举(如 Veo 支持 10s、LTX Pro 支持 20s);或我们把钉住的端点换成了确实支持该时长的变体",
+      "trend": "这类失真有个共同形态:**它只在能力被真正行使时才发作**。v12.422 之前所有请求都写死 8s,所以虚报躺了很久没人发现;改成按剧本要时长的那一刻,它立刻变成「选中一个做不到的引擎、然后交回一个短片」。",
+      "actionVersion": "v12.422"
+    },
+    {
+      "id": "C18-seedance-mou-not-settlement",
+      "statement": "字节与 MPA 的版权备忘录(2026-08)降低了 Seedance 接入风险,但**明确不处理训练数据侵权责任** —— 风险降低而非消除",
+      "kind": "供应链法律风险",
+      "assertedOn": "2026-09-04",
+      "evidence": "时间线:2026-02-13 Disney 率先发停止函,Paramount/Sony/WB/Netflix/MPA 相继跟进;2026-03 字节暂停 Seedance 2.0 全球推广;2026-08 字节与 MPA 签谅解备忘录(输出层内容过滤 + 面部屏蔽 + C2PA Content Credentials),覆盖 Seedance 与 Seedream;截至 2026-09-04 无美国联邦诉讼、API 未受限,Seedance 2.5 于 2026-07-31 在纠纷期间正式上线。但备忘录**明确不覆盖训练数据侵权责任**。",
+      "falsifyBy": "训练数据侵权诉讼被正式提起或和解;或备忘录扩展到覆盖训练数据责任",
+      "trend": "v12.415 基于「纠纷未和解」写下了「不接 Seedance 2.5」。状态确实变了,但没变到「已和解」。这是**产品法律风险判断,应由 owner 定夺**,不该由实现者单方面推翻一条写下来的决定 —— v12.422 因此选了无纠纷的 Wan 3.0。",
+      "actionVersion": null
     }
   ],
   "watchlist": [

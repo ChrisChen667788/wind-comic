@@ -89,7 +89,11 @@ export function estimateLipsyncCostCny(provided?: number, durationSec?: number):
 // 预算护栏对主创作链零拦截。下面两个估算器堵这个洞;费率保守(宁高勿低,上线前对账单校准)。
 
 /** 视频引擎 → ¥/s 保守费率(Veo 0.6 / Kling Master 0.2 / Minimax 0.1 / Vidu 0.3),未知 0.3 兜底。 */
-const VIDEO_RATE_CNY_PER_SEC: Record<string, number> = { veo: 0.6, kling: 0.2, minimax: 0.1, vidu: 0.3 };
+// v12.422:补 wan —— 它 1080P 约 **¥1.2/输出秒**,一条 30s ≈ ¥36,是表里最贵的。
+// 不列进来的话会落到 ¥0.3/s 的默认兜底,**低估 4 倍**,v12.413 的任务预算闸就形同虚设:
+// 一条 30s 长镜按 ¥9 记账、实际花 ¥36,预算还没拦住钱已经出去了。
+// (这里取 1080P 的保守上限 —— 宁高勿低,与本表既有约定一致。)
+const VIDEO_RATE_CNY_PER_SEC: Record<string, number> = { veo: 0.6, kling: 0.2, minimax: 0.1, vidu: 0.3, wan: 1.2 };
 export function videoRateForProvider(providerId?: string): number {
   if (!providerId) return 0.3;
   const id = providerId.toLowerCase();

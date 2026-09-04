@@ -3539,6 +3539,37 @@ ${shots.map((s, i) => {
       // 不进 visualPrompt → 非原生引擎不会把 CJK 渲染成画面文字)。是否真拿到原生音频取决于真出片引擎。
       const wantNativeAudio = nativeAudioEnabled() && !!scriptDialogue;
       let ranVideoProvider = '';
+
+      // v12.422:剧本写多长就要多长(此前写死 8s)。没写时长的镜沿用 8s 这个历史默认。
+      const wantDurationSec = Math.max(1, Math.round(Number(shot?.duration) || 8));
+      // 没有任何可用引擎做得了这个时长时,链会是空的 —— 那不是「引擎都挂了」,
+      // 而是个静态可知的事实。提前问一句,好在日志里说人话,而不是等它变成
+      // 一句误导人的「no providers」然后静默出一个短片。
+      if (wantDurationSec > 8) {
+        try {
+          const { diagnoseEmptyChain, selectProviders } = await import('@/lib/video-providers/registry');
+          const fit = selectProviders({
+            hasFirstFrame,
+            hasLastFrame: false,
+            hasSubjectReference: mrBundle.subjectImages.length > 0,
+            durationSec: wantDurationSec,
+          } as any);
+          if (fit.length === 0) {
+            const d = diagnoseEmptyChain({
+              hasFirstFrame,
+              hasLastFrame: false,
+              hasSubjectReference: mrBundle.subjectImages.length > 0,
+              durationSec: wantDurationSec,
+            } as any);
+            // 说清楚:要多久、最长能给多久、这一镜实际会短多少
+            this.emit('agentTalk', {
+              role: AgentRole.DIRECTOR,
+              text: `⏱ Shot ${board.shotNumber} 剧本写 ${wantDurationSec}s,${d.reason}`,
+            });
+            console.warn(`[Duration] Shot ${board.shotNumber}: ${d.reason}`);
+          }
+        } catch { /* 诊断失败不该阻断出片 */ }
+      }
       const videoUrl: string = await withVideoPlugin(
         {
           prompt: enhancedPrompt,
@@ -3548,7 +3579,15 @@ ${shots.map((s, i) => {
             : undefined,
           referenceImages: mrBundle.referenceImages?.length ? mrBundle.referenceImages : undefined,
           aspectRatio: this.videoAspect(), // v12.14.0 横竖屏:plugin-chain provider 也按项目比例出片
-          durationSec: 8,
+          // v12.422:此前这里写死 `durationSec: 8` —— 而同一函数里的 legacy 路径用的是
+          // `shot?.duration`。后果是**注册表里那些做得了更长的引擎从来没被要求过超过 8 秒**
+          // (LTX 20s / Vidu 16s / Seedance 15s / 自托管 15s),整套 maxDurationSec 过滤形同虚设。
+          //
+          // 这是 v12.409 那个 bug 的**同胞**:那次我修了 legacy 路径里 Veo 的 `duration: 8`,
+          // 却漏了旁边这条 plugin-chain 路径上一模一样的一行 —— 「改了主路径忘旁路」,
+          // 又一次。所以这次顺手把它写进了测试(见 tests/v12-422-*),让两条路径的时长来源
+          // 必须一致,而不是靠人记得同时改两处。
+          durationSec: wantDurationSec,
           nativeAudio: wantNativeAudio || undefined,
           spokenDialogue: wantNativeAudio ? scriptDialogue : undefined,
           label: `shot-${board.shotNumber}`,
@@ -3581,8 +3620,12 @@ ${shots.map((s, i) => {
         void recordCostLog({
           userId: this.userId, projectId: this.projectId,
           engine: `video-${usedVideoEngine || 'engine'}`,
-          durationSec: 8,
-          costCny: estimateVideoCostCny(8, videoRateForProvider(usedVideoEngine)),
+          // v12.422:此前恒按 8s 记账,而实际请求时长来自剧本(最长可到 20s)——
+          // **账目会长期偏低**,而成本面板正是用来判断「这一单花了多少」的。
+          // 记的是**请求时长**:实际产出可能更短(引擎上限不够时),那种情况已由
+          // 上面那条诊断在日志与 agentTalk 里说明,不该在这里再猜一个数。
+          durationSec: wantDurationSec,
+          costCny: estimateVideoCostCny(wantDurationSec, videoRateForProvider(usedVideoEngine)),
           metadata: { shotNumber: board.shotNumber },
         });
       }
@@ -3669,7 +3712,10 @@ ${shots.map((s, i) => {
                 retryable: true,
               });
             } catch { /* 事件发送失败不该再拖垮生成循环 */ }
-            videos[i] = { shotNumber: board.shotNumber, videoUrl: '', duration: 8, status: 'completed' as const };
+            // v12.422:此前失败占位记 `duration: 8` —— 一个 videoUrl 为空的失败镜,
+            // 在时间线上却标着 8 秒。下游按时长排轨、算总长、估成本时都会把它算进去。
+            // 失败就是失败,时长记 0;空 videoUrl 才是「这一镜没出来」的判据。
+            videos[i] = { shotNumber: board.shotNumber, videoUrl: '', duration: 0, status: 'completed' as const };
           }
           completedCount++;
           this.update(AgentRole.VIDEO_PRODUCER, { progress: Math.round((completedCount / storyboards.length) * 100) });
@@ -4147,7 +4193,13 @@ ${characterBibleBlock}${producerContext}
       try {
         let videoUrl: string = '';
         if (this.veoService) {
-          videoUrl = await this.veoService.generateVideo(board.imageUrl, board.prompt, { duration: 8, aspectRatio: this.videoAspect() });
+          // v12.422:第三处写死的 8 秒。v12.409 修了主 switch 那处、本版修了 plugin-chain 那处,
+          // 这条**再生成**路径又是一处 —— 同一个错在这个函数里并排躺着三份。
+          // 这次由 tests/v12-422 逐处扫,而不是靠人记得都改到。
+          videoUrl = await this.veoService.generateVideo(board.imageUrl, board.prompt, {
+            duration: Math.max(1, Math.round(Number(script?.shots?.find((x: any) => x.shotNumber === shotNumber)?.duration) || 8)),
+            aspectRatio: this.videoAspect(),
+          });
         } else if (this.minimaxService) {
           // v2.14 P0.1: 把所有 lockedCharacters 转成 S2V multi-subject, 不再只用 primaryCharacterRef 单图
           const subjectRefs = this.getLockedSubjectReferences();

@@ -81,6 +81,82 @@ export function selectProviders(input: VideoSelectInput): VideoProvider[] {
   return chain;
 }
 
+/**
+ * v12.422 — 链为空时,**说清楚为什么空**。
+ *
+ * ## 病象:要 30s,拿到 10s,没人被告知
+ * `selectProviders` 会把 `maxDurationSec < 请求时长` 的 provider 全部过滤掉。
+ * 于是请求超过全链上限时,链是空的 → `dispatchVideoGenerate` 返回
+ * `{ result: null, tried: [] }` —— **`tried` 是空数组**。
+ * 上游 `plugin-chain-router` 把 `tried` 拼成原因,拼出来是空串,于是报
+ * 「video plugin chain empty / all-failed: **no providers**」,
+ * 然后 `runWithPlugin` 静默走 fallback,出一个 8–10s 的片子。
+ *
+ * 实测确认过:两个 provider(上限 10s / 20s)时请求 30s,链空、result=null、tried=[]。
+ *
+ * 结果就是:**剧本要 30s,成片是 10s,而决策日志上没有任何一行说时长被降过**。
+ * 「no providers」这句话还把人往错的方向引 —— 听起来像没配 key 或者引擎都挂了,
+ * 而真因是一个**静态可知**的事实:没有任何引擎支持这个时长。
+ *
+ * ## 这个函数只解释,不改变选择结果
+ * 刻意不改 `selectProviders` 的签名 —— 它有 7 处调用方(含 6 个测试文件),
+ * 改返回类型会波及一片,而这里要的只是「拿到空链后能问一句为什么」。
+ */
+export interface EmptyChainDiagnosis {
+  /** 注册表里一共有几个 provider */
+  registered: number;
+  /** 通过 available() 的有几个 */
+  availableCount: number;
+  /** 若把时长这一条去掉,能选出几个 —— 大于 0 说明**时长就是唯一原因** */
+  wouldMatchIgnoringDuration: number;
+  /** 当前可用 provider 里最长能做多少秒(没有可用的则为 0) */
+  maxAvailableDurationSec: number;
+  /** 请求的时长 */
+  requestedSec?: number;
+  /** 直接可写进错误信息/决策日志的一句话 */
+  reason: string;
+}
+
+export function diagnoseEmptyChain(input: VideoSelectInput): EmptyChainDiagnosis {
+  const all = listVideoProviders();
+  const avail = all.filter((p) => {
+    try { return p.available(); } catch { return false; }
+  });
+
+  // 把「时长」这一条摘掉再选一次 —— 若这样就有了,那时长就是唯一原因
+  const ignoringDuration = selectProviders({ ...input, durationSec: undefined });
+  const maxAvail = avail.reduce((m, p) => Math.max(m, p.maxDurationSec), 0);
+  const want = input.durationSec;
+
+  let reason: string;
+  if (all.length === 0) {
+    reason = '注册表里一个 provider 都没有';
+  } else if (avail.length === 0) {
+    reason = `${all.length} 个 provider 都不可用(available() 为 false —— 通常是没配 key)`;
+  } else if (ignoringDuration.length > 0 && want != null) {
+    // 这才是本版要治的那一类:能力都在,只是没人做得了这么长
+    const caps = avail
+      .filter((p) => p.maxDurationSec < want)
+      .map((p) => `${p.id} ${p.maxDurationSec}s`)
+      .join(' · ');
+    reason =
+      `请求 ${want}s,但**没有任何可用引擎支持这么长**(当前最长 ${maxAvail}s)。` +
+      `各引擎上限:${caps}。这不是「引擎都挂了」——能力都在,只是做不了这么长;` +
+      `要么把这一镜的时长降到 ${maxAvail}s 以内,要么接一个支持更长的引擎。`;
+  } else {
+    reason = `${avail.length} 个可用 provider 都不满足本次请求的能力要求(I2V/T2V/首尾帧/多主体)`;
+  }
+
+  return {
+    registered: all.length,
+    availableCount: avail.length,
+    wouldMatchIgnoringDuration: ignoringDuration.length,
+    maxAvailableDurationSec: maxAvail,
+    requestedSec: want,
+    reason,
+  };
+}
+
 /** dispatch 结果. result 为 null 表示链全 fail. tried 给完整失败日志便于 debug. */
 export interface VideoDispatchResult {
   result: VideoGenerateResult | null;
@@ -121,6 +197,21 @@ export async function dispatchVideoGenerate(
   });
 
   const tried: VideoDispatchResult['tried'] = [];
+
+  // v12.422:链为空时,`tried` 此前是**空数组** —— 上游据此拼出的原因是空串,
+  // 最终报「no providers」。而真因往往是「没有引擎做得了这个时长」,
+  // 那是个静态可知的事实,不该让人去猜。空链就把诊断塞进 tried,让它一路传到错误信息里。
+  if (chain.length === 0) {
+    const d = diagnoseEmptyChain(selection ?? {
+      hasFirstFrame: !!input.firstFrameUrl,
+      hasLastFrame: !!input.lastFrameUrl,
+      hasSubjectReference: !!(input.subjectReferences && input.subjectReferences.length > 0),
+      durationSec: input.durationSec,
+    });
+    tried.push({ id: '(chain-empty)', error: d.reason });
+    return { result: null, tried };
+  }
+
   for (const p of chain) {
     // v12.63.0:瞬时错误(引擎偶发生成失败/超时/网络/5xx)同 provider 重试 1 次(3s 后)——
     // 此前一败即跳下家甚至掉光,Minimax video-01 error 这类偶发把 10 分镜拖成 3 成片。

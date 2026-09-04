@@ -92,7 +92,14 @@ registerVideoProvider({
   supportsText2Video: true,
   supportsLastFrame: false,
   supportsSubjectReference: false,
-  maxDurationSec: 10,
+  // v12.422:**此前写 10,而 Veo 3.1 单次上限严格是 8s**(官方 duration 枚举只有 4/6/8;
+  // 4K 更锁死 8s)。60s+ 那个数字是 Scene Extension 续接出来的,不是单次能力 ——
+  // 我们在 v12.401 的 README 上把这两者混淆过一次,这里是同一个混淆的**代码版**。
+  //
+  // 以前无所谓:所有请求都写死 8s,虚报的那 2 秒永远不会被行使。
+  // 本版把请求改成「剧本写多长就要多长」之后,虚报立刻变成**选错引擎**:
+  // 要 10s 时 Veo 仍会被选中,然后交回一个 8s 的片子,而没有任何一处会说它短了。
+  maxDurationSec: 8,
   supportsNativeAudio: true, // v12.29.0(P1):Veo 3.1 原生对白音轨
   available: () => {
     try {
@@ -273,6 +280,44 @@ registerVideoProvider({
   },
 });
 
+// ─── Provider: Wan 3.0(30s 原生单镜)────────────────────────────────────
+// v12.422:全链此前最长 20s(而那 20s 还是虚报的,实际 10s)。Wan 3.0 是目前
+// **唯一无版权纠纷的 30s 原生单次**路径 —— 30 秒是一次 API 调用直出的连续片段,
+// 不是 Scene Extension 那种续接拼出来的(经多源独立复核确认)。
+//
+// 优先级 85:排在常规引擎**之后**。它每秒 ¥1.2(1080P),一条 30s ≈ ¥36,
+// 是注册表里最贵的;只在剧本真要长镜、别家 maxDurationSec 都够不着时才轮到它。
+// 不配 WAN_API_KEY 时 available() 为 false,整条链行为与此前完全一致(零回归)。
+registerVideoProvider({
+  id: 'wan',
+  name: 'Wan 3.0(阿里 · 30s 原生单镜)',
+  priority: 85,
+  supportsImage2Video: true,
+  supportsText2Video: true,
+  supportsLastFrame: false,
+  supportsSubjectReference: false,
+  supportsNativeAudio: true, // 官方 parameters.audio 默认 true
+  maxDurationSec: 30,
+  available: () => {
+    try {
+      const m = require('@/services/wan.service');
+      return !!m.hasWan?.();
+    } catch { return false; }
+  },
+  async generate(input: VideoGenerateInput) {
+    const { WanService } = await import('@/services/wan.service');
+    const svc = new WanService();
+    const url = await svc.generateVideo(input.prompt, {
+      imageUrl: input.firstFrameUrl,
+      durationSec: input.durationSec,
+      aspectRatio: input.aspectRatio,
+    });
+    if (!url) throw new Error('Wan 返回空 url');
+    // 带上实际模型 —— 决策日志要能复盘是哪一档出的片(标准档 vs prime 差价明显)
+    return { videoUrl: url, provider: 'wan', model: svc.lastModel };
+  },
+});
+
 // ─── Provider 4: Vidu ─────────────────────────────────────────────────────
 // 优先级 90 — I2V only, T2V 不支持. 用作 Veo/Kling/Minimax 都跪了的最后兜底.
 registerVideoProvider({
@@ -383,7 +428,15 @@ registerVideoProvider({
   supportsText2Video: true,
   supportsLastFrame: false,
   supportsSubjectReference: false,
-  maxDurationSec: 20,
+  // v12.422:**此前写 20,而我们钉的端点做不到 20**。
+  // `LTX_MODEL` 默认 `fal-ai/ltx-2.3/text-to-video` 是 **Pro 变体**,
+  // duration 枚举只有 6/8/10 —— 单次上限 **10s**。20s 属于我们没钉的 `/fast` 变体
+  //(且 >10s 还要求 25fps + 1080p)。经三条独立复核确认。
+  //
+  // 所以这里跟着**实际钉住的端点**走。想要 20s 就把 LTX_MODEL 显式切到 /fast 变体、
+  // 同时调 LTX_MAX_SEC —— 让「用哪个端点」和「声称能做多长」必须一起改,
+  // 而不是让注册表替一个它没在调的端点说大话。
+  maxDurationSec: Number(process.env.LTX_MAX_SEC) || 10,
   supportsNativeAudio: true, // v12.29.0(P1):LTX-2 音画一体
   available: () => {
     try {
