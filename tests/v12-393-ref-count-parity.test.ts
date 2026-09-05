@@ -49,9 +49,14 @@ describe('口径统一', () => {
   });
 
   it('超过上限的会被丢掉,所以也不该算进去', () => {
-    const input = { referenceImages: Array.from({ length: 6 }, (_, i) => `https://a/${i}.png`) };
+    // v12.424:样本量原本写死 6 —— 那时上限是 4,6 > 4 所以截得到。
+    // 上限提到 8 之后 6 < 8,这条就截不到了,断言 6 !== 8 而红。
+    // 它本身写得没错(用的是常量而不是字面量 4),只是**样本没跟着常量走**。
+    // 改成由常量推出来,上限再变也不用回来改。
+    const n = MAX_REF_IMAGES + 2;
+    const input = { referenceImages: Array.from({ length: n }, (_, i) => `https://a/${i}.png`) };
     expect(countUsableRefs(input)).toBe(MAX_REF_IMAGES);
-    expect(legacyCount(input)).toBe(6);
+    expect(legacyCount(input)).toBe(n);
   });
 
   it('cref / sref 一起计入,顺序保持 referenceImages → cref → sref', () => {

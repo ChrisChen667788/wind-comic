@@ -10,7 +10,13 @@
  */
 
 import { registerImageProvider } from './registry';
-import { usableRefs } from './refs';
+import { usableRefs, capRefsFor } from './refs';
+
+/** flux-2-pro 官方 API 上限 8 张(input_image / input_image_2..N)。2026-09-05 核文档。 */
+const KONTEXT_MAX_REFS = 8;
+
+/** Minimax image-01 单次参考图上限 */
+const MINIMAX_MAX_REFS = 4;
 import type { ImageGenerateInput } from './types';
 import '@/lib/mock-providers'; // v10.4.0: mock 三件套常驻注册(MOCK_ENGINES=1 才 available)
 // v12.238(issue #11):GPT Image / Nano Banana 走同一套 plugin registry —— 注册即入链,
@@ -75,7 +81,7 @@ registerImageProvider({
   id: 'minimax-multi',
   name: 'Minimax image-01 (multi-ref)',
   supportsRefs: true,
-  maxRefImages: 4,
+  maxRefImages: MINIMAX_MAX_REFS,
   // v12.371:它的 generate 第一行就是「needs at least 1 ref」——
   // 把这个约束**声明出来**,由选路统一执行,而不是靠抛错表达。
   minRefImages: 1,
@@ -91,7 +97,10 @@ registerImageProvider({
     const svc = await getMinimaxService();
     if (!svc) throw new Error('Minimax service unavailable');
     // v12.393:口径收敛到 lib/image-providers/refs —— 选路时判的就是这个数
-    const dedupedRefs = usableRefs(input);
+    // v12.424:再按**本引擎**的上限裁一次。全局上限已从 4 提到 8(因为 flux 能吃 8),
+    // 而 minimax image-01 只吃 4 —— 不裁的话会把 5~8 张一起发过去,
+    // 上游要么报错、要么**静默截断**,而静默截断没人会发现。
+    const dedupedRefs = capRefsFor(usableRefs(input), MINIMAX_MAX_REFS);
     if (dedupedRefs.length === 0) throw new Error('Minimax multi-ref needs at least 1 ref');
     const url = await svc.generateImageWithRefs(input.prompt, dedupedRefs, {
       aspectRatio: input.aspectRatio || '16:9',
@@ -131,7 +140,7 @@ registerImageProvider({
   id: 'kontext',
   name: 'Strong image (IMAGE_MODEL, e.g. flux-2-pro · gateway)',
   supportsRefs: true,
-  maxRefImages: 4,
+  maxRefImages: KONTEXT_MAX_REFS, // v12.424:官方 8 张,此前按最弱引擎写死 4
   priority: 110,
   available: () => !!process.env.QINGYUNTOP_API_KEY || !!process.env.VEO_API_KEY || !!process.env.OPENAI_API_KEY,
   async generate(input: ImageGenerateInput) {
@@ -147,17 +156,29 @@ registerImageProvider({
     if (!key) throw new Error('no image gateway key');
     // v12.393:同上。这一处原来**不去重** —— 传三张相同的图会真的发三份给网关,
     // 既浪费带宽也可能被上游当成三张不同的参考图处理。
-    const refUrls = usableRefs(input);
-    const refHint = refUrls.length > 0 ? ` [Reference images: ${refUrls.join(' , ')}]` : '';
+    // v12.424:参考图此前是被**拼进 prompt 文本**发出去的:
+    //   prompt + ' [Reference images: https://… , https://…]'
+    // 而文生图模型读到 prompt 里的一串 URL 是**取不到图的** —— 它既不会去下载,
+    // 也不知道那是图片地址。于是「角色参考」在这条 provider 上从来没真正生效过,
+    // 而且不报错:图照出,只是没参考。又一个「失败长得像成功」。
+    //
+    // 官方字段表(2026-09-05 核 https://docs.bfl.ai/flux_2/flux2_image_editing):
+    // 参考图走 `input_image` / `input_image_2..N` 这组**编号字段**,API 上限 8 张。
+    // 网关是 OpenAI 兼容形态,这组字段按同名透传。
+    const refUrls = capRefsFor(usableRefs(input), KONTEXT_MAX_REFS);
+    const body: Record<string, unknown> = {
+      model,
+      prompt: input.prompt,
+      n: 1,
+      size: '1024x1024',
+    };
+    refUrls.forEach((url, i) => {
+      body[i === 0 ? 'input_image' : `input_image_${i + 1}`] = url;
+    });
     const res = await fetch(`${base}/v1/images/generations`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        prompt: input.prompt + refHint,
-        n: 1,
-        size: '1024x1024',
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(90_000),
     });
     if (!res.ok) {

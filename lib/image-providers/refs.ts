@@ -26,8 +26,34 @@ export interface RefLike {
   sref?: string | null;
 }
 
-/** 引擎单次能接受的参考图上限(minimax-multi 与 gateway 都是 4) */
-export const MAX_REF_IMAGES = 4;
+/**
+ * 参考图数量的**全局硬上限**。
+ *
+ * ── v12.424:这个数字曾经是「最弱那家的上限」,被套在了所有引擎头上 ──────
+ * 原注释写着「minimax-multi 与 gateway 都是 4」—— 于是 4 成了全局天花板。
+ * 但各 provider 在注册表里**各自声明了** `maxRefImages`(MJ 2 / minimax 4 /
+ * gemini 3 / mock 8),而 `selectImageProviders` 也确实按它过滤
+ *(`refCount > maxRefImages → 排除`)。也就是说**分派层本来就能按引擎能力选路**,
+ * 却因为收敛函数提前把 refCount 砍到 4,能吃更多的引擎永远等不到第 5 张。
+ *
+ * 实测:flux-2-pro 官方 API 支持 **8 张**(`input_image` / `input_image_2..N`)。
+ * 我们按 4 给它设上限 = 一半能力用不上,而且**不会有任何报错**。
+ *
+ * 现在这个常量只作「任何引擎都不可能超过」的兜底闸,真正的按引擎裁剪交给
+ * `capRefsFor(providerMax)` —— 谁能吃多少,由谁自己说了算。
+ */
+export const MAX_REF_IMAGES = 8;
+
+/**
+ * 按**具体引擎**的能力裁参考图。
+ *
+ * 分派层用 `refCount > maxRefImages → 排除` 来选路,所以传进来的 refs 数量
+ * 不该超过该引擎声明的上限;超了要么被排除、要么发出去被上游截断(而截断是静默的)。
+ */
+export function capRefsFor(refs: string[], providerMax: number): string[] {
+  const cap = Math.max(0, Math.min(MAX_REF_IMAGES, Math.floor(Number(providerMax) || 0)));
+  return refs.slice(0, cap);
+}
 
 /**
  * 收敛出**真正会被发给引擎**的那些参考图。
