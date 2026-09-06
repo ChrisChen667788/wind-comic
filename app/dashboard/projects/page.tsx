@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
+import { nextCoverIndex } from '@/lib/project-cover';
 import { useRouter } from 'next/navigation';
 import { Kanban as FolderKanban, Clock, CheckCircle as CheckCircle2, Play, FilmStrip as Film, Plus, Sparkle as Sparkles, MagnifyingGlass as Search, MagicWand as Wand2, Trash as Trash2, Archive, ArrowCounterClockwise as Restore } from '@phosphor-icons/react';
 import { getToken } from '@/lib/auth';
@@ -170,7 +171,9 @@ export default function ProjectsPage() {
           {filtered.map((p, i) => {
             const sc = statusConfig[p.status] || statusConfig.draft;
             const StatusIcon = sc.icon;
-            const cover = p.covers?.[0] || IMG_PREVIEW_DEFAULT;
+            // v12.426:covers 是接口给的**有序候选串**(用户定版 → 冻结封面 → 本片分镜 → 本片视频),
+            // 前一张加载失败就换下一张,全挂了才退到占位图 —— 而不是一挂就当这片没有画面。
+            const coverList: string[] = (p.covers || []).filter(Boolean);
             const shotCount = p.scriptData?.shots?.length || 0;
 
             return (
@@ -182,10 +185,18 @@ export default function ProjectsPage() {
               >
                 {/* Cover */}
                 <div className="cover h-[160px]">
-                  <img loading="lazy" decoding="async" src={cover} alt={p.title} className="w-full h-full object-cover"
+                  <img loading="lazy" decoding="async" src={coverList[0] || IMG_PREVIEW_DEFAULT} alt={p.title}
+                    className="w-full h-full object-cover"
                     onError={(e) => {
-                      // 历史项目封面 URL 失效(CDN 过期 / 本地资产被清)→ 兜底到内联占位图,避免露碎图标。单次切换防循环。
+                      // 历史封面失效(CDN 过期 / 本地资产被清)→ 顺着候选串往下试,
+                      // 都不行才退到内联占位图。用 data-idx 记进度,不会来回打转。
                       const img = e.currentTarget;
+                      const next = nextCoverIndex(Number(img.dataset.coverIdx || '0'), coverList.length);
+                      if (next !== null) {
+                        img.dataset.coverIdx = String(next);
+                        img.src = coverList[next];
+                        return;
+                      }
                       if (img.dataset.fallback) return;
                       img.dataset.fallback = '1';
                       img.src = IMG_PREVIEW_DEFAULT;

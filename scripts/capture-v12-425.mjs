@@ -216,7 +216,7 @@ async function main() {
       if (text.length < 40) { skipped.push(`${name}(正文仅 ${text.length} 字,判为未渲染)`); return; }
       const textHash = crypto.createHash('md5').update(text).digest('hex');
 
-      const f = path.join(OUT, `${name}.png`);
+      const f = opts.outPath ? opts.outPath.replace(/\.jpe?g$/i, '.png') : path.join(OUT, `${name}.png`);
       const clip = opts.clipPanel ? await clipPanel(opts.clipPanel)
         : opts.clipFrom ? await clipOf(opts.clipFrom, opts.clipPad) : null;
       if ((opts.clipFrom || opts.clipPanel) && !clip) {
@@ -296,6 +296,15 @@ async function main() {
   });
   await shot('12-creation-workshop', `${BASE}/dashboard/create`, { load: 13000 });
 
+  // README「新增 v11 → v12」那一节引用的是 docs/screenshots/v12/01-my-projects-manage.jpg。
+  // 原图 2026-08-18 拍的,当时库里 132 个项目、卡片大半是渐变占位 —— 因为封面被冻结成了
+  // 「出图全挂时的 mock 图」(v12.426 已改读时解析),而且混着 21 个夹具/无素材项目。
+  // 就地覆盖那张图,README 的引用与说明都不用动。
+  await shot('01-my-projects-manage', `${BASE}/dashboard/projects`, {
+    load: 14000,
+    outPath: path.join(process.cwd(), 'docs', 'screenshots', 'v12', '01-my-projects-manage.jpg'),
+  });
+
   // ── 四、专业能力:分镜规格 / 拉片 / 时间线 / 节奏 / 视频 ────────
   await shot('13-storyboard-specs', SHOW, {
     steps: [{ click: /^分镜\s*\d*$/, wait: 7000 }, { anchor: /^创作\s*CREATE$/, targetY: 96, wait: 2000 }],
@@ -328,7 +337,7 @@ async function main() {
   const FILE_BUDGET = 300 * 1024;
   let converted = 0;
   for (const f of ok) {
-    const jpg = f.replace(/\.png$/, '.jpg');
+    const jpg = f.replace(/\.png$/, '.jpg');   // outPath 传的就是 .jpg,上面已换成 .png 落盘
     try {
       let done = false;
       for (const q of [72, 60, 50, 42]) {

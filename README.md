@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.425</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.426</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-5381%2F5381-2ea44f"  alt="5381 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-5397%2F5397-2ea44f"  alt="5397 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -250,7 +250,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **5381 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **5397 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -388,6 +388,11 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 >
 > **📚 完整 18 张 + 每张的实现逻辑与工作流架构说明:[docs/SCREENSHOTS-v12.425.md](docs/SCREENSHOTS-v12.425.md)**
 > (单独成文是为了不让首页替访客扛下载量 —— README 引用媒体有 12MB 预算门禁。)
+> **v12.426 补记**:上面「我的项目」那张(`docs/screenshots/v12/01-my-projects-manage.jpg`)已重拍。
+> 旧图里卡片大半是渐变占位 —— 不是没作品,是**封面被冻结成了一次失败的快照**:流水线末尾抄一份第 1 镜的
+> `imageUrl` 就再不重算,于是出图全挂时的 mock 兜底图被永久写死(30 个项目里 12 个如此,其中 3 个明明各有
+> 11~12 张真分镜还活着)。现改为**读时解析**,并清掉了 21 个夹具/无素材项目(下架,可一键恢复)。
+
 
 | 角色转身图 · v12.425 修的就是这里 | 导演台 · 全链路控片 |
 |---|---|
@@ -575,7 +580,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 5381/5381 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 5397/5397 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 

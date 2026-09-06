@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.425</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.426</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -224,7 +224,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **5381 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **5397 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -279,6 +279,11 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 >
 > **📚 完整 18 张 + 每张的实现逻辑与工作流架构说明:[docs/SCREENSHOTS-v12.425.md](docs/SCREENSHOTS-v12.425.md)**
 > (单独成文是为了不让首页替访客扛下载量 —— README 引用媒体有 12MB 预算门禁。)
+> **v12.426 补记**:上面「我的项目」那张(`docs/screenshots/v12/01-my-projects-manage.jpg`)已重拍。
+> 旧图里卡片大半是渐变占位 —— 不是没作品,是**封面被冻结成了一次失败的快照**:流水线末尾抄一份第 1 镜的
+> `imageUrl` 就再不重算,于是出图全挂时的 mock 兜底图被永久写死(30 个项目里 12 个如此,其中 3 个明明各有
+> 11~12 张真分镜还活着)。现改为**读时解析**,并清掉了 21 个夹具/无素材项目(下架,可一键恢复)。
+
 
 | 角色转身图 · v12.425 修的就是这里 | 导演台 · 全链路控片 |
 |---|---|
@@ -420,7 +425,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 5381/5381 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 5397/5397 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 
