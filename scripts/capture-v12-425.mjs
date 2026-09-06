@@ -322,12 +322,24 @@ async function main() {
 
   // 转 JPEG 并降到 1600px 宽:@2x 的 PNG 一共 50MB,进仓会顶穿 preflight 的媒体预算门禁。
   // 用系统 sips(macOS 自带),不引依赖。转失败就保留 PNG 并如实说,不假装成功。
+  // 逐档降质到进单文件预算(300KB)。**不能只压一档**:密集网格图在 q72 下是
+  // 430~460KB,超预算;而重拍一次就把上一轮手工压好的结果又写回大尺寸 ——
+  // 让脚本自己负责,才不会每拍一轮就退化一次。
+  const FILE_BUDGET = 300 * 1024;
   let converted = 0;
   for (const f of ok) {
     const jpg = f.replace(/\.png$/, '.jpg');
     try {
-      execFileSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '72',
-                            '--resampleWidth', '1600', f, '--out', jpg], { stdio: 'ignore' });
+      let done = false;
+      for (const q of [72, 60, 50, 42]) {
+        execFileSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', String(q),
+                              '--resampleWidth', '1600', f, '--out', jpg], { stdio: 'ignore' });
+        done = true;
+        if (fs.statSync(jpg).size <= FILE_BUDGET) break;
+      }
+      if (!done) throw new Error('sips 没产出');
+      const size = fs.statSync(jpg).size;
+      if (size > FILE_BUDGET) skipped.push(`${path.basename(jpg)} 压到 q42 仍有 ${(size / 1024).toFixed(0)}KB,超单文件预算`);
       fs.unlinkSync(f); converted++;
     } catch {
       skipped.push(`${path.basename(f)} 转 JPEG 失败,保留 PNG`);
