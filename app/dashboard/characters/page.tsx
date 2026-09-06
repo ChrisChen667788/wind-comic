@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { Users, Plus, X, Clipboard, Check, Tag, Eye, Trash as Trash2, MagnifyingGlass as Search, MagicWand as Wand2, CircleNotch as Loader2, Sparkle as Sparkles } from '@phosphor-icons/react';
+import { MediaThumb } from '@/components/ui/media-thumb';
 
 interface CharacterItem {
   id: string;
@@ -331,7 +332,7 @@ function SaveCharacterModal({
               <div className="flex flex-wrap gap-2 mt-2">
                 {imageUrls.map((url) => (
                   <div key={url} className="relative w-16 h-16 rounded-lg overflow-hidden border border-[var(--border)] group">
-                    <img src={url} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <MediaThumb src={url} alt="" className="w-full h-full object-cover" note="预览不可用" />
                     <button
                       onClick={() => removeImageUrl(url)}
                       className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
@@ -593,7 +594,7 @@ function CharacterDetailModal({
                       <div key={v.id} className="flex flex-col items-center gap-1">
                         <div className="aspect-square w-full rounded-lg border border-[var(--border)] bg-black/30 overflow-hidden flex items-center justify-center" title={v.prompt}>
                           {v.imageUrl ? (
-                            <img loading="lazy" decoding="async" src={v.imageUrl} alt={v.label} className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={v.imageUrl} alt={v.label} className="w-full h-full object-contain" />
                           ) : (
                             <span className="text-[8.5px] text-[var(--muted)] text-center px-1 leading-tight">prompt 就绪<br />未出图</span>
                           )}
@@ -775,15 +776,12 @@ export default function CharactersPage() {
               onClick={() => setSelectedCharacter(character)}
             >
               {/* Image area */}
-              <div className="h-[140px] bg-black/30 relative overflow-hidden">
+              <div className="aspect-[7/9] bg-black/30 relative overflow-hidden">
                 {character.imageUrls.length > 0 ? (
-                  <img
+                  <MediaThumb
                     src={character.imageUrls[0]}
                     alt={character.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
+                    className="w-full h-full object-contain bg-black group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

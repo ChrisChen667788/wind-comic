@@ -37,7 +37,12 @@ export function NumberTicker({
   className?: string;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: '-30% 0px' });
+  // v12.425 只收缩下边,绝不收缩上边。
+  // 原来是 '-30% 0px' —— 上下各砍 30%,于是「元素明明在屏幕上,却不算进入视野」。
+  // 页面本身不滚时(内容没超过视口)这个死区是永久的:数字永远停在 0。
+  // 分镜页的一致性仪表就这么显示成「AVG 0 / PASS 0 / WARN 0 / FAIL 0」,
+  // 而右边逐镜分明明是 89~92。大屏用户看到的是一个假的 0 分。
+  const inView = useInView(ref, { once: true, margin: '0px 0px -20% 0px' });
   const reduce = useReducedMotion();
   const motionVal = useMotionValue(0);
   const spring = useSpring(motionVal, {
@@ -303,7 +308,8 @@ export function TextGenerateEffect({
   duration?: number;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: '-10% 0px' });
+  // 同上,且这里更要命:inView 为 false 时词是 opacity:0 —— 死区里的正文直接隐形。
+  const inView = useInView(ref, { once: true, margin: '0px 0px -10% 0px' });
   const reduce = useReducedMotion();
   // 中文按字符切, 英文按空格切
   const words = useMemo(() => splitForReveal(text), [text]);

@@ -459,7 +459,7 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
           {busy ? (
             <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
           ) : hasImage ? (
-            <img loading="lazy" decoding="async" src={slot.imageUrl} alt={slot.name || `角色 ${slotLabel}`} className="w-full h-full object-cover" />
+            <img loading="lazy" decoding="async" src={slot.imageUrl} alt={slot.name || `角色 ${slotLabel}`} className="w-full h-full object-contain bg-black" />
           ) : (
             <Upload className="w-5 h-5 text-gray-400" />
           )}

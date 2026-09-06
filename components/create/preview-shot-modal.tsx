@@ -246,7 +246,7 @@ export function PreviewShotModal({
                       <div className="aspect-video bg-black/40 rounded overflow-hidden border border-[var(--cinema-border)]">
                         {h.imageUrl ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
-                          <img loading="lazy" decoding="async" src={h.imageUrl} alt={h.idea.slice(0, 30)} className="w-full h-full object-cover" />
+                          <img loading="lazy" decoding="async" src={h.imageUrl} alt={h.idea.slice(0, 30)} className="w-full h-full object-contain bg-black" />
                         ) : (
                           <div className="w-full h-full grid place-items-center cinema-mono text-[9px] opacity-40">无图</div>
                         )}

@@ -137,7 +137,7 @@ export default function ProjectInvitePage({ params }: { params: Promise<{ token:
             <img loading="lazy" decoding="async" 
               src={data.project.coverUrl}
               alt={data.project.title}
-              className="w-full aspect-video object-cover rounded border border-[var(--cinema-border)]" />
+              className="w-full aspect-video object-contain bg-black rounded border border-[var(--cinema-border)]" />
           ) : (
             <div className="w-full aspect-video bg-black/40 rounded border border-[var(--cinema-border)] grid place-items-center">
               <Users className="w-12 h-12 opacity-30" />

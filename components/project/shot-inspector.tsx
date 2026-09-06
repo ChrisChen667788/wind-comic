@@ -71,7 +71,7 @@ export function ShotInspector({
           <div className="relative cinema-card overflow-hidden">
             {shot.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={shot.imageUrl} alt={`镜头 ${shot.shotNumber}`} className={`w-full ${frameClass} object-cover`} />
+              <img src={shot.imageUrl} alt={`镜头 ${shot.shotNumber}`} className={`w-full ${frameClass} object-contain bg-black`} />
             ) : (
               <div className={`w-full ${frameClass} grid place-items-center bg-[var(--cinema-surface-2)] cinema-mono text-[11px] opacity-40`}>NO RENDER</div>
             )}

@@ -57,7 +57,7 @@ export function ImageGallery({ images, className }: ImageGalleryProps) {
             <img loading="lazy" decoding="async" 
               src={image.url}
               alt={image.title || `Image ${index + 1}`}
-              className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+              className="w-full h-full object-contain bg-black transition-transform group-hover:scale-110" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
               <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>

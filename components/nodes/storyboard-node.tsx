@@ -84,11 +84,11 @@ function StoryboardNodeComponent({ data }: NodeProps) {
                   <div className="flex gap-1.5 mb-1.5">
                     {sb.mediaUrls?.[0] && (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={sb.mediaUrls[0]} alt={`Shot ${sb.shotNumber}`} className="h-20 rounded-lg border border-white/10 object-cover flex-1 min-w-0" />
+                      <img src={sb.mediaUrls[0]} alt={`Shot ${sb.shotNumber}`} className="h-20 rounded-lg border border-white/10 object-contain bg-black flex-1 min-w-0" />
                     )}
                     {sketchByShot.get(sb.shotNumber as number) && (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={sketchByShot.get(sb.shotNumber as number)} alt="构图草图" title="构图草图(草图锁)" className="h-20 w-14 rounded-lg border border-cyan-500/30 object-cover shrink-0 opacity-80" />
+                      <img src={sketchByShot.get(sb.shotNumber as number)} alt="构图草图" title="构图草图(草图锁)" className="h-20 w-14 rounded-lg border border-cyan-500/30 object-contain bg-black shrink-0 opacity-80" />
                     )}
                   </div>
                 )}

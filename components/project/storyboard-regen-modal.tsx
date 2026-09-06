@@ -292,7 +292,7 @@ export function StoryboardRegenModal({
                 <img loading="lazy" decoding="async" 
                   src={refImageUrl}
                   alt="reference"
-                  className="w-24 h-16 object-cover rounded border border-[var(--cinema-amber)]/40" />
+                  className="w-24 h-16 object-contain bg-black rounded border border-[var(--cinema-amber)]/40" />
                 <div className="flex-1 min-w-0">
                   <div className="cinema-mono text-[10px] opacity-80">✓ 已上传参考图</div>
                   <div className="cinema-mono text-[9px] opacity-50 break-all line-clamp-2 mt-0.5">

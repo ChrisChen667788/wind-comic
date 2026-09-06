@@ -51,6 +51,8 @@ export const FILE_BUDGET = 300 * 1024;
 /** 目标宽度 = 显示宽度(~800px)的 2 倍,视网膜屏也够清晰。 */
 const MAX_WIDTH = 1600;
 const JPEG_QUALITY = 85;
+/** 逐档降质的阶梯:先试最好的,进不了预算就往下走。 */
+const QUALITY_LADDER = [85, 72, 60, 50, 42];
 
 const README_FILES = ['README.md', 'README.zh-CN.md'];
 
@@ -120,11 +122,28 @@ function main() {
     const out = file.replace(/\.(png|jpe?g|webp)$/i, '.jpg');
     if (dry) { console.log(`[media] 将压缩 ${file} (${MB(size)}) → ${out}`); continue; }
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    execFileSync('sips', ['-Z', String(MAX_WIDTH), '-s', 'format', 'jpeg',
-      '-s', 'formatOptions', String(JPEG_QUALITY), file, '--out', out], { stdio: 'ignore' });
-    const now = fs.statSync(out).size;
+    // 逐档降质,直到进预算 —— 单跑一档 85 是不够的:
+    // 抓图脚本出的是 q72,拿 q85 重编码只会**变大**。而旧版把变大的结果照单收下
+    // (jpg 的 in/out 同路径,直接覆盖掉了更小的原文件),还照样打印「✅ 省下 -0.35M」。
+    // **压完更大就必须丢弃**;一个把东西改坏还报成功的工具,比没有更危险。
+    const tmp = out + '.opt.tmp.jpg';
+    let best = null;
+    for (const q of QUALITY_LADDER) {
+      execFileSync('sips', ['-Z', String(MAX_WIDTH), '-s', 'format', 'jpeg',
+        '-s', 'formatOptions', String(q), file, '--out', tmp], { stdio: 'ignore' });
+      const n = fs.statSync(tmp).size;
+      if (!best || n < best.size) best = { size: n, buf: fs.readFileSync(tmp) };
+      if (n <= FILE_BUDGET) break;
+    }
+    fs.rmSync(tmp, { force: true });
+    if (!best || best.size >= size) {
+      console.log(`[media] 压不动(${MB(size)} → 最优 ${best ? MB(best.size) : 'n/a'}),保持原样:${file}`);
+      continue;
+    }
+    fs.writeFileSync(out, best.buf);
+    const now = best.size;
     saved += size - now;
-    console.log(`[media] ${MB(size)} → ${MB(now)}  ${file}${out !== file ? ' → ' + path.basename(out) : ''}`);
+    console.log(`[media] ${MB(size)} → ${MB(now)}${now > FILE_BUDGET ? ' ⚠ 仍超单文件预算' : ''}  ${file}${out !== file ? ' → ' + path.basename(out) : ''}`);
     if (out !== file) { fs.unlinkSync(file); renames.push([file, out]); }
   }
 
@@ -145,7 +164,14 @@ function main() {
   }
 
   const after = auditBudget(entriesFor(collectRefs()));
-  console.log(`[media] ✅ 省下 ${MB(saved)};现在 ${MB(after.sum)} / 预算 ${MB(TOTAL_BUDGET)}`);
+  const clean = !after.overTotal && after.oversized.length === 0;
+  // ✅ 只在**真的进预算**时打。旧版无论如何都打 ✅,于是「还超 3.6M」被一个绿勾盖住了。
+  console.log(`[media] ${clean ? '✅' : '❌'} 省下 ${MB(saved)};现在 ${MB(after.sum)} / 预算 ${MB(TOTAL_BUDGET)}`);
+  if (!clean) {
+    if (after.overTotal) console.log(`[media] ❌ 总量仍超 ${MB(after.sum - TOTAL_BUDGET)}`);
+    for (const e of after.oversized) console.log(`[media] ❌ 单文件仍超:${MB(e.size)} ${e.file}`);
+    process.exitCode = 1;
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

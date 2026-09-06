@@ -146,7 +146,7 @@ function CommentItem({ comment, currentUserId, onReplyClick, onDeleteClick, inde
               >
                 {att.type === 'image' ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img loading="lazy" decoding="async" src={att.url} alt={att.filename || 'attachment'} className="w-full max-h-32 object-cover" />
+                  <img loading="lazy" decoding="async" src={att.url} alt={att.filename || 'attachment'} className="w-full max-h-32 object-contain bg-black" />
                 ) : att.type === 'video' ? (
                   <video src={att.url} className="w-full max-h-32" controls muted />
                 ) : (
@@ -474,7 +474,7 @@ export function CommentThread({
               >
                 {att.type === 'image' ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img loading="lazy" decoding="async" src={att.url} alt={att.filename} className="w-full max-h-20 object-cover" />
+                  <img loading="lazy" decoding="async" src={att.url} alt={att.filename} className="w-full max-h-20 object-contain bg-black" />
                 ) : att.type === 'video' ? (
                   <video src={att.url} className="w-full max-h-20" muted />
                 ) : (

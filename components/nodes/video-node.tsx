@@ -184,7 +184,7 @@ function VideoNodeComponent({ data }: NodeProps) {
                           src={mediaUrl}
                           muted
                           preload="metadata"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain bg-black"
                           onError={(e) => {
                             const target = e.currentTarget;
                             target.style.display = 'none';
@@ -198,7 +198,7 @@ function VideoNodeComponent({ data }: NodeProps) {
                           }}
                         />
                       ) : (
-                        <img loading="lazy" decoding="async" src={mediaUrl} alt={`视频${sn}`} className="w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={mediaUrl} alt={`视频${sn}`} className="w-full h-full object-contain bg-black" />
                       )}
                       <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
                         <Play className="w-6 h-6 text-white" />

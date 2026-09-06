@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.424</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic 风之漫剧 <sub><sup>v12.425</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -224,7 +224,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **5366 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **5381 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -271,21 +271,28 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 
 ## 🎬 实机截图
 
-### 📸 v12.402 – v12.416 实机截图(2026-09-03 实拍)
+### 📸 v12.425 资产真机截图(2026-09-06 实拍)
 
-> 全部由 `node scripts/capture-v12-416.mjs` 在本机真实数据上抓取(1440×900 @2x → 压至 1600px 宽)。
-> 脚本带**空壳检测**与**近重复检测**:页面没渲染出来、或「点了 tab 但视图没换」的图会被自动删掉并如实汇报 ——
+> 全部由 `node scripts/capture-v12-425.mjs` 在本机真实数据上抓取。脚本带**空壳检测**与**近重复检测**:
+> 页面没渲染出来、或「点了 tab 但视图没换」的图会被自动删掉并如实汇报 ——
 > 截图是拿来对外展示的,**同一张冒充两张比缺一张更糟**。
+>
+> **📚 完整 18 张 + 每张的实现逻辑与工作流架构说明:[docs/SCREENSHOTS-v12.425.md](docs/SCREENSHOTS-v12.425.md)**
+> (单独成文是为了不让首页替访客扛下载量 —— README 引用媒体有 12MB 预算门禁。)
 
-| | |
+| 角色转身图 · v12.425 修的就是这里 | 导演台 · 全链路控片 |
 |---|---|
-| ![落地页](assets/v12-416/01-landing.jpg) 落地页 | ![我的项目](assets/v12-416/02-projects.jpg) 我的项目 |
-| ![素材库](assets/v12-416/03-assets.jpg) 素材库 | ![引擎健康](assets/v12-416/04-health-engines.jpg) 引擎健康 · 模型雷达 |
-| ![用量](assets/v12-416/05-usage.jpg) 用量与成本 | ![模板市场](assets/v12-416/06-templates.jpg) 模板市场 |
-| ![项目工作台](assets/v12-416/07-project-workshop.jpg) 项目工作台(剧本 / Cameo 锁脸 / 角色档案) | |
+| ![角色转身图](assets/v12-425/08-character-sheets.jpg) | ![导演台](assets/v12-425/10-director-console.jpg) |
+| 立绘原生 896×1152 竖构图,修前被塞进 355×200 横框 + `object-cover`,**裁掉 56%**,必须点全屏才看得到完整图。现在框比例跟素材走、填充改 `object-contain`。 | 四个环节各自可寻址:剧本 / 角色·场景 / 分镜 / 成片,任一环单独「编辑」或「重跑」,并预告重跑的下游影响。 |
 
-> 项目页只出一张,是实测后的结论:点 tab 与滚动 body 都不换视图(该页用内部滚动容器),
-> 两条路都试过并写进了脚本注释,避免下次重复踩。
+| 拉片分析 · 五栏出厂真值 | 分镜规格 · 出厂参数 + 一致性仪表 |
+|---|---|
+| ![拉片](assets/v12-425/15-pull-sheet.jpg) | ![分镜规格](assets/v12-425/13-storyboard-specs.jpg) |
+| 每镜给出叙事要素 / 时间 / 镜头语言 / 影像处理 / 声音五栏,且是**流水线生成时的真实摄影语言,不是 AI 事后看图反推**;可导出 CSV / 剧本册 MD / PDF,也能回灌外部片子做复刻。 | 画幅 / 色彩 / 帧率 / 安全框是**工程参数不是滤镜**(Scope 2.39:1 · ACES 1.3 · 24fps),真实进入生成 prompt 与导出参数;右侧逐镜一致性打分,低分镜一键跳转重生。 |
+
+> ⚠️ **撤回一条旧结论**:v12.416 那轮在这里写过「点项目页 tab 与滚 body 都不换视图」。**那条是错的。**
+> 真因是标签栏在折叠线以下,坐标点击打空;先 `scrollIntoView` 再 `el.click()` 就能切换,本轮 12 张靠它拍成。
+> v12.416 那组截图已由本轮更全的一组取代。
 
 **实测性能**(本机 dev server,`curl` 首字节):落地页 TTFB **46ms**;
 控制台各页(项目 / 素材 / 引擎健康 / 用量)TTFB **22–38ms**。
@@ -413,7 +420,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 5366/5366 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 5381/5381 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

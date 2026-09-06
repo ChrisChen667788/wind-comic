@@ -218,11 +218,11 @@ function SheetView({ sheet }: { sheet: PullSheet }) {
             <div className="w-44 shrink-0">
               {s.videoUrl ? (
                 <video src={s.videoUrl} poster={s.thumbnail || undefined} controls preload="metadata"
-                  className="w-full aspect-video object-cover rounded-md border border-[var(--cinema-border)] bg-black" />
+                  className="w-full aspect-video object-contain bg-black rounded-md border border-[var(--cinema-border)] bg-black" />
               ) : s.thumbnail ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.thumbnail} alt={`镜 ${s.shotNumber} 分镜图`}
-                  className="w-full aspect-video object-cover rounded-md border border-[var(--cinema-border)]" loading="lazy" />
+                  className="w-full aspect-video object-contain bg-black rounded-md border border-[var(--cinema-border)]" loading="lazy" />
               ) : (
                 <div className="w-full aspect-video rounded-md border border-[var(--cinema-border)] bg-black/30 flex items-center justify-center cinema-mono text-[10px] opacity-40">无画面</div>
               )}

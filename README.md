@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">🌬️ Wind Comic <sub><sup>v12.424</sup></sub></h1>
+<h1 align="center">🌬️ Wind Comic <sub><sup>v12.425</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-5366%2F5366-2ea44f"  alt="5366 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-5381%2F5381-2ea44f"  alt="5381 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -250,7 +250,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **5366 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **5381 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -381,6 +381,26 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 
 ## 🎬 Screenshots
 
+### 📸 v12.425 资产真机截图(captured 2026-09-06)
+
+> 全部由 `node scripts/capture-v12-425.mjs` 对着**本机真实数据**跑出来。脚本带空壳检测与近重复检测:
+> 页面没渲染出来、或者「点了 tab 但视图没变」的,一律删掉并如实报告 —— **一张截图冒充两张,比少一张更糟。**
+>
+> **📚 完整 18 张 + 每张的实现逻辑与工作流架构说明:[docs/SCREENSHOTS-v12.425.md](docs/SCREENSHOTS-v12.425.md)**
+> (单独成文是为了不让首页替访客扛下载量 —— README 引用媒体有 12MB 预算门禁。)
+
+| 角色转身图 · v12.425 修的就是这里 | 导演台 · 全链路控片 |
+|---|---|
+| ![角色转身图](assets/v12-425/08-character-sheets.jpg) | ![导演台](assets/v12-425/10-director-console.jpg) |
+| 立绘原生 896×1152 竖构图,修前被塞进 355×200 横框 + `object-cover`,**裁掉 56%**,必须点全屏才看得到完整图。现在框比例跟素材走、填充改 `object-contain`。 | 四个环节各自可寻址:剧本 / 角色·场景 / 分镜 / 成片,任一环单独「编辑」或「重跑」,并预告重跑的下游影响。 |
+
+| 拉片分析 · 五栏出厂真值 | 分镜规格 · 出厂参数 + 一致性仪表 |
+|---|---|
+| ![拉片](assets/v12-425/15-pull-sheet.jpg) | ![分镜规格](assets/v12-425/13-storyboard-specs.jpg) |
+| 每镜给出叙事要素 / 时间 / 镜头语言 / 影像处理 / 声音五栏,且是**流水线生成时的真实摄影语言,不是 AI 事后看图反推**;可导出 CSV / 剧本册 MD / PDF,也能回灌外部片子做复刻。 | 画幅 / 色彩 / 帧率 / 安全框是**工程参数不是滤镜**(Scope 2.39:1 · ACES 1.3 · 24fps),真实进入生成 prompt 与导出参数;右侧逐镜一致性打分,低分镜一键跳转重生。 |
+
+---
+
 ### 📸 v12.402 – v12.416 screenshots (captured 2026-09-03)
 
 > All captured by `node scripts/capture-v12-416.mjs` against real local data (1440×900 @2x, downscaled to 1600px wide).
@@ -388,16 +408,10 @@ Real puppeteer captures of the running app (`node scripts/capture-v12.mjs`). 核
 > "the tab was clicked but the view never changed", is deleted and reported honestly —
 > **one screenshot masquerading as two is worse than one missing.**
 
-| | |
-|---|---|
-| ![Landing](assets/v12-416/01-landing.jpg) Landing | ![Projects](assets/v12-416/02-projects.jpg) My projects |
-| ![Assets](assets/v12-416/03-assets.jpg) Asset library | ![Health](assets/v12-416/04-health-engines.jpg) Engine health · model radar |
-| ![Usage](assets/v12-416/05-usage.jpg) Usage & cost | ![Templates](assets/v12-416/06-templates.jpg) Template market |
-| ![Workshop](assets/v12-416/07-project-workshop.jpg) Project workshop (script / cameo lock / character sheets) | |
-
-> Only one project-page shot, and that is an empirical result rather than laziness: clicking the tabs and scrolling the
-> body both leave the view unchanged (the page uses an inner scroll container). Both dead ends are recorded in the
-> capture script so the next person does not retry them.
+> ~~Only one project-page shot: clicking the tabs and scrolling the body both leave the view unchanged.~~
+> **This conclusion was wrong and is retracted (v12.425.)** The tab bar sits below the fold, so a coordinate click
+> missed it; `scrollIntoView` followed by `el.click()` switches tabs fine. See the v12.425 section above for 12 shots
+> taken that way.
 
 **Measured performance** (local dev server, `curl` time-to-first-byte): landing **46 ms**;
 console pages (projects / assets / engine health / usage) **22–38 ms**.
@@ -561,7 +575,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 5366/5366 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 5381/5381 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 

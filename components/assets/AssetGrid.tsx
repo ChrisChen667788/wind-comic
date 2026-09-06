@@ -261,7 +261,7 @@ function AssetCard({ asset, selected, selectable, onToggle }: AssetCardProps) {
           alt={asset.name}
           loading="lazy"
           onError={() => setImgError(true)}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="h-full w-full object-contain bg-black transition-transform duration-300 group-hover:scale-105"
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-800 via-neutral-700 to-neutral-900 text-xs text-neutral-400">

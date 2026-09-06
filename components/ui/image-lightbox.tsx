@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, ReactNode } from 'react';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { createPortal } from 'react-dom';
 import { X, CaretLeft as ChevronLeft, CaretRight as ChevronRight, MagnifyingGlassPlus as ZoomIn, ImageBroken as ImageOff, ArrowsClockwise as RefreshCw } from '@phosphor-icons/react';
+import { ASSET_MEDIA_FIT, ASSET_MATTE_CLASS } from '@/lib/media-frame';
 
 /**
  * 统一的图片放大查看组件。
@@ -202,7 +203,7 @@ export function ZoomableImage({
             <img
               src={effectiveSrc}
               alt={alt || title || ''}
-              className={imgClassName || 'w-full h-full object-cover'}
+              className={imgClassName || `w-full h-full ${ASSET_MEDIA_FIT} ${ASSET_MATTE_CLASS}`}
               draggable={false}
               onError={() => setErrored(true)}
             />

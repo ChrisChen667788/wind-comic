@@ -169,7 +169,7 @@ export function CandidateGridModal({ projectId, shotNumber, basePrompt, defaultA
                 >
                   {c.imageUrl ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img loading="lazy" decoding="async" src={c.imageUrl} alt={c.variantLabel} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={c.imageUrl} alt={c.variantLabel} className="w-full h-full object-contain bg-black" />
                   ) : c.error ? (
                     <div className="w-full h-full grid place-items-center text-center px-1"><ImageOff className="w-5 h-5 opacity-40" /></div>
                   ) : (

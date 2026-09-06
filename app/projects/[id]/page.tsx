@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { SafeAreaOverlay } from '@/components/ui/safe-area-overlay';
 import { useParams } from 'next/navigation';
+import { assetMediaClass, ASSET_MEDIA_FIT, ASSET_MATTE_CLASS } from '@/lib/media-frame';
+import { normalizeReviewScore } from '@/lib/review-score';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand, SpeakerHigh, ArrowsOut as Maximize, ArrowsIn as Minimize, UsersThree } from '@phosphor-icons/react';
@@ -356,6 +358,9 @@ export default function ProjectDetailPage() {
   }
   const timeline = assets.find((a: any) => a.type === 'timeline');
   const review = project.directorNotes;
+  // v12.425 导演评分可能只有壳没有分(旧项目/评审未跑完)——
+  // 光判 review 存在就打印出「undefined/100」,截图里真出现过。以「有没有分」为准。
+  const reviewScore = normalizeReviewScore(review?.overallScore);
   const script = project.scriptData || scriptAsset?.data;
 
   const tabs = [
@@ -440,10 +445,10 @@ export default function ProjectDetailPage() {
               <span className="cinema-statusbar-dot" style={{ background: project.status === 'completed' ? 'var(--cinema-green)' : 'var(--cinema-amber)' }} />
               {project.status === 'completed' ? 'COMPLETED' : 'IN PRODUCTION'}
             </span>
-            {review && (
+            {reviewScore !== null && (
               <div className="cinema-chip cinema-chip-amber">
                 <Star className="w-3 h-3" />
-                <span className="cinema-mono">{review.overallScore}<span className="opacity-50">/100</span></span>
+                <span className="cinema-mono">{reviewScore}<span className="opacity-50">/100</span></span>
               </div>
             )}
             {/* v2.16 P0.2: 4K 导出 dropdown — 点开选分辨率, plan-gate 在 route 层最终校验 */}
@@ -477,7 +482,7 @@ export default function ProjectDetailPage() {
             {[
               { label: '镜头', value: String(script?.shots?.length ?? 0) },
               { label: '角色', value: String(Array.isArray(project.lockedCharacters) ? project.lockedCharacters.length : 0) },
-              { label: '评分', value: review ? `${review.overallScore}/100` : '—' },
+              { label: '评分', value: reviewScore !== null ? `${reviewScore}/100` : '—' },
               { label: '状态', value: project.status === 'completed' ? '已完成' : '制作中' },
             ].map((m) => (
               <div key={m.label}>
@@ -695,7 +700,7 @@ export default function ProjectDetailPage() {
               {characters.map((c: any) => (
                 <div key={c.id} className="cinema-card overflow-hidden">
                   {c.mediaUrls?.[0] && (
-                    <img loading="lazy" decoding="async" src={c.mediaUrls[0]} alt={c.name} className="w-full h-[200px] object-cover" />
+                    <img loading="lazy" decoding="async" src={c.mediaUrls[0]} alt={c.name} className={assetMediaClass('character', project?.aspect)} />
                   )}
                   <div className="p-4">
                     <h3 className="cinema-headline text-sm mb-1.5">{c.name}</h3>
@@ -737,7 +742,7 @@ export default function ProjectDetailPage() {
               {scenes.map((s: any) => (
                 <div key={s.id} className="cinema-card overflow-hidden">
                   {s.mediaUrls?.[0] && (
-                    <img loading="lazy" decoding="async" src={s.mediaUrls[0]} alt={s.name} className="w-full h-[180px] object-cover" />
+                    <img loading="lazy" decoding="async" src={s.mediaUrls[0]} alt={s.name} className={assetMediaClass('scene', project?.aspect)} />
                   )}
                   <div className="p-4">
                     <h3 className="cinema-headline text-sm mb-1.5">{s.name}</h3>
@@ -811,7 +816,7 @@ export default function ProjectDetailPage() {
                           className="relative cursor-pointer group/insp"
                           onClick={() => setInspectShot({ shotNumber: sb.shotNumber, imageUrl: sb.mediaUrls[0], description: sb.data?.description, dialogue: scriptShot?.dialogue, emotion: scriptShot?.emotion, duration: dur, data: sb.data || {}, specSummary: describeShotSpec(curSpec) })}
                         >
-                          <img loading="lazy" decoding="async" src={sb.mediaUrls[0]} alt={sb.name} className={`w-full ${frameClass} object-cover`} />
+                          <img loading="lazy" decoding="async" src={sb.mediaUrls[0]} alt={sb.name} className={`w-full ${frameClass} ${ASSET_MEDIA_FIT} ${ASSET_MATTE_CLASS}`} />
                           {isVertical && showSafeArea && <SafeAreaOverlay />}
                           <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/insp:bg-black/35 opacity-0 group-hover/insp:opacity-100 transition-all">
                             <span className="cinema-chip cinema-chip-amber">检查器</span>
@@ -940,7 +945,7 @@ export default function ProjectDetailPage() {
                         />
                       ) : (
                         <div className="relative">
-                          <img loading="lazy" decoding="async" src={url} alt={v.name} className={`w-full ${frameClass} object-cover`} />
+                          <img loading="lazy" decoding="async" src={url} alt={v.name} className={`w-full ${frameClass} ${ASSET_MEDIA_FIT} ${ASSET_MATTE_CLASS}`} />
                           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                             <div className="text-center">
                               <AlertTriangle className="w-7 h-7 text-[var(--cinema-amber)] mx-auto mb-2" />
@@ -1246,7 +1251,7 @@ export default function ProjectDetailPage() {
                 <div className="cinema-card-hi p-5">
                   <div className="flex items-center gap-3 mb-4">
                     <Star className="w-5 h-5 text-[var(--cinema-amber)]" weight="fill" />
-                    <span className="cinema-headline text-lg text-[var(--cinema-amber)]">{review.overallScore}<span className="cinema-mono text-sm opacity-50"> /100</span></span>
+                    <span className="cinema-headline text-lg text-[var(--cinema-amber)]">{reviewScore ?? '—'}<span className="cinema-mono text-sm opacity-50"> /100</span></span>
                     <span className={`cinema-chip ${review.passed ? 'cinema-chip-green' : 'cinema-chip-amber'}`}>
                       {review.passed ? <CheckCircle2 className="w-3 h-3" weight="fill" /> : <AlertTriangle className="w-3 h-3" />}
                       {review.passed ? '审核通过' : '需要优化'}

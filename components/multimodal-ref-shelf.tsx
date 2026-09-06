@@ -19,6 +19,7 @@ import {
   ELEMENT_WEIGHT_MIN, ELEMENT_WEIGHT_MAX, ELEMENT_WEIGHT_DEFAULT,
   type ElementRole, type ReferenceElement,
 } from '@/lib/reference-elements';
+import { MediaThumb } from '@/components/ui/media-thumb';
 
 const KIND_ICON: Record<RefKind, typeof ImageIcon> = { image: ImageIcon, audio: Music, video: Video };
 const ELEMENT_ROLES = Object.keys(ELEMENT_ROLE_LABEL) as ElementRole[];
@@ -128,7 +129,7 @@ export function MultimodalRefShelf({
               <div key={r.id} className="relative group w-20">
                 <div className="w-20 h-20 rounded-lg border border-white/10 bg-black/40 overflow-hidden flex items-center justify-center">
                   {r.kind === 'image' ? (
-                    <img src={r.url} alt={r.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <MediaThumb src={r.url} alt={r.name} className="w-full h-full object-contain bg-black" note="参考图已失效" />
                   ) : (
                     <Icon className="w-7 h-7 text-gray-400" />
                   )}

@@ -114,7 +114,7 @@ export function DramaPackageButton({ seriesId }: Props) {
           <div className="flex items-start gap-3">
             {data.series.coverUrl && (
               <div className="w-14 shrink-0 rounded-lg overflow-hidden bg-black/30 aspect-[3/4]">
-                <img src={data.series.coverUrl} alt={t.seriesDetail.dramaPackageCoverAlt} className="w-full h-full object-cover" />
+                <img src={data.series.coverUrl} alt={t.seriesDetail.dramaPackageCoverAlt} className="w-full h-full object-contain bg-black" />
               </div>
             )}
             <div className="space-y-1 text-gray-300 text-[12px]">

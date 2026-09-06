@@ -158,7 +158,7 @@ export function CreationWorkspace({ project }: Props) {
                           <div className="h-[55px] bg-black/30 relative flex items-center justify-center">
                             {isVideoReady ? (
                               <>
-                                <video src={shot.videoUrl} muted preload="metadata" className="w-full h-full object-cover" />
+                                <video src={shot.videoUrl} muted preload="metadata" className="w-full h-full object-contain bg-black" />
                                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
                                   <Play className="w-4 h-4 text-white/80" />
                                 </div>
