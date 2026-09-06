@@ -163,6 +163,31 @@ async function main() {
              height: Math.min(window.innerHeight - top, bottom - top + pad) };
   }, [re.source ?? re, padTop]);
 
+  /**
+   * 对着「含某段文字的那个弹窗」取景 —— 弹窗四周大片空白,直接截屏浪费画面。
+   *
+   * 优先认 `[role="dialog"]`:按文字找最小容器会命中弹窗内部的某一段,
+   * 把标题和底部按钮切掉(第一版 09 就是这么废的)。左右各留一段背景做上下文,
+   * 免得裁成一条又窄又长的纸带。
+   */
+  const clipPanel = (needle, pad = 24, side = 300) => page.evaluate(([n, p2, sd]) => {
+    const dialogs = Array.from(document.querySelectorAll('[role="dialog"]'))
+      .filter((d) => (d.innerText || '').includes(n) && d.getBoundingClientRect().height > 200);
+    const hit = dialogs[0] || Array.from(document.querySelectorAll('div'))
+      .filter((d) => (d.innerText || '').includes(n))
+      .sort((a, b) => a.getBoundingClientRect().height - b.getBoundingClientRect().height)
+      .find((d) => d.getBoundingClientRect().height > 260);
+    if (!hit) return null;
+    const r = hit.getBoundingClientRect();
+    const x = Math.max(0, r.left - sd);
+    const y = Math.max(0, r.top - p2);
+    return {
+      x, y,
+      width: Math.min(window.innerWidth - x, r.width + sd * 2),
+      height: Math.min(window.innerHeight - y, r.height + p2 * 2),
+    };
+  }, [needle, pad, side]);
+
   const shot = async (name, url, opts = {}) => {
     try {
       if (page.url() !== url) {
@@ -170,7 +195,20 @@ async function main() {
         await sleep(opts.load ?? 9000);
       }
       for (const step of opts.steps || []) {
-        const done = await (step.click ? clickText(step.click) : scrollTo(step.anchor, step.targetY));
+        let done;
+        if (step.type) {
+          const box = await page.$('input[placeholder*="搜索"]');
+          if (box) { await box.click(); await box.type(step.type); done = true; } else done = false;
+        } else if (step.clickCard) {
+          done = await page.evaluate((name) => {
+            const cards = Array.from(document.querySelectorAll('div'))
+              .filter((d) => (d.innerText || '').includes(name) && String(d.className).includes('group'));
+            const c = cards[cards.length - 1];
+            if (!c) return false; c.click(); return true;
+          }, step.clickCard);
+        } else {
+          done = await (step.click ? clickText(step.click) : scrollTo(step.anchor, step.targetY));
+        }
         if (!done && step.required !== false) { skipped.push(`${name}(找不到「${step.click || step.anchor}」)`); return; }
         await sleep(step.wait ?? 5000);
       }
@@ -179,8 +217,11 @@ async function main() {
       const textHash = crypto.createHash('md5').update(text).digest('hex');
 
       const f = path.join(OUT, `${name}.png`);
-      const clip = opts.clipFrom ? await clipOf(opts.clipFrom, opts.clipPad) : null;
-      if (opts.clipFrom && !clip) { skipped.push(`${name}(取景锚点「${opts.clipFrom}」没找到)`); return; }
+      const clip = opts.clipPanel ? await clipPanel(opts.clipPanel)
+        : opts.clipFrom ? await clipOf(opts.clipFrom, opts.clipPad) : null;
+      if ((opts.clipFrom || opts.clipPanel) && !clip) {
+        skipped.push(`${name}(取景锚点「${opts.clipFrom || opts.clipPanel}」没找到)`); return;
+      }
       await page.screenshot({ path: f,
         ...(clip ? { clip, captureBeyondViewport: false } : { fullPage: !!opts.fullPage }) });
       const buf = fs.readFileSync(f);
@@ -233,7 +274,14 @@ async function main() {
     steps: [{ click: /^角色\s*\d*$/, wait: 7000 }, { anchor: /^创作\s*CREATE$/, targetY: 96, wait: 2000 }],
     clipFrom: /^创作\s*CREATE$/, clipPad: 20,
   });
-  await shot('09-character-library', `${BASE}/dashboard/characters`, { load: 12000 });
+  await shot('09-character-dossier', `${BASE}/dashboard/characters`, {
+    load: 12000,
+    steps: [{ type: '柳如烟', wait: 4000 }, { clickCard: '柳如烟', wait: 6000 }],
+    clipPanel: '外貌特征',
+  });
+  // 网格那张留着,但它是「素材已失效」兜底的实例:本机 44 张立绘的底层文件被那次
+  // 定时清理删了 41 张 —— 修前 onError 直接 display:none,卡片变一片空白。
+  await shot('09b-character-library', `${BASE}/dashboard/characters`, { load: 12000, allowSameText: true });
 
   // ── 三、导演台 / 创作过程 ────────────────────────────────────
   const SHOW = `${BASE}/projects/${SHOWCASE}`;
