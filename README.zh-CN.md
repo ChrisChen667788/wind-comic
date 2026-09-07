@@ -19,6 +19,21 @@
 
 ---
 
+## 💎 赞助商
+
+<table>
+  <tr>
+    <td width="190" align="center">
+      <a href="https://metaso.cn/minimax-h3/?s=wind-comic" target="_blank" rel="noopener"><img src="assets/sponsors/metaso.png" width="163" alt="秘塔科技 MetaSota"></a>
+    </td>
+    <td>
+      <strong>MiniMax H3 视频生成 API｜秘塔科技</strong> 秘塔科技提供高性价比的 MiniMax H3 视频生成服务：<strong>768P 仅 0.09 元/秒，2K 仅 0.15 元/秒</strong>。支持原生 2K、音画同步，API 兼容 <strong>OpenAI 协议</strong>，同时支持 <strong>ComfyUI</strong>，无需自行部署 GPU。 🎁 通过 <a href="https://metaso.cn/minimax-h3/?s=wind-comic" target="_blank" rel="noopener noreferrer">wind-comic专属链接注册</a>，即可领取赠送额度及专属优惠。
+    </td>
+  </tr>
+</table>
+
+---
+
 ## ✨ 为什么选 Wind Comic?
 
 大多数 "AI 视频" 工具给你 5 秒短片. **Wind Comic 给你一整部短剧** — 剧本 + 角色 + 多镜分镜 + 配音 + BGM + 嘴型对齐的口播 + 最终 mp4 — 全部从同一句创意开始.
