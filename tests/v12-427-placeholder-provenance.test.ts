@@ -120,6 +120,11 @@ describe('v12.427 全仓只有一处实现', () => {
     const offenders: string[] = [];
     for (const f of files()) {
       if (f === 'lib/placeholder-provenance.ts') continue;
+      // 跳过 tests/:断言这条规则的测试本身必然含有 `function mockSvg(` 字面量
+      // (就在下一条 it 里),而剥注释剥不掉字符串字面量 —— 于是本文件把自己标了出来。
+      // 本地没发现是因为**文件还没被 git 跟踪**,git ls-files 看不到它;
+      // 一提交就现形,CI 红。测试里出现这个词不等于给用户发了第二份实现。
+      if (f.startsWith('tests/')) continue;
       const src = fs.readFileSync(path.join(process.cwd(), f), 'utf-8');
       const code = src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n')
         .map((l) => l.replace(/\/\/.*$/, '')).join('\n');
