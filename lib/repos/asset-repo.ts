@@ -8,6 +8,7 @@
  */
 
 import { nanoid } from 'nanoid';
+import { applyProvenance } from '@/lib/placeholder-provenance';
 import { getDbDriver, isUniqueViolation } from '../db-driver';
 import type { DbExecutor } from '@/lib/db-driver';
 
@@ -71,12 +72,18 @@ export async function createAsset(input: CreateAssetInput, exec?: DbExecutor): P
   const driver = exec ?? getDbDriver();
   const id = input.id || nanoid();
   const ts = new Date().toISOString();
+  // v12.427:来源标记在写入咽喉处推导,不在调用点逐个打标 —— 实测有五条写入路径
+  // 绕过主流程(regenerate-shot / heal-shots / regenerate-shot-4k /
+  // regenerate-asset-image / 构图草图),逐点打标必然漏。
+  const data = applyProvenance(input.data ?? {}, {
+    mediaUrls: input.mediaUrls, persistentUrl: input.persistentUrl,
+  });
   await driver.run(
     `INSERT INTO project_assets (id, project_id, type, name, data, media_urls, persistent_url, shot_number, version, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, input.projectId, input.type, input.name,
-      JSON.stringify(input.data ?? {}), JSON.stringify(input.mediaUrls ?? []),
+      JSON.stringify(data), JSON.stringify(input.mediaUrls ?? []),
       input.persistentUrl ?? null, input.shotNumber ?? null, input.version ?? 1, ts, ts,
     ],
   );
@@ -137,6 +144,29 @@ export async function updateAssetBySelector(
 }
 
 /**
+ * 读出选中行的 `data.provenance`(只读这一个字段,不整行反序列化给调用方)。
+ * 命中多行时取第一行 —— 历史重复行的来源必然相同,取哪行都一样。
+ */
+async function readProvenanceBySelector(
+  projectId: string,
+  sel: { type: string; shotNumber?: number | null; name?: string },
+  exec?: DbExecutor,
+): Promise<string | null> {
+  let where = 'project_id = ? AND type = ?';
+  const params: unknown[] = [projectId, sel.type];
+  if (sel.shotNumber != null) { where += ' AND shot_number = ?'; params.push(sel.shotNumber); }
+  else { where += ' AND name = ?'; params.push(sel.name); }
+  const row = await (exec ?? getDbDriver()).get<{ data: string | null }>(
+    `SELECT data FROM project_assets WHERE ${where} LIMIT 1`, params);
+  const raw = row?.data;
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw);
+    return typeof d?.provenance === 'string' && d.provenance ? d.provenance : null;
+  } catch { return null; }   // 坏数据不该让写入整个失败
+}
+
+/**
  * v10.4.2: 幂等写 —— 按 (project, type, shot|name) 先更新,没命中再插入。
  * 流水线续跑/重跑时同一产物不再重复 INSERT(v10.4.1 已知限位:重跑资产 ×2)。
  * mediaUrls 仅在非空时参与更新 —— 渲染失败传 [] 不应抹掉已有的好 URL。
@@ -155,6 +185,16 @@ export async function upsertAsset(input: CreateAssetInput): Promise<'created' | 
   if (input.persistentUrl !== undefined) patch.persistentUrl = input.persistentUrl;
   // 整个「先更新、没命中再插入」必须在**同一个事务**里,否则两步之间没有互斥。
   return getDbDriver().transaction(async (tx) => {
+  // v12.427:data 是**整体覆盖写**。分镜要写两次(规划一次、渲染再一次),
+  // 第二次是全新对象 —— 不把旧的 provenance 带过来,第一次打的「示意图」标记会被静默擦掉。
+  // 但只在「本次没带新内容」时带:带了新内容就该按新 URL 重判,
+  // 否则一镜真重生成功后仍会永远背着示意图标签。
+  const prev = patch.mediaUrls === undefined && patch.persistentUrl === undefined
+    ? await readProvenanceBySelector(input.projectId, sel, tx)
+    : null;
+  patch.data = applyProvenance(patch.data, {
+    mediaUrls: patch.mediaUrls, persistentUrl: patch.persistentUrl, previousProvenance: prev,
+  });
   const changes = await updateAssetBySelector(input.projectId, sel, patch, tx);
   if (changes > 0) return 'updated' as const;
 

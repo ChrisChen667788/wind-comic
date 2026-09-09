@@ -2,10 +2,8 @@ import { NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { getDbDriver } from '@/lib/db-driver'; // v9.0.4: 双驱动
 import { getUserFromRequest } from '../auth/lib';
+import { makePlaceholderImage } from '@/lib/placeholder-provenance';
 
-function mockSvg(label: string, c1: string, c2: string): string {
-  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="600" height="400" fill="url(#g)"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-family="system-ui" font-size="28">${label}</text></svg>`)}`;
-}
 
 export async function GET(request: Request) {
   const payload = getUserFromRequest(request);
@@ -31,8 +29,8 @@ export async function POST(request: Request) {
   const id = nanoid();
   const ts = new Date().toISOString();
   const mockResults = [
-    mockSvg('Generated 1', '#4c1d95', '#ec4899'),
-    mockSvg('Generated 2', '#0e7490', '#4de0c2'),
+    makePlaceholderImage({ width: 600, height: 400, colors: ['#4c1d95', '#ec4899'], label: 'Generated 1' }),
+    makePlaceholderImage({ width: 600, height: 400, colors: ['#0e7490', '#4de0c2'], label: 'Generated 2' }),
   ];
 
   await getDbDriver().run(

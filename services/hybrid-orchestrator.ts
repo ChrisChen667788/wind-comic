@@ -78,6 +78,7 @@ import { deriveProsody } from '@/lib/tts-prosody';
 import { getLatestQualityScore, buildWriterFeedbackHint } from '@/lib/quality-scores';
 // v12.4.0(阶段二十三):主管线视频/图像成本落库 —— 此前从不记,cost-attribution 视频/图像类目永远 0。
 import { recordCostLog, estimateVideoCostCny, estimateImageCostCny, videoRateForProvider } from '@/lib/repos/cost-log-repo';
+import { makePlaceholderImage } from '@/lib/placeholder-provenance';
 // v12.6.1(#2):目标语种检测 —— 锁台词/旁白/TTS/口型语种,visualPrompt 仍英文。
 import { detectLanguage, ttsLangCode, lipsyncLangCode, buildLanguageDirective, SUPPORTED_LANGUAGES, type TargetLanguage } from '@/lib/language-detect';
 // v12.7.0:editor TTS 走注册表(vectorengine-tts 50 > minimax-tts 100),vectorengine 进主路径。
@@ -129,9 +130,6 @@ function isValidVideoUrl(url: string | undefined): boolean {
   return false;
 }
 
-function mockSvg(w: number, h: number, c1: string, c2: string, label: string): string {
-  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g)"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-family="system-ui" font-size="${Math.min(w, h) * 0.07}">${label}</text></svg>`)}`;
-}
 
 // v10.4.0: MOCK_ENGINES=1 全封闭(hermetic)— 即使配了真 LLM key 也走 fallbackScript 模板路径
 // (零外部调用、确定性,journey e2e 与 CI 无 key 环境行为一致;媒体引擎由 mock provider 接管)
@@ -1391,7 +1389,7 @@ export class HybridOrchestrator {
     // 最后备用：Mock SVG
     console.warn(`[ImageRouter] All engines failed, using mock for: ${label}`);
     await sleep(800);
-    return mockSvg(1024, 576, '#1e1b4b', '#7c3aed', label);
+    return makePlaceholderImage({ width: 1024, height: 576, colors: ['#1e1b4b', '#7c3aed'], label: label });
   }
 
   // ══════════════════════════════════════
@@ -1983,7 +1981,7 @@ export class HybridOrchestrator {
         ),
       ]).catch(err => {
         console.warn(`[CharDesigner] ${char.name} 超时/失败: ${err.message}, 降级 mock`);
-        return mockSvg(768, 768, '#4c1d95', '#7c3aed', char.name);
+        return makePlaceholderImage({ width: 768, height: 768, colors: ['#4c1d95', '#7c3aed'], label: char.name });
       });
 
       // 一个角色只输出一张三视图
@@ -2138,7 +2136,7 @@ export class HybridOrchestrator {
         ),
       ]).catch(err => {
         console.warn(`[SceneDesigner] ${scene.location} failed: ${err.message}, using mock`);
-        return mockSvg(1024, 576, '#1e1b4b', '#7c3aed', scene.location);
+        return makePlaceholderImage({ width: 1024, height: 576, colors: ['#1e1b4b', '#7c3aed'], label: scene.location });
       });
 
       // ★ 把成功产出加入风格传递池 (仅 http URL, 去除 mock SVG)
@@ -2637,7 +2635,7 @@ ${shots.map((s, i) => {
         ),
       ]).catch(err => {
         console.warn(`[Renderer] Shot ${sb.shotNumber} failed: ${err.message}, using mock`);
-        return mockSvg(1344, 768, '#1e1b4b', '#7c3aed', `Shot ${sb.shotNumber}`);
+        return makePlaceholderImage({ width: 1344, height: 768, colors: ['#1e1b4b', '#7c3aed'], label: `Shot ${sb.shotNumber}` });
       });
 
       // ── v2.12 Sprint A.1 · Cameo Vision Auto-Retry (< 75 触发重生) ───────

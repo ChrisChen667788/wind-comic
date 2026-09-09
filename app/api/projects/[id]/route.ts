@@ -1,5 +1,6 @@
 import { db, now } from '@/lib/db';
 import { getUserFromRequest } from '../../auth/lib';
+import { isPlaceholderAsset } from '@/lib/placeholder-provenance';
 import { normalizeAssetRow } from '@/lib/asset-storage';
 import { listProjectAssets, getAsset, updateAssetDataInProject } from '@/lib/repos/asset-repo';
 import { getOwnedProject, deleteProjectCascade, setProjectArchived } from '@/lib/repos/project-repo';
@@ -22,12 +23,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const assets = await listProjectAssets(id) as any[];
   const parsedAssets = assets.map(a => {
     const { mediaUrls, persistentUrl } = normalizeAssetRow(a);
+    // v12.427:必须在 normalize **之前**的原始行上判 —— 它会把 mediaUrls[0] 换成
+    // persistentUrl,历史 mock 的 /api/mock-assets/… 就此消失,客户端再也认不出来。
+    const isPlaceholder = isPlaceholderAsset(a as any);
     return {
       id: a.id,
       type: a.type,
       name: a.name,
       data: JSON.parse(a.data || '{}'),
       mediaUrls,
+      isPlaceholder,
       persistentUrl,
       shotNumber: a.shot_number,
       version: a.version,

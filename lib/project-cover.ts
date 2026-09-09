@@ -25,19 +25,23 @@
  * 素材变了封面自动跟着变。冻结的 cover_urls 只作为其中一档候选,不再是唯一真相。
  */
 
+import { isPlaceholderUrl } from './placeholder-provenance';
+
+
 /**
- * 一张图是不是「引擎全挂时的 mock 占位」——它长得像成功,但不是真画面。
+ * 一张图是不是「引擎没出图时的示意图」。
  *
- * mock 产物有**两种形态**,第一版只认了第一种,于是绿皮书之约的卡片在实拍里
- * 显示成一块纯绿色矩形 —— 判据写死了字面量,而不是「这是不是 mock」:
- *   ① `data:image/svg…`      —— 内联 SVG(hybrid-orchestrator 的 mockSvg 兜底、UI 占位图)
- *   ② `/api/mock-assets/…`   —— mock 引擎的确定性产物服务(渐变 SVG / 纯色短片 / 正弦音)
- * 凡是这个服务出来的,按定义就不是真生成内容。
+ * v12.427 起委托给 lib/placeholder-provenance —— 那里是**全仓唯一的判据**。
+ * 本文件曾自带一份实现,而且第一版只认了 `data:image/svg`、漏掉 `/api/mock-assets/`,
+ * 绿皮书之约的项目卡因此实拍出一块纯绿色矩形。判据散成两份,就一定会有一份掉队。
+ *
+ * 注意语义差别:封面这里「没有 URL」也当占位处理(没封面 ≠ 有封面),
+ * 而 isPlaceholderUrl 对空值返回 false(空值不是一张示意图)。差别留在本函数里,
+ * 不要把它推回共享模块去污染通用判据。
  */
 export function isMockPlaceholder(url: string | null | undefined): boolean {
   if (!url) return true;
-  if (url.startsWith('data:image/svg')) return true;
-  return /(^|\/\/[^/]*)\/api\/mock-assets\//.test(url);
+  return isPlaceholderUrl(url);
 }
 
 /** 一张图是不是风格库的通用样张 —— 能看,但不是这个项目自己的画面。 */

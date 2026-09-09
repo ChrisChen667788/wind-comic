@@ -1,15 +1,13 @@
 import {
   Agent, AgentRole, DirectorPlan, Script, Storyboard, VideoClip, Character
 } from '@/types/agents';
+import { makePlaceholderImage } from '@/lib/placeholder-provenance';
 
 // Check if real API keys are configured
 const hasOpenAI = process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('your_');
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-function mockSvg(w: number, h: number, c1: string, c2: string, label: string): string {
-  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g)"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-family="system-ui" font-size="${Math.min(w, h) * 0.07}">${label}</text></svg>`)}`;
-}
 
 export class DemoOrchestrator {
   private agents: Map<AgentRole, Agent>;
@@ -99,7 +97,7 @@ export class DemoOrchestrator {
       results.push({
         character: characters[i].name,
         prompt: `${characters[i].name}, ${characters[i].description}, anime style, detailed`,
-        imageUrl: mockSvg(512, 512, ['#6b21a8', '#0e7490', '#b91c1c'][i % 3], ['#ec4899', '#4de0c2', '#fbbf24'][i % 3], characters[i].name),
+        imageUrl: makePlaceholderImage({ width: 512, height: 512, colors: [['#6b21a8', '#0e7490', '#b91c1c'][i % 3], ['#ec4899', '#4de0c2', '#fbbf24'][i % 3]], label: characters[i].name }),
       });
     }
 
@@ -127,7 +125,7 @@ export class DemoOrchestrator {
       const [c1, c2] = colors[i % colors.length];
       storyboards.push({
         shotNumber: shot.shotNumber,
-        imageUrl: mockSvg(1024, 576, c1, c2, `Shot ${shot.shotNumber}`),
+        imageUrl: makePlaceholderImage({ width: 1024, height: 576, colors: [c1, c2], label: `Shot ${shot.shotNumber}` }),
         prompt: `${shot.sceneDescription}, ${shot.action}, ${shot.emotion}, cinematic`,
       });
     }
@@ -173,7 +171,7 @@ export class DemoOrchestrator {
     await sleep(1500);
 
     const duration = options?.duration || 10;
-    const videoUrl = mockSvg(640, 360, '#6b21a8', '#ec4899', `Shot ${shotNumber} v2 (${duration}s)`);
+    const videoUrl = makePlaceholderImage({ width: 640, height: 360, colors: ['#6b21a8', '#ec4899'], label: `Shot ${shotNumber} v2 (${duration}s)` });
 
     this.update(AgentRole.VIDEO_PRODUCER, { status: 'completed', progress: 100 });
 

@@ -34,7 +34,9 @@ import {
 import {
   derivePipelineStages, downstreamStages, pipelineProgress,
   PIPELINE_STAGES, type StageAsset, type StageId, type StageStatus,
+  pipelineHint,
 } from '@/lib/pipeline-stages';
+import { PLACEHOLDER_LABEL, PLACEHOLDER_HINT } from '@/lib/placeholder-provenance';
 import { healthTone } from '@/lib/quality-report';
 
 const STAGE_ICON: Record<StageId, typeof FileText> = {
@@ -90,10 +92,9 @@ export function DirectorConsole({
   if (health !== null) {
     kpis.push({ label: 'HEALTH', value: String(health), sub: '质检健康分', color: healthTone(health).color, tip: qr?.data?.summary });
   }
+  const totalPlaceholders = stages.reduce((n, s) => n + (s.placeholders || 0), 0);
   const nextStage = stages.find((s) => s.status === 'empty') || stages.find((s) => s.status === 'stale');
-  const nextHint = nextStage
-    ? (nextStage.status === 'empty' ? `下一步 · 生成「${nextStage.label}」` : `建议 · 重生「${nextStage.label}」`)
-    : '全链路就绪 · 可导出成片';
+  const nextHint = pipelineHint(stages, PLACEHOLDER_LABEL);
 
   // v12.199:变体选胜 —— POST ab-variant/choose,成功后本地把 chosen 标记切到该变体并刷新主成片
   // v12.356:导演整体评审。端点 director-review 是 **SSE 流式**,而且从来没有前端调过 ——
@@ -432,6 +433,14 @@ export function DirectorConsole({
               <div className="flex items-center gap-2 mb-3">
                 <span className={`${meta.chip} !text-[10px]`}>{meta.label}</span>
                 {s.count > 0 && <span className="cinema-mono text-[10px] opacity-50">{s.count} 项</span>}
+                {s.placeholders > 0 && (
+                  <span
+                    className="cinema-mono text-[10px] px-1.5 py-0.5 rounded-[2px] border border-[var(--cinema-amber)]/30 text-[var(--cinema-amber)]/90"
+                    title={PLACEHOLDER_HINT}
+                  >
+                    {s.placeholders} 张{PLACEHOLDER_LABEL}
+                  </span>
+                )}
               </div>
 
               {s.status === 'stale' && (

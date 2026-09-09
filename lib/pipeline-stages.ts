@@ -6,6 +6,8 @@
  * 导演台 UI 据此可视化 + 跳转编辑 + 下游影响提示.
  */
 
+import { countPlaceholders } from './placeholder-provenance';
+
 export type StageId = 'script' | 'assets' | 'storyboard' | 'final';
 
 export interface StageDef {
@@ -32,6 +34,8 @@ export interface PipelineStage extends StageDef {
   status: StageStatus;
   /** 该环节最新资产时间 (用于 stale 判定) */
   newest: string;
+  /** v12.427: 其中有几条是示意图(引擎没出图时的占位)。不影响 status,只用于如实告知。 */
+  placeholders: number;
 }
 
 export interface StageAsset {
@@ -41,6 +45,14 @@ export interface StageAsset {
   id?: string;
   /** v6.4.1: 显式失效标记 (上游重跑后端点置位 → 本环节直接 stale, 不依赖时间比较) */
   stale?: boolean;
+  /** v12.427: 判「这条是不是示意图」用得到的字段 —— 由 isPlaceholderAsset 消费。
+   *  isPlaceholder 是服务端在原始行上判好的结论,优先级最高。 */
+  isPlaceholder?: boolean;
+  data?: { provenance?: string } | null;
+  mediaUrls?: string[] | null;
+  media_urls?: string | null;
+  persistentUrl?: string | null;
+  persistent_url?: string | null;
 }
 
 /**
@@ -53,7 +65,11 @@ export function derivePipelineStages(assets: StageAsset[]): PipelineStage[] {
     const mine = assets.filter((a) => s.assetTypes.includes(a.type));
     const newest = mine.reduce((m, a) => (a.updatedAt && a.updatedAt > m ? a.updatedAt : m), '');
     const flagged = mine.some((a) => a.stale);
-    return { def: s, count: mine.length, newest, flagged };
+    // v12.427:示意图**不翻成「未就绪」**。这个环节确实跑过了,产物也确实存在,
+    // 只是内容不是真出图 —— 翻成未就绪会连累导出(用户想导一版草稿也导不了)。
+    // 所以它是**另一个维度**:状态照旧,另报数,让界面能如实说「就绪,含 N 张示意图」。
+    const placeholders = countPlaceholders(mine);
+    return { def: s, count: mine.length, newest, flagged, placeholders };
   });
 
   return raw.map((s, i) => {
@@ -67,7 +83,7 @@ export function derivePipelineStages(assets: StageAsset[]): PipelineStage[] {
         }
       }
     }
-    return { ...s.def, count: s.count, status, newest: s.newest };
+    return { ...s.def, count: s.count, status, newest: s.newest, placeholders: s.placeholders };
   });
 }
 
@@ -121,4 +137,25 @@ export function pipelineProgress(stages: PipelineStage[]): { produced: number; t
   const produced = stages.filter((s) => s.status !== 'empty').length;
   const total = stages.length;
   return { produced, total, pct: total ? Math.round((produced / total) * 100) : 0 };
+}
+
+/**
+ * 导演台顶部那句提示。
+ *
+ * 抽成纯函数不是为了复用,是为了**可测**:原来这段三元表达式内联在组件里,
+ * 测试只能断言源码里出现过 `PLACEHOLDER_LABEL` 字样 —— 把判断条件改成 `false`
+ * (有示意图也照说「可导出成片」)那条断言依然绿。锁写法不锁行为,等于没锁。
+ */
+export function pipelineHint(stages: PipelineStage[], placeholderLabel: string): string {
+  const next = stages.find((s) => s.status === 'empty') || stages.find((s) => s.status === 'stale');
+  if (next) {
+    return next.status === 'empty' ? `下一步 · 生成「${next.label}」` : `建议 · 重生「${next.label}」`;
+  }
+  const n = stages.reduce((acc, s) => acc + (s.placeholders || 0), 0);
+  // 环节确实都跑过了,但其中若干张是引擎没出图时的示意图。
+  // 不把状态翻成「未就绪」(那会连累导出),而是如实把数字说出来 ——
+  // 此前这里一律显示「可导出成片」,一个全是示意图的项目也照说不误。
+  return n > 0
+    ? `全链路就绪 · 含 ${n} 张${placeholderLabel},重生即可替换`
+    : '全链路就绪 · 可导出成片';
 }
