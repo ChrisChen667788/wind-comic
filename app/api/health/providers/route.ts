@@ -72,6 +72,41 @@ async function probeGateway(id: string, label: string, baseUrl: string, key?: st
   return { ...base, ...cls, balance, latencyMs: Date.now() - t0 };
 }
 
+/**
+ * v12.428 —— MJ 通道可用性探测。
+ *
+ * 病象:网关本身 HTTP 200、健康页报 `ok`,而 **MJ 通道其实一个都没有**。
+ * 实测提交 imagine 得到的是「模型 mj_imagine 无可用渠道(distributor)」——
+ * 注意这**不是参数问题**:一条不带任何特殊参数的 prompt 报同样的错。
+ * 而 `optionalProvider` 对已配置的 key 直接返回 null(注释写着「已配置的会单独探测」),
+ * 偏偏 MJ 从来没有那个「单独探测」—— 于是它连一行都不出现在健康页上。
+ * 结果:用户看到网关全绿、看不到 MJ 任何信息,**只有真去生成才知道它是死的**。
+ *
+ * 判据用网关的模型清单,不用提交任务:
+ * 提交是要花钱的,通道**可用**时它会真出图 —— 健康检查绝不能是个会扣费的动作。
+ * 实测 `/v1/models` 返回 629 个模型、MJ 相关 0 个,与那条报错完全吻合。
+ */
+async function probeMidjourney(baseUrl: string, key?: string): Promise<ProviderHealth> {
+  const base = { id: 'midjourney', label: 'Midjourney (图像)', kind: 'image' as ProviderKind, baseUrl };
+  if (isPlaceholder(key)) return { ...base, status: 'not_configured', detail: '未接入 (可选)' };
+  const t0 = Date.now();
+  const res = await timedFetch(`${baseUrl}/v1/models`, { headers: { Authorization: `Bearer ${key}` } });
+  const latencyMs = Date.now() - t0;
+  if (res.httpStatus !== 200) return { ...base, ...classifyHttp(res), latencyMs };
+  const j = tryJson(res.body);
+  const ids: string[] = Array.isArray(j?.data)
+    ? j.data.map((m: any) => String(m?.id || '')).filter(Boolean)
+    : [];
+  const mj = ids.filter((i) => /(^|[^a-z])mj([^a-z]|$)|midjourney/i.test(i));
+  if (mj.length === 0) {
+    return {
+      ...base, status: 'down', latencyMs,
+      detail: `网关无 MJ 渠道(模型清单 ${ids.length} 项,无一 MJ)—— 提交会得到「无可用渠道」`,
+    };
+  }
+  return { ...base, status: 'ok', latencyMs, detail: `可用渠道 ${mj.length} 个` };
+}
+
 /** 可选/未接入的 provider — 仅看 key 是否配置, 不打网络. */
 function optionalProvider(id: string, label: string, kind: ProviderKind, key?: string): ProviderHealth | null {
   if (!isPlaceholder(key)) return null; // 已配置的会单独探测
@@ -108,9 +143,14 @@ export async function GET(request: NextRequest) {
     probeGateway('vectorengine', 'vectorengine 网关 (补全: TTS/MJ/Kling/图像)', veBase, veKey),
   ]);
 
+  // MJ 要真探一次(它是 async)。**不能塞进下面那个不 await 的数组** ——
+  // Promise 是 truthy,能过 filter(Boolean),再被序列化成 `{}`,
+  // 于是「加了探测」和「没加」在接口输出上一模一样(第一版就是这么废的)。
+  const mjHealth = await probeMidjourney(process.env.MJ_BASE_URL || veBase, process.env.MJ_API_KEY);
+
   // 未接入的可选 provider (仅提示)
   const optionals = [
-    optionalProvider('midjourney', 'Midjourney (图像)', 'image', process.env.MJ_API_KEY),
+    mjHealth,
     optionalProvider('fal-flux', 'fal / FLUX (图像一致性)', 'image', process.env.FAL_KEY),
     optionalProvider('elevenlabs', 'ElevenLabs (配音)', 'tts', process.env.ELEVENLABS_API_KEY),
     optionalProvider('runway', 'Runway (视频)', 'video', process.env.RUNWAY_API_KEY),
