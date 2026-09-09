@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pickScriptAsset } from '@/lib/script-asset';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { auditAssetsForExport, exportAuditHeaders } from '@/lib/export-audit';
 import { buildAAF } from '@/lib/aaf-export';
 import { type EdlShot, type EdlAudio } from '@/lib/edl-export';
 import { normalizeProjectFormat } from '@/lib/project-format';
@@ -99,12 +100,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (tl?.musicUrl) audio.push({ name: 'BGM', sourceUrl: tl.musicUrl, startS: 0, durationS: cursor || 1, kind: 'bgm' });
   }
 
+  // v12.429:交付前审计 —— 这一版要交出去的东西里有多少不是真出图的。
+  // 不拦导出(用户可能就是要导草稿),但不能一声不吭:实测此前四条导出路径
+  // 对示意图**完全无感**,片子交到客户手里才发现里面混着占位画面。
+  const auditRows = [
+    ...(await listAssetsByType(projectId, 'storyboard')),
+    ...(await listAssetsByType(projectId, 'video')),
+    ...(await listAssetsByType(projectId, 'final_video')),
+  ];
+  const audit = auditAssetsForExport(auditRows as any);
+
   const title = (script.title || `Wind Comic ${projectId.slice(0, 8)}`).toString().slice(0, 64);
   const aaf = buildAAF(shots, fps, title, audio);
 
   return new Response(new Uint8Array(aaf), {
     headers: {
       'Content-Type': 'application/octet-stream',
+        ...exportAuditHeaders(audit),
       'Content-Disposition': `attachment; filename="wind-comic-${projectId.slice(0, 8)}.aaf"`,
       'Content-Length': String(aaf.length),
     },

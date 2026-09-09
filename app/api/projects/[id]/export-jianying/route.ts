@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserFromRequest } from '../../../auth/lib';
 import { buildJianYingDraft, buildJianYingMeta, type JyClip, type JyAudio, type JySubtitle } from '@/lib/jianying-export';
+import { auditAssetsForExport, exportAuditNote } from '@/lib/export-audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     Number(draftContent.duration || 0),
   );
 
+  // v12.429:剪映草稿是 JSON,能直接把人读的那句话带进去(不像二进制只能走响应头)。
+  const { listAssetsByType } = await import('@/lib/repos/asset-repo');
+  const auditRows = [
+    ...(await listAssetsByType(id, 'storyboard')),
+    ...(await listAssetsByType(id, 'video')),
+    ...(await listAssetsByType(id, 'final_video')),
+  ];
+  const audit = auditAssetsForExport(auditRows as any);
+  const placeholderNote = exportAuditNote(audit);
+
   return NextResponse.json({
+    placeholderAudit: { count: audit.placeholders, shots: audit.shots, note: placeholderNote },
     ok: true,
     draftContent,
     draftMeta,

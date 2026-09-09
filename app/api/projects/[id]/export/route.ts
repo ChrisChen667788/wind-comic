@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { isValidResolution, transcodeToResolution } from '@/lib/video-transcode';
 import { checkPlan, planRejection, requiredTierForResolution } from '@/lib/plan-gate';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { auditAssetsForExport, exportAuditHeaders, exportAuditNote } from '@/lib/export-audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // projects/[id]/** —— 本路由当时漏网,任何人知道 projectId 即可调用。
   const _g = await requireProjectAccess(request, projectId, 'view');
   if (!_g.ok) return NextResponse.json({ message: _g.message }, { status: _g.status });
+
+  // v12.429:交付前审计 —— 这一版要交出去的东西里有多少不是真出图的。
+  // 不拦导出(用户可能就是要导草稿),但不能一声不吭。
+  const { listAssetsByType } = await import('@/lib/repos/asset-repo');
+  const auditRows = [
+    ...(await listAssetsByType(projectId, 'storyboard')),
+    ...(await listAssetsByType(projectId, 'video')),
+    ...(await listAssetsByType(projectId, 'final_video')),
+  ];
+  const audit = auditAssetsForExport(auditRows as any);
 
   const type = request.nextUrl.searchParams.get('type') || 'mp4';
 
@@ -162,6 +173,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           headers: {
             'Content-Type': 'video/mp4',
             'Content-Length': String(stat.size),
+            // 成片本身就是画面 —— 混了示意图必须让下载方知道
+            ...exportAuditHeaders(audit),
             'Content-Disposition': `attachment; filename="${encodeURIComponent(project.title || 'project')}${filenameSuffix}.mp4"`,
           },
         });

@@ -5,6 +5,7 @@ import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { preflightAll } from '@/lib/publish-preflight';
 import { probeVideoIntegrity } from '@/services/video-composer';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { auditAssetsForExport, exportAuditNote } from '@/lib/export-audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,5 +40,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     width: probe.width || 0, height: probe.height || 0,
     durationSec: probe.durationSec || 0, hasAudio: !!probe.hasAudio, sizeBytes: probe.sizeBytes || 0,
   };
-  return NextResponse.json({ ok: true, meta, platforms: preflightAll(meta) });
+
+  // v12.429:预检此前只查**技术指标**(分辨率/时长/音轨),不查**内容里有没有假画面**。
+  // 发布是把片子送到抖音/小红书/视频号 —— 一旦发出去就收不回来了,
+  // 这里是最后一道能拦住「把引擎没出图的占位画面当成片发出去」的关口。
+  // 仍然只告知不拦截(草稿号试发是正当用法),但必须让调用方拿得到这个事实。
+  const auditRows = [
+    ...(await listAssetsByType(id, 'storyboard')),
+    ...(await listAssetsByType(id, 'video')),
+    ...finals,
+  ];
+  const audit = auditAssetsForExport(auditRows as any);
+
+  return NextResponse.json({
+    ok: true,
+    meta,
+    platforms: preflightAll(meta),
+    contentAudit: {
+      placeholders: audit.placeholders,
+      shots: audit.shots,
+      note: exportAuditNote(audit),
+    },
+  });
 }

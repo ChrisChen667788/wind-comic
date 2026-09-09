@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pickScriptAsset } from '@/lib/script-asset';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { auditAssetsForExport, exportAuditHeaders, exportAuditNote } from '@/lib/export-audit';
 import { buildEDL, buildFCPXML, pacingReportToMarkers, type EdlShot, type EdlAudio, type EdlMarker , xfadeRecordStartsSec } from '@/lib/edl-export';
 import { normalizeProjectFormat } from '@/lib/project-format';
 import { requireProjectAccess } from '@/lib/auth-guard';
@@ -118,18 +119,30 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     } catch { return []; }
   })();
 
+  // v12.429:交付前审计 —— 这一版要交出去的东西里有多少不是真出图的。
+  // 不拦导出(用户可能就是要导草稿),但不能一声不吭:实测此前四条导出路径
+  // 对示意图**完全无感**,片子交到客户手里才发现里面混着占位画面。
+  const auditRows = [
+    ...(await listAssetsByType(projectId, 'storyboard')),
+    ...(await listAssetsByType(projectId, 'video')),
+    ...(await listAssetsByType(projectId, 'final_video')),
+  ];
+  const audit = auditAssetsForExport(auditRows as any);
+
   const title = `wind-comic-${projectId}`;
   if (format === 'fcpxml') {
-    return new Response(buildFCPXML(shots, fps, title, audio, markers), {
+    return new Response(buildFCPXML(shots, fps, title, audio, markers, exportAuditNote(audit)), {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
+        ...exportAuditHeaders(audit),
         'Content-Disposition': `attachment; filename="${title}.xml"`,
       },
     });
   }
-  return new Response(buildEDL(shots, fps, title, audio, markers), {
+  return new Response(buildEDL(shots, fps, title, audio, markers, exportAuditNote(audit)), {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
+      ...exportAuditHeaders(audit),
       'Content-Disposition': `attachment; filename="${title}.edl"`,
     },
   });

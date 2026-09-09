@@ -87,11 +87,36 @@ export interface PlaceholderCheckable {
    * 所以由服务端在**原始行**上判完带出来,而不是让客户端从失真数据里倒推。
    */
   isPlaceholder?: boolean;
-  data?: { provenance?: string } | null;
+  /**
+   * 可能是**对象**(接口层已解析),也可能是**JSON 字符串**(直接从库里 SELECT 出来的原始行)。
+   * 两种都要认:导出路径走 listAssetsByType,拿到的就是字符串那种 ——
+   * 只认对象的话,「显式标记优先」这条设计会在最需要它的地方失效。
+   */
+  data?: { provenance?: string } | string | null;
   mediaUrls?: string[] | null;
   media_urls?: string | null;
   persistentUrl?: string | null;
   persistent_url?: string | null;
+}
+
+/**
+ * 取出 data 里的 provenance。data 有两种形态:
+ *   · 对象 —— 接口层已经解析过的;
+ *   · JSON 字符串 —— 直接 SELECT 出来的原始行(listAssetsByType 就是这种)。
+ *
+ * 实测过这个洞:同一条资产,data 是字符串时判 false、是对象时判 true。
+ * 而导出路径拿到的恰恰是字符串那种 —— 「显式标记优先」会在最需要它的地方失效。
+ * 现在计数还对,是因为 URL 兜底碰巧命中;等资产被持久化成正常链接就不灵了。
+ */
+function provenanceOf(data: PlaceholderCheckable['data']): string | null {
+  if (!data) return null;
+  if (typeof data === 'string') {
+    try {
+      const o = JSON.parse(data);
+      return typeof o?.provenance === 'string' ? o.provenance : null;
+    } catch { return null; }   // 坏 JSON 不该让判断整个崩掉
+  }
+  return typeof data.provenance === 'string' ? data.provenance : null;
 }
 
 function urlsOf(a: PlaceholderCheckable): string[] {
@@ -116,7 +141,7 @@ function urlsOf(a: PlaceholderCheckable): string[] {
 export function isPlaceholderAsset(asset: PlaceholderCheckable | null | undefined): boolean {
   if (!asset) return false;
   if (asset.isPlaceholder === true) return true;          // 服务端已在原始行上判过
-  if (asset.data?.provenance === PLACEHOLDER_PROVENANCE) return true;
+  if (provenanceOf(asset.data) === PLACEHOLDER_PROVENANCE) return true;
   return urlsOf(asset).some(isPlaceholderUrl);
 }
 

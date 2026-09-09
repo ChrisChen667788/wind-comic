@@ -126,9 +126,16 @@ export function xfadeRecordStarts(
 }
 
 /** CMX3600 EDL */
-export function buildEDL(shots: EdlShot[], fps = 24, title = 'WIND COMIC TIMELINE', audio: EdlAudio[] = [], markers: EdlMarker[] = []): string {
+export function buildEDL(shots: EdlShot[], fps = 24, title = 'WIND COMIC TIMELINE', audio: EdlAudio[] = [], markers: EdlMarker[] = [], note?: string | null): string {
   const norm = normShots(shots).map((s) => ({ ...s, frames: toFrames(s.durationS, fps) }));
   const lines: string[] = [`TITLE: ${title}`, 'FCM: NON-DROP FRAME', ''];
+  // v12.429:告警必须写进**文件本身**,不能只挂 HTTP 响应头。
+  // 这个 .edl 会被下载、几小时后才在 DaVinci/Premiere 里打开 —— 那时响应头早没了。
+  // CMX3600 用 `*` 起头的行作注释,各家 NLE 都会忽略,不影响解析。
+  if (note) {
+    for (const ln of String(note).split(/\r?\n/)) lines.push(`* ${ln}`.slice(0, 120));
+    lines.push('');
+  }
   // v12.297:**记录时间轴要用 xfade 压缩后的那一份**,不能纯累加。
   // 每个 D(溶解)事件在 NLE 里都是一段**重叠** —— 画面轨会因此压缩 Σ(转场时长),
   // 而纯累加算出的 record-in 停在绝对位置,于是导入 Premiere/Avid 后画面与音频逐镜错开,
@@ -191,7 +198,7 @@ function xmlEscape(s: string): string {
 }
 
 /** FCP7 XML (xmeml v5) — DaVinci / Premiere 可导入 */
-export function buildFCPXML(shots: EdlShot[], fps = 24, title = 'Wind Comic Sequence', audio: EdlAudio[] = [], markers: EdlMarker[] = []): string {
+export function buildFCPXML(shots: EdlShot[], fps = 24, title = 'Wind Comic Sequence', audio: EdlAudio[] = [], markers: EdlMarker[] = [], note?: string | null): string {
   const norm = normShots(shots).map((s) => ({ ...s, frames: toFrames(s.durationS, fps) }));
   // v12.297:与 buildEDL 同理 —— 时间轴要用 xfade 压缩后的那份,纯累加会让画面与音轨错开。
   const recStartFrames = xfadeRecordStarts(norm, fps);
@@ -246,6 +253,9 @@ export function buildFCPXML(shots: EdlShot[], fps = 24, title = 'Wind Comic Sequ
     '<xmeml version="5">',
     `  <sequence id="sequence-1">`,
     `    <name>${xmlEscape(title)}</name>`,
+    // v12.429:告警写进文件本身 —— 这份 XML 会被下载、几小时后才在 NLE 里打开,
+    // 那时 HTTP 响应头早没了。FCP7 XML 的 <comments> 是标准字段,导入时会被保留。
+    ...(note ? [`    <comments>${xmlEscape(String(note))}</comments>`] : []),
     `    <duration>${total}</duration>`,
     `    ${rate}`,
     // v12.278:FCPXML 有原生 <marker>,比 EDL 的注释更实用 —— DaVinci/Premiere 导入后
