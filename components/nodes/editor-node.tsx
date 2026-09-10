@@ -7,6 +7,7 @@ import { NodeShell } from './node-shell';
 import { Scissors, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Play, FilmStrip as Film, FloppyDisk as Save, ArrowsClockwise as RefreshCw, MusicNotes as Music, SpeakerHigh as Volume2, ArrowUp, ArrowDown, Trash as Trash2, ArrowUUpLeft as Undo2, WarningCircle as AlertCircle } from '@phosphor-icons/react';
 import { VideoModal } from '@/components/ui/video-modal';
 import { useProjectWorkspaceStore } from '@/lib/store';
+import { confirmAssetsToServer } from '@/lib/confirm-assets-client';
 
 function EditorNodeComponent({ data }: NodeProps) {
   const d = data as unknown as PipelineNodeData & {
@@ -24,6 +25,11 @@ function EditorNodeComponent({ data }: NodeProps) {
   const [selectedVideoSrc, setSelectedVideoSrc] = useState('');
   const [selectedVideoTitle, setSelectedVideoTitle] = useState('');
   const [saved, setSaved] = useState(false);
+  // v12.432:存没存上要分得清 —— 修前是 await 之前就点亮「已保存 ✓」并 disable,
+  // 后端失败被双层 catch 吞掉,用户看到的是一个骗人的绿勾。
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [savedLocalOnly, setSavedLocalOnly] = useState(false);
   /** v12.299:重新剪辑的失败原因 —— 此前失败被渲染成成功,用户完全看不到 */
   const [regenError, setRegenError] = useState<string | null>(null);
   const [musicPlaying, setMusicPlaying] = useState(false);
@@ -84,37 +90,49 @@ function EditorNodeComponent({ data }: NodeProps) {
   };
 
   const handleSaveToProject = async () => {
-    // 确认所有剪辑相关资产并保存到项目
-    confirmNodeAssets('editor' as any);
-    setSaved(true);
+    if (saving) return;
+    setSaveErr(null);
+    setSaving(true);
 
     // 如果用户编辑了时间线，把更新后的 editResult 写回 store（供后续播放/导出使用）
     if (draftTimeline && editResult) {
       const newTotal = draftTimeline.reduce((s, x: any) => s + (x.duration || 0), 0);
-      const s = useProjectWorkspaceStore.getState();
-      s.updateNodeData('node-editor', {
+      const st = useProjectWorkspaceStore.getState();
+      st.updateNodeData('node-editor', {
         editResult: { ...editResult, timeline: draftTimeline, videoCount: draftTimeline.length, totalDuration: newTotal },
       } as any);
       setDraftTimeline(null);
     }
 
-    // 调用后端保存API
-    try {
-      const s = useProjectWorkspaceStore.getState();
-      const projectId = s.currentProject?.id;
-      if (projectId && editResult) {
-        await fetch('/api/assets/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            projectId,
-            agentRole: 'editor',
-            assets: s.assets.filter(a => ['timeline', 'final_video', 'music', 'video'].includes(a.type)),
-            timeline: draftTimeline || editResult.timeline,
-          }),
-        }).catch(() => {});
-      }
-    } catch {}
+    const st = useProjectWorkspaceStore.getState();
+    const projectId = st.currentProject?.id;
+
+    // 还没有项目实体时确实无处可存(草稿态)。这时也只写内存,但要**说出来**,
+    // 不能拿一个和真入库长得一样的绿勾糊过去。
+    if (!projectId || !editResult) {
+      confirmNodeAssets('editor' as any);
+      setSaving(false);
+      setSavedLocalOnly(true);
+      setSaved(true);
+      return;
+    }
+
+    const r = await confirmAssetsToServer({
+      projectId,
+      agentRole: 'editor',
+      assets: st.assets.filter(a => ['timeline', 'final_video', 'music', 'video'].includes(a.type)),
+      timeline: draftTimeline || editResult.timeline,
+    });
+    setSaving(false);
+
+    if (r.ok) {
+      // 落库成功之后才认 —— 内存态和 DB 保持一致,刷新回来看到的还是这个
+      confirmNodeAssets('editor' as any);
+      setSavedLocalOnly(false);
+      setSaved(true);
+    } else {
+      setSaveErr(`没存上:${r.reason}`);
+    }
   };
 
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -313,19 +331,26 @@ function EditorNodeComponent({ data }: NodeProps) {
           )}
 
           {/* ═══ 保存/重新生成 操作栏 ═══ */}
+          {saveErr && (
+            <div className="mt-2 text-[10px] text-red-300 bg-red-500/10 border border-red-500/25 rounded-lg px-2 py-1.5 leading-snug">
+              {saveErr} —— 再点一次「保存到项目」
+            </div>
+          )}
           {d.status === 'completed' && (
             <div className="flex gap-2 mt-3 pt-3 border-t border-white/5">
               <button
                 onClick={handleSaveToProject}
-                disabled={saved}
+                disabled={saved || saving}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                   saved
                     ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
-                    : 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30'
+                    : saving
+                      ? 'bg-blue-500/15 text-blue-300/70 cursor-wait'
+                      : 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30'
                 }`}
               >
-                {saved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                {saved ? '已保存' : '保存到项目'}
+                {saved ? <CheckCircle2 className="w-3.5 h-3.5" /> : saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {saved ? (savedLocalOnly ? '已保存(未入库)' : '已保存') : saving ? '保存中…' : '保存到项目'}
               </button>
               <button
                 onClick={handleRegenerate}

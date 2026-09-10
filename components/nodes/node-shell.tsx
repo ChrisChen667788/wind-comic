@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { PipelineNodeStatus, AgentRole } from '@/types/agents';
 import { CheckCircle, Check, Chat as MessageSquare, ArrowsClockwise as RefreshCw, X, CircleNotch as Loader2 } from '@phosphor-icons/react';
 import { useProjectWorkspaceStore } from '@/lib/store';
+import { confirmAssetsToServer } from '@/lib/confirm-assets-client';
 import { AnimatePresence, motion } from 'framer-motion';
 
 interface Props {
@@ -27,6 +28,10 @@ const COLOR_MAP: Record<string, { glow: string; border: string; bg: string; acce
 export function NodeShell({ status, color, children, className = '', agentRole }: Props) {
   const c = COLOR_MAP[color] || COLOR_MAP.purple;
   const [confirmed, setConfirmed] = useState(false);
+  // v12.432:和 editor-node 同病 —— await 之前就变绿写「已确认」,后端失败被吞。
+  const [confirming, setConfirming] = useState(false);
+  const [confirmErr, setConfirmErr] = useState<string | null>(null);
+  const [confirmedLocalOnly, setConfirmedLocalOnly] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -51,23 +56,36 @@ export function NodeShell({ status, color, children, className = '', agentRole }
   })();
 
   const handleConfirm = async () => {
-    if (agentRole) {
-      confirmNodeAssets(agentRole);
-    }
-    setConfirmed(true);
+    if (confirming) return;
+    setConfirmErr(null);
+    setConfirming(true);
 
-    try {
-      const s = useProjectWorkspaceStore.getState();
-      const projectId = s.currentProject?.id;
-      if (projectId && agentRole) {
-        const roleAssets = s.assets.filter(a => a.confirmed);
-        await fetch('/api/assets/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectId, agentRole, assets: roleAssets }),
-        }).catch(() => {});
-      }
-    } catch {}
+    const s = useProjectWorkspaceStore.getState();
+    const projectId = s.currentProject?.id;
+
+    // 草稿态没有项目实体,只能记内存 —— 但要标出来,别和真入库长得一模一样
+    if (!projectId || !agentRole) {
+      if (agentRole) confirmNodeAssets(agentRole);
+      setConfirming(false);
+      setConfirmedLocalOnly(true);
+      setConfirmed(true);
+      return;
+    }
+
+    const r = await confirmAssetsToServer({
+      projectId,
+      agentRole,
+      assets: s.assets.filter(a => a.confirmed),
+    });
+    setConfirming(false);
+
+    if (r.ok) {
+      confirmNodeAssets(agentRole);
+      setConfirmedLocalOnly(false);
+      setConfirmed(true);
+    } else {
+      setConfirmErr(`没存上:${r.reason}`);
+    }
   };
 
   const handleRegenerate = async () => {
@@ -116,16 +134,26 @@ export function NodeShell({ status, color, children, className = '', agentRole }
           {confirmed ? (
             <div className="flex items-center justify-center gap-1.5 text-[10px] text-emerald-400/80">
               <CheckCircle className="w-3 h-3" />
-              已确认
+              {confirmedLocalOnly ? '已确认(未入库)' : '已确认'}
             </div>
           ) : (
             <button
               onClick={handleConfirm}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-[#E8C547]/10 text-[#E8C547]/80 text-[10px] font-medium hover:bg-[#E8C547]/18 transition-colors"
+              disabled={confirming}
+              className={`w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-colors ${
+                confirming
+                  ? 'bg-[#E8C547]/08 text-[#E8C547]/50 cursor-wait'
+                  : 'bg-[#E8C547]/10 text-[#E8C547]/80 hover:bg-[#E8C547]/18'
+              }`}
             >
-              <Check className="w-3 h-3" />
-              确认保存
+              {confirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+              {confirming ? '保存中…' : '确认保存'}
             </button>
+          )}
+          {confirmErr && (
+            <div className="mt-1.5 text-[10px] text-red-300 bg-red-500/10 border border-red-500/25 rounded px-2 py-1 leading-snug">
+              {confirmErr} —— 再点一次「确认保存」
+            </div>
           )}
 
           {/* 微调按钮 */}

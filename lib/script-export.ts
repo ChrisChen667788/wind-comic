@@ -4,10 +4,11 @@
  * 纯函数产出两种载体,供 pull-sheet 路由的 ?format=md|pdf 消费:
  *   - pullSheetToMarkdown:剧本册 Markdown(标题/梗概/逐镜卡 + 分镜表格)
  *   - buildScriptBookHtml:打印友好 A4 HTML(内联 CSS,puppeteer 渲成 PDF;
- *     分镜图缩略容错 —— 加载失败整格隐藏,不阻塞出册)
+ *     分镜图缩略容错 —— 加载失败露出「图未出」占位,不阻塞出册但留下痕迹)
  * CSV 走既有 toPullSheetCsv,不重复。
  */
 import type { PullSheet, PullSheetShot } from './pull-sheet';
+import { pullSheetShortfall } from './pull-sheet';
 
 export interface ScriptMeta {
   title?: string;
@@ -40,6 +41,10 @@ export function pullSheetToMarkdown(sheet: PullSheet, meta?: ScriptMeta): string
   L.push(`# ${meta?.title || sheet.title}`);
   L.push('');
   L.push(`> ${sheet.shotCount} 镜 · 总时长 ${fmtTime(sheet.totalDurationSec)}${meta?.style ? ` · 画风:${meta.style}` : ''}`);
+  // v12.432:空册子/残册子必须自己说出来。一份只有标题的 md 和「这项目还没写剧本」
+  // 在读者看来没有区别 —— 而这两件事的处置完全不同。
+  const shortfallMd = pullSheetShortfall(sheet);
+  if (shortfallMd) { L.push(''); L.push(`> ⚠️ **${shortfallMd}**`); }
   if (meta?.logline) { L.push(''); L.push(`**Logline**:${meta.logline}`); }
   if (meta?.synopsis) { L.push(''); L.push(`**梗概**:${meta.synopsis}`); }
   L.push('');
@@ -80,7 +85,7 @@ export function buildScriptBookHtml(sheet: PullSheet, meta?: ScriptMeta): string
       </div>
       ${shotCinemaLine(s) ? `<div class="cine">${esc(shotCinemaLine(s))}</div>` : ''}
       <div class="body">
-        ${s.thumbnail ? `<img class="thumb" src="${esc(s.thumbnail)}" onerror="this.style.display='none'" />` : ''}
+        ${s.thumbnail ? `<div class="thumb-wrap"><span class="thumb-missing">图未出</span><img class="thumb" src="${esc(s.thumbnail)}" onerror="this.style.display='none'" /></div>` : ''}
         <div class="txt">
           ${s.description ? `<p>${esc(s.description)}</p>` : ''}
           ${s.characters.length ? `<p class="kv"><b>角色</b>${esc(s.characters.join('、'))}</p>` : ''}
@@ -111,16 +116,31 @@ export function buildScriptBookHtml(sheet: PullSheet, meta?: ScriptMeta): string
   .tc { color: #888; font-variant-numeric: tabular-nums; }
   .cine { color: #555; font-style: italic; margin-bottom: 6px; }
   .body { display: flex; gap: 10px; }
-  .thumb { width: 130px; max-height: 180px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+  .thumb { width: 130px; max-height: 180px; object-fit: cover; border-radius: 4px; flex-shrink: 0; position: relative; }
+  /* v12.432:图加载失败**不能不留痕迹**。原来只是 display:none,出册后那一格凭空消失,
+     客户拿到的册子看起来是完整的 —— 这是把「没出成」冒充成「本来就没有」。
+     做法沿用仓里已有的正确模式(创作页那几个 emoji 兜底就是这么做的):
+     底下先垫一个占位,图挂了隐藏它正好露出来。不阻塞出册,但留下痕迹。 */
+  /* min-height 是必须的:外框是 flex 项,靠兄弟文字撑高。台词/描述都空的镜头里
+     它会塌成 0 高,占位跟着变成 2px —— **占位自己也静默消失了**,等于没修。
+     实测:稀疏镜头 wrapH=0 / missH=2,加上这行才有可见的一格。 */
+  .thumb-wrap { position: relative; width: 130px; min-height: 74px; flex-shrink: 0; }
+  .thumb-missing { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #f2f2f2; border: 1px dashed #c9c9c9; border-radius: 4px; color: #999; font-size: 10px; }
   .txt { min-width: 0; }
   .kv { margin-top: 3px; } .kv b { color: #8a6d1d; margin-right: 6px; font-weight: 600; }
   h2 { font-size: 15px; margin: 18px 0 8px; page-break-before: always; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
   th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
   th { background: #efede8; }
+  /* v12.432:空册子/残册子的告示。印在标题正下方 —— 一份只有标题的 PDF
+     和「这个项目还没写剧本」在读者眼里没有区别,而两者的处置完全不同。 */
+  .shortfall { margin: 6px 0 10px; padding: 6px 9px; border: 1px solid #d9b38c;
+    background: #fdf3e6; color: #8a5a1d; font-size: 11px; border-radius: 4px; }
 </style></head><body>
   <h1>${esc(meta?.title || sheet.title)}</h1>
   <div class="meta">${sheet.shotCount} 镜 · 总时长 ${fmtTime(sheet.totalDurationSec)}${meta?.style ? ` · 画风:${esc(meta.style)}` : ''} · 青枫漫剧导出</div>
+  ${pullSheetShortfall(sheet) ? `<div class="shortfall">⚠ ${esc(pullSheetShortfall(sheet)!)}</div>` : ''}
   ${meta?.logline ? `<div class="block"><b>Logline</b> ${esc(meta.logline)}</div>` : ''}
   ${meta?.synopsis ? `<div class="block"><b>梗概</b> ${esc(meta.synopsis)}</div>` : ''}
   ${shotCards}
@@ -129,7 +149,7 @@ export function buildScriptBookHtml(sheet: PullSheet, meta?: ScriptMeta): string
   <div style="display:flex;flex-wrap:wrap;gap:12px">
     ${meta.characters.map((c) => `
     <div style="width:150px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center;page-break-inside:avoid">
-      ${c.imageUrl ? `<img src="${esc(c.imageUrl)}" onerror="this.style.display='none'" style="width:100%;height:150px;object-fit:cover;border-radius:4px" />` : ''}
+      ${c.imageUrl ? `<div class="thumb-wrap" style="width:100%;height:150px"><span class="thumb-missing">图未出</span><img src="${esc(c.imageUrl)}" onerror="this.style.display='none'" style="position:relative;width:100%;height:150px;object-fit:cover;border-radius:4px" /></div>` : ''}
       <div style="font-weight:600;margin-top:4px">${esc(c.name)}</div>
       ${c.role ? `<div style="color:#888;font-size:10px">${esc(c.role)}</div>` : ''}
     </div>`).join('')}

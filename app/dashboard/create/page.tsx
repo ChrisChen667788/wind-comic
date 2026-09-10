@@ -674,12 +674,32 @@ export default function DashboardCreatePage() {
           duration: 8000,
           action: retryable && shotNumber && projectId ? {
             label: `重试镜头 ${shotNumber}`,
-            onClick: () => {
-              fetch(`/api/projects/${projectId}/regenerate-shot`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ shotNumber }),
-              }).catch(() => {});
+            /**
+             * v12.432:以前是 `fetch(...).catch(() => {})`,而且点完 toast 立刻关闭 ——
+             * 请求发没发出去、镜头重生成没成,用户一概看不到;失败时就只是「按钮消失了,
+             * 然后什么也没发生」。这条路由回的是 SSE 流,调用方从来不读,连成功都无感。
+             * 现在:发起说一声,读完流再报结果,失败明说。
+             */
+            onClick: async () => {
+              showToast({ title: `正在重试镜头 ${shotNumber}…`, type: 'info', duration: 4000 });
+              try {
+                const res = await fetch(`/api/projects/${projectId}/regenerate-shot`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ shotNumber }),
+                });
+                if (!res.ok) {
+                  showToast({ title: `重试没发出去(${res.status})`, description: '稍后再点一次重试', type: 'error', duration: 8000 });
+                  return;
+                }
+                const body = await res.text();
+                const failed = /"type"\s*:\s*"error"/.test(body);
+                showToast(failed
+                  ? { title: `镜头 ${shotNumber} 重试失败`, description: '引擎那边没出图,可以再试或换引擎', type: 'error', duration: 8000 }
+                  : { title: `镜头 ${shotNumber} 已重生`, description: '刷新页面看新画面', type: 'success', duration: 6000 });
+              } catch (e) {
+                showToast({ title: '重试请求失败', description: e instanceof Error ? e.message : '网络不通', type: 'error', duration: 8000 });
+              }
             },
           } : undefined,
         });

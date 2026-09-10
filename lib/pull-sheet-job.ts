@@ -130,6 +130,8 @@ export async function runPullSheetJob(
   const sheet: PullSheet = {
     title: payload.name || '外部参考片',
     shotCount: shots.length,
+    // v12.432:这条路径按镜逐条构造,没有「读不出镜号被丢掉」这回事
+    droppedShots: 0,
     totalDurationSec: duration,
     source: labeled > 0 ? 'vision' : 'skeleton',
     shots,

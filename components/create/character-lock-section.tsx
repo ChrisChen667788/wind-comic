@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Upload, Link as LinkIcon, X, CircleNotch as Loader2, UserCircle as UserCircle2, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { useToast } from '@/components/ui/toast-provider';
 import type { CharacterTraits } from '@/lib/character-traits';
+import { MediaThumb } from '@/components/ui/media-thumb';
 
 export interface LockedCharacter {
   /** 角色名 — 必填(空字符串视为该槽位未启用) */
@@ -167,11 +168,16 @@ export function CharacterLockSection({ value, onChange }: Props) {
               libAssets.map((a) => (
                 <button key={a.id} type="button" onClick={() => pickFromLibrary(a)} title={`带出「${a.name}」`} className="shrink-0 text-center group">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  {/* v12.432:缩略图挂了**不能把整个选项藏掉**。
+                      原来 onError 隐藏的是 closest('button') —— 角色直接从「从角色库带出」
+                      里消失,用户选不到、也不知道为什么。实测本机 46 个有立绘的角色里
+                      41 个会这样消失(底层文件被那次定时清理删了),用户看到的是一个
+                      只有 5 个人的角色库。图没了不等于角色没了 —— 名字还在,照样能选。 */}
+                  <MediaThumb
                     src={a.thumbnail}
                     alt={a.name}
                     className="w-12 h-12 rounded-lg object-cover border border-white/10 group-hover:border-cyan-400/60 transition-colors"
-                    onError={(e) => { const b = e.currentTarget.closest('button'); if (b) (b as HTMLElement).style.display = 'none'; }}
+                    note="缩略图失效"
                   />
                   <div className="text-[9px] text-gray-400 mt-0.5 max-w-12 truncate">{a.name}</div>
                 </button>

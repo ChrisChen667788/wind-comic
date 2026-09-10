@@ -76,10 +76,17 @@ export default function StylesPage() {
           {list.map((s) => (
             <div key={s.id} className="rounded-2xl border border-[var(--border)] bg-white/[0.03] overflow-hidden group hover:-translate-y-1 hover:border-amber-500/40 transition-all">
               <div className="relative aspect-[4/3] bg-gradient-to-br from-amber-500/15 to-[#D4A830]/10 overflow-hidden">
+                {/* v12.432:藏图之前先在底下垫一句话。
+                    ModeCard / CreationWizard / template-library-picker 那几处 display:none 是对的
+                    —— 底下压着 preset 的 emoji 图标,把图藏掉反而露出身份;这里底下只有一块渐变,
+                    藏完就是一张匿名色块,分不清「这风格就长这样」还是「预览没出来」。
+                    img 必须 relative:绝对定位的兄弟节点会画在非定位元素之上,不加就变成
+                    每张正常预览图上都盖着「预览未出」。 */}
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] text-amber-200/40">预览未出</span>
                 <img
                   src={s.thumbnail}
                   alt={s.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="relative w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
                 <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 text-[10px] text-amber-200">{categoryLabel(s.category)}</span>

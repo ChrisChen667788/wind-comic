@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { notFound } from 'next/navigation';
+import { toShareShots, shareShotsLabel } from '@/lib/share-shots';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,14 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     `SELECT shot_number, media_urls, persistent_url FROM project_assets WHERE project_id = ? AND type = 'video' ORDER BY shot_number`
   ).all(project.id) as Array<{ shot_number: number; media_urls: string; persistent_url: string | null }>;
 
+  /**
+   * v12.432:标题以前写 `分镜 ({videoRows.length})`,用的是 DB 里的**行数**;
+   * 但下面 `if (!url) return null` 会让没出片的镜头整格消失。于是外部访客看到
+   * 「分镜 (10)」却只数得出 4 个播放器,不知道是没生成完还是页面坏了。
+   * 分享页是拿给客户看的,这种账不能糊。数出片的,缺的也留一格说明白。
+   */
+  const shots = toShareShots(videoRows);
+
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-white/90 py-10">
       <div className="max-w-4xl mx-auto px-6">
@@ -66,20 +75,24 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </section>
         )}
 
-        {videoRows.length > 0 && (
+        {shots.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-sm font-semibold text-[#E8C547] mb-3">分镜 ({videoRows.length})</h2>
+            <h2 className="text-sm font-semibold text-[#E8C547] mb-3">
+              分镜 ({shareShotsLabel(shots)})
+            </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {videoRows.map(v => {
-                const url = v.persistent_url || safeJson<string[]>(v.media_urls, [])[0];
-                if (!url) return null;
-                return (
-                  <div key={v.shot_number} className="rounded-lg overflow-hidden border border-white/[0.05] bg-black">
-                    <video src={url} controls muted className="w-full aspect-video" />
-                    <div className="text-[10px] text-white/40 px-2 py-1">镜头 {v.shot_number}</div>
-                  </div>
-                );
-              })}
+              {shots.map(x => (
+                <div key={x.shotNumber} className="rounded-lg overflow-hidden border border-white/[0.05] bg-black">
+                  {x.url ? (
+                    <video src={x.url} controls muted className="w-full aspect-video" />
+                  ) : (
+                    <div className="w-full aspect-video grid place-items-center text-[10px] text-white/25 bg-white/[0.02]">
+                      这镜还没出片
+                    </div>
+                  )}
+                  <div className="text-[10px] text-white/40 px-2 py-1">镜头 {x.shotNumber}</div>
+                </div>
+              ))}
             </div>
           </section>
         )}

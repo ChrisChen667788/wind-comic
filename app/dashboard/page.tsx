@@ -9,6 +9,7 @@ import { BezelCard } from '@/components/ui/bezel-card';
 import { Sparkle, Kanban, Lightning, BookOpen, ArrowRight, Clock, FilmReel, TrendUp } from '@phosphor-icons/react';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { useLocale } from '@/hooks/use-locale';
+import { formatMetric, metricSubLabel, emptyStateLabel, type MetricState } from '@/lib/metric-display';
 import { ContinueCard } from '@/components/dashboard/continue-card';
 import { timeAgoZh } from '@/lib/relative-time';
 
@@ -16,11 +17,28 @@ export default function DashboardPage() {
   const { t } = useLocale();
   const [metrics, setMetrics] = useState({ projects: 0, generations: 0, cases: 0, uptime: 0 });
   const [generations, setGenerations] = useState<any[]>([]);
+  /**
+   * v12.432:统计卡以前初值全 0 + `.catch(() => {})`,接口一挂就稳稳显示
+   * 「0 个项目 / 0 次生成 / 0 个案例」,旁边「系统在线」的绿点照常闪 ——
+   * 和「这个账号真的什么都没有」在界面上一模一样。用户会以为数据丢了。
+   * 所以三态分开:没读完是「—」,读挂了是「—」+ 明说没读到,读到 0 才写 0。
+   */
+  const [metricsState, setMetricsState] = useState<MetricState>('loading');
+  // 「最近动态」同病同治 —— 只修数字不修列表,同一页里就会出现
+  // 「统计说没读到」和「动态说你还没创作过」并排的荒唐场面。
+  const [generationsState, setGenerationsState] = useState<MetricState>('loading');
 
   useEffect(() => {
-    api.metrics().then((d: any) => setMetrics(d)).catch(() => {});
-    api.generations().then((d: any) => setGenerations(d.slice(0, 4))).catch(() => {});
+    api.metrics()
+      .then((d: any) => { setMetrics(d); setMetricsState('ok'); })
+      .catch(() => setMetricsState('failed'));
+    api.generations()
+      .then((d: any) => { setGenerations(d.slice(0, 4)); setGenerationsState('ok'); })
+      .catch(() => setGenerationsState('failed'));
   }, []);
+
+  const stat = (v: number) => formatMetric(metricsState, v);
+  const statSub = (label: string) => metricSubLabel(metricsState, label);
 
   /**
    * v12.301:最近动态改为**该用户的真实生成记录**。
@@ -47,8 +65,17 @@ export default function DashboardPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-emerald-400 font-medium tracking-wide">{t.dashboard.systemOnline}</span>
+              {/* v12.432:这个绿点以前是写死的 —— 接口全挂时它照样闪着「系统在线」,
+                  旁边三张卡还写着 0。**一个永远说在线的在线指示灯,不是指示灯,是装饰。**
+                  现在跟统计接口同一个状态:读到了才绿,挂了就说挂了。 */}
+              <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                metricsState === 'failed' ? 'bg-amber-400' : metricsState === 'loading' ? 'bg-white/40' : 'bg-emerald-400'
+              }`} />
+              <span className={`text-xs font-medium tracking-wide ${
+                metricsState === 'failed' ? 'text-amber-400' : metricsState === 'loading' ? 'text-white/50' : 'text-emerald-400'
+              }`}>
+                {metricsState === 'failed' ? '接口没响应' : metricsState === 'loading' ? '连接中…' : t.dashboard.systemOnline}
+              </span>
             </div>
             <h1 className="text-[2rem] font-extrabold text-white mb-1.5 tracking-tight leading-none">{t.dashboard.title}</h1>
             <p className="text-sm text-[var(--muted)]">{t.dashboard.subtitle}</p>
@@ -99,8 +126,8 @@ export default function DashboardPage() {
             <div className="w-9 h-9 rounded-xl bg-[#E8C547]/15 text-[#E8C547] grid place-items-center"><Kanban size={16} weight="duotone" /></div>
           </div>
           <div className="flex items-baseline gap-2">
-            <strong className="text-[2.25rem] font-extrabold text-white tabular-nums leading-none">{metrics.projects}</strong>
-            <small className="text-[var(--soft)] text-xs">{t.dashboard.statProjectsSub}</small>
+            <strong className="text-[2.25rem] font-extrabold text-white tabular-nums leading-none">{stat(metrics.projects)}</strong>
+            <small className="text-[var(--soft)] text-xs">{statSub(t.dashboard.statProjectsSub)}</small>
           </div>
         </div>
 
@@ -109,14 +136,14 @@ export default function DashboardPage() {
           <div className="rounded-[20px] border border-pink-500/12 bg-gradient-to-br from-pink-500/12 to-transparent p-5 flex flex-col justify-between
                           hover:-translate-y-0.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
             <div className="w-9 h-9 rounded-xl bg-pink-500/15 text-pink-400 grid place-items-center mb-3"><Lightning size={16} weight="duotone" /></div>
-            <strong className="text-[1.75rem] font-extrabold text-white tabular-nums leading-none">{metrics.generations}</strong>
-            <small className="text-[var(--soft)] text-[11px] mt-1">{t.dashboard.statGenerations}</small>
+            <strong className="text-[1.75rem] font-extrabold text-white tabular-nums leading-none">{stat(metrics.generations)}</strong>
+            <small className="text-[var(--soft)] text-[11px] mt-1">{statSub(t.dashboard.statGenerations)}</small>
           </div>
           <div className="rounded-[20px] border border-cyan-500/12 bg-gradient-to-br from-cyan-500/14 to-transparent p-5 flex flex-col justify-between
                           hover:-translate-y-0.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/15 text-cyan-400 grid place-items-center mb-3"><BookOpen size={16} weight="duotone" /></div>
-            <strong className="text-[1.75rem] font-extrabold text-white tabular-nums leading-none">{metrics.cases}</strong>
-            <small className="text-[var(--soft)] text-[11px] mt-1">{t.dashboard.statCases}</small>
+            <strong className="text-[1.75rem] font-extrabold text-white tabular-nums leading-none">{stat(metrics.cases)}</strong>
+            <small className="text-[var(--soft)] text-[11px] mt-1">{statSub(t.dashboard.statCases)}</small>
           </div>
         </div>
 
@@ -208,8 +235,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )) : (
-                <div className="py-4 text-center text-[12px] text-[var(--soft)]">
-                  还没有动态 —— 创建第一个项目后,这里会显示你的真实进度
+                <div className={`py-4 text-center text-[12px] ${generationsState === 'failed' ? 'text-amber-400/80' : 'text-[var(--soft)]'}`}>
+                  {emptyStateLabel(generationsState, '还没有动态 —— 创建第一个项目后,这里会显示你的真实进度')}
                 </div>
               )}
             </div>

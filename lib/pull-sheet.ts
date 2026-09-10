@@ -62,6 +62,11 @@ export interface PullSheet {
   totalDurationSec: number;
   source: PullSheetSource;
   shots: PullSheetShot[];
+  /**
+   * v12.432:源数据里有、但镜号读不出来因而没能进表的镜数。
+   * 不记这个数,导出就只能给出一份「看起来完整的残表」—— 少了几镜没人知道。
+   */
+  droppedShots: number;
 }
 
 interface MediaRef {
@@ -70,6 +75,26 @@ interface MediaRef {
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+/**
+ * 镜号归一(v12.432)。允许「数字」和「纯数字字符串」两形。
+ *
+ * 修前是 `typeof s?.shotNumber === 'number'` 一刀切,字符串形的镜头**整条被丢掉,
+ * 而且不留任何痕迹** —— 拉片表/剧本册/PDF/JSON 四种导出都照常返回 200 和一个
+ * 干干净净的空文件,用户只会以为这个项目本来就没有分镜。
+ *
+ * 刻意用白名单而不是 `Number(v)`:`Number([]) === 0`、`Number('') === 0`、
+ * `Number(true) === 1` —— 这三样都会被当成合法镜号 0/0/1。
+ * v12.425 的 normalizeReviewScore 就是栽在 `Number([]) === 0` 上。
+ */
+export function toShotNumber(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
 
 /**
  * 自家项目真值表:script.shots(权威 ScriptShot,兼容演示工程的
@@ -84,16 +109,20 @@ export function buildPullSheetFromScript(
   const vByShot = new Map((media?.videos || []).map((m) => [m.shotNumber, m.url]));
 
   let t = 0;
-  const rows: PullSheetShot[] = shots
-    .filter((s: any) => typeof s?.shotNumber === 'number')
-    .map((s: any) => {
+  const kept = shots
+    .map((s: any) => ({ s, n: toShotNumber(s?.shotNumber) }))
+    .filter((x): x is { s: any; n: number } => x.n !== null);
+  const droppedShots = shots.length - kept.length;
+
+  const rows: PullSheetShot[] = kept
+    .map(({ s, n }: { s: any; n: number }) => {
       const durationSec = typeof s.duration === 'number' && s.duration > 0 ? s.duration : 5;
       const startSec = t;
       t += durationSec;
       return {
-        shotNumber: s.shotNumber,
-        thumbnail: sbByShot.get(s.shotNumber) ?? null,
-        videoUrl: vByShot.get(s.shotNumber) ?? null,
+        shotNumber: n,
+        thumbnail: sbByShot.get(n) ?? null,
+        videoUrl: vByShot.get(n) ?? null,
         description: str(s.sceneDescription) || str(s.description) || str(s.action),
         scene: str(s.scene) || str(s.sceneId),
         characters: Array.isArray(s.characters)
@@ -125,7 +154,26 @@ export function buildPullSheetFromScript(
     totalDurationSec: t,
     source: 'factory',
     shots: rows,
+    droppedShots,
   };
+}
+
+/**
+ * 这份拉片表「少了什么」的一句话(v12.432);null 表示不缺。
+ *
+ * 空表必须说出来 —— 一个 200 + 干净表头的空 CSV,在用户眼里和
+ * 「这个项目本来就没有分镜」**完全一样**。剧本 JSON 坏了、镜号读不出来、
+ * 还没生成分镜,三种情况产出的文件长得一模一样,而处置完全不同。
+ * 所有导出格式(csv / md / pdf / json / txt)共用这一句,免得各写各的。
+ */
+export function pullSheetShortfall(sheet: Pick<PullSheet, 'shotCount' | 'droppedShots'>): string | null {
+  if (sheet.shotCount === 0) {
+    return '这份导出是空的:一个分镜都没读到(剧本数据可能没生成,或已损坏)';
+  }
+  if (sheet.droppedShots > 0) {
+    return `有 ${sheet.droppedShots} 镜没能进表:镜号读不出来,这份不是全本`;
+  }
+  return null;
 }
 
 /** 五栏列定义(CSV 表头与 UI 共用;顺序即截图五栏的语义顺序)。 */
@@ -187,5 +235,9 @@ export function toPullSheetCsv(sheet: PullSheet): string {
   const lines = sheet.shots.map((s) =>
     PULL_SHEET_COLUMNS.map((c) => csvCell(s[c.key])).join(','),
   );
+  // 缺了什么就写进表里 —— 表头下第一行,Excel 打开一眼能看见。
+  // 放在数据行之后而不是表头之前:不破坏「首行是表头」这个约定,下游解析不会炸。
+  const note = pullSheetShortfall(sheet);
+  if (note) lines.push(csvCell(`⚠ ${note}`));
   return '\uFEFF' + [header, ...lines].join('\r\n');
 }
