@@ -84,6 +84,10 @@ describe('v12.347 persistent_url 不得是外链(全仓门禁)', () => {
         const v = m[1].trim();
         // 安全形态:null / xxx?.url / xxx.url / 透传形参
         if (v === 'null' || /\?\.url\b/.test(v) || /\.url\b/.test(v) || /persistentUrl/.test(v)) continue;
+        // v12.430:**把 persistent_url 这一列读回来**也安全 —— 库里存的是什么就是什么,
+        // 传给只读判断函数不会引入任何新外链。这条比「整文件加进 REVIEWED」窄得多:
+        // 后者会连该文件里将来真正的写入一起放行,那是实质削弱这道门禁。
+        if (/\bpersistent_url\b/.test(v)) continue;
         if (!REVIEWED.has(rel)) unreviewed.push(`${rel}:${i + 1} → ${v.slice(0, 50)}`);
       }
     }

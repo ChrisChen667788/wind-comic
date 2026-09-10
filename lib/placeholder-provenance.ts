@@ -31,6 +31,19 @@ export const PLACEHOLDER_PROVENANCE = 'placeholder' as const;
 
 /** 用户可见措辞。改这里就改全站 —— 别在组件里各写各的。 */
 export const PLACEHOLDER_LABEL = '示意图';
+/**
+ * 视频侧的说法(v12.430)。
+ *
+ * **没有合并成一个词,是想清楚之后的决定**:引擎全挂时视频回落的是 Ken Burns 占位片 ——
+ * 它用的是**真的分镜画面**,假的是那段运镜。管它叫「示意图」是错的:它不是一张假图,
+ * 是一段假运镜。所以是同一族两个词,一眼能看出是一回事,又各自说得准。
+ */
+export const PLACEHOLDER_LABEL_VIDEO = '示意片';
+
+/** 按资产类型取该用哪个词 —— 调用方别各写各的。 */
+export function placeholderLabelFor(type?: string | null): string {
+  return /video|film|clip/i.test(String(type || '')) ? PLACEHOLDER_LABEL_VIDEO : PLACEHOLDER_LABEL;
+}
 export const PLACEHOLDER_HINT = '引擎未出图,当前显示示意图 —— 重生该镜即可替换';
 
 /**
@@ -108,15 +121,26 @@ export interface PlaceholderCheckable {
  * 而导出路径拿到的恰恰是字符串那种 —— 「显式标记优先」会在最需要它的地方失效。
  * 现在计数还对,是因为 URL 兜底碰巧命中;等资产被持久化成正常链接就不灵了。
  */
-function provenanceOf(data: PlaceholderCheckable['data']): string | null {
-  if (!data) return null;
+/**
+ * 从 data 里读一个字段,**对象态和 JSON 字符串态都要认**。
+ *
+ * 为什么必须统一:接口层拿到的 data 已被解析成对象,而**导出路径审计的是原始库行**
+ * —— 那里 data 还是字符串。v12.430 第一版给视频判据写了个直接强转
+ * `(asset.data as {isAnimatic?:boolean})?.isAnimatic`,于是对象态认得出、字符串态认不出:
+ * 恰好把最该认出来的那条路径(交付)漏掉了。判据分两份写,就一定会漂成两种行为。
+ */
+function readDataField<T>(data: PlaceholderCheckable['data'], key: string): T | undefined {
+  if (!data) return undefined;
   if (typeof data === 'string') {
-    try {
-      const o = JSON.parse(data);
-      return typeof o?.provenance === 'string' ? o.provenance : null;
-    } catch { return null; }   // 坏 JSON 不该让判断整个崩掉
+    try { return (JSON.parse(data) as Record<string, unknown>)?.[key] as T | undefined; }
+    catch { return undefined; }   // 坏 JSON 不该让判断整个崩掉
   }
-  return typeof data.provenance === 'string' ? data.provenance : null;
+  return (data as unknown as Record<string, unknown>)[key] as T | undefined;
+}
+
+function provenanceOf(data: PlaceholderCheckable['data']): string | null {
+  const v = readDataField<string>(data, 'provenance');
+  return typeof v === 'string' ? v : null;
 }
 
 function urlsOf(a: PlaceholderCheckable): string[] {
@@ -133,6 +157,33 @@ function urlsOf(a: PlaceholderCheckable): string[] {
 }
 
 /**
+ * 视频侧的「不是真产物」:所有视频引擎失败时回落的 Ken Burns 占位片(v12.430)。
+ *
+ * ## 为什么必须并进来
+ *
+ * 此前图像侧走 provenance、视频侧走 isAnimatic,两套判据互不相认。后果是**言之凿凿的漏报**:
+ * 实测构造一部四镜全是占位片的成片,`countPlaceholders` 返回 **0**、导出说明为空 ——
+ * 用户导出时一个字都不会被提醒。**说「没有问题」比什么都不说更糟。**
+ *
+ * ## 判据为什么是这两条(实测 data/qfmj.db 定的)
+ *
+ *   · `data.isAnimatic === true` —— 流水线写下的显式标记,**26 条**;
+ *   · 路径含 `qf-animatic-<时间戳>` —— 我们自己生成的回落文件,**另 2 条没有上面那个标记**,
+ *     只能靠它认出来。两者实测不重合,少哪条都会漏。
+ *
+ * ## 为什么**不**用宽泛的 `/animatic-\d+\.mp4/`
+ *
+ * **Ken Burns 是一种合法的运镜手法**,不是只有降级才会用。宽正则会把用户自己上传的
+ * `animatic-1.mp4` 判成占位片 —— 那是反过来的谎。`qf-` 是我们自己的前缀,
+ * 实测库里带 animatic 的路径**全部**带它(不带的:0 条),收窄不丢召回。
+ */
+export function isPlaceholderVideo(asset: PlaceholderCheckable | null | undefined): boolean {
+  if (!asset) return false;
+  if (readDataField<boolean>(asset.data, 'isAnimatic') === true) return true;
+  return urlsOf(asset).some((u) => /qf-animatic-\d+/.test(u));
+}
+
+/**
  * 一条资产是不是示意图。**显式标记优先,URL 形态兜底。**
  *
  * 顺序不能反:标记是生成端写下的事实,形态是下游的推断。
@@ -142,6 +193,7 @@ export function isPlaceholderAsset(asset: PlaceholderCheckable | null | undefine
   if (!asset) return false;
   if (asset.isPlaceholder === true) return true;          // 服务端已在原始行上判过
   if (provenanceOf(asset.data) === PLACEHOLDER_PROVENANCE) return true;
+  if (isPlaceholderVideo(asset)) return true;             // v12.430:视频侧的占位片也算
   return urlsOf(asset).some(isPlaceholderUrl);
 }
 

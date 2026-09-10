@@ -22,7 +22,7 @@
  *   · 人读的一句话 —— 放进 JSON 响应或前端提示。
  */
 
-import { isPlaceholderAsset, PLACEHOLDER_LABEL, type PlaceholderCheckable } from './placeholder-provenance';
+import { isPlaceholderAsset, PLACEHOLDER_LABEL, PLACEHOLDER_LABEL_VIDEO, type PlaceholderCheckable } from './placeholder-provenance';
 
 /** 参与审计的资产行。兼容原始库行(data 是字符串)与接口层已解析的行。 */
 export interface AuditableAsset extends PlaceholderCheckable {
@@ -92,6 +92,13 @@ export function exportAuditNote(a: ExportAudit): string | null {
   const where = a.shots.length
     ? `第 ${a.shots.slice(0, 12).join('、')}${a.shots.length > 12 ? ' 等' : ''} 镜`
     : '部分素材';
-  return `注意:本次交付包含 ${a.placeholders} 张${PLACEHOLDER_LABEL}(${where})——`
+  // v12.430:按类型说准 —— 视频侧回落的是 Ken Burns 占位片,它用的是**真的分镜画面**,
+  // 假的是那段运镜,叫「示意图」不对。byType 里只有视频就说「示意片」,混合则两个都点名。
+  const kinds = Object.keys(a.byType);
+  const onlyVideo = kinds.length > 0 && kinds.every((k) => /video|film|clip/i.test(k));
+  const noun = onlyVideo ? PLACEHOLDER_LABEL_VIDEO : PLACEHOLDER_LABEL;
+  const mixed = !onlyVideo && kinds.some((k) => /video|film|clip/i.test(k))
+    ? `(含${PLACEHOLDER_LABEL_VIDEO})` : '';
+  return `注意:本次交付包含 ${a.placeholders} 处${noun}${mixed}(${where})——`
     + `这些画面引擎当时没出成,重生对应镜头即可替换。`;
 }

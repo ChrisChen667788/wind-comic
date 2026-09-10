@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { HybridOrchestrator } from '@/services/hybrid-orchestrator';
 import { db, now } from '@/lib/db';
 import { updateAssetBySelector } from '@/lib/repos/asset-repo';
+import { isPlaceholderVideo } from '@/lib/placeholder-provenance';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -190,7 +191,12 @@ export async function POST(request: NextRequest) {
               // 注意 persistent_url 会被洗成 ?key=hash(无文件名特征),原始 media_urls[0] 常保留
               // ?path=...animatic-<ts>.mp4 —— 两个都测,任一命中即认降级。
               const candidates = [a.persistent_url, urls[0]].map((x) => String(x || ''));
-              return d.isAnimatic === true || candidates.every((x) => !x) || candidates.some((x) => /animatic-\d+\.mp4/.test(x));
+              // v12.430:「是不是占位片」这一半委托给 lib/placeholder-provenance ——
+              // 此前这里、项目页、film-health 各有一套写法,互不相认,已造成实测漏报。
+              // 但「一个视频都没有」(candidates 全空)必须**留在这里**:
+              // 那不是占位片,是缺失,并掉会让这些镜从补渲名单里静默消失。
+              return isPlaceholderVideo({ data: d, mediaUrls: urls, persistentUrl: a.persistent_url ?? null })
+                || candidates.every((x) => !x);
             } catch { return false; }
           };
           // force:跳过降级识别,全部镜重渲(资产被历史 bug 污染/想整体升质量时用)

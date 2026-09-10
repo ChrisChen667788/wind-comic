@@ -5,6 +5,7 @@ import { SafeAreaOverlay } from '@/components/ui/safe-area-overlay';
 import { useParams } from 'next/navigation';
 import { assetMediaClass, ASSET_MEDIA_FIT, ASSET_MATTE_CLASS } from '@/lib/media-frame';
 import { normalizeReviewScore } from '@/lib/review-score';
+import { isPlaceholderVideo } from '@/lib/placeholder-provenance';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, FileText, Users, Mountains as Mountain, FilmStrip as Film, Video, Play, Scissors, Star, CheckCircle as CheckCircle2, Warning as AlertTriangle, Pencil, FloppyDisk as Save, X, ChatCircle as MessageCircle, ChartBar as BarChart3, FilmSlate as Clapperboard, Scan as ScanEye, MonitorPlay, LinkSimple as Link2, Gauge, BracketsCurly as Braces, Megaphone, MagicWand, SpeakerHigh, ArrowsOut as Maximize, ArrowsIn as Minimize, UsersThree } from '@phosphor-icons/react';
@@ -910,7 +911,10 @@ export default function ProjectDetailPage() {
             {(() => {
               // 本地识别 ∪ 体检报告(persistent_url 洗成 ?key=hash 后本地正则失效,服务端 health 才是权威)
               const healthAnimatic = new Set(healthReport?.animaticShots || []);
-              const degraded = videos.filter((v: any) => v?.data?.isAnimatic === true || !v?.mediaUrls?.[0] || /animatic-\d+\.mp4/.test(String(v?.mediaUrls?.[0] || '')) || healthAnimatic.has(v?.shotNumber));
+              // v12.430:「要补渲的镜」比「占位片」更宽 —— 还包含**根本没出视频**的镜。
+              // 所以只把「是不是占位片」那一半委托出去,别把 !mediaUrls 这条一起并掉:
+              // 那会让「一个视频都没有」的镜从补渲名单里消失。
+              const degraded = videos.filter((v: any) => isPlaceholderVideo(v) || !v?.mediaUrls?.[0] || healthAnimatic.has(v?.shotNumber));
               if (degraded.length === 0 && !rerenderMsg) return null;
               return (
                 <div className="mb-3 flex items-center gap-3 flex-wrap" data-testid="batch-rerender-bar">

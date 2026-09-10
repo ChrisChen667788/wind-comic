@@ -7,6 +7,7 @@ import { pickScriptAsset } from './script-asset';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { probeMediaFull, buildFilmHealthReport, type FilmHealthReport } from './film-health';
 import { serveFileToLocalPath } from './first-frame';
+import { isPlaceholderVideo } from './placeholder-provenance';
 
 function parseJson(raw: string | null | undefined): any {
   try { return raw ? JSON.parse(raw) : null; } catch { return null; }
@@ -44,12 +45,13 @@ export async function buildProjectHealth(projectId: string): Promise<ProjectHeal
     const urls = parseJson(r.media_urls) || [];
     return !!(r.persistent_url || urls[0]);
   });
-  const animaticShots = videoRows.filter((r) => {
-    const d = parseJson(r.data) || {};
-    const urls = parseJson(r.media_urls) || [];
-    const candidates = [r.persistent_url, urls[0]].map((x) => String(x || ''));
-    return d.isAnimatic === true || candidates.some((x) => /animatic-\d+\.mp4/.test(x));
-  }).map((r) => r.shot_number as number).filter((n) => typeof n === 'number').sort((a, b) => a - b);
+  // v12.430:判据委托给 lib/placeholder-provenance —— 此前这里、项目页、export-audit
+  // 各有一套写法,互不相认,已经造成实测可复现的漏报(全占位片的成片导出时提示为空)。
+  const animaticShots = videoRows.filter((r) => isPlaceholderVideo({
+    data: parseJson(r.data) || {},
+    mediaUrls: parseJson(r.media_urls) || [],
+    persistentUrl: r.persistent_url ?? null,
+  })).map((r) => r.shot_number as number).filter((n) => typeof n === 'number').sort((a, b) => a - b);
 
   const projRow = db.prepare('SELECT aspect FROM projects WHERE id = ?').get(projectId) as { aspect?: string } | undefined;
 
