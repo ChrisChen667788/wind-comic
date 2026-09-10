@@ -250,3 +250,37 @@ export function applyProvenance(
   if (ctx.previousProvenance) rec.provenance = ctx.previousProvenance;    // ③
   return rec;
 }
+
+/**
+ * SQL 预筛片段(v12.431)—— 给「一次查一批项目」用。
+ *
+ * ## 为什么需要
+ *
+ * 判据是 JS(三种形态、还要读 JSON 字段),SQL 表达不了。但列表页要一次算几十个项目的
+ * 占位数,把全部资产捞进内存再判,资产多了就撑不住(本机 30 个项目已有 1052 条)。
+ * 所以让 SQL **只负责把行数收窄**,真正的判断仍在 `isPlaceholderAsset`。
+ *
+ * ## 唯一的硬要求:必须是超集
+ *
+ * 预筛漏掉一种形态 = 少算 = **漏报**,而漏报正是这一族 bug 里最难发现的形态
+ * (v12.430 就是被这个坑了:视频侧判据没并进来,四镜全占位的成片导出时提示为空)。
+ * 所以它和判据放在同一个文件里,并由 tests/v12-431 用一张「已知形态表」把两者绑住:
+ * 每个已知形态都要**同时**满足「JS 判为真」和「预筛能命中」。
+ *
+ * 实测本机 1052 条资产:预筛收到 75 条,判出的占位数与全量扫描一致(36 = 36,零漏)。
+ */
+export const PLACEHOLDER_SQL_LIKE_PATTERNS: ReadonlyArray<{ col: 'data' | 'media_urls' | 'persistent_url'; like: string }> = [
+  { col: 'data', like: '%placeholder%' },            // data.provenance
+  { col: 'data', like: '%isAnimatic%' },             // 视频侧显式标记
+  { col: 'media_urls', like: '%mock-assets%' },      // mock 引擎产物服务
+  { col: 'media_urls', like: '%qf-animatic%' },      // Ken Burns 回落路径
+  { col: 'media_urls', like: '%data:image/svg%' },   // 内联 SVG 占位
+  { col: 'persistent_url', like: '%mock-assets%' },  // 落盘后仍带 mock 路径的
+];
+
+/** 拼成 WHERE 片段。`alias` 是 project_assets 的表别名。 */
+export function placeholderPrefilterSql(alias = 'a'): string {
+  return '(' + PLACEHOLDER_SQL_LIKE_PATTERNS
+    .map((p) => `${alias}.${p.col} LIKE '${p.like}'`)
+    .join(' OR ') + ')';
+}

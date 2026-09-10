@@ -4,6 +4,7 @@ import { getUserFromRequest } from '../auth/lib';
 import { createProject } from '@/lib/repos/project-repo';
 import { safeJsonParse } from '@/lib/safe-json';
 import { resolveProjectCovers } from '@/lib/project-cover';
+import { isPlaceholderAsset, placeholderPrefilterSql } from '@/lib/placeholder-provenance';
 
 export async function GET(request: Request) {
   // v12.218(安全止血):删「回落 DB 第一个用户」—— 匿名即得他人项目列表。无 token → 401。
@@ -59,6 +60,23 @@ export async function GET(request: Request) {
     WHERE p.user_id = ?
     ORDER BY p.created_at DESC
   `).all(userId) as any[];
+  // v12.431:列表页也要看得出「这个项目还有几处不是真出图的」。
+  // 做法是**两次查询**而不是每个项目查一次(N+1):SQL 只负责把行数收窄
+  // (本机 1052 条资产收到 75 条),真正的判断仍在 isPlaceholderAsset —— 判据只能有一处。
+  // 预筛必须是判据的**超集**,漏一种形态就等于漏报;两者放在同一个模块里,由测试绑住。
+  const phRows = db.prepare(`
+    SELECT a.project_id, a.type, a.data, a.media_urls, a.persistent_url
+    FROM project_assets a
+    JOIN projects p ON p.id = a.project_id
+    WHERE p.user_id = ? AND ${placeholderPrefilterSql('a')}
+  `).all(userId) as Array<{ project_id: string; type?: string; data?: string; media_urls?: string; persistent_url?: string }>;
+
+  const phByProject = new Map<string, number>();
+  for (const a of phRows) {
+    if (!isPlaceholderAsset(a)) continue;   // 预筛只是收窄,判断仍走唯一出处
+    phByProject.set(a.project_id, (phByProject.get(a.project_id) ?? 0) + 1);
+  }
+
   const data = rows.map((r) => {
     let latestPolish: any = null;
     if (r.script_asset_data) {
@@ -98,6 +116,8 @@ export async function GET(request: Request) {
       scriptData: safeJsonParse<any>(r.script_data, null, { context: `projects.script_data#${r.id}` }),
       directorNotes: safeJsonParse<any>(r.director_notes, null, { context: `projects.director_notes#${r.id}` }),
       latestPolish, // null 或 { mode, audit, summary, at, ... } —— 列表页就能渲染就绪度徽章
+      // v12.431:这个项目里有几处不是真出图的(0 就不渲染徽章)
+      placeholderCount: phByProject.get(r.id) ?? 0,
       createdAt: r.created_at, updatedAt: r.updated_at,
     };
   });

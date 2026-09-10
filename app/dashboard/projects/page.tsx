@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { IMG_PREVIEW_DEFAULT } from '@/lib/placeholder-images';
 import { nextCoverIndex } from '@/lib/project-cover';
+import { PLACEHOLDER_HINT } from '@/lib/placeholder-provenance';
 import { useRouter } from 'next/navigation';
-import { Kanban as FolderKanban, Clock, CheckCircle as CheckCircle2, Play, FilmStrip as Film, Plus, Sparkle as Sparkles, MagnifyingGlass as Search, MagicWand as Wand2, Trash as Trash2, Archive, ArrowCounterClockwise as Restore } from '@phosphor-icons/react';
+import { Kanban as FolderKanban, Clock, CheckCircle as CheckCircle2, Play, FilmStrip as Film, Plus, Sparkle as Sparkles, MagnifyingGlass as Search, MagicWand as Wand2, Trash as Trash2, Archive, ArrowCounterClockwise as Restore, Warning as AlertTriangle } from '@phosphor-icons/react';
 import { getToken } from '@/lib/auth';
 import { FilmStripDivider } from '@/components/cinema/primitives';
 import { NumberTicker, AnimatedShinyText } from '@/components/cinema/effects';
@@ -175,6 +176,7 @@ export default function ProjectsPage() {
             // 前一张加载失败就换下一张,全挂了才退到占位图 —— 而不是一挂就当这片没有画面。
             const coverList: string[] = (p.covers || []).filter(Boolean);
             const shotCount = p.scriptData?.shots?.length || 0;
+            const placeholderCount: number = p.placeholderCount || 0;
 
             return (
               <Link
@@ -221,12 +223,31 @@ export default function ProjectsPage() {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  {shotCount > 0 && (
-                    <div className="absolute bottom-3 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-sm text-[10px] text-white/80">
-                      <Film className="w-3 h-3" />
-                      {shotCount} 镜
+                  {/* v12.431:示意计数和「N 镜」放进**同一个绝对定位容器**。
+                      前两版分别试过 bottom-3 right-3 和排进页脚 flow —— 都撞版了:
+                      「N 镜」这个徽章的定位基准是整张卡片(不是封面),它落在页脚左侧,
+                      于是第一版压住 SCORE(显示成「SC⚠9处示意」)、第二版压住「N 镜」。
+                      两个绝对定位元素抢同一处,只能让它们共用一个容器。 */}
+                  {(shotCount > 0 || placeholderCount > 0) && (
+                    <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
+                      {shotCount > 0 && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-sm text-[10px] text-white/80">
+                          <Film className="w-3 h-3" />
+                          {shotCount} 镜
+                        </span>
+                      )}
+                      {placeholderCount > 0 && (
+                        <span
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/25 backdrop-blur-sm text-[10px] text-amber-100 border border-amber-300/30"
+                          title={PLACEHOLDER_HINT}
+                        >
+                          <AlertTriangle className="w-3 h-3" />
+                          {placeholderCount} 处示意
+                        </span>
+                      )}
                     </div>
                   )}
+
                   {/* AIGC 就绪度徽章 — 数据源是 latestPolish.audit.aigcReadiness, 红黄绿一眼看到该项目剧本是否上得了管线 */}
                   <ReadinessBadge entry={p.latestPolish} />
                   {p.latestPolish && !p.latestPolish?.audit?.aigcReadiness?.score ? (
@@ -266,6 +287,11 @@ export default function ProjectsPage() {
                   </div>
                   <h3 className="cinema-headline text-[14px] mb-1 truncate group-hover:text-[var(--cinema-amber)] transition-colors">{p.title}</h3>
                   <p className="cinema-subhead text-[11px] line-clamp-2 mb-2 leading-relaxed opacity-70">{p.description}</p>
+                  {/* v12.431:这个项目里还有几处不是真出图的。此前只有导演台和导出口知道,
+                      列表页一片祥和 —— 得逐个点进去才发现哪部片还没真出完。
+                      沿用 v12.427 的原则:如实告知,不挡路(不置灰、不拦点击)。
+                      **和 SCORE 排在同一行**:第一版给它 absolute bottom-3 right-3,
+                      而那是相对整张卡片定位的,实拍出来正好压住 SCORE(显示成「SC⚠9处示意」)。 */}
                   {p.directorNotes?.overallScore && (
                     <div className="cinema-mono text-[10px] opacity-80 flex items-center justify-end gap-1">
                       <span className="opacity-50">SCORE</span>
