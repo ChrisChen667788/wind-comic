@@ -1,6 +1,6 @@
 {
   "name": "wind-comic",
-  "version": "12.432.0",
+  "version": "12.433.0",
   "description": "Wind Comic — multi-agent AI pipeline that turns a one-line idea into a finished short-form drama: script → cinematic storyboards → video, with built-in character consistency, beat-aligned editing, and an open agent ensemble.",
   "main": "index.js",
   "homepage": "https://github.com/ChrisChen667788/wind-comic",
@@ -43,7 +43,8 @@
     "gate:fake-green": "node scripts/fake-green-gate.mjs",
     "media:check": "node scripts/optimize-media.mjs --check",
     "media:optimize": "node scripts/optimize-media.mjs",
-    "ms:sync": "node scripts/modelscope-sync.mjs"
+    "ms:sync": "node scripts/modelscope-sync.mjs",
+    "repair:status": "tsx scripts/repair-false-completed.mjs"
   },
   "keywords": [
     "ai",

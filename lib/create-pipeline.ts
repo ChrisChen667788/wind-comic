@@ -25,6 +25,7 @@ import { enrichScenesFromWriterScript } from '@/lib/scene-enrich';
 import { bindElements } from '@/lib/reference-elements';
 import { loadCheckpoints, emptyCheckpoints, checkpointSummary, type PipelineCheckpoints } from '@/lib/pipeline-checkpoints';
 import { StageTimer, summarizeTiming } from '@/lib/stage-timing'; // v12.32.0 阶段耗时归因
+import { judgePipelineOutcome } from './pipeline-outcome';
 
 // 活跃编排器注册表 — gate 路由 / rerun / regenerate 据此找到运行中的编排器
 // (原在 route 模块;route 仍 re-export 以保持既有 import 路径不变)
@@ -937,15 +938,42 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     }
 
     send('step', { step: 'finalize' });
-    // ── 10. 完成 ── (v9.0.2: 走 project-repo, 双驱动)
+
+    // ── 10. 收尾 ── (v9.0.2: 走 project-repo, 双驱动)
+    //
+    // v12.433:这里以前**无条件**写 completed。视频那一段整个包在 try/catch 里,
+    // catch 只发一条会滚走的 status 消息,于是「8 镜一条片都没出」和「顺利完片」
+    // 在库里写的是同一个词。真库样本 proj-1786416520904 就是这么来的。
+    // 判据收在 lib/pipeline-outcome,SSE 直通和队列两条路径共用同一份。
+    const verdict = judgePipelineOutcome({
+      shotCount: Array.isArray((script as any)?.shots) ? (script as any).shots.length : 0,
+      storyboardsWithImage: (finalStoryboards as any[]).filter((b) => b?.imageUrl).length,
+      videoCount: (finalVideos as any[]).filter((v) => v?.videoUrl).length,
+    });
+
     try {
       const coverUrl = finalStoryboards[0]?.imageUrl || '';
       await updateProjectById(projectId, {
-        status: 'completed',
+        status: verdict.status,
         cover_urls: JSON.stringify([coverUrl]),
         script_data: JSON.stringify(script),
       });
     } catch {}
+
+    if (verdict.status === 'failed') {
+      // 发 error 而不是 complete:队列路径的 worker 正是靠「有没有发过 error」判失败的
+      // (pipeline-worker 的 fatalError → failJob → markProjectFailedIfTerminal),
+      // SSE 直通路径没有 worker,状态已在上面自己写了。两条路径都不会再报「完成」。
+      _stageTimer.endAll();
+      emit('stageTiming', _stageTimer.breakdown());
+      send('error', {
+        message: `创作没完成:${verdict.reason}`,
+        code: 'PIPELINE_NO_OUTPUT',
+        retryable: true,
+        stage: 'finalize',
+      });
+      return;
+    }
 
     // v12.32.0:阶段耗时归因 —— 收尾汇总,发 stageTiming(用 emit 直发,避免被 send 的 step 计时逻辑误判)。
     _stageTimer.endAll();

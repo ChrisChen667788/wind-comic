@@ -13,12 +13,13 @@ import { FilmStripDivider } from '@/components/cinema/primitives';
 import { NumberTicker, AnimatedShinyText } from '@/components/cinema/effects';
 import { ScoreDonut } from '@/components/cinema/dataviz';
 import { readinessLevel } from '@/lib/polish-prompts';
+import { projectStatusMeta, type StatusTone } from '@/lib/project-status';
 
 export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'completed' | 'active' | 'draft'>('all');
+  const [filter, setFilter] = useState<'all' | 'completed' | 'active' | 'failed' | 'draft'>('all');
   const [importingDemo, setImportingDemo] = useState(false);
 
   // v10.5.0: 演示工程一键导入 —— 0 key 也能逛完整成片工作台(Time-to-Wow 专项)
@@ -73,11 +74,21 @@ export default function ProjectsPage() {
     } finally { setBusyId(null); }
   };
 
-  const statusConfig: Record<string, { label: string; dotColor: string; bgColor: string; icon: any }> = {
-    completed: { label: '已完成', dotColor: 'bg-emerald-400', bgColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
-    active: { label: '创作中', dotColor: 'bg-[#E8C547]', bgColor: 'bg-[#E8C547]/10 text-[#E8C547] border-[#E8C547]/20', icon: Play },
-    draft: { label: '草稿', dotColor: 'bg-gray-400', bgColor: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: Clock },
-    archived: { label: '已下架', dotColor: 'bg-white/30', bgColor: 'bg-white/5 text-white/40 border-white/10', icon: Archive },
+  /**
+   * v12.433:文案(哪些状态、各叫什么)收在 lib/project-status,这里只挑颜色和图标。
+   * 修前这里自带一张词表,**里面没有 failed** —— 而 pipeline-worker 从 v12.21.0 起
+   * 就会写这个状态,于是下面 `|| statusConfig.draft` 把失败的项目贴成了「草稿」。
+   * 兜底也换掉了:不认识的状态就说不认识,不拿「草稿」替它编故事。
+   */
+  const TONE: Record<StatusTone, { dotColor: string; bgColor: string; icon: any }> = {
+    good: { dotColor: 'bg-emerald-400', bgColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
+    warn: { dotColor: 'bg-[#E8C547]', bgColor: 'bg-[#E8C547]/10 text-[#E8C547] border-[#E8C547]/20', icon: Play },
+    bad: { dotColor: 'bg-red-400', bgColor: 'bg-red-500/10 text-red-400 border-red-500/20', icon: AlertTriangle },
+    muted: { dotColor: 'bg-gray-400', bgColor: 'bg-gray-500/10 text-gray-400 border-gray-500/20', icon: Clock },
+  };
+  const statusOf = (status?: string | null) => {
+    const meta = projectStatusMeta(status);
+    return { label: meta.label, ...TONE[meta.tone] };
   };
 
   // 「全部」默认不含已下架(下架=从主列表移走);选「已下架」单独看
@@ -88,6 +99,8 @@ export default function ProjectsPage() {
     { key: 'all', label: '全部' },
     { key: 'active', label: '创作中' },
     { key: 'completed', label: '已完成' },
+    // v12.433:失败的项目此前哪个筛选都进不去(只在「全部」里混着,还顶着草稿标签)
+    { key: 'failed', label: '生成失败' },
     { key: 'draft', label: '草稿' },
     { key: 'archived', label: '已下架' },
   ];
@@ -170,7 +183,7 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((p, i) => {
-            const sc = statusConfig[p.status] || statusConfig.draft;
+            const sc = statusOf(p.status);
             const StatusIcon = sc.icon;
             // v12.426:covers 是接口给的**有序候选串**(用户定版 → 冻结封面 → 本片分镜 → 本片视频),
             // 前一张加载失败就换下一张,全挂了才退到占位图 —— 而不是一挂就当这片没有画面。
@@ -204,9 +217,9 @@ export default function ProjectsPage() {
                       img.src = IMG_PREVIEW_DEFAULT;
                     }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  <div className={`absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-sm ${sc.bgColor}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
-                    {sc.label}
+                  <div className={`absolute top-3 right-3 max-w-[60%] flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-sm ${sc.bgColor}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${sc.dotColor}`} />
+                    <span className="truncate">{sc.label}</span>
                   </div>
                   {/* v11.2.0 管理操作(hover 显示):下架/上架 + 删除 */}
                   <div className="absolute top-3 left-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">

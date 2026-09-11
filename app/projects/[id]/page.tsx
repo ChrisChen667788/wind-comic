@@ -53,6 +53,7 @@ import { computeEmotionCurve } from '@/lib/emotion-curve';
 import { MonitorTab } from '@/components/project/monitor-tab';
 import { ParamLinkagePanel } from '@/components/project/param-linkage-panel';
 import { useToast } from '@/components/ui/toast-provider';
+import { projectStatusMeta } from '@/lib/project-status';
 
 // 代码分割:时间线是 projects 详情页里最重的组件(~1182 行 + 拖拽/音频依赖),
 // 且仅在 activeTab==='timeline' 时渲染 → 动态懒加载,移出首屏 bundle。
@@ -442,10 +443,25 @@ export default function ProjectDetailPage() {
               projectId={id}
               isOwner={!!user && (project?.userId === user.id || project?.user_id === user.id)}
             />
-            <span className={`cinema-chip ${project.status === 'completed' ? 'cinema-chip-green' : 'cinema-chip-amber'}`}>
-              <span className="cinema-statusbar-dot" style={{ background: project.status === 'completed' ? 'var(--cinema-green)' : 'var(--cinema-amber)' }} />
-              {project.status === 'completed' ? 'COMPLETED' : 'IN PRODUCTION'}
-            </span>
+            {/* v12.433:此前是二选一 —— completed 显示 COMPLETED,其余一律 IN PRODUCTION。
+                于是失败的片子在这儿写着「制作中」,而它永远不会再动一下。
+                状态词表收在 lib/project-status,这里只把它翻成这套 cinema chip 的颜色。 */}
+            {(() => {
+              const meta = projectStatusMeta(project.status);
+              const TONE = {
+                good: { cls: 'cinema-chip-green', dot: 'var(--cinema-green)', en: 'COMPLETED' },
+                warn: { cls: 'cinema-chip-amber', dot: 'var(--cinema-amber)', en: 'IN PRODUCTION' },
+                bad: { cls: 'cinema-chip-red', dot: 'var(--cinema-red)', en: 'FAILED' },
+                muted: { cls: 'cinema-chip-amber', dot: 'var(--cinema-text-3)', en: 'UNKNOWN' },
+              } as const;
+              const tone = TONE[meta.tone];
+              return (
+                <span className={`cinema-chip ${tone.cls}`} title={meta.label}>
+                  <span className="cinema-statusbar-dot" style={{ background: tone.dot }} />
+                  {tone.en}
+                </span>
+              );
+            })()}
             {reviewScore !== null && (
               <div className="cinema-chip cinema-chip-amber">
                 <Star className="w-3 h-3" />
@@ -484,7 +500,7 @@ export default function ProjectDetailPage() {
               { label: '镜头', value: String(script?.shots?.length ?? 0) },
               { label: '角色', value: String(Array.isArray(project.lockedCharacters) ? project.lockedCharacters.length : 0) },
               { label: '评分', value: reviewScore !== null ? `${reviewScore}/100` : '—' },
-              { label: '状态', value: project.status === 'completed' ? '已完成' : '制作中' },
+              { label: '状态', value: projectStatusMeta(project.status).label },
             ].map((m) => (
               <div key={m.label}>
                 <dt className="cinema-eyebrow !text-[9px] opacity-50">{m.label}</dt>
