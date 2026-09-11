@@ -26,6 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { loadList } from '@/lib/load-list';
 
 interface GlobalAssetStyle {
   id: string;
@@ -60,6 +61,8 @@ export function StyleLoraLibrary({
   const { showToast } = useToast();   // v12.300:失败要让用户看见,不能只进 console
   const [items, setItems] = useState<GlobalAssetStyle[]>([]);
   const [loading, setLoading] = useState(false);
+  // v12.434:修前 catch 里 setItems([]) + console.warn —— 只有开发者看得到
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -67,24 +70,21 @@ export function StyleLoraLibrary({
 
   const refresh = async () => {
     setLoading(true);
-    try {
-      const res = await fetch('/api/global-assets?type=style&limit=50');
-      const body = await res.json();
-      const assets = Array.isArray(body?.assets) ? body.assets : [];
-      setItems(assets.map((a: any) => ({
+    setLoadError(null);
+    const r = await loadList<GlobalAssetStyle>('/api/global-assets?type=style&limit=50', {
+      pick: (body: any) => body?.assets,
+      map: (a: any) => ({
         id: a.id,
         name: a.name,
         description: a.description || '',
         thumbnail: a.thumbnail || '',
         metadata: a.metadata || {},
         createdAt: a.createdAt || a.created_at || '',
-      })));
-    } catch (e) {
-      console.warn('[StyleLora] list failed:', e);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
+      }),
+    });
+    if (r.ok) setItems(r.items);
+    else { console.warn('[StyleLora] list failed:', r.reason); setLoadError(r.reason); }
+    setLoading(false);
   };
 
   useEffect(() => { refresh(); }, []);
@@ -200,6 +200,11 @@ export function StyleLoraLibrary({
 
       {loading ? (
         <div className="cinema-mono text-[10px] opacity-75">加载中…</div>
+      ) : loadError ? (
+        <div className="cinema-mono text-[10px] text-amber-300/90">
+          风格收藏没读到({loadError})—— 不是你没收藏过。
+          <button type="button" onClick={() => void refresh()} className="ml-1.5 underline underline-offset-2 hover:text-amber-200">重试</button>
+        </div>
       ) : items.length === 0 ? (
         <div className="cinema-mono text-[10px] opacity-70">
           暂无收藏。挑个画风 + 镜头, 点 "保存当前" 入库, 下次一键复用。

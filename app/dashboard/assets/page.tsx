@@ -8,6 +8,8 @@ import { VideoModal } from '@/components/ui/video-modal';
 import { ImageLightboxModal } from '@/components/ui/image-lightbox';
 import { AudioPlayerModal } from '@/components/ui/audio-player-modal';
 import { ScriptViewerModal } from '@/components/ui/script-viewer-modal';
+import { loadList } from '@/lib/load-list';
+import { LoadErrorState } from '@/components/ui/load-error-state';
 
 interface AssetItem {
   id: string;
@@ -52,6 +54,8 @@ function isImageAsset(asset: AssetItem): boolean {
 export default function AssetsPage() {
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // v12.434:同角色库。v12.345 的注释里写过「整个素材库空白至今」—— 同一条路径。
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState('all');
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [videoSrc, setVideoSrc] = useState('');
@@ -66,13 +70,16 @@ export default function AssetsPage() {
 
   const fetchAssets = async () => {
     setLoading(true);
-    try {
-      const res = await fetch('/api/assets');
-      const data = await res.json();
-      setAssets(Array.isArray(data) ? data : []);
-    } catch {
-      setAssets([]);
-    }
+    setLoadError(null);
+    // 修前读不到时说的是「完成一次创作后素材会自动入库」——
+    // 用户会以为产出全没了,然后等一个永远不会来的「自动入库」。
+    // v12.434:同角色库 —— 本页 DELETE 带 Bearer、GET 不带(见下方 removeAsset)。
+    const t = getToken();
+    const r = await loadList<any>('/api/assets', {
+      init: t ? { headers: { Authorization: `Bearer ${t}` } } : undefined,
+    });
+    if (r.ok) setAssets(r.items);
+    else setLoadError(r.reason);
     setLoading(false);
   };
 
@@ -169,6 +176,8 @@ export default function AssetsPage() {
           <div className="w-8 h-8 border-2 border-[#E8C547] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           加载中...
         </div>
+      ) : loadError ? (
+        <LoadErrorState what="素材库" reason={loadError} onRetry={fetchAssets} />
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />

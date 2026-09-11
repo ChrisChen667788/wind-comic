@@ -4,20 +4,30 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Copy, Check, Play, Eye, Heart, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { useLocale } from '@/hooks/use-locale';
+import { loadList } from '@/lib/load-list';
+import { LoadErrorState } from '@/components/ui/load-error-state';
 
 export default function CasesPage() {
   const { t } = useLocale();
   const [cases, setCases] = useState<any[]>([]);
+  // v12.434:这页原本连**空态都没有** —— fetch 挂了 cases 保持 [],
+  // 网格渲染零张卡片,用户看到的是标题下面一片空白,没有加载中、没有出错、也没有「暂无案例」。
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    fetch('/api/cases')
-      .then((r) => r.json())
-      .then((d) => setCases(d))
-      .catch(() => {});
-  }, []);
+  const fetchCases = async () => {
+    setLoading(true);
+    setLoadError(null);
+    const r = await loadList<any>('/api/cases');
+    if (r.ok) setCases(r.items);
+    else setLoadError(r.reason);
+    setLoading(false);
+  };
+
+  useEffect(() => { void fetchCases(); }, []);
 
   // Vidu-style: one-click copy prompt to clipboard and navigate to create
   const handleCopyPrompt = (c: any, e: React.MouseEvent) => {
@@ -43,6 +53,19 @@ export default function CasesPage() {
         <p className="text-sm text-[var(--muted)] mt-1">{t.cases.subtitleReuse}</p>
       </div>
 
+      {loading ? (
+        <div className="text-center py-20 text-[var(--muted)]">
+          <div className="w-8 h-8 border-2 border-[#E8C547] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <span className="text-sm">加载中…</span>
+        </div>
+      ) : loadError ? (
+        <LoadErrorState what="案例库" reason={loadError} onRetry={fetchCases} />
+      ) : cases.length === 0 ? (
+        <div className="text-center py-20 text-[var(--muted)]">
+          <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-25" />
+          <p className="text-sm">暂无案例</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {cases.map((c) => (
           <div key={c.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-[20px] overflow-hidden group transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
@@ -123,6 +146,7 @@ export default function CasesPage() {
           </div>
         ))}
       </div>
+      )}
 
       <p className="mt-6 text-[11px] text-[var(--soft)] leading-relaxed max-w-3xl">
         ⚠️ 部分卡片的「示意片段」引用自公开影视作品(如《英雄联盟：双城之战 / Arcane》，版权归 Riot Games · Fortiche · Netflix），

@@ -14,11 +14,15 @@ import { NumberTicker, AnimatedShinyText } from '@/components/cinema/effects';
 import { ScoreDonut } from '@/components/cinema/dataviz';
 import { readinessLevel } from '@/lib/polish-prompts';
 import { projectStatusMeta, type StatusTone } from '@/lib/project-status';
+import { LoadErrorState } from '@/components/ui/load-error-state';
 
 export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // v12.434:修前 .catch(() => {}) —— 读不到时显示「EMPTY ROSTER · 还没有创作项目」
+  // 外加「开始创作 / 导入演示工程」两个按钮,和这个账号真的没有项目**完全一样**。
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'completed' | 'active' | 'failed' | 'draft'>('all');
   const [importingDemo, setImportingDemo] = useState(false);
 
@@ -44,9 +48,14 @@ export default function ProjectsPage() {
   useEffect(() => {
     // v5.0.x fix: 走 api-client (带 Authorization), 解析真实登录用户而非 no-auth 兜底.
     // 之前用裸 fetch 无 token → 命中 first-user 兜底; 测试用户污染 DB 后兜底解析错乱, 项目全空.
+    // 这里不走 loadList:api-client 的 request() 本来就在 !res.ok 时抛,
+    // 该修的只是「抛了却被吞掉」这一下。硬套一层反而多一条路径。
     api.projects()
-      .then((d: any) => { if (Array.isArray(d)) setProjects(d); })
-      .catch(() => {})
+      .then((d: any) => {
+        if (Array.isArray(d)) { setProjects(d); setLoadError(null); }
+        else setLoadError('接口返回的格式不对');
+      })
+      .catch((e: any) => setLoadError(e?.message ? String(e.message) : '网络不通'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -161,6 +170,8 @@ export default function ProjectsPage() {
             </div>
           ))}
         </div>
+      ) : loadError ? (
+        <LoadErrorState what="项目列表" reason={loadError} onRetry={() => window.location.reload()} />
       ) : filtered.length === 0 ? (
         <div className="cinema-card-hi text-center py-16 animate-fade-up px-6">
           <FolderKanban className="w-10 h-10 text-[var(--cinema-amber)] opacity-60 mx-auto mb-4" />

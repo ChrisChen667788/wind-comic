@@ -5,6 +5,9 @@ import { createPortal } from 'react-dom';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { Users, Plus, X, Clipboard, Check, Tag, Eye, Trash as Trash2, MagnifyingGlass as Search, MagicWand as Wand2, CircleNotch as Loader2, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { MediaThumb } from '@/components/ui/media-thumb';
+import { loadList } from '@/lib/load-list';
+import { LoadErrorState } from '@/components/ui/load-error-state';
+import { getToken } from '@/lib/auth';
 
 interface CharacterItem {
   id: string;
@@ -664,6 +667,8 @@ function CharacterDetailModal({
 export default function CharactersPage() {
   const [characters, setCharacters] = useState<CharacterItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // v12.434:读不到 ≠ 没有。修前两者都塌成 [],页面对一个有 137 条角色的账号说「暂无角色」。
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -675,13 +680,17 @@ export default function CharactersPage() {
 
   const fetchCharacters = async () => {
     setLoading(true);
-    try {
-      const res = await fetch('/api/characters');
-      const data = await res.json();
-      setCharacters(Array.isArray(data) ? data : []);
-    } catch {
-      setCharacters([]);
-    }
+    setLoadError(null);
+    // 根因不在 catch,在**没查 res.ok**:401 返回 { message: 'Unauthorized' },
+    // Array.isArray 为假 → [],连异常都不算,静静变成「你还没有角色」。
+    // v12.434:GET 原本**不带 Authorization**,纯靠 cookie —— 而同一页的写操作是带 Bearer 的。
+    // cookie 没了、token 还在时,这一页会单独失败,其它页照常。凭据得跟写操作一致。
+    const t = getToken();
+    const r = await loadList<CharacterItem>('/api/characters', {
+      init: t ? { headers: { Authorization: `Bearer ${t}` } } : undefined,
+    });
+    if (r.ok) setCharacters(r.items);
+    else setLoadError(r.reason);
     setLoading(false);
   };
 
@@ -755,6 +764,8 @@ export default function CharactersPage() {
           <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           加载中...
         </div>
+      ) : loadError ? (
+        <LoadErrorState what="角色库" reason={loadError} onRetry={fetchCharacters} />
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
