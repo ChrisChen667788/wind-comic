@@ -8,6 +8,7 @@ import { MediaThumb } from '@/components/ui/media-thumb';
 import { loadList } from '@/lib/load-list';
 import { LoadErrorState } from '@/components/ui/load-error-state';
 import { getToken } from '@/lib/auth';
+import { countText } from '@/lib/metric-display';
 
 interface CharacterItem {
   id: string;
@@ -733,7 +734,7 @@ export default function CharactersPage() {
             角色库
           </h2>
           <p className="text-sm text-[var(--muted)] mt-1">
-            跨项目角色资产 · 共 {characters.length} 个
+            跨项目角色资产 · 共 {countText(characters.length, loadError)} 个
           </p>
         </div>
 

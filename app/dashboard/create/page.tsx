@@ -39,6 +39,8 @@ import { listSupportedLanguages } from '@/lib/language-detect';
 import { saveCreatePrefs, loadCreatePrefs } from '@/lib/create-prefs';
 import { LanguagePicker } from '@/components/create/language-picker';
 import { getSystemLanguage } from '@/lib/system-language';
+import { CostChip } from '@/components/ui/cost-chip';
+import { previewCost, confirmSpendText } from '@/lib/action-cost';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -673,7 +675,8 @@ export default function DashboardCreatePage() {
           type: 'warning',
           duration: 8000,
           action: retryable && shotNumber && projectId ? {
-            label: `重试镜头 ${shotNumber}`,
+            // v12.435:重生是**追加**花费(这镜已经付过一次),按钮上要带价
+            label: `重试镜头 ${shotNumber} · ${previewCost({ kind: 'shot-video', videoProvider, secondsPerShot: parseInt(String(duration), 10) || 5 }).label}`,
             /**
              * v12.432:以前是 `fetch(...).catch(() => {})`,而且点完 toast 立刻关闭 ——
              * 请求发没发出去、镜头重生成没成,用户一概看不到;失败时就只是「按钮消失了,
@@ -681,6 +684,10 @@ export default function DashboardCreatePage() {
              * 现在:发起说一声,读完流再报结果,失败明说。
              */
             onClick: async () => {
+              // v12.435:花钱前先问一句。价已经写在按钮上了,但「再花一次」这件事
+              // 要说出口 —— 用户已经为这镜付过一次,重生是追加不是首次。
+              const spend = { kind: 'shot-video' as const, videoProvider, secondsPerShot: parseInt(String(duration), 10) || 5 };
+              if (!window.confirm(confirmSpendText(spend))) return;
               showToast({ title: `正在重试镜头 ${shotNumber}…`, type: 'info', duration: 4000 });
               try {
                 const res = await fetch(`/api/projects/${projectId}/regenerate-shot`, {
@@ -826,6 +833,21 @@ export default function DashboardCreatePage() {
             <FilmSlate className="w-3.5 h-3.5" weight="duotone" />
             试拍 1 镜
           </button>
+          {/* v12.435:把代价摆到按下去之前。估算逻辑 v12.172 就有了,一直只用于服务端
+              超预算拦截 —— 没超就一声不吭,于是用户点完才知道花了多少。 */}
+          {isReady && (
+            <CostChip
+              action={{
+                kind: 'pipeline',
+                videoProvider,
+                secondsPerShot: parseInt(String(duration), 10) || 5,
+                // 开机时剧本还没出,镜数未知 —— 交给估算器的保守默认(8 镜),
+                // 并在 title 里说清这一点,不假装精确
+              }}
+              prefix="本次"
+              className="self-center"
+            />
+          )}
           <MovingBorderButton
             data-guide="roll"
             onClick={handleStartCreation}

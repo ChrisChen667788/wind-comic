@@ -10,6 +10,7 @@ import { AudioPlayerModal } from '@/components/ui/audio-player-modal';
 import { ScriptViewerModal } from '@/components/ui/script-viewer-modal';
 import { loadList } from '@/lib/load-list';
 import { LoadErrorState } from '@/components/ui/load-error-state';
+import { countText } from '@/lib/metric-display';
 
 interface AssetItem {
   id: string;
@@ -143,7 +144,7 @@ export default function AssetsPage() {
             素材库
           </h2>
           <p className="text-sm text-[var(--muted)] mt-1">
-            创作产生的数字资产 · 共 {assets.length} 个
+            创作产生的数字资产 · 共 {countText(assets.length, loadError)} 个
           </p>
         </div>
       </div>

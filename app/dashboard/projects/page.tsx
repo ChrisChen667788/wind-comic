@@ -122,7 +122,7 @@ export default function ProjectsPage() {
           <div className="flex items-center gap-2 mb-1">
             <AnimatedShinyText className="cinema-eyebrow tracking-widest">FILMOGRAPHY · 项目库</AnimatedShinyText>
             <span className="cinema-mono text-[10px] opacity-50">
-              <NumberTicker value={projects.length} /> titles
+              {loadError ? '—' : <NumberTicker value={projects.length} />} titles
             </span>
           </div>
           <h1 className="cinema-headline text-3xl">我的项目</h1>

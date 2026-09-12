@@ -35,3 +35,17 @@ export function emptyStateLabel(state: MetricState, emptyText: string): string {
   if (state === 'loading') return '读取中…';
   return emptyText;
 }
+
+/**
+ * 列表页标题栏那个总数(v12.435)。
+ *
+ * v12.434 把列表<b>正文</b>的空态和错误态分开了,却漏了<b>标题栏</b> ——
+ * 「角色库 · 跨项目角色资产 · 共 0 个」在读不到时照样写 0,正文已经说「加载失败」,
+ * 标题还在替库里的数字编故事。**同一版修的缺陷类型,在同一个页面复发。**
+ *
+ * 这里接受的是各列表页实际持有的 `loadError: string | null`,而不是 MetricState ——
+ * 硬要它们先转一次状态枚举,只会多一处可以写错的地方。
+ */
+export function countText(n: number, loadError?: string | null): string {
+  return loadError ? '—' : String(n);
+}
