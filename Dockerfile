@@ -81,6 +81,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 # 一直都是不成立的 —— 一个从没被执行过的构建,和没有构建是一回事。
 # 是 v12.421 第一次真把它跑起来才发现的。
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+# v12.437:导演技能库在**运行时**从 skills/<id>/SKILL.md 读取。迁移前题材镜头包是 TS 常量、
+# 编译进 .next,哪都能跑;迁移后它依赖这个目录 —— 而运行时镜像原本只拷上面几项。
+# 漏掉这一行,加载器按设计「目录不存在不报错」返回空:**生产镜像会悄悄丢掉全部题材包**,
+# 本地测试照样全绿(本地 cwd 下目录一直在)。与上面 drizzle 那行是同一类「拷贝清单」问题。
+COPY --from=builder --chown=nextjs:nodejs /app/skills ./skills
 
 # SQLite 数据目录(volume mount)
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data

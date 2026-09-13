@@ -86,6 +86,7 @@ import { resolveConcurrency } from '@/lib/gen-concurrency';
 import { isProviderHealthy, markProviderDownIfFatal } from '@/lib/provider-health-cache';
 // v12.8.1:视频引擎兜底链控制流(含软熔断)抽出来可单测。
 import { runVideoEngineChain } from '@/lib/video-engine-chain';
+import { withBgmStyleHint } from '@/lib/bgm-style';
 
 /** 抽出时 orchestrator 的模块级 sleep 未导出,这里本地补一个等价实现。 */
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -108,6 +109,8 @@ export interface EditorAgentCtx {
   genre: string;
   styleKeywords: string;
   editStyleInstruction: string;
+  /** v12.437:题材技能的 BGM 风格词。修前由 create-pipeline 以 `as any` 写进 orchestrator,这里从不读 */
+  bgmStyleHint?: string;
   originalIdea: string;
   lockedCharacters: import('@/lib/consistency-policy').LockedCharacter[];
   minimaxService: MinimaxService | null;
@@ -659,6 +662,9 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           musicPrompt += `. 高能动作配乐:强劲快节奏打击乐(太鼓/战鼓/工业鼓点)、紧张弦乐 staccato、强动态对比、BPM 140-160,突出冲击与肾上腺素;driving percussion, hard-hitting, aggressive, no soft ambient pads`;
         }
 
+        // v12.437:题材技能的 BGM 风格词。v12.193 起就在写,但此前没有任何代码读它
+        musicPrompt = withBgmStyleHint(musicPrompt, ctx.bgmStyleHint);
+
         // ═══ v2.8: 视觉锚点增强 — 把画面的光影/温度曲线/调色板翻译给音乐模型 ═══
         // 解决"画面和配乐脱节"的痛点:Minimax 音乐不收图,但画面情感信号可以
         // 用英文描述传递给它,让低沉画面配低弦/明亮画面配扬琴,声画同步
@@ -692,9 +698,10 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
           });
           try {
             const [a1, a2, a3] = await Promise.all([
-              bgm(moodPromptForAct(1, dominantEmotion, genre), Math.min(actDurations.act1, 120), genre),
-              bgm(moodPromptForAct(2, dominantEmotion, genre), Math.min(actDurations.act2, 120), genre),
-              bgm(moodPromptForAct(3, dominantEmotion, genre), Math.min(actDurations.act3, 120), genre),
+              // 多幕路径完全不经过 musicPrompt —— 风格词必须在这里再接一次,否则长片照样丢
+              bgm(withBgmStyleHint(moodPromptForAct(1, dominantEmotion, genre), ctx.bgmStyleHint), Math.min(actDurations.act1, 120), genre),
+              bgm(withBgmStyleHint(moodPromptForAct(2, dominantEmotion, genre), ctx.bgmStyleHint), Math.min(actDurations.act2, 120), genre),
+              bgm(withBgmStyleHint(moodPromptForAct(3, dominantEmotion, genre), ctx.bgmStyleHint), Math.min(actDurations.act3, 120), genre),
             ]);
             const concatPath = await concatActBgms([
               { url: a1, durationSec: actDurations.act1, act: 1 },

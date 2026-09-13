@@ -679,6 +679,15 @@ export class HybridOrchestrator {
   private editStyleInstruction: string = '';
   setEditStyle(instruction: string) { this.editStyleInstruction = (instruction || '').trim(); }
 
+  // v12.437:题材技能的 BGM 风格词。修前 create-pipeline 用 `(orchestrator as any).bgmStyleHint = ...`
+  // 写进来,但编辑 agent 从不读 —— 现在是有类型的字段,编辑 agent 两条配乐路径都读它。
+  bgmStyleHint: string = '';
+  setBgmStyleHint(hint: string) { this.bgmStyleHint = (hint || '').trim(); }
+
+  // v12.437:命中的导演技能正文,拼进导演 system prompt 末尾(与语种指令同一种拼法)
+  private skillDirectiveBlock: string = '';
+  setSkillDirectives(block: string) { this.skillDirectiveBlock = block || ''; }
+
   // ── 用户选定画风 → 覆盖自动检测 ──
   private userSelectedStyle: string = '';
   setUserStyle(style: string) {
@@ -1465,7 +1474,7 @@ export class HybridOrchestrator {
         isScriptAdaptation: true,
         parsedCharacterCount: this.parsedScript.stats.characterCount,
         parsedSceneCount: this.parsedScript.stats.sceneCount,
-      } : undefined) + buildLanguageDirective(this.targetLanguage());
+      } : undefined) + buildLanguageDirective(this.targetLanguage()) + this.skillDirectiveBlock;
 
       // v2.18.4: Director 是 known-heavy call (5 角色 + 8 场景 + 8 shotSpec nested) — 12-19K chars 输出
       // 实测必须给 16384 cap 否则 8192 default 必截断. Writer Pass-2 同理.

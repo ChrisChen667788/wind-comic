@@ -197,14 +197,24 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     // ── v12.193:题材镜头包 —— 按 idea 检测题材,一键注入「运镜+剪辑风格+BGM 风格」组合拳;
     // 用户显式选了 cameraDefault/editStyle 的项不动(显式优先,与情绪运镜同哲学)。
     try {
-      const { detectShotPack } = await import('@/lib/genre-shot-packs');
+      const { detectShotPack, detectDirectorMethods, buildSkillDirectiveBlock } = await import('@/lib/genre-shot-packs');
       const pack = detectShotPack(idea);
+      const methods = detectDirectorMethods(idea);
       if (pack) {
         const applied: string[] = [];
         if (!cameraDefault) { orchestrator.setCameraDefault(pack.cameraDefault); applied.push('运镜'); }
         if (!editStyle) { orchestrator.setEditStyle(pack.editStyle); applied.push('剪辑'); }
-        (orchestrator as any).bgmStyleHint = pack.bgmStyleHint; // BGM prompt 侧读取(软注入)
+        // v12.437:修前是 `(orchestrator as any).bgmStyleHint = ...`,**全仓零读取** ——
+        // 状态栏说「已注入」,BGM 那一半从没生效。现在走有类型的 setter,编辑 agent 两条配乐路径都读。
+        orchestrator.setBgmStyleHint(pack.bgmStyleHint);
+        applied.push('配乐');
         if (applied.length) send('status', { message: `🎬 题材镜头包「${pack.label}」已注入(${applied.join('/')};显式选择不受影响)` });
+      }
+      // v12.437:技能正文(导演方法论)进导演提示词 —— 题材包取一个,导演技法可叠加
+      const skillsInUse = [...(pack ? [pack] : []), ...methods];
+      if (skillsInUse.length) {
+        orchestrator.setSkillDirectives(buildSkillDirectiveBlock(skillsInUse));
+        if (methods.length) send('status', { message: `📚 导演技能:${methods.map((m) => m.label).join('、')}` });
       }
     } catch { /* 包注入失败不阻塞 */ }
 
