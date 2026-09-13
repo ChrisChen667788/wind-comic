@@ -15,6 +15,8 @@ import { ScoreDonut } from '@/components/cinema/dataviz';
 import { readinessLevel } from '@/lib/polish-prompts';
 import { projectStatusMeta, type StatusTone } from '@/lib/project-status';
 import { LoadErrorState } from '@/components/ui/load-error-state';
+import { POSTER_FRAME_CLASS, posterFitFor, type PosterFit } from '@/lib/media-frame';
+import { loglineFrom } from '@/lib/logline';
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -158,10 +160,10 @@ export default function ProjectsPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-4">
           {[1, 2, 3].map(i => (
             <div key={i} className="cinema-card animate-shimmer">
-              <div className="h-[160px] bg-[var(--surface)]" />
+              <div className={`${POSTER_FRAME_CLASS} bg-[var(--surface)]`} />
               <div className="p-4 space-y-3">
                 <div className="h-4 bg-[var(--surface)] rounded w-2/3" />
                 <div className="h-3 bg-[var(--surface)] rounded w-full" />
@@ -192,7 +194,7 @@ export default function ProjectsPage() {
           <p className="cinema-mono text-[10px] opacity-70 mt-3">演示工程无需任何 API key — 4 镜悬疑短剧,成片/审计/导出即刻可看</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-4">
           {filtered.map((p, i) => {
             const sc = statusOf(p.status);
             const StatusIcon = sc.icon;
@@ -209,24 +211,11 @@ export default function ProjectsPage() {
                 className="cinema-card animate-fade-up group"
                 style={{ animationDelay: `${0.1 + i * 0.05}s` }}
               >
-                {/* Cover */}
-                <div className="cover h-[160px]">
-                  <img loading="lazy" decoding="async" src={coverList[0] || IMG_PREVIEW_DEFAULT} alt={p.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // 历史封面失效(CDN 过期 / 本地资产被清)→ 顺着候选串往下试,
-                      // 都不行才退到内联占位图。用 data-idx 记进度,不会来回打转。
-                      const img = e.currentTarget;
-                      const next = nextCoverIndex(Number(img.dataset.coverIdx || '0'), coverList.length);
-                      if (next !== null) {
-                        img.dataset.coverIdx = String(next);
-                        img.src = coverList[next];
-                        return;
-                      }
-                      if (img.dataset.fallback) return;
-                      img.dataset.fallback = '1';
-                      img.src = IMG_PREVIEW_DEFAULT;
-                    }} />
+                {/* v12.436:封面改海报框。修前写死 h-[160px] 横框 —— 库里 84% 的项目是 9:16,
+                    一张竖图放进去只看得见 28%。另:修前这个容器**没有 position: relative**,
+                    里面的绝对定位徽章实际以整张卡片为基准,v12.431 那三轮「徽章撞版」根子在这。 */}
+                <div className={`cover relative overflow-hidden ${POSTER_FRAME_CLASS}`}>
+                  <PosterCover coverList={coverList} alt={p.title} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                   <div className={`absolute top-3 right-3 max-w-[60%] flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-sm ${sc.bgColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${sc.dotColor}`} />
@@ -299,30 +288,27 @@ export default function ProjectsPage() {
                   ) : null}
                 </div>
 
-                {/* Info — cinema readout */}
-                <div className="p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="cinema-mono text-[9px] opacity-50 tracking-widest">
-                      № {String(i + 1).padStart(3, '0')}
-                    </span>
-                    <span className="cinema-mono text-[9px] opacity-50">
-                      {new Date(p.createdAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '·')}
-                    </span>
-                  </div>
-                  <h3 className="cinema-headline text-[14px] mb-1 truncate group-hover:text-[var(--cinema-amber)] transition-colors">{p.title}</h3>
-                  <p className="cinema-subhead text-[11px] line-clamp-2 mb-2 leading-relaxed opacity-70">{p.description}</p>
+                {/* Info —— 海报墙只留标题 + 一行梗概。Castloop 那面墙真正的差异点在这:
+                    你能读出每个故事**是什么**,不只是叫什么。 */}
+                <div className="p-2.5">
+                  <h3 className="cinema-headline text-[13px] leading-snug mb-1 line-clamp-1 group-hover:text-[var(--cinema-amber)] transition-colors">{p.title}</h3>
+                  <p className="cinema-subhead text-[11px] line-clamp-2 leading-relaxed opacity-60">{loglineOf(p)}</p>
                   {/* v12.431:这个项目里还有几处不是真出图的。此前只有导演台和导出口知道,
                       列表页一片祥和 —— 得逐个点进去才发现哪部片还没真出完。
                       沿用 v12.427 的原则:如实告知,不挡路(不置灰、不拦点击)。
                       **和 SCORE 排在同一行**:第一版给它 absolute bottom-3 right-3,
                       而那是相对整张卡片定位的,实拍出来正好压住 SCORE(显示成「SC⚠9处示意」)。 */}
-                  {p.directorNotes?.overallScore && (
-                    <div className="cinema-mono text-[10px] opacity-80 flex items-center justify-end gap-1">
-                      <span className="opacity-50">SCORE</span>
-                      <span className="text-[var(--cinema-amber)] font-semibold">{p.directorNotes.overallScore}</span>
-                      <span className="opacity-40">/100</span>
-                    </div>
-                  )}
+                  <div className="cinema-mono text-[9.5px] mt-1.5 flex items-center justify-between gap-1">
+                    <span className="opacity-40">
+                      {new Date(p.createdAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '·')}
+                    </span>
+                    {p.directorNotes?.overallScore ? (
+                      <span className="flex items-center gap-0.5">
+                        <span className="text-[var(--cinema-amber)] font-semibold">{p.directorNotes.overallScore}</span>
+                        <span className="opacity-40">/100</span>
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </Link>
             );
@@ -357,5 +343,57 @@ function ReadinessBadge({ entry }: { entry: any }) {
         {score}
       </span>
     </div>
+  );
+}
+
+/**
+ * 梗概:优先剧本里的 synopsis,没有再退到项目描述。
+ * 在架 11 个项目里 10 个有 synopsis;描述常常就是标题的复述,信息量低。
+ */
+function loglineOf(p: any): string {
+  // 优先 synopsis,其次 description;两者的结构前缀/标题复述由 lib/logline 剥掉
+  return loglineFrom({ title: p?.title, scriptData: { synopsis: p?.scriptData?.synopsis }, description: p?.description });
+}
+
+/**
+ * 海报封面(v12.436)。
+ *
+ * ① 候选串回退沿用 v12.426:前一张挂了换下一张,全挂才退默认图 —— 改成 React 状态持有下标,
+ *    而不是修前那样直接改 DOM 的 img.src(那样背景模糊层跟不上前景换图)。
+ * ② 填充方式在**图片加载后按真实比例**决定(posterFitFor):竖图铺满;横图 contain,
+ *    并用同一张图模糊铺底 —— 墙面统一、而且一个像素都不裁。
+ */
+function PosterCover({ coverList, alt }: { coverList: string[]; alt: string }) {
+  const [idx, setIdx] = useState(0);
+  const [fallback, setFallback] = useState(false);
+  const [fit, setFit] = useState<PosterFit>('contain');
+  const src = fallback || coverList.length === 0 ? IMG_PREVIEW_DEFAULT : coverList[idx];
+
+  const onError = () => {
+    const next = nextCoverIndex(idx, coverList.length);
+    if (next !== null) { setIdx(next); return; }
+    if (!fallback) setFallback(true);
+  };
+
+  return (
+    <>
+      {fit === 'contain' && (
+        // 模糊铺底:横图 contain 之后上下的空白用同一张图填,墙面不出现黑条
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" aria-hidden decoding="async"
+          className="absolute inset-0 w-full h-full object-cover blur-2xl scale-125 opacity-75 saturate-150" />
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        data-poster-fit={fit}
+        className={`relative w-full h-full transition-transform duration-500 group-hover:scale-[1.03] ${fit === 'cover' ? 'object-cover' : 'object-contain'}`}
+        onLoad={(e) => setFit(posterFitFor(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight))}
+        onError={onError}
+      />
+    </>
   );
 }

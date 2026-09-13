@@ -41,6 +41,7 @@ import { LanguagePicker } from '@/components/create/language-picker';
 import { getSystemLanguage } from '@/lib/system-language';
 import { CostChip } from '@/components/ui/cost-chip';
 import { previewCost, confirmSpendText } from '@/lib/action-cost';
+import { ideaReady } from '@/lib/idea-gate';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -752,7 +753,7 @@ export default function DashboardCreatePage() {
   // ── 创意输入入口 (v2.13 cinema redesign) ──
   // 影院仪表盘 + 工作室软件密度 — 不抄 oiioii 的粉色 / blob mascot / 点阵画布
   const ideaCharCount = idea.trim().length;
-  const isReady = ideaCharCount >= 10;
+  const isReady = ideaReady(idea); // v12.436:门槛收进 lib/idea-gate,案例库送来的创意与之同源
   const totalDurationSec = parseFloat(duration.replace(/[^\d.]/g, '')) * 6; // 估 6 镜
   return (
     <div className="cinema-page -mx-[5vw] -my-6 px-[5vw] py-6">

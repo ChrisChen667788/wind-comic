@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Users, Mountains as Mountain, FilmStrip as Film, Video, MusicNotes as Music, FileText, Package, Play, Trash as Trash2 } from '@phosphor-icons/react';
 import { getToken } from '@/lib/auth';
@@ -11,6 +11,7 @@ import { ScriptViewerModal } from '@/components/ui/script-viewer-modal';
 import { loadList } from '@/lib/load-list';
 import { LoadErrorState } from '@/components/ui/load-error-state';
 import { countText } from '@/lib/metric-display';
+import { assetDisplayTitle, buildStoryboardIndex } from '@/lib/asset-title';
 
 interface AssetItem {
   id: string;
@@ -97,6 +98,8 @@ export default function AssetsPage() {
   };
 
   const filtered = filter === 'all' ? assets : assets.filter(a => a.type === filter);
+  // v12.436:视频资产自己没有描述(179 个一个都没有),借同项目同镜号的分镜描述当标题
+  const storyboardIdx = useMemo(() => buildStoryboardIndex(assets), [assets]);
   const imageAssets = filtered.filter(a => isImageAsset(a));
 
   const handleMediaClick = (asset: AssetItem) => {
@@ -186,22 +189,23 @@ export default function AssetsPage() {
           <p className="text-xs mt-1 text-gray-600">完成一次创作后，生成的角色、场景、分镜等素材会自动入库</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-3">
           {filtered.map(asset => {
             const meta = TYPE_META[asset.type] || TYPE_META.script;
             const IconComp = meta.icon;
             const hasMedia = asset.mediaUrls?.length > 0;
             const isImg = isImageAsset(asset);
             const isVid = hasMedia && ['video', 'final_video'].includes(asset.type);
+            const title = assetDisplayTitle(asset, storyboardIdx);
 
             return (
               <div
                 key={asset.id}
-                className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden group hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)] transition-all duration-300 cursor-pointer"
+                className="bg-[var(--surface)] border border-[var(--border)] rounded-md overflow-hidden group hover:border-[var(--cinema-amber)]/40 transition-colors duration-300 cursor-pointer"
                 onClick={() => openAsset(asset)}
               >
                 {/* 媒体预览 — v8.3 P5: object-contain 完整显示 (不再裁切, 免点开才能看全) */}
-                <div className="h-[180px] bg-black/40 relative overflow-hidden grid place-items-center">
+                <div className="aspect-[4/3] bg-black/40 relative overflow-hidden grid place-items-center">
                   {isImg && asset.mediaUrls[0] ? (
                     <img loading="lazy" decoding="async" src={asset.mediaUrls[0]} alt={asset.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300" />
                   ) : isVid && asset.mediaUrls[0] ? (
@@ -211,6 +215,14 @@ export default function AssetsPage() {
                         <Play className="w-8 h-8 text-white" />
                       </div>
                     </>
+                  ) : asset.data?.description || asset.data?.content || asset.data?.text ? (
+                    // v12.436:剧本/配乐这类没有画面的资产,修前是一整格只放一个 20% 透明度的图标,
+                    // 在密网格里白占一格还看不出是什么。有文字就把文字摘录摆上来。
+                    <div className="w-full h-full p-3 pt-8 text-left overflow-hidden">
+                      <p className="text-[10.5px] leading-relaxed text-[var(--muted)] line-clamp-6">
+                        {String(asset.data?.description || asset.data?.content || asset.data?.text).slice(0, 180)}
+                      </p>
+                    </div>
                   ) : (
                     <div className="w-full h-full grid place-items-center">
                       <IconComp className={`w-10 h-10 opacity-20 ${meta.color.split(' ')[0]}`} />
@@ -238,14 +250,13 @@ export default function AssetsPage() {
                   )}
                 </div>
 
-                {/* 信息 — v8.3 P5: 名称允许 2 行, 描述展开到 3 行, 减少"必须点开" */}
-                <div className="p-3">
-                  <h4 className="text-sm font-medium text-white line-clamp-2 leading-snug">{asset.name}</h4>
-                  {asset.data?.description && (
-                    <p className="text-[11px] text-[var(--muted)] mt-1 line-clamp-3 leading-relaxed">{asset.data.description}</p>
-                  )}
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-gray-500">
+                {/* 信息 —— v12.436:1095 个资产里 488 个叫「镜头 N / 视频 N」这类机器名,
+                    一屏十几张卡全叫一个名字。标题换成画面描述的第一小句,机器名降为副标签。 */}
+                <div className="p-2.5">
+                  <h4 className="text-[12.5px] font-medium text-white line-clamp-2 leading-snug" title={asset.name}>{title}</h4>
+                  <div className="flex items-center justify-between mt-1.5 gap-2">
+                    {/* 右侧已有「镜头 N」;机器名再放一遍就是「镜头 1 … 镜头 1」重复,放进标题的悬停提示 */}
+                    <span className="text-[10px] text-gray-500 truncate">
                       {new Date(asset.createdAt).toLocaleDateString('zh-CN')}
                     </span>
                     {asset.shotNumber && (

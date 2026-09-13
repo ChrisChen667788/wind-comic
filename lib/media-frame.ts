@@ -58,3 +58,39 @@ export function coverCropRatio(boxAspect: number, naturalAspect: number): number
   if (!(boxAspect > 0) || !(naturalAspect > 0)) return 0;
   return 1 - Math.min(boxAspect, naturalAspect) / Math.max(boxAspect, naturalAspect);
 }
+
+/**
+ * 海报墙(v12.436)。
+ *
+ * 对标 Castloop 那种竖版海报墙:一屏扫几十个故事,卡片只有封面、标题、一行梗概。
+ *
+ * **墙面统一 9:16**。库里 32 个项目有 27 个是竖屏(84%),它们在 9:16 框里零裁切;
+ * 修前列表写死 `h-[160px]` 横框,一张 9:16 的图放进去按实测框比 1.992 只看得见 28%。
+ *
+ * **填充方式按图片的真实比例决定,不信库里的 `aspect` 字段**:流水线可能给竖屏项目
+ * 出了横图(那批项目的文件被清掉了,本机无法核对),按 aspect 一律 cover 就会把横图
+ * 裁成一条竖缝。所以在图片加载后量 naturalWidth/Height 再定 —— 量的正是要紧的那个东西。
+ *
+ * 竖图(比例 ≤ 3:4)铺满;更宽的图 contain 并用同一张图模糊铺底,**绝不裁** ——
+ * 守 v12.425 那条「缩略图和全屏看到的是同一张完整画面」。
+ */
+export const POSTER_FRAME_CLASS = 'aspect-[9/16]';
+
+/** 比 3:4 还窄的图才铺满:此时 9:16 框最多从两侧裁掉 25%。 */
+export const POSTER_COVER_MAX_AR = 0.75;
+
+export type PosterFit = 'cover' | 'contain';
+
+export function posterFitFor(naturalW: number, naturalH: number): PosterFit {
+  if (!(naturalW > 0) || !(naturalH > 0)) return 'contain'; // 量不到就别裁
+  return naturalW / naturalH <= POSTER_COVER_MAX_AR ? 'cover' : 'contain';
+}
+
+/** 给定比例的图在 9:16 框里能看到多少(0~1)。供测试与文档里的数字同源。 */
+export function posterVisibleFraction(naturalW: number, naturalH: number): number {
+  if (!(naturalW > 0) || !(naturalH > 0)) return 0;
+  const src = naturalW / naturalH;
+  const box = 9 / 16;
+  if (posterFitFor(naturalW, naturalH) === 'contain') return 1; // contain 不丢像素
+  return src > box ? box / src : src / box;
+}

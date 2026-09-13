@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, Check, Play, Eye, Heart, Sparkle as Sparkles } from '@phosphor-icons/react';
+import { Copy, Check, Play, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { useLocale } from '@/hooks/use-locale';
 import { loadList } from '@/lib/load-list';
 import { LoadErrorState } from '@/components/ui/load-error-state';
+import { caseSeedIdea } from '@/lib/case-seed';
 
 export default function CasesPage() {
   const { t } = useLocale();
@@ -32,7 +33,8 @@ export default function CasesPage() {
   // Vidu-style: one-click copy prompt to clipboard and navigate to create
   const handleCopyPrompt = (c: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    const promptText = c.prompt || c.description || c.title;
+    // v12.436:cases 表没有 prompt 列,修前永远只复制到标题(「月华藏境」四个字)
+    const promptText = caseSeedIdea(c);
     navigator.clipboard.writeText(promptText).then(() => {
       setCopiedId(c.id);
       setTimeout(() => setCopiedId(null), 2000);
@@ -41,7 +43,8 @@ export default function CasesPage() {
 
   const handleUsePrompt = (c: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    const promptText = c.prompt || c.description || c.title;
+    // v12.436:修前带过去的是 4 个字的标题,创作页开机门槛 10 字 —— 跳过去按钮是灰的
+    const promptText = caseSeedIdea(c);
     // Navigate to create page with the prompt pre-filled
     router.push(`/dashboard/create?idea=${encodeURIComponent(promptText)}`);
   };
@@ -66,10 +69,23 @@ export default function CasesPage() {
           <p className="text-sm">暂无案例</p>
         </div>
       ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {cases.map((c) => (
-          <div key={c.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-[20px] overflow-hidden group transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
-            <div className="relative h-[220px] overflow-hidden">
+          <div key={c.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-md overflow-hidden group transition-colors duration-300 hover:border-[var(--cinema-amber)]/40">
+            <div className="relative aspect-video overflow-hidden bg-black">
+              {/* 题材签在画面容器顶层渲染 —— 初版把它放进了「有视频才渲染」的分支里,
+                  同时从信息区删掉了原来的题材文字:没有视频的案例会连题材一起丢掉。 */}
+              {(c.category || c.videoUrl) && (
+                <span className="absolute top-2 left-2 z-10 flex items-center gap-1">
+                  {c.category && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--cinema-amber)]/85 text-black font-medium">{c.category}</span>
+                  )}
+                  {/* 「示意片段」是版权诚实标记(引用自公开影视作品),有视频就必须在 */}
+                  {c.videoUrl && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/55 text-white/80 border border-white/10 backdrop-blur-sm">示意片段</span>
+                  )}
+                </span>
+              )}
               {playingId === c.id && c.videoUrl ? (
                 <video
                   src={c.videoUrl}
@@ -90,7 +106,6 @@ export default function CasesPage() {
                   )}
                   {c.videoUrl && (
                     <>
-                      <span className="absolute top-2.5 left-2.5 text-[10px] px-1.5 py-0.5 rounded bg-black/55 text-white/80 border border-white/10 backdrop-blur-sm">示意片段</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); setPlayingId(c.id); }}
                         aria-label="有声播放"
@@ -123,25 +138,12 @@ export default function CasesPage() {
                 </>
               )}
             </div>
-            <div className="p-4">
-              <span className="text-xs text-[var(--soft)]">{c.category}</span>
-              <h4 className="font-semibold mt-1 mb-2">{c.title}</h4>
-              {/* Prompt preview */}
-              {(c.prompt || c.description) && (
-                <p className="text-[11px] text-gray-500 line-clamp-2 mb-2 italic">
-                  &ldquo;{(c.prompt || c.description).slice(0, 80)}&rdquo;
-                </p>
-              )}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5 text-[var(--soft)]">
-                  <img loading="lazy" decoding="async" src={c.authorAvatar} alt={c.authorName} className="w-7 h-7 rounded-full" />
-                  <span className="text-xs">{c.authorName}</span>
-                </div>
-                <div className="flex gap-2.5 text-[10px] text-[var(--soft)]">
-                  <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" /> {c.metrics?.views || 0}</span>
-                  <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" /> {c.metrics?.likes || 0}</span>
-                </div>
-              </div>
+            {/* v12.436:信息区只留标题 + 一句「拿去就能开机」的创意。
+                去掉了作者行和播放/点赞 —— 那两个数是种子数据(1129 赞 / 4112 播放),
+                不是真实互动,而在自己的案例库里摆假热度没有意义。 */}
+            <div className="p-2.5">
+              <h4 className="text-[13px] font-semibold leading-snug line-clamp-1">{c.title}</h4>
+              <p className="text-[11px] text-[var(--soft)] line-clamp-2 leading-relaxed mt-0.5">{caseSeedIdea(c)}</p>
             </div>
           </div>
         ))}
