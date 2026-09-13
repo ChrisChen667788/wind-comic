@@ -56,7 +56,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     const { renderStageSketch, sketchMetaFromScene } = await import('@/lib/stage-sketch');
     const { storagePut } = await import('@/lib/storage');
-    const [w, h] = aspectRatio === '9:16' ? [540, 960] : aspectRatio === '1:1' ? [720, 720] : [960, 540];
+    const { frameSize } = await import('@/lib/stage-blocking');
+    // v12.439:尺寸按**项目画幅**(getStageScene 已挂上 scene.aspect),不看请求体的 aspectRatio ——
+    // 导演台从来不传它,修前竖屏项目的舞台草图一律出 960×540 横图,而几何又按 36×24 投影,人被拉宽。
+    // 图的宽高比与投影同源(frameSize 走 sensorDims),草图才与提示词里的站位/景别一致。
+    const { width: w, height: h } = frameSize(scene.aspect);
     const png = renderStageSketch(scene, { width: w, height: h });
     const put = await storagePut(png, 'image/png', 'png');
     sketchUrl = put.url;

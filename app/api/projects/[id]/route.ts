@@ -51,6 +51,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // v12.305:同理 —— 坏数据降级,不让单个字段把整个项目详情打成 500
     covers: safeJsonParse<string[]>(row.cover_urls, [], { context: `projects.cover_urls#${row.id}` }),
     status: row.status,
+    // v12.439:画幅。v10.6.0 竖屏优先起项目页就按 `project.aspect === '9:16'` 切竖屏画框/安全区,
+    // 但这里**从来没吐过这个字段** —— 27 个竖屏项目的项目页一直按横屏显示,导演台也按横屏算。
+    // 缺省同库列默认值 16:9(老项目零回归)。
+    aspect: row.aspect || '16:9',
     // v2.9: 把 style_id / primary_character_ref 吐给前端,UI 能按项目锁死风格与主角脸
     styleId: row.style_id || null,
     primaryCharacterRef: row.primary_character_ref || null,

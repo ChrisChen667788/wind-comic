@@ -9,7 +9,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAccess } from '@/lib/auth-guard';
-import { getStageScene, saveStageScene, stageReport, stageDirectiveForShot } from '@/lib/stage-scene-store';
+import { getStageScene, saveStageScene, stageReport, stageDirectiveForShot, withProjectAspect } from '@/lib/stage-scene-store';
 import type { StageScene } from '@/lib/stage-blocking';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -54,8 +54,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: '舞台数据不完整:需要 camera(含 yawDeg)与 actors 数组' }, { status: 400 });
   }
 
-  const report = stageReport(scene);
-  const directive = stageDirectiveForShot(scene);
+  // 体检与提示词按项目画幅算 —— 与 GET、编排器、草图同一口径(画幅不信请求体,以项目为准)
+  const framed = await withProjectAspect(id, scene);
+  const report = stageReport(framed);
+  const directive = stageDirectiveForShot(framed);
 
   // 拖动预览:只算不存。否则每拖一帧写一次库。
   if (body?.dryRun) {

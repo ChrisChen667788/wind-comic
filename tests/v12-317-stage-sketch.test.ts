@@ -177,11 +177,14 @@ describe('v12.317 · 接线:复用既有 sketch 通道,不新开参考图', () =
     expect(block).toMatch(/还没在导演台摆过位/);
   });
 
-  it('画幅比跟随请求(竖屏短剧不能拿横屏草图锁构图)', () => {
+  // v12.439 迁移:原断言「stage 分支读请求体 aspectRatio」—— 而导演台**从来不传**它,
+  // 竖屏项目的舞台草图一律出了 960×540 横图,这条断言却一直绿。现在尺寸取项目画幅,
+  // 行为(9:16 项目 → 540×960 PNG、请求体传 16:9 也不改)在 v12-439-director-stage-3d 里真跑路由锁住。
+  it('画幅取项目(scene.aspect),不信请求体(竖屏短剧不能拿横屏草图锁构图)', () => {
     const i = ROUTE.indexOf("if (mode === 'stage')");
     const block = ROUTE.slice(i, ROUTE.indexOf("} else if (mode === 'set')", i));
-    expect(block).toContain("'9:16'");
-    expect(block).toContain('aspectRatio');
+    expect(block).toContain('frameSize(scene.aspect)');
+    expect(block, '请求体的 aspectRatio 只给 AI 生成模式用').not.toMatch(/aspectRatio\s*===/);
   });
 
   it('**草图进引擎前过 toEngineImage** —— 否则本地图够不着,草图锁静默失效', () => {

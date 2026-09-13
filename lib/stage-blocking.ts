@@ -49,6 +49,17 @@ export interface StageCamera {
 export interface StageScene {
   actors: StageActor[];
   camera: StageCamera;
+  /**
+   * 项目画幅(v12.439),如 '9:16' / '16:9' / '1:1' / '2.35:1'。
+   *
+   * 修前整个空间模型**完全不看画幅**,永远按 36×24(3:2 横幅)算视角。库里 84% 的项目是 9:16,
+   * 35mm 下真实水平视角约 32°,模型却按 54° 算 —— 把画面宽度高估约 68%:构图体检漏报出画的人,
+   * 提示词把已裁出画外的人说成「在右三分线」。
+   *
+   * **不存进舞台数据**:画幅以 projects.aspect 为准,由 stage-scene-store 在读取时注入,
+   * 项目改了画幅,几何自动跟着变。缺省按 3:2,与修前完全一致(向后兼容)。
+   */
+  aspect?: string;
 }
 
 export interface ProjectedActor {
@@ -81,19 +92,48 @@ const LENS_MM: Record<string, number> = {
   '18': 18, '24': 24, '35': 35, '50': 50, '85': 85, '100': 100, anamorphic: 40,
 };
 
-const SENSOR_W = 36;   // 35mm 全画幅
-const SENSOR_H = 24;
+/** 35mm 全画幅的长边(毫米) */
+export const SENSOR_LONG_MM = 36;
+
+/**
+ * 按画幅算等效传感器尺寸(v12.439)——**长边固定 36mm**。
+ *
+ * 为什么是长边而不是对角线:16:9 是对全画幅的上下裁切,宽度仍是 36mm(与 3:2 同一个水平视角);
+ * 竖拍就是把机身转 90°,长边变成了高。于是同一支 35mm 镜头,16:9 水平 54.4°,9:16 水平 32.3°。
+ * 按对角线固定会得出 9:16 水平 33.7°、1:1 边长 30.6mm(比 3:2 的短边还窄),都与直觉和实拍不符。
+ *
+ * 缺省(无画幅)返回 36×24,与修前一致。
+ */
+export function sensorDims(aspect?: string | null): { sW: number; sH: number } {
+  const m = typeof aspect === 'string' ? aspect.trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/) : null;
+  const r = m ? Number(m[1]) / Number(m[2]) : NaN;
+  if (!(r > 0) || !Number.isFinite(r)) return { sW: 36, sH: 24 };
+  return r >= 1 ? { sW: SENSOR_LONG_MM, sH: SENSOR_LONG_MM / r } : { sW: SENSOR_LONG_MM * r, sH: SENSOR_LONG_MM };
+}
+
+/**
+ * v12.439:按画幅给出画面像素尺寸 —— 草图 PNG 与导演台预览共用。
+ *
+ * 宽高比取自 `sensorDims`(同一个解析器),**不另解析一次画幅字符串**:
+ * 若草图按 16:9 出图而几何按 36×24 投影,人会被横向拉宽,和提示词里的景别对不上。
+ * 面积固定(默认 960×540),于是 16:9→960×540、9:16→540×960、1:1→720×720,与修前三档完全一致。
+ */
+export function frameSize(aspect?: string | null, area = 960 * 540): { width: number; height: number } {
+  const { sW, sH } = sensorDims(aspect);
+  const r = sW / sH;
+  return { width: Math.round(Math.sqrt(area * r)), height: Math.round(Math.sqrt(area / r)) };
+}
 
 /** 水平视角(度) */
-export function horizontalFovDeg(lens: LensId | undefined): number {
+export function horizontalFovDeg(lens: LensId | undefined, aspect?: string | null): number {
   const f = LENS_MM[String(lens || '35')] ?? 35;
-  return (2 * Math.atan(SENSOR_W / (2 * f)) * 180) / Math.PI;
+  return (2 * Math.atan(sensorDims(aspect).sW / (2 * f)) * 180) / Math.PI;
 }
 
 /** 垂直视角(度)—— 画幅高 24mm。v12.317 草图要按真实透视画,故须分开算。 */
-export function verticalFovDeg(lens: LensId | undefined): number {
+export function verticalFovDeg(lens: LensId | undefined, aspect?: string | null): number {
   const f = LENS_MM[String(lens || '35')] ?? 35;
-  return (2 * Math.atan(SENSOR_H / (2 * f)) * 180) / Math.PI;
+  return (2 * Math.atan(sensorDims(aspect).sH / (2 * f)) * 180) / Math.PI;
 }
 
 const norm180 = (deg: number) => {
@@ -106,11 +146,12 @@ const norm180 = (deg: number) => {
  * 由「主体在画面里占多高」反推景别 —— 而不是让用户填一个与实际不符的标签。
  * 这正是导演台该解决的:**镜头参数与景别不再是两套各说各话的东西**。
  */
-export function inferShotSize(distanceM: number, lens: LensId | undefined, subjectHeightM = 1.7): ShotSize {
+export function inferShotSize(distanceM: number, lens: LensId | undefined, subjectHeightM = 1.7, aspect?: string | null): ShotSize {
   const f = LENS_MM[String(lens || '35')] ?? 35;
   if (!(distanceM > 0)) return 'ECU';
-  // 主体在传感器上的成像高度占画幅高度(24mm)的比例
-  const frac = (subjectHeightM * f) / (distanceM * 24);
+  // 主体在传感器上的成像高度占画幅高度的比例。v12.439:画幅高度随画幅走(修前写死 24mm)。
+  // distanceM 应是**沿光轴的深度**(projectScene 传的就是它),直线透视下成像大小由深度决定。
+  const frac = (subjectHeightM * f) / (distanceM * sensorDims(aspect).sH);
   if (frac >= 3.5) return 'ECU';
   if (frac >= 1.6) return 'CU';
   if (frac >= 0.85) return 'MS';
@@ -141,8 +182,11 @@ function thirdsOf(screenX: number, inFrame: boolean): ProjectedActor['thirds'] {
 /** 把舞台投影到画面 —— 导演台的核心计算 */
 export function projectScene(scene: StageScene): ProjectedActor[] {
   const cam = scene.camera;
-  const fov = horizontalFovDeg(cam.lens);
+  const aspect = scene.aspect;
+  const fov = horizontalFovDeg(cam.lens, aspect);
   const half = fov / 2;
+  const tanHalfH = Math.tan((half * Math.PI) / 180);
+  const tanHalfV = Math.tan((verticalFovDeg(cam.lens, aspect) * Math.PI) / 360);
 
   const raw = (scene.actors || []).map((a) => {
     const dx = a.x - cam.x;
@@ -152,19 +196,22 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
     const bearing = (Math.atan2(dx, dz) * 180) / Math.PI;
     const rel = norm180(bearing - cam.yawDeg);
     // 主体在机位背后 → 一定不在画面里
-    const behind = Math.abs(rel) > 90;
-    const screenX = behind ? (rel > 0 ? 2 : -2) : rel / half;
+    const behind = Math.abs(rel) >= 90;
+    const relRad = (rel * Math.PI) / 180;
+    // v12.439:**直线透视**。修前是 rel / half(按角度线性),真实镜头与 three.js 都是 tan(rel)/tan(half),
+    // 两者只在画面正中与边缘重合,中间错开 —— 18mm 下错 4.3% 画幅,35mm 1.5%。
+    // 没有 3D 画面对照时看不出来;一加 3D 视口,人物位置就和提示词、体检、草图对不上。
+    const screenX = behind ? (rel > 0 ? 2 : -2) : Math.tan(relRad) / tanHalfH;
     const inFrame = !behind && Math.abs(screenX) <= 1;
-    // 纵向:真透视。脚在 y=0、头在 y=heightM,按与机位高度的落差取俯仰角,
-    // 再除以半个垂直视角归一化 —— 于是低机位人物压迫、高机位俯看,草图能画对。
+    // 纵向:直线透视下的成像高度由**沿光轴的深度**决定,不是水平距离。
+    // 修前用水平距离 —— 人物偏离画面中心 20° 时纵向位置差约 6%(已对照 three.js 验证)。
+    const depth = Math.max(distanceM * Math.cos(relRad), 1e-6);
     const h = a.heightM ?? 1.7;
     const camH = cam.heightM ?? 1.6;
-    const halfV = verticalFovDeg(cam.lens) / 2;
-    const yAngle = (yy: number) => (Math.atan2(yy - camH, Math.max(distanceM, 1e-6)) * 180) / Math.PI;
-    const screenBottom = yAngle(0) / halfV;
-    const screenTop = yAngle(h) / halfV;
+    const screenBottom = (0 - camH) / (depth * tanHalfV);
+    const screenTop = (h - camH) / (depth * tanHalfV);
     return {
-      id: a.id, name: a.name, distanceM, rel, screenX, inFrame,
+      id: a.id, name: a.name, distanceM, depth, rel, screenX, inFrame,
       heightM: h, screenTop, screenBottom,
     };
   });
@@ -180,7 +227,7 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
       inFrame: r.inFrame,
       screenX: Number(r.screenX.toFixed(4)),
       distanceM: Number(r.distanceM.toFixed(3)),
-      shotSize: inferShotSize(r.distanceM, cam.lens, r.heightM),
+      shotSize: inferShotSize(r.depth, cam.lens, r.heightM, aspect),
       occludedBy,
       thirds: thirdsOf(r.screenX, r.inFrame),
       screenTop: Number(r.screenTop.toFixed(4)),
@@ -265,7 +312,7 @@ export function describeStaging(scene: StageScene): string {
       return `${who}位于${THIRDS_CN[p.thirds]}(${SIZE_CN[p.shotSize]},距机位约 ${p.distanceM.toFixed(1)} 米${occ})`;
     });
 
-  return `${ANGLE_CN[angle]}机位,${horizontalFovDeg(cam.lens).toFixed(0)}° 水平视角;${parts.join(';')}。`;
+  return `${ANGLE_CN[angle]}机位,${horizontalFovDeg(cam.lens, scene.aspect).toFixed(0)}° 水平视角;${parts.join(';')}。`;
 }
 
 /**

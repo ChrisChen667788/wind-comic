@@ -1344,6 +1344,7 @@ export default function ProjectDetailPage() {
           shotNumber={stageShot.shotNumber}
           shotTitle={stageShot.title}
           initialScene={stageShot.scene}
+          aspect={project?.aspect}
           characterNames={stageShot.characters}
           onClose={() => setStageShot(null)}
           onSaved={() => setStagedShots((m) => ({ ...m, [stageShot.shotNumber]: true }))}

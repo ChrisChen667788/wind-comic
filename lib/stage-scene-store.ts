@@ -27,10 +27,32 @@ export async function getStageScene(projectId: string, shotNumber: number): Prom
   try {
     const data = typeof (row as any).data === 'string' ? JSON.parse((row as any).data) : (row as any).data;
     if (!data?.camera || !Array.isArray(data?.actors)) return null;
-    return { ...data, shotNumber: Number(shotNumber) };
+    return withProjectAspect(projectId, { ...data, shotNumber: Number(shotNumber) });
   } catch {
     // 存坏了不该把出片打挂 —— 当没设过处理(下游退回原有提示词逻辑)
     return null;
+  }
+}
+
+/**
+ * v12.439:给舞台挂上**项目画幅** —— 画幅注入口只有这一处。
+ *
+ * 画幅决定画面宽高比,进而决定谁在画内、景别多大。它**不存进舞台数据**:
+ * 画幅是项目的属性,用户改了项目画幅,舞台就该跟着变;存一份副本迟早和项目对不上。
+ * 编排器、草图、GET/POST 体检都经 `getStageScene` 或这里取,口径不会分叉。
+ *
+ * 真库 32 个项目里 27 个是 9:16 —— 之前几何一律按 36×24 横向底片算,竖屏项目
+ * 左右视角被算宽了近一倍,画外的人被当成画内写进提示词。
+ *
+ * 查项目失败不连累舞台:退回不带画幅(旧口径 36×24),总好过整镜站位丢掉。
+ */
+export async function withProjectAspect<T extends StageScene>(projectId: string, scene: T): Promise<T> {
+  try {
+    const { getProject } = await import('./repos/project-repo');
+    const aspect = (await getProject(projectId))?.aspect;
+    return typeof aspect === 'string' && aspect.trim() ? { ...scene, aspect } : scene;
+  } catch {
+    return scene;
   }
 }
 
