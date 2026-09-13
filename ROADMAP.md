@@ -2071,7 +2071,7 @@ npm test
 |---|---|---|---|
 | ~~TTS 模型不一致~~ ✅ v9.0.4e | minimax.service 3 处 `speech-2.8-hd`→`speech-02-hd` 统一 (与 tts.service 一致) | 中 | ✅ 已清 |
 | `lib/export.ts` PDF/视频 stub TODO | export.ts:11/47/52 | 低 | 不安排 — §2.3 已替代 |
-| `skills/skills-implementation.ts` 4 个 AI 能力占位 | skills-implementation.ts:43/96/145/190 | 低 | 不安排 — 实验性目录 |
+| ~~`skills/skills-implementation.ts` 4 个 AI 能力占位~~ ✅ v12.438 | 全仓零引用,连同只描述它的 `skills/base/`、`advanced/`、`examples/` 平铺文档与 `INTEGRATION_REPORT.md` 一并删除 | 低 | ✅ 已清 |
 | SQLite 并发写锁(invite-codes 偶发) | better-sqlite3 并行写 | 中 | 等 PG 迁移解 |
 | `lib/i18n.ts` 繁中/日文占位 | i18n.ts:130/132 | 低 | Sprint D+ |
 | `lib/performance.ts` 分析服务 TODO | performance.ts:108 | 低 | 不安排 |
