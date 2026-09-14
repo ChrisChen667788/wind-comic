@@ -520,13 +520,13 @@ Every model call is provider-pluggable (priority chain + automatic fallback). Cr
 | **Creative LLM** (writer / director) | `deepseek-v4-pro` (`OPENAI_CREATIVE_MODEL`) + `deepseek-v4-flash` fast tier for drafts/polish | `MiniMax-M2.7` (`LLM_FALLBACK_MODEL`) |
 | **General LLM** (planning / validation / Vision-Audit) | `claude-sonnet-4-6` (`OPENAI_MODEL`) | `MiniMax-M2.7` |
 | **Video** | `veo3.1-pro` (`VEO_MODEL`) | `veo3.1` · Kling → **MiniMax Hailuo** (Sora-2 retired — API EOL 2026-09-24) |
-| **Image** | `flux.1-kontext-pro` (`IMAGE_MODEL`) | Midjourney (`mj_imagine`) · fal FLUX Kontext · local ComfyUI → **MiniMax image** |
+| **Image** | `flux.1-kontext-pro` (`IMAGE_MODEL`) | Midjourney (`mj_imagine`) · Atlas Cloud Seedream (opt-in) · fal FLUX Kontext · local ComfyUI → **MiniMax image** |
 | **TTS / voiceover** | `gpt-4o-mini-tts` (`VE_TTS_MODEL`) | MiniMax T2A (`speech-02-hd`) |
 | **Music / BGM** | MiniMax music | (Suno when gateway channel available) |
 
 - **Why two LLM tiers**: the creative tier (DeepSeek `-pro`, a reasoning model) carries writer/director quality work; the general tier (Claude `sonnet-4-6`) handles high-frequency planning / validation / Vision-Audit; the `-flash` tier keeps draft-compare & basic polish at sub-second latency.
 - **MiniMax safety net**: any primary LLM / video / image failure auto-routes to MiniMax (OpenAI-compatible) — surfaced live on the **API Health Board** (正常 / 额度用尽 / 配置缺失 / 不可达).
-- **Swap anything** in `.env.local` (`OPENAI_*` / `OPENAI_CREATIVE_*` / `VEO_*` / `IMAGE_MODEL` / `VE_TTS_MODEL` / `MINIMAX_*`) — zero code change. See [`docs/llm-providers.md`](docs/llm-providers.md).
+- **Swap anything** in `.env.local` (`OPENAI_*` / `OPENAI_CREATIVE_*` / `ATLASCLOUD_*` / `VEO_*` / `IMAGE_MODEL` / `VE_TTS_MODEL` / `MINIMAX_*`) — zero code change. See [`docs/llm-providers.md`](docs/llm-providers.md).
 
 ---
 

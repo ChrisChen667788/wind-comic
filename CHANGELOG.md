@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Atlas Cloud Seedream image provider** — adds an opt-in text-to-image fallback backed by Atlas Cloud's asynchronous prediction API. Submission is never retried, prediction polling is bounded, and reference-bound shots skip the provider rather than dropping their references.
 - **Multi-character face lock — Phase 1** (`/dashboard/create`) — upload 1-3 main character faces (主角 A / B / C) at creation time with name + role preset (lead 125 / antagonist 125 / supporting 100 / cameo 80) → cw. Files via local upload **or** image URL. Persisted in new `projects.locked_characters` JSON column; first character is also synced into the existing `primary_character_ref` for backward-compat with the v2.9 single-face orchestrator path. Project page shows a colored badge with all locked characters.
   - New endpoint: `POST /api/upload/character-face` (multipart **or** `{imageUrl}` JSON; size cap 10 MB; protocol whitelist `http(s):` / `data:`)
   - New component: `components/create/character-lock-section.tsx`
