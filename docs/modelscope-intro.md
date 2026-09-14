@@ -28,7 +28,7 @@
   <b>English</b> · <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/README.zh-CN.md">简体中文</a> · <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/docs/MARKETING-en.md">🔥 Pitch</a> · <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/docs/llm-providers.md">🔌 BYO LLM</a>
 </p>
 <p align="center">
-  <sub>Mirror for mainland China · 国内 AtomGit 托管(自动同步自 GitHub):<a href="https://atomgit.com/gh_mirrors/wi/wind-comic">atomgit.com/gh_mirrors/wi/wind-comic</a></sub>
+  <sub>Mirror for mainland China · 国内 AtomGit 托管(自动同步自 GitHub):<a href="https://atomgit.com/ChrisChen667788/wind-comic">atomgit.com/ChrisChen667788/wind-comic</a></sub>
 </p>
 
 <p align="center">
@@ -564,7 +564,7 @@ docker compose -f docker-compose.demo.yml up
 # 1. clone + install
 git clone https://github.com/ChrisChen667788/wind-comic.git
 #    in mainland China, clone the AtomGit mirror instead (LFS videos included):
-#    git clone https://atomgit.com/gh_mirrors/wi/wind-comic.git
+#    git clone https://atomgit.com/ChrisChen667788/wind-comic.git
 cd wind-comic
 npm install
 
