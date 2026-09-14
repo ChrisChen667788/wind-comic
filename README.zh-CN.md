@@ -16,6 +16,9 @@
 <p align="center">
   <a href="README.md">English</a> · <b>简体中文</b> · <a href="docs/MARKETING-zh.md">🔥 营销文案</a> · <a href="docs/llm-providers.md">🔌 接你自己的 LLM</a>
 </p>
+<p align="center">
+  <sub>国内 AtomGit 托管(自动同步自 GitHub):<a href="https://atomgit.com/gh_mirrors/wi/wind-comic">atomgit.com/gh_mirrors/wi/wind-comic</a></sub>
+</p>
 
 ---
 
@@ -403,6 +406,8 @@ docker compose -f docker-compose.demo.yml up
 ```bash
 # 1. 拉代码 + 装依赖
 git clone https://github.com/ChrisChen667788/wind-comic.git
+#    国内网络可改用 AtomGit 镜像(含 LFS 视频):
+#    git clone https://atomgit.com/gh_mirrors/wi/wind-comic.git
 cd wind-comic
 npm install
 
