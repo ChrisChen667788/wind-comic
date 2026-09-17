@@ -24,6 +24,19 @@ updates:
       # major 升级人工评估:Next 16 / React 19 的破坏面需要逐版验证
       - dependency-name: "*"
         update-types: [version-update:semver-major]
+      # React 19.3 暂时升不了:@react-three/fiber 9.7.0(3D 导演台)的 peer 是
+      # react / react-dom 「>=19 <19.3」,单升任何一个 npm install 都 ERESOLVE(#48 #49)。
+      # 类型包一起挡住,免得类型跑到运行时前面。
+      # 解锁条件:npm view @react-three/fiber peerDependencies 不再带 <19.3 时,
+      # 删掉这四条,把 r3f + react + react-dom + 两个 @types 放进同一个 PR 一次升。
+      - dependency-name: react
+        versions: [">=19.3.0"]
+      - dependency-name: react-dom
+        versions: [">=19.3.0"]
+      - dependency-name: "@types/react"
+        versions: [">=19.3.0"]
+      - dependency-name: "@types/react-dom"
+        versions: [">=19.3.0"]
 
   - package-ecosystem: github-actions
     directory: /
