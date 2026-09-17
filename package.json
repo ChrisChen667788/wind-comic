@@ -16,7 +16,6 @@
     "dev:ws": "node scripts/ws-server.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "test": "node --unhandled-rejections=strict ./node_modules/vitest/vitest.mjs run",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
