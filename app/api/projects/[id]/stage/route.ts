@@ -54,6 +54,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: '舞台数据不完整:需要 camera(含 yawDeg)与 actors 数组' }, { status: 400 });
   }
 
+  // v12.440:逐个人物校验数值字段。修前只查 actors 是数组 —— 传 facingDeg:"90" 会原样落库,
+  // 几何层按「未设」忽略,用户存了朝向、下次打开却没了,全程没有报错。
+  // facingDeg 为 null 视同未设(清除朝向);其余非有限数字一律拒绝,而不是替人猜。
+  for (const [i, a] of (scene.actors as any[]).entries()) {
+    if (!a || typeof a !== 'object' || !Number.isFinite(a.x) || !Number.isFinite(a.z)) {
+      return NextResponse.json({ error: `第 ${i + 1} 个人物缺少有效的 x / z(米)` }, { status: 400 });
+    }
+    if (a.facingDeg === null) delete a.facingDeg;
+    else if (a.facingDeg !== undefined && !Number.isFinite(a.facingDeg)) {
+      return NextResponse.json({ error: `第 ${i + 1} 个人物的 facingDeg 必须是数字(度),收到 ${JSON.stringify(a.facingDeg).slice(0, 20)}` }, { status: 400 });
+    }
+  }
+
   // 体检与提示词按项目画幅算 —— 与 GET、编排器、草图同一口径(画幅不信请求体,以项目为准)
   const framed = await withProjectAspect(id, scene);
   const report = stageReport(framed);

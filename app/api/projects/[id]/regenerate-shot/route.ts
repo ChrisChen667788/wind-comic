@@ -151,6 +151,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           const result = await orchestrator.regenerateShot(shotNumber, storyboard, {
             duration: duration || 8,
             videoProvider: provider,
+            projectId, // v12.440:让重生读到导演台站位
           });
 
           // v12.343:生成完必须**落盘 + 落库**。原实现只把 videoUrl 从 SSE 吐出去就完了 ——

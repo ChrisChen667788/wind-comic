@@ -31,7 +31,11 @@ export interface StageActor {
   z: number;
   /** 身高(米);缺省 1.7 */
   heightM?: number;
-  /** 朝向(度);0 = 面向 +z */
+  /**
+   * 身体朝向(度);0 = 面向 +z,顺时针为正(与机位 yaw 同一约定)。
+   * **缺省 = 未设**:不判正侧背、不进提示词 —— 旧舞台数据的描述逐字不变。
+   * v12.440 起参与几何(`facingOf`);此前字段存在但从未被读。
+   */
   facingDeg?: number;
 }
 
@@ -86,6 +90,25 @@ export interface ProjectedActor {
    */
   screenTop: number;
   screenBottom: number;
+  /** 朝向在镜头里的样子(v12.440);人物没设 `facingDeg` 时不存在该字段 */
+  facing?: FacingInFrame;
+}
+
+/** 镜头看到的身体朝向:正面 → 3/4 侧 → 侧面 → 3/4 背 → 背面 */
+export type FacingView = 'front' | 'three-quarter' | 'profile' | 'three-quarter-back' | 'back';
+
+export interface FacingInFrame {
+  view: FacingView;
+  /**
+   * 身体朝画面哪一侧转;正面/背面时不存在。
+   * 按朝向在「机位→人」视线右法向上的分量判,不是按人物自己的左右手 —— 提示词要的是画面方向。
+   */
+  screenSide?: 'left' | 'right';
+  /** 朝向正对着的另一个人(±25° 内取角度偏差最小的,再比距离);没有则不存在 */
+  towardId?: string;
+  towardName?: string;
+  /** 人物朝向与「人→机位」方向的夹角,0 = 正对镜头,180 = 背对 */
+  offCameraDeg: number;
 }
 
 const LENS_MM: Record<string, number> = {
@@ -179,6 +202,70 @@ function thirdsOf(screenX: number, inFrame: boolean): ProjectedActor['thirds'] {
   return 'right';
 }
 
+const isFacingSet = (a: StageActor) => typeof a.facingDeg === 'number' && Number.isFinite(a.facingDeg);
+
+/** 望向某人的容差(度):朝向与「A→B」方位角之差在此以内才算「朝着 B」 */
+export const TOWARD_TOLERANCE_DEG = 25;
+
+/**
+ * 人物朝向在镜头里的样子(v12.440)。未设朝向返回 null。
+ *
+ * **参照是「人→机位」而不是机位光轴**:画面边缘的人,镜头是斜着看他的 ——
+ * 同样朝 +z 转身,站在画面正中和站在画面边上,镜头看到的侧转程度不一样。
+ * 分档(与 `offCameraDeg` 对应):≤30 正面、≤70 3/4 侧、≤110 侧面、≤150 3/4 背、其余背面。
+ */
+export function facingOf(actor: StageActor, camera: StageCamera, others: StageActor[] = []): FacingInFrame | null {
+  if (!isFacingSet(actor)) return null;
+  const f = norm180(actor.facingDeg as number);
+  const toCam = (Math.atan2(camera.x - actor.x, camera.z - actor.z) * 180) / Math.PI;
+  const off = Math.abs(norm180(f - toCam));
+  const view: FacingView =
+    off <= 30 ? 'front' : off <= 70 ? 'three-quarter' : off <= 110 ? 'profile' : off <= 150 ? 'three-quarter-back' : 'back';
+
+  const out: FacingInFrame = { view, offCameraDeg: Number(off.toFixed(1)) };
+  if (view !== 'front' && view !== 'back') {
+    // 朝画面哪边:看朝向在「机位→人」这条视线的**右法向**上的分量 = sin(f − 视线方位角)。
+    // 不能用机位光轴的右方向 —— 广角镜头画面边上的人,视线偏光轴可超过 30°,
+    // 朝向夹在光轴与视线之间时两种算法给出相反的左右(对照 three.js 投影验证过)。
+    const lineOfSight = norm180(toCam + 180);
+    out.screenSide = Math.sin(((f - lineOfSight) * Math.PI) / 180) >= 0 ? 'right' : 'left';
+  }
+
+  // 选「最正对着的」那个人,而不是最近的:A 正看着 6 米外的 C,3 米外偏 20° 站着 B,
+  // 按距离选会说 A 在看 B。角度相同再比距离,仍相同按数组顺序(同一份数据结果恒定)。
+  let best: { a: StageActor; off: number; d: number } | null = null;
+  for (const o of others) {
+    if (o.id === actor.id) continue;
+    const d = Math.hypot(o.x - actor.x, o.z - actor.z);
+    if (d < 1e-6) continue;
+    const bearing = (Math.atan2(o.x - actor.x, o.z - actor.z) * 180) / Math.PI;
+    const offBy = Math.abs(norm180(bearing - f));
+    if (offBy > TOWARD_TOLERANCE_DEG) continue;
+    if (!best || offBy < best.off - 1e-9 || (Math.abs(offBy - best.off) <= 1e-9 && d < best.d)) best = { a: o, off: offBy, d };
+  }
+  if (best) {
+    out.towardId = best.a.id;
+    if (best.a.name) out.towardName = best.a.name;
+  }
+  return out;
+}
+
+/** 把任意角度归一到 (−180, 180](键盘转朝向用;界面不自己做角度运算) */
+export function normalizeFacingDeg(deg: number): number {
+  return norm180(deg);
+}
+
+/**
+ * 由俯视图上的指针位置算人物朝向(度),吸附到 `snapDeg` 的整数倍,范围 (−180, 180]。
+ * 指针离人太近(方向无定义)返回 null。放在几何层而不是界面里:界面不自己算几何(v12.318 的分工)。
+ */
+export function facingFromPoint(actor: Pick<StageActor, 'x' | 'z'>, x: number, z: number, snapDeg = 5): number | null {
+  if (Math.hypot(x - actor.x, z - actor.z) < 0.15) return null;
+  const deg = (Math.atan2(x - actor.x, z - actor.z) * 180) / Math.PI;
+  const snapped = snapDeg > 0 ? Math.round(deg / snapDeg) * snapDeg : deg;
+  return norm180(snapped);   // norm180 已把 −180 归成 180
+}
+
 /** 把舞台投影到画面 —— 导演台的核心计算 */
 export function projectScene(scene: StageScene): ProjectedActor[] {
   const cam = scene.camera;
@@ -216,12 +303,18 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
     };
   });
 
-  return raw.map((r) => {
+  // 「望向谁」只在**画内**的人里找:锥内最近的若是画外的人,提示词不能说他(会诱导模型把他画进来),
+  // 而真正被望向、也在画内的那个人就被挤掉了。先筛画内,再取最近。
+  const actors = scene.actors || [];
+  const visible = actors.filter((_, i) => raw[i].inFrame);
+
+  return raw.map((r, i) => {
+    const facing = facingOf(actors[i], cam, visible);
     // 遮挡:角度接近(投影重叠)且更近的人
     const occludedBy = raw
       .filter((o) => o.id !== r.id && o.distanceM < r.distanceM && Math.abs(o.rel - r.rel) < 4)
       .map((o) => o.name || o.id);
-    return {
+    const out: ProjectedActor = {
       id: r.id,
       name: r.name,
       inFrame: r.inFrame,
@@ -233,11 +326,14 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
       screenTop: Number(r.screenTop.toFixed(4)),
       screenBottom: Number(r.screenBottom.toFixed(4)),
     };
+    // 未设朝向就不带这个键 —— 旧数据的投影结果与修前结构完全相同
+    if (facing) out.facing = facing;
+    return out;
   });
 }
 
 export interface StagingIssue {
-  kind: 'off-frame' | 'occluded' | 'camera-inside-actor' | 'empty-frame';
+  kind: 'off-frame' | 'occluded' | 'camera-inside-actor' | 'empty-frame' | 'no-face-to-camera';
   actorId?: string;
   message: string;
 }
@@ -276,7 +372,51 @@ export function auditStaging(scene: StageScene): StagingIssue[] {
   if (projected.length > 0 && projected.every((p) => !p.inFrame)) {
     issues.push({ kind: 'empty-frame', message: '画面里一个人都没有 —— 机位朝向可能反了' });
   }
+
+  // v12.440:画内每个人都设了朝向,却没有一张脸朝镜头(全是侧面/背面)。
+  // 只在「全都设了」时报 —— 有人没设就不知道他朝哪,不能替他下结论;过肩/背影镜头是正当用法,所以只报不拦。
+  const shown = projected.filter((p) => p.inFrame);
+  if (shown.length > 0 && shown.every((p) => p.facing)
+      && !shown.some((p) => p.facing!.view === 'front' || p.facing!.view === 'three-quarter')) {
+    issues.push({
+      kind: 'no-face-to-camera',
+      message: '画面里没有一张脸朝向镜头(都是侧面或背面)—— 如非刻意的过肩/背影镜头,转一下人物朝向',
+    });
+  }
   return issues;
+}
+
+const SIDE_CN = { left: '左', right: '右' } as const;
+
+/** 朝向的中文说明(界面用);`inFrameIds` 用来只提画面里看得到的对象 */
+export function facingTextCn(f: FacingInFrame | undefined, inFrameIds: Set<string>): string {
+  if (!f) return '';
+  const side = f.screenSide ? SIDE_CN[f.screenSide] : '';
+  const base =
+    f.view === 'front' ? '正面朝镜头'
+      : f.view === 'three-quarter' ? `3/4 侧身朝画面${side}`
+        : f.view === 'profile' ? `侧身朝画面${side}`
+          : f.view === 'three-quarter-back' ? `3/4 背身朝画面${side}`
+            : '背对镜头';
+  const toward = f.towardId && inFrameIds.has(f.towardId) ? `,望向${f.towardName || f.towardId}` : '';
+  return base + toward;
+}
+
+/**
+ * 朝向的英文短语(进提示词)。
+ * 「朝着谁」只在对方也在画内时说 —— 说「toward 画外的人」会诱导模型把那个人也画进来。
+ */
+export function facingPhraseEn(f: FacingInFrame | undefined, inFrameIds: Set<string>): string {
+  if (!f) return '';
+  const side = f.screenSide ? `screen ${f.screenSide}` : '';
+  const target = f.towardId && inFrameIds.has(f.towardId) ? (f.towardName || f.towardId) : '';
+  switch (f.view) {
+    case 'front': return target ? `facing camera, turned toward ${target}` : 'facing camera';
+    case 'three-quarter': return `in three-quarter view, turned ${target ? `${side} toward ${target}` : `toward ${side}`}`;
+    case 'profile': return `in profile, facing ${target ? `${side} toward ${target}` : side}`;
+    case 'three-quarter-back': return `turned three-quarters away, facing ${target ? `${side} toward ${target}` : side}`;
+    default: return target ? `with back to camera, facing ${target}` : 'with back to camera';
+  }
 }
 
 /**
@@ -303,13 +443,15 @@ export function describeStaging(scene: StageScene): string {
   };
 
   const angle = inferCameraAngle(cam.heightM ?? 1.6);
+  const ids = new Set(inFrame.map((p) => p.id));
   const parts = inFrame
     .slice()
     .sort((a, b) => a.distanceM - b.distanceM)
     .map((p) => {
       const who = p.name || p.id;
       const occ = p.occludedBy.length ? `,被${p.occludedBy.join('、')}部分遮挡` : '';
-      return `${who}位于${THIRDS_CN[p.thirds]}(${SIZE_CN[p.shotSize]},距机位约 ${p.distanceM.toFixed(1)} 米${occ})`;
+      const face = p.facing ? `,${facingTextCn(p.facing, ids)}` : '';
+      return `${who}位于${THIRDS_CN[p.thirds]}(${SIZE_CN[p.shotSize]},距机位约 ${p.distanceM.toFixed(1)} 米${face}${occ})`;
     });
 
   return `${ANGLE_CN[angle]}机位,${horizontalFovDeg(cam.lens, scene.aspect).toFixed(0)}° 水平视角;${parts.join(';')}。`;
@@ -335,12 +477,14 @@ export function stageDirectiveForShot(scene: StageScene | null | undefined): str
     ECU: 'extreme close-up', CU: 'close-up', MS: 'medium shot',
     LS: 'full shot', WS: 'wide shot', ELS: 'extreme wide shot',
   };
+  const ids = new Set(inFrame.map((p) => p.id));
   const parts = inFrame
     .slice()
     .sort((a, b) => a.distanceM - b.distanceM)
     .map((p) => {
       const occ = p.occludedBy.length ? `, partially occluded by ${p.occludedBy.join(' and ')}` : '';
-      return `${p.name || p.id} ${POS[p.thirds]} in ${SIZE[p.shotSize]}${occ}`;
+      const face = p.facing ? `, ${facingPhraseEn(p.facing, ids)}` : '';
+      return `${p.name || p.id} ${POS[p.thirds]} in ${SIZE[p.shotSize]}${face}${occ}`;
     });
   return `. Staging: ${parts.join('; ')}`;
 }

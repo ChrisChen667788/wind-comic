@@ -17,7 +17,9 @@ describe('v12.197 · 首尾帧锁定', () => {
     expect(s).toContain('generateFirstLastFrame(firstFrameUrl, tailImg, enhancedPrompt');
     expect(s).toContain('尾帧融合失败,退回单图 i2v');
     expect(s).toContain('tailFrameUrl?: string');
-    expect(s).toContain('generateFirstLastFrame(engineFrame, tailImg, storyboard.prompt');
+    // v12.440 迁移:单镜重生的提示词先过导演台站位注入口(withStageDirective),
+    // 传给可灵的因此是 videoPrompt 而不是裸 storyboard.prompt —— 尾帧这条链本身没变。
+    expect(s).toContain('generateFirstLastFrame(engineFrame, tailImg, videoPrompt');
   });
   it('regen 路由:body 显式 > 剧本 shot.tailFrameUrl;UI 有尾帧输入', () => {
     const r = fs.readFileSync('app/api/regenerate-shot/route.ts', 'utf-8');

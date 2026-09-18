@@ -3139,13 +3139,10 @@ ${shots.map((s, i) => {
       // 位置刻意选在角色外观/动作/台词**之前**:视频模型对靠前的 token 注意力最高,
       // 而「谁站哪、谁挡谁」恰恰是提示词最说不清、生成最容易翻车的一项。
       // 没摆过位的镜返回空串 —— 绝大多数镜都没摆,必须零影响(向后兼容)。
-      try {
-        const { getStageScene, stageDirectiveForShot } = await import('@/lib/stage-scene-store');
-        const stageScene = await getStageScene(this.projectId, Number(board.shotNumber));
-        const staging = stageDirectiveForShot(stageScene);
-        if (staging) enhancedPrompt += staging;
-      } catch {
-        // 读舞台失败不该把出片打挂 —— 这是增强项,不是必需项
+      // v12.440:与单镜重生 / 自愈 / 4K 重渲共用同一个注入口(withStageDirective 内部吞错,不打挂出片)
+      {
+        const { withStageDirective } = await import('@/lib/stage-scene-store');
+        enhancedPrompt = await withStageDirective(this.projectId, Number(board.shotNumber), enhancedPrompt);
       }
 
       // v12.9.1(#2):记下「角色外观描述」片段。S2V-01 已从 subject_reference 提取身份,
@@ -4236,10 +4233,14 @@ ${characterBibleBlock}${producerContext}
   }
 
   // 单个分镜重生成（优先 Veo 3.1）
-  async regenerateShot(shotNumber: number, storyboard: Storyboard, options?: { duration?: number; videoProvider?: string; tailFrameUrl?: string }): Promise<VideoClip> {
+  async regenerateShot(shotNumber: number, storyboard: Storyboard, options?: { duration?: number; videoProvider?: string; tailFrameUrl?: string; projectId?: string }): Promise<VideoClip> {
     this.update(AgentRole.VIDEO_PRODUCER, { status: 'working', currentTask: `重新生成第 ${shotNumber} 镜`, progress: 0 });
     let videoUrl: string;
     const provider = options?.videoProvider || 'veo';
+    // v12.440:单镜重生也带导演台站位。修前这里直接用 storyboard.prompt,导演台摆的位与朝向对重生完全无效。
+    // projectId 走参数显式传入(路由不调 setProjectId —— 那会连带改变评分回写等其它行为)。
+    const { withStageDirective } = await import('@/lib/stage-scene-store');
+    const videoPrompt = await withStageDirective(options?.projectId || this.projectId, shotNumber, storyboard.prompt);
 
     // v2.14 P0.1: 单镜重生也吃 lockedCharacters → S2V multi-subject
     const subjectRefs = this.getLockedSubjectReferences();
@@ -4276,10 +4277,10 @@ ${characterBibleBlock}${producerContext}
     }
     const regenOrder = resolveEngineOrder(provider, availForRegen, parseEngineOrderEnv(process.env.VIDEO_ENGINE_ORDER));
     const genByEngine: Record<string, () => Promise<string>> = {
-      veo: () => this.veoService!.generateVideo(engineFrame, storyboard.prompt, { duration, aspectRatio: this.videoAspect() }),
-      minimax: () => this.minimaxService!.generateVideo(engineFrame, storyboard.prompt, minimaxOpts),
+      veo: () => this.veoService!.generateVideo(engineFrame, videoPrompt, { duration, aspectRatio: this.videoAspect() }),
+      minimax: () => this.minimaxService!.generateVideo(engineFrame, videoPrompt, minimaxOpts),
       // v12.348:与主管线同参 —— 有首帧走 i2v,否则 t2v。
-      happyhorse: () => this.happyhorseService!.generateVideo(storyboard.prompt, {
+      happyhorse: () => this.happyhorseService!.generateVideo(videoPrompt, {
         imageUrl: engineFrame && engineFrame.startsWith('http') ? engineFrame : undefined,
         aspectRatio: this.videoAspect() as any,
         duration,
@@ -4288,8 +4289,8 @@ ${characterBibleBlock}${producerContext}
         // v12.197:显式尾帧 → 首尾帧融合(锁切镜构图);无尾帧走单图 i2v
         const tailImg = options?.tailFrameUrl ? toEngineImage(options.tailFrameUrl) : null;
         return tailImg
-          ? this.klingService!.generateFirstLastFrame(engineFrame, tailImg, storyboard.prompt, { duration: Math.min(duration, 10) })
-          : this.klingService!.generateVideo(engineFrame, storyboard.prompt, { duration: Math.min(duration, 10), aspectRatio: this.videoAspect() as any });
+          ? this.klingService!.generateFirstLastFrame(engineFrame, tailImg, videoPrompt, { duration: Math.min(duration, 10) })
+          : this.klingService!.generateVideo(engineFrame, videoPrompt, { duration: Math.min(duration, 10), aspectRatio: this.videoAspect() as any });
       },
     };
     const attempts = regenOrder.map((e) => ({ name: e, gen: genByEngine[e] }));

@@ -148,6 +148,7 @@ export async function POST(request: NextRequest) {
             const result = await orchestrator.regenerateShot(shotNumber, storyboard, {
               duration: 8,
               videoProvider: videoProvider || 'veo',
+              projectId, // v12.440:让重生读到导演台站位
               tailFrameUrl,
             });
 
@@ -235,6 +236,7 @@ export async function POST(request: NextRequest) {
               const result = await orchestrator.regenerateShot(sn, storyboard, {
                 duration: 8,
                 videoProvider: videoProvider || 'veo',
+                projectId, // v12.440:让重生读到导演台站位
               }) as any;
               const _savedBatch = await persistRegenerated(result.videoUrl);
               await updateAssetBySelector(

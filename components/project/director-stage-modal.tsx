@@ -24,7 +24,7 @@ import dynamic from 'next/dynamic';
 import { FloppyDisk as Save, CircleNotch as Loader2, Image as ImageIcon, Warning } from '@phosphor-icons/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  projectScene, auditStaging, describeStaging, horizontalFovDeg, stageDirectiveForShot, frameSize,
+  projectScene, auditStaging, describeStaging, horizontalFovDeg, stageDirectiveForShot, frameSize, facingFromPoint, normalizeFacingDeg,
   type StageScene, type StageActor,
 } from '@/lib/stage-blocking';
 import type { LensId } from '@/lib/cinematography';
@@ -66,7 +66,18 @@ const wz2py = (z: number) => PH - ((z - ZMIN) / (ZMAX - ZMIN)) * PH;
 const px2wx = (px: number) => (px / PW) * 2 * WX - WX;
 const py2wz = (py: number) => ((PH - py) / PH) * (ZMAX - ZMIN) + ZMIN;
 
-type DragTarget = { kind: 'actor'; id: string } | { kind: 'camera' } | null;
+type DragTarget = { kind: 'actor'; id: string } | { kind: 'facing'; id: string } | { kind: 'camera' } | null;
+
+/** 俯视图朝向箭头的长度(米)—— 按世界坐标算再映射成像素,俯视图横纵比例尺不同,直接用像素画角度会歪 */
+const FACING_ARROW_M = 0.8;
+/** 拖朝向时吸附到 5° 整数倍,免得存进一堆 87.3° 这种没意义的精度 */
+const FACING_SNAP_DEG = 5;
+/** 键盘:方向键每次移动(米),按住 Shift 为大步;Q / E 每次转朝向(度) */
+const KEY_STEP_M = 0.1, KEY_BIG_STEP_M = 0.5, KEY_TURN_DEG = 15;
+const clampStage = (x: number, z: number) => ({
+  x: Number(Math.max(-WX, Math.min(WX, x)).toFixed(2)),
+  z: Number(Math.max(ZMIN, Math.min(ZMAX, z)).toFixed(2)),
+});
 
 export function DirectorStageModal({
   projectId, shotNumber, shotTitle, initialScene, characterNames, aspect, onClose, onSaved,
@@ -97,6 +108,22 @@ export function DirectorStageModal({
   const [msg, setMsg] = useState('');
   const [sketchUrl, setSketchUrl] = useState<string | null>(null);
   const dragRef = useRef<DragTarget>(null);
+  /**
+   * 发起拖动的那根指针(v12.440 第二轮审查补)。多指触摸时,另一根手指进出俯视图也会触发
+   * pointerleave / pointermove —— 不认指针,离开时会把「别的手指」捕获过来,之后它的移动就在拖人。
+   */
+  const dragPointerRef = useRef<number | null>(null);
+  const startDrag = (e: React.PointerEvent, target: NonNullable<DragTarget>) => {
+    e.preventDefault();
+    dragRef.current = target;
+    dragPointerRef.current = e.pointerId;
+  };
+  const endDrag = (e: React.PointerEvent) => {
+    if (dragPointerRef.current !== null && e.pointerId !== dragPointerRef.current) return;
+    dragRef.current = null;
+    dragPointerRef.current = null;
+  };
+  const [focusId, setFocusId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const [preview, setPreview] = useState<PreviewMode>('2d');
@@ -129,6 +156,7 @@ export function DirectorStageModal({
   }
 
   function onPointerMove(e: React.PointerEvent) {
+    if (dragPointerRef.current !== null && e.pointerId !== dragPointerRef.current) return;
     const t = dragRef.current;
     if (!t || !svgRef.current) return;
     const r = svgRef.current.getBoundingClientRect();
@@ -138,7 +166,40 @@ export function DirectorStageModal({
     const nx = Number(clamp(x, -WX, WX).toFixed(2));
     const nz = Number(clamp(z, ZMIN, ZMAX).toFixed(2));
     if (t.kind === 'camera') patchCamera({ x: nx, z: nz });
-    else patchActor(t.id, { x: nx, z: nz });
+    else if (t.kind === 'facing') {
+      const a = scene.actors.find((q) => q.id === t.id);
+      const deg = a ? facingFromPoint(a, x, z, FACING_SNAP_DEG) : null;
+      if (deg !== null) patchActor(t.id, { facingDeg: deg });   // null = 指针还压在人身上,方向无定义
+    } else patchActor(t.id, { x: nx, z: nz });
+  }
+
+  /**
+   * 键盘摆位(v12.440 审查补):俯视图原本只能用鼠标拖,键盘用户摆不了位、转不了朝向。
+   * 方向键移动(↑ = 离机位更远,与俯视图上方一致),Shift 大步;Q / E 逆 / 顺时针转朝向,
+   * 未设朝向时第一次按先设成「朝向机位」;Delete / Backspace 清除朝向。
+   */
+  function onStageKey(e: React.KeyboardEvent, target: { kind: 'actor'; id: string } | { kind: 'camera' }) {
+    const step = e.shiftKey ? KEY_BIG_STEP_M : KEY_STEP_M;
+    const d = ({ ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] } as Record<string, [number, number]>)[e.key];
+    const a = target.kind === 'actor' ? scene.actors.find((q) => q.id === target.id) : undefined;
+    if (d) {
+      e.preventDefault();
+      if (target.kind === 'camera') patchCamera(clampStage(scene.camera.x + d[0], scene.camera.z + d[1]));
+      else if (a) patchActor(a.id, clampStage(a.x + d[0], a.z + d[1]));
+      return;
+    }
+    if (!a) return;
+    const key = e.key.toLowerCase();
+    if (key === 'q' || key === 'e') {
+      e.preventDefault();
+      const set = typeof a.facingDeg === 'number' && Number.isFinite(a.facingDeg);
+      const base = set ? (a.facingDeg as number) : facingFromPoint(a, scene.camera.x, scene.camera.z, KEY_TURN_DEG);
+      if (base === null) return;   // 人和机位重合,「朝向机位」无定义
+      patchActor(a.id, { facingDeg: set ? normalizeFacingDeg(base + (key === 'e' ? KEY_TURN_DEG : -KEY_TURN_DEG)) : base });
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      patchActor(a.id, { facingDeg: undefined });
+    }
   }
 
   async function save() {
@@ -181,9 +242,12 @@ export function DirectorStageModal({
 
   const fov = horizontalFovDeg(framed.camera.lens, framed.aspect);
   const camPx = wx2px(scene.camera.x), camPy = wz2py(scene.camera.z);
+  // v12.440:扇形边线先在**世界坐标**里算再映射。俯视图横向 28.3px/m、纵向 21.4px/m,
+  // 修前直接在像素里按角度画,扇形张角与真实视角不符 —— 站在扇形边上的人,颜色(几何判定)和位置(扇形)对不上。
   const frustum = (sign: number) => {
     const a = ((scene.camera.yawDeg + sign * fov / 2) * Math.PI) / 180;
-    return `${camPx + Math.sin(a) * 400},${camPy - Math.cos(a) * 400}`;
+    const far = 40;
+    return `${wx2px(scene.camera.x + Math.sin(a) * far)},${wz2py(scene.camera.z + Math.cos(a) * far)}`;
   };
 
   const flat = (
@@ -223,12 +287,19 @@ export function DirectorStageModal({
         <div className="grid gap-4 md:grid-cols-2">
           {/* ── 俯视图:拖人、拖机位 ── */}
           <div>
-            <p className="text-[11px] opacity-70 mb-1">俯视图 · 拖动人物或机位摆位</p>
+            <p className="text-[11px] opacity-70 mb-1">俯视图 · 拖动人物或机位摆位 · 拖人物外圈转朝向,双击外圈清除 · 键盘:Tab 选中后方向键 / Q E</p>
             <svg
               ref={svgRef} viewBox={`0 0 ${PW} ${PH}`} className="w-full rounded-md border border-[var(--cinema-border)] touch-none"
               onPointerMove={onPointerMove}
-              onPointerUp={() => { dragRef.current = null; }}
-              onPointerLeave={() => { dragRef.current = null; }}
+              onPointerUp={endDrag}
+              onLostPointerCapture={endDrag}
+              onPointerLeave={(e) => {
+                // 拖动中移出俯视图:改为捕获指针继续拖,而不是半路取消(朝向会停在一个中间角度,且没有任何提示)。
+                // 不在按下时就捕获 —— 那样 click / dblclick 会改派给 svg,双击外圈清除朝向就失效了。
+                if (!dragRef.current || e.pointerId !== dragPointerRef.current) return;
+                // 不支持捕获(或指针已松开)时 setPointerCapture 会抛 —— 那就按修前取消拖动
+                try { svgRef.current!.setPointerCapture(e.pointerId); } catch { dragRef.current = null; dragPointerRef.current = null; }
+              }}
             >
               <rect width={PW} height={PH} fill="rgba(127,127,127,0.06)" />
               {/* 视野扇形 —— 一眼看出谁在画面里 */}
@@ -236,14 +307,57 @@ export function DirectorStageModal({
               {scene.actors.map((a) => {
                 const p = projected.find((q) => q.id === a.id);
                 return (
-                  <g key={a.id} onPointerDown={(e) => { e.preventDefault(); dragRef.current = { kind: 'actor', id: a.id }; }} style={{ cursor: 'grab' }}>
+                  <g key={a.id} data-actor={a.id} onPointerDown={(e) => startDrag(e, { kind: 'actor', id: a.id })} style={{ cursor: 'grab', outline: 'none' }}
+                    tabIndex={0} role="button"
+                    aria-label={`${a.name || a.id}:方向键移动(Shift 大步),Q / E 转朝向,Delete 清除朝向`}
+                    onKeyDown={(e) => onStageKey(e, { kind: 'actor', id: a.id })}
+                    onFocus={() => setFocusId(a.id)} onBlur={() => setFocusId((f) => (f === a.id ? null : f))}>
+                    {focusId === a.id && (
+                      <circle data-focus-ring={a.id} cx={wx2px(a.x)} cy={wz2py(a.z)} r={20} fill="none"
+                        stroke="var(--cinema-amber, #f5b43c)" strokeWidth={2} pointerEvents="none" />
+                    )}
+                    {/* 朝向外圈:没设时虚线提示「可以转」;设了才画箭头 —— 箭头意味着「会进提示词」 */}
+                    <circle
+                      data-facing-ring={a.id}
+                      cx={wx2px(a.x)} cy={wz2py(a.z)} r={15}
+                      fill="none" stroke="currentColor" strokeOpacity={typeof a.facingDeg === 'number' ? 0.35 : 0.2}
+                      strokeDasharray={typeof a.facingDeg === 'number' ? undefined : '2 3'}
+                      strokeWidth={1}
+                      pointerEvents="none"
+                    />
+                    {/* 加粗的透明描边当点击区,细线本身太难点中 */}
+                    <circle
+                      data-facing-handle={a.id}
+                      cx={wx2px(a.x)} cy={wz2py(a.z)} r={15} fill="none" stroke="transparent" strokeWidth={8}
+                      pointerEvents="stroke" style={{ cursor: 'alias' }}
+                      onPointerDown={(e) => { e.stopPropagation(); startDrag(e, { kind: 'facing', id: a.id }); }}
+                      onDoubleClick={(e) => { e.stopPropagation(); patchActor(a.id, { facingDeg: undefined }); }}
+                    >
+                      <title>拖动转朝向,双击清除</title>
+                    </circle>
+                    {typeof a.facingDeg === 'number' && Number.isFinite(a.facingDeg) && (() => {
+                      const r = (a.facingDeg * Math.PI) / 180;
+                      const tx = wx2px(a.x + Math.sin(r) * FACING_ARROW_M);
+                      const ty = wz2py(a.z + Math.cos(r) * FACING_ARROW_M);
+                      return (
+                        <line data-facing-arrow={a.id} x1={wx2px(a.x)} y1={wz2py(a.z)} x2={tx} y2={ty}
+                          stroke="currentColor" strokeWidth={2} strokeLinecap="round" pointerEvents="none" />
+                      );
+                    })()}
                     <circle cx={wx2px(a.x)} cy={wz2py(a.z)} r={9}
                       fill={p?.inFrame ? 'rgba(245,180,60,0.85)' : 'rgba(180,60,60,0.7)'} />
-                    <text x={wx2px(a.x)} y={wz2py(a.z) - 13} textAnchor="middle" fontSize={10} fill="currentColor">{a.name || a.id}</text>
+                    <text x={wx2px(a.x)} y={wz2py(a.z) - 18} textAnchor="middle" fontSize={10} fill="currentColor">{a.name || a.id}</text>
                   </g>
                 );
               })}
-              <g onPointerDown={(e) => { e.preventDefault(); dragRef.current = { kind: 'camera' }; }} style={{ cursor: 'grab' }}>
+              <g onPointerDown={(e) => startDrag(e, { kind: 'camera' })} style={{ cursor: 'grab', outline: 'none' }}
+                data-camera tabIndex={0} role="button" aria-label="机位:方向键移动(Shift 大步)"
+                onKeyDown={(e) => onStageKey(e, { kind: 'camera' })}
+                onFocus={() => setFocusId('__camera')} onBlur={() => setFocusId((f) => (f === '__camera' ? null : f))}>
+                {focusId === '__camera' && (
+                  <circle data-focus-ring="camera" cx={camPx} cy={camPy} r={14} fill="none"
+                    stroke="var(--cinema-amber, #f5b43c)" strokeWidth={2} pointerEvents="none" />
+                )}
                 <circle cx={camPx} cy={camPy} r={8} fill="rgba(80,160,255,0.9)" />
                 <text x={camPx} y={camPy + 20} textAnchor="middle" fontSize={9} fill="currentColor">机位</text>
               </g>

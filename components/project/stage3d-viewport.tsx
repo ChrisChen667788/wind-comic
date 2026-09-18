@@ -73,6 +73,17 @@ export function frustumSegments(scene: StageScene, lengthM = 4): [number, number
 
 type Drag = { kind: 'actor'; id: string } | { kind: 'camera' } | null;
 
+/**
+ * 人偶绕 Y 轴的转角(弧度);没设朝向返回 null(v12.440)。
+ *
+ * three 里绕 Y 转 θ 把局部前方 (0,0,−1) 变成 (−sin θ, 0, −cos θ);
+ * 舞台朝向 f 的方向 (sin f, cos f) 映射到 three 是 (sin f, 0, −cos f) —— 所以 θ = −f。
+ * 与机位的 −yaw 同一约定,测试里用 three 的 Euler 真转一遍对拍。
+ */
+export function mannequinYawRad(facingDeg: number | undefined): number | null {
+  return typeof facingDeg === 'number' && Number.isFinite(facingDeg) ? (-facingDeg * Math.PI) / 180 : null;
+}
+
 function Mannequin({
   actor, inFrame, draggable, onDragStart,
 }: {
@@ -89,8 +100,9 @@ function Mannequin({
   const bodyLen = Math.max(0.01, bodyTop - bodyR * 2);
   const color = inFrame ? IN_FRAME : OFF_FRAME;
   const [x, , z] = toThree(actor.x, actor.z);
+  const yaw = mannequinYawRad(actor.facingDeg);
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, 0, z]} rotation={[0, yaw ?? 0, 0]}>
       <mesh position={[0, bodyR + bodyLen / 2, 0]} onPointerDown={draggable ? onDragStart : undefined}>
         <capsuleGeometry args={[bodyR, bodyLen, 6, 12]} />
         <meshStandardMaterial color={color} roughness={0.6} />
@@ -99,6 +111,19 @@ function Mannequin({
         <sphereGeometry args={[headR, 16, 12]} />
         <meshStandardMaterial color={color} roughness={0.5} />
       </mesh>
+      {/* 面罩 + 胸牌:只在设了朝向时画。没设就不画 —— 画了等于暗示「他朝这边」会进提示词,而实际上不会 */}
+      {yaw !== null && (
+        <>
+          <mesh position={[0, h - headR, -headR * 0.85]}>
+            <boxGeometry args={[headR * 1.3, headR * 0.45, headR * 0.5]} />
+            <meshStandardMaterial color="#1b1d22" roughness={0.3} />
+          </mesh>
+          <mesh position={[0, bodyTop - bodyR * 1.6, -bodyR * 0.95]}>
+            <boxGeometry args={[bodyR * 0.9, bodyR * 0.9, bodyR * 0.2]} />
+            <meshStandardMaterial color="#1b1d22" roughness={0.4} />
+          </mesh>
+        </>
+      )}
       <Html position={[0, h + 0.18, 0]} center style={{ pointerEvents: 'none' }}>
         <span style={{ fontSize: 11, whiteSpace: 'nowrap', color: '#fff', textShadow: '0 1px 2px #000' }}>
           {actor.name || actor.id}
@@ -258,7 +283,7 @@ export default function Stage3DViewport({
   return (
     <GlBoundary fallback={fallback}>
       <div
-        className="relative w-full overflow-hidden rounded-md border border-[var(--cinema-border)] bg-[#15171c] mx-auto"
+        className="relative w-full overflow-hidden rounded-md border border-[var(--cinema-border)] bg-[#15171c] mx-auto touch-none"
         style={{ aspectRatio: ratio, maxHeight: 420, maxWidth: view === 'lens' ? `${(420 * width) / height}px` : undefined }}
         data-stage3d-view={view}
       >

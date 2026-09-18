@@ -114,9 +114,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
         const t0 = Date.now();
         const k = new KlingService();
+        // v12.440:4K 重渲绕开编排器直调可灵,同样要带导演台站位(与单镜重生同一注入口)
+        const { withStageDirective } = await import('@/lib/stage-scene-store');
+        const videoPrompt = await withStageDirective(projectId, shotNumber, customPrompt || storyboard.prompt);
         const videoUrl = await k.regenerateShotAt4K(
           storyboard.imageUrl,
-          customPrompt || storyboard.prompt,
+          videoPrompt,
           {
             duration,
             onProgress: (progress, status) => {

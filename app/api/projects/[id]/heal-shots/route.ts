@@ -108,7 +108,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const clip = await orchestrator.regenerateShot(
         h.shot,
         { shotNumber: h.shot, imageUrl, prompt: meta.visualPrompt || meta.description || '' } as any,
-        { duration: meta.duration || 5, videoProvider },
+        { duration: meta.duration || 5, videoProvider, projectId: id },   // v12.440:补拍也带导演台站位
       );
       if (!clip?.videoUrl || clip.videoUrl.startsWith('data:')) throw new Error('regen returned no usable video url');
       // v12.347:注释写着「持久化」,做的却只是写 DB 行 —— **文件从没落过盘**,

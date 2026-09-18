@@ -230,13 +230,14 @@ describe('v12.316 · **接线**:造好没接线是这个仓最顽固的病(本�
   const ROUTE = strip(fs2.readFileSync('app/api/projects/[id]/stage/route.ts', 'utf-8')) as string;
   const STORE = strip(fs2.readFileSync('lib/stage-scene-store.ts', 'utf-8')) as string;
 
+  // v12.440 迁移:注入收拢成 stage-scene-store 的 withStageDirective,主管线与单镜重生/自愈/4K 共用。
+  // 行为(真的挂上、失败不打挂、不重复)在 v12-440-stage-facing 里真跑,这里只锁主管线的接线位置。
   it('编排器真的把站位接进了 enhancedPrompt(否则这版等于没做)', () => {
-    expect(ORCH).toContain('stageDirectiveForShot');
-    expect(ORCH).toMatch(/enhancedPrompt \+= staging/);
+    expect(ORCH).toMatch(/enhancedPrompt = await withStageDirective\(this\.projectId, Number\(board\.shotNumber\), enhancedPrompt\)/);
   });
 
   it('**注入点在角色外观/动作/台词之前**(靠前的 token 注意力最高)', () => {
-    const iStage = ORCH.indexOf('enhancedPrompt += staging');
+    const iStage = ORCH.indexOf('enhancedPrompt = await withStageDirective(');
     const iChar = ORCH.indexOf('enhancedPrompt += charDescSegment');
     const iAction = ORCH.indexOf("enhancedPrompt += `. Action:");
     expect(iStage).toBeGreaterThan(0);
@@ -250,11 +251,12 @@ describe('v12.316 · **接线**:造好没接线是这个仓最顽固的病(本�
     expect(stageDirectiveForShot({ actors: [], camera: { x: 0, z: 0, yawDeg: 0 } })).toBe('');
   });
 
-  it('读舞台失败不把出片打挂(增强项不是必需项)', () => {
-    const i = ORCH.indexOf('stageDirectiveForShot');
-    const block = ORCH.slice(Math.max(0, i - 400), i + 300);
-    expect(block).toContain('try {');
+  it('读舞台失败不把出片打挂(增强项不是必需项)—— 注入口自己吞错', () => {
+    const i = STORE.indexOf('export async function withStageDirective');
+    expect(i).toBeGreaterThan(0);
+    const block = STORE.slice(i, STORE.indexOf('\n}\n', i));
     expect(block).toContain('catch');
+    expect(block).toMatch(/return base;\s*}\s*$/);
   });
 
   it('**注入的是英文**(visualPrompt 全链路英文,混中文会被当画面文字渲染)', () => {

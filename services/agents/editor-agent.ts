@@ -120,7 +120,7 @@ export interface EditorAgentCtx {
   update(role: AgentRole, u: Partial<Agent>): void;
   callLLM(systemPrompt: string, userMessage: string, json?: boolean, useCreativeModel?: boolean, opts?: { maxTokens?: number; timeoutMs?: number }): Promise<string>;
   targetLanguage(): TargetLanguage;
-  regenerateShot(shotNumber: number, storyboard: Storyboard, options?: { duration?: number; videoProvider?: string; tailFrameUrl?: string }): Promise<VideoClip>;
+  regenerateShot(shotNumber: number, storyboard: Storyboard, options?: { duration?: number; videoProvider?: string; tailFrameUrl?: string; projectId?: string }): Promise<VideoClip>;
 }
 export async function runEditor(ctx: EditorAgentCtx, videos: VideoClip[], script: Script): Promise<EditResult> {
     ctx.update(AgentRole.EDITOR, { status: 'working', currentTask: '分析镜头节奏，构建剪辑时间线', progress: 5 });

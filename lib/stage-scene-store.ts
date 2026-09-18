@@ -86,6 +86,28 @@ export async function saveStageScene(projectId: string, scene: StoredStageScene)
 }
 
 /**
+ * v12.440:给某镜的视频提示词挂上导演台站位指令 —— **所有出片路径的唯一注入口**。
+ *
+ * 修前只有编排器主管线(整片生成)读舞台;单镜重生、自愈补拍、4K 重渲、剪辑师烤字重生
+ * 四条路径直接用分镜描述出片,**完全不看导演台** —— 而导演台保存成功后提示的是
+ * 「该镜后续出片会带上这份站位」。用户最常见的用法恰恰是「摆完位 → 重生这一镜」。
+ *
+ * - 没摆过位 / 读失败:原样返回(增强项,不能把出片打挂)
+ * - 提示词里已经带了站位段:不重复追加
+ */
+export async function withStageDirective(projectId: string | undefined | null, shotNumber: number, prompt: string): Promise<string> {
+  const base = prompt || '';
+  if (!projectId || !Number.isFinite(Number(shotNumber)) || base.includes('. Staging:')) return base;
+  try {
+    const { stageDirectiveForShot } = await import('./stage-blocking');
+    const staging = stageDirectiveForShot(await getStageScene(projectId, Number(shotNumber)));
+    return staging ? base + staging : base;
+  } catch {
+    return base;
+  }
+}
+
+/**
  * v12.318:`stageDirectiveForShot` 已移进 `stage-blocking`(纯几何层)。
  *
  * 原因是踩出来的:本文件动态 `import('./db-driver')` 看似 client-safe,
