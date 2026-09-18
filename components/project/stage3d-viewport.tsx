@@ -29,6 +29,7 @@ import {
   horizontalFovDeg, verticalFovDeg, frameSize,
   type StageScene, type ProjectedActor,
 } from '@/lib/stage-blocking';
+import { mannequin3D } from '@/lib/pose-skeleton';
 
 export type Stage3DView = 'orbit' | 'lens';
 
@@ -92,33 +93,42 @@ function Mannequin({
   draggable: boolean;
   onDragStart: (e: ThreeEvent<PointerEvent>) => void;
 }) {
-  // 头顶恰好在 heightM、脚底在地面 —— 与 projectScene 的 screenTop/screenBottom 量的是同一段
-  const h = actor.heightM ?? DEFAULT_ACTOR_H;
-  const headR = h * 0.07;
-  const bodyR = h * 0.1;
-  const bodyTop = h - headR * 2 - h * 0.01;
-  const bodyLen = Math.max(0.01, bodyTop - bodyR * 2);
+  // v12.445:人偶按姿态变矮/放倒/长出四肢 —— 与 `projectScene` 和布局草图共用同一张骨架表。
+  // 修前 3D 人偶只认 heightM:v12.443 起几何已经把坐着的人压矮了,3D 里却还站着(两套口径)。
+  const standH = actor.heightM ?? DEFAULT_ACTOR_H;
+  const m = mannequin3D(standH, actor.posePreset);
+  const h = m.heightM;
+  const headR = standH * 0.07;          // 头不随姿态缩放 —— 坐下只是矮了,头没变小
+  const bodyR = standH * 0.1;
+  const bodyTop = m.torsoTopM;
+  const bodyLen = Math.max(0.01, bodyTop - m.torsoBottomM);
   const color = inFrame ? IN_FRAME : OFF_FRAME;
   const [x, , z] = toThree(actor.x, actor.z);
   const yaw = mannequinYawRad(actor.facingDeg);
+  // 躺倒:整体放倒(绕 X 轴 −90°),脚底那一端留在原地
+  const lie: [number, number, number] = m.lying ? [-Math.PI / 2, 0, 0] : [0, 0, 0];
   return (
-    <group position={[x, 0, z]} rotation={[0, yaw ?? 0, 0]}>
-      <mesh position={[0, bodyR + bodyLen / 2, 0]} onPointerDown={draggable ? onDragStart : undefined}>
+    <group position={[x, m.lying ? bodyR : 0, z]} rotation={[lie[0], yaw ?? 0, 0]}>
+      <mesh position={[0, m.torsoBottomM + bodyLen / 2, 0]} onPointerDown={draggable ? onDragStart : undefined}>
         <capsuleGeometry args={[bodyR, bodyLen, 6, 12]} />
         <meshStandardMaterial color={color} roughness={0.6} />
       </mesh>
-      <mesh position={[0, h - headR, 0]} onPointerDown={draggable ? onDragStart : undefined}>
+      <mesh position={[0, bodyTop + headR * 0.6, 0]} onPointerDown={draggable ? onDragStart : undefined}>
         <sphereGeometry args={[headR, 16, 12]} />
         <meshStandardMaterial color={color} roughness={0.5} />
       </mesh>
+      {/* 四肢:与草图同一张骨架表,设了姿态才画 */}
+      {m.limbs.map(([a, b], i) => (
+        <Line key={i} points={[a, b]} color={color} lineWidth={3} />
+      ))}
       {/* 面罩 + 胸牌:只在设了朝向时画。没设就不画 —— 画了等于暗示「他朝这边」会进提示词,而实际上不会 */}
       {yaw !== null && (
         <>
-          <mesh position={[0, h - headR, -headR * 0.85]}>
+          <mesh position={[0, bodyTop + headR * 0.6, -headR * 0.85]}>
             <boxGeometry args={[headR * 1.3, headR * 0.45, headR * 0.5]} />
             <meshStandardMaterial color="#1b1d22" roughness={0.3} />
           </mesh>
-          <mesh position={[0, bodyTop - bodyR * 1.6, -bodyR * 0.95]}>
+          <mesh position={[0, bodyTop - bodyR * 1.2, -bodyR * 0.95]}>
             <boxGeometry args={[bodyR * 0.9, bodyR * 0.9, bodyR * 0.2]} />
             <meshStandardMaterial color="#1b1d22" roughness={0.4} />
           </mesh>

@@ -342,15 +342,18 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
     // 纵向:直线透视下的成像高度由**沿光轴的深度**决定,不是水平距离。
     // 修前用水平距离 —— 人物偏离画面中心 20° 时纵向位置差约 6%(已对照 three.js 验证)。
     const depth = Math.max(distanceM * Math.cos(relRad), 1e-6);
-    // v12.443:姿态改变头顶高度 —— 坐着的人头顶只到站立的 0.72,画面里更矮、景别也跟着变。
-    // 姿态词表之外(含未设)一律按站立算,旧数据零影响。
-    const h = (a.heightM ?? 1.7) * poseHeightFactor(a.posePreset);
+    // v12.443:姿态改变头顶高度 —— 坐着的人头顶只到站立的 0.72,画面里更矮。
+    // v12.445 修正:**景别不跟着姿态变**。景别说的是「这个人在画面里占多大」,
+    // 由他的身量与距离决定;躺下的人没有变远变小,把他判成「大远景」是错的(浏览器实测撞到)。
+    // 所以:轮廓(screenTop/Bottom)用姿态压过的高度,景别用站立身量。
+    const standH = a.heightM ?? 1.7;
+    const h = standH * poseHeightFactor(a.posePreset);
     const camH = cam.heightM ?? 1.6;
     const screenBottom = (0 - camH) / (depth * tanHalfV);
     const screenTop = (h - camH) / (depth * tanHalfV);
     return {
       id: a.id, name: a.name, distanceM, depth, rel, screenX, inFrame,
-      heightM: h, screenTop, screenBottom,
+      heightM: h, standHeightM: standH, screenTop, screenBottom,
     };
   });
 
@@ -371,7 +374,7 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
       inFrame: r.inFrame,
       screenX: Number(r.screenX.toFixed(4)),
       distanceM: Number(r.distanceM.toFixed(3)),
-      shotSize: inferShotSize(r.depth, cam.lens, r.heightM, aspect),
+      shotSize: inferShotSize(r.depth, cam.lens, r.standHeightM, aspect),
       occludedBy,
       thirds: thirdsOf(r.screenX, r.inFrame),
       screenTop: Number(r.screenTop.toFixed(4)),

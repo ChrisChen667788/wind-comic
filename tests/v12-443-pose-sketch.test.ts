@@ -96,8 +96,11 @@ describe('v12.443 · 姿态改变画面里的高度', () => {
     expect(projectScene(one('sitting'))[0].posePreset).toBe('sitting');
   });
 
-  it('躺下会改变景别判定(高度变了,景别就该跟着变)', () => {
-    expect(projectScene(one('lying'))[0].shotSize).not.toBe(projectScene(one('standing'))[0].shotSize);
+  // v12.445 迁移:原本断言「躺下改变景别」。浏览器实测发现那是错的 —— 躺着的人被判成「大远景」,
+  // 可他没有变远变小。景别是「这个人在画面里占多大」,由身量与距离决定;姿态只改轮廓。
+  it('躺下不改变景别(人没变远变小),但轮廓确实变矮了', () => {
+    expect(projectScene(one('lying'))[0].shotSize).toBe(projectScene(one('standing'))[0].shotSize);
+    expect(projectScene(one('lying'))[0].screenTop).toBeLessThan(projectScene(one('standing'))[0].screenTop);
   });
 });
 

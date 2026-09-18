@@ -168,3 +168,47 @@ export function poseHeightFactor(preset: PosePresetId | undefined): number {
 export function poseSkeletonOf(preset: PosePresetId | undefined): PoseSkeleton | null {
   return preset && Object.prototype.hasOwnProperty.call(POSE_SKELETONS, preset) ? POSE_SKELETONS[preset] : null;
 }
+
+/** 3D 人偶的一段肢体:两端点在「人偶局部坐标」里(x 右、y 上、z 前),单位米 */
+export type Limb3D = [[number, number, number], [number, number, number]];
+
+export interface Mannequin3D {
+  /** 该姿态下人偶的实际高度(米)—— 与 `projectScene` 用的是同一个 heightFactor */
+  heightM: number;
+  /** 四肢线段;没设姿态时为空数组(人偶保持 v12.440 的胶囊 + 圆头,不暗示任何姿态) */
+  limbs: Limb3D[];
+  /** 躺倒:调用方把人偶整体放倒 */
+  lying: boolean;
+  /** 躯干上下沿(米,从脚底算)—— 胶囊按这一段画 */
+  torsoTopM: number;
+  torsoBottomM: number;
+}
+
+/**
+ * 姿态 → 3D 人偶(v12.445)。
+ *
+ * **与草图共用同一张骨架表**:草图与 3D 视口画的必须是同一个人 ——
+ * 否则用户在 3D 里看到举手、草图里却是站着,又是「同一语义两套口径」。
+ * 2D 骨架的 x 以身宽为单位、y 是身高比例,这里乘上人偶的实际尺寸落到米。
+ * z 一律 0(贴着人偶的正面平面):单目参考图本来就给不出深度,假装有 z 是无依据的精细。
+ */
+export function mannequin3D(standHeightM: number, preset: PosePresetId | undefined): Mannequin3D {
+  const skel = poseSkeletonOf(preset);
+  const heightM = standHeightM * (skel?.heightFactor ?? 1);
+  if (!skel) {
+    return { heightM, limbs: [], lying: false, torsoTopM: heightM * 0.82, torsoBottomM: heightM * 0.5 };
+  }
+  const bodyW = standHeightM * 0.22;   // 身宽约身高的 0.22(与草图里 bodyH*0.26 的观感一致)
+  const toLocal = ([bx, by]: [number, number]): [number, number, number] => [bx * bodyW, by * heightM, 0];
+  const limbs: Limb3D[] = [];
+  for (const limb of skel.limbs) {
+    for (let i = 1; i < limb.length; i++) limbs.push([toLocal(limb[i - 1]), toLocal(limb[i])]);
+  }
+  return {
+    heightM,
+    limbs,
+    lying: !!skel.horizontal,
+    torsoTopM: heightM * skel.torsoTop,
+    torsoBottomM: heightM * skel.torsoBottom,
+  };
+}
