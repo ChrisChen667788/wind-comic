@@ -29,6 +29,7 @@ import {
   type StageScene, type StageActor, type PosePresetId,
 } from '@/lib/stage-blocking';
 import type { LensId } from '@/lib/cinematography';
+import { PosePhotoButton } from './pose-photo-button';
 
 /**
  * 不能从 stage3d-viewport 静态导入 —— 那会把 three 整个拖进项目页首包,dynamic() 就白做了。
@@ -388,7 +389,7 @@ export function DirectorStageModal({
                   填中文动作会被视频模型当画面文字渲染(v2.22 的 CJK 乱码就是这么来的)。 */}
               <div className="col-span-2 space-y-1">
                 {scene.actors.map((a) => (
-                  <label key={a.id} className="flex items-center gap-1" data-pose-row={a.id}>
+                  <label key={a.id} className="flex flex-wrap items-center gap-1" data-pose-row={a.id}>
                     <span className="truncate max-w-[6rem]" title={a.name || a.id}>{a.name || a.id}</span>
                     <select
                       aria-label={`${a.name || a.id} 的姿态`}
@@ -401,6 +402,11 @@ export function DirectorStageModal({
                         <option key={id} value={id}>{POSE_PRESETS[id].cn}</option>
                       ))}
                     </select>
+                    {/* v12.444:上传参考照片,在本机认出姿态与朝向(照片不上传) */}
+                    <PosePhotoButton
+                      actorName={a.name || a.id}
+                      onRead={(v) => patchActor(a.id, { posePreset: v.posePreset, ...(v.facingDeg !== undefined ? { facingDeg: v.facingDeg } : {}) })}
+                    />
                   </label>
                 ))}
               </div>

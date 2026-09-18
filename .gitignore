@@ -111,3 +111,8 @@ videos/wind-comic-promo/assets/voice/
 videos/wind-comic-promo/capture/
 videos/wind-comic-promo/compositions/frames/assets/
 .tools/
+
+# v12.444:MediaPipe 的 wasm 由 `npm run prebuild` 从 node_modules 拷出来(12MB,可再生),不入库;
+# 同目录的 pose_landmarker_lite.task(5.8MB,Apache-2.0)**要入库** —— 构建期不联网下载。
+/public/vendor/mediapipe/*.wasm
+/public/vendor/mediapipe/vision_wasm_internal.js
