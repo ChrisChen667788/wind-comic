@@ -22,6 +22,7 @@
  */
 
 import type { ShotSize, CameraAngle, LensId } from './cinematography';
+import { poseHeightFactor } from './pose-skeleton';
 
 export interface StageActor {
   id: string;
@@ -138,6 +139,8 @@ export interface ProjectedActor {
   screenBottom: number;
   /** 朝向在镜头里的样子(v12.440);人物没设 `facingDeg` 时不存在该字段 */
   facing?: FacingInFrame;
+  /** 姿态预设(v12.443);未设或词表外时不存在该字段 —— 草图据此决定画骨架还是退回矩形 */
+  posePreset?: PosePresetId;
 }
 
 /** 镜头看到的身体朝向:正面 → 3/4 侧 → 侧面 → 3/4 背 → 背面 */
@@ -339,7 +342,9 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
     // 纵向:直线透视下的成像高度由**沿光轴的深度**决定,不是水平距离。
     // 修前用水平距离 —— 人物偏离画面中心 20° 时纵向位置差约 6%(已对照 three.js 验证)。
     const depth = Math.max(distanceM * Math.cos(relRad), 1e-6);
-    const h = a.heightM ?? 1.7;
+    // v12.443:姿态改变头顶高度 —— 坐着的人头顶只到站立的 0.72,画面里更矮、景别也跟着变。
+    // 姿态词表之外(含未设)一律按站立算,旧数据零影响。
+    const h = (a.heightM ?? 1.7) * poseHeightFactor(a.posePreset);
     const camH = cam.heightM ?? 1.6;
     const screenBottom = (0 - camH) / (depth * tanHalfV);
     const screenTop = (h - camH) / (depth * tanHalfV);
@@ -372,8 +377,9 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
       screenTop: Number(r.screenTop.toFixed(4)),
       screenBottom: Number(r.screenBottom.toFixed(4)),
     };
-    // 未设朝向就不带这个键 —— 旧数据的投影结果与修前结构完全相同
+    // 未设朝向/姿态就不带这些键 —— 旧数据的投影结果与修前结构完全相同
     if (facing) out.facing = facing;
+    if (poseOf(actors[i])) out.posePreset = actors[i].posePreset;
     return out;
   });
 }

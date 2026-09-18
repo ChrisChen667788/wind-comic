@@ -24,6 +24,7 @@
 import zlib from 'node:zlib';
 import type { StageScene } from './stage-blocking';
 import { projectScene, inferCameraAngle } from './stage-blocking';
+import { poseSkeletonOf } from './pose-skeleton';
 
 // ── 最小 PNG 编码 ──────────────────────────────────────────────────
 
@@ -99,6 +100,18 @@ class Canvas {
     for (let y = t; y <= d; y++) for (let x = a; x <= b; x++) this.px(x, y, c);
   }
   vline(x: number, c: RGB) { for (let y = 0; y < this.h; y++) this.px(x, y, c); }
+  /**
+   * 画一段有粗细的线(四肢用)—— 逐点画圆盘,免得斜线断成虚线。
+   * 步数用 DDA 的 max(|dx|,|dy|):光栅化本来就按较长的那一维走,
+   * 顺带守住 v12.315 的分工 —— 草图层不出现任何几何运算(`Math.hypot` 由守卫禁着)。
+   */
+  line(x0: number, y0: number, x1: number, y1: number, w: number, c: RGB) {
+    const steps = Math.max(2, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      this.disc(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, w / 2, c);
+    }
+  }
   hline(y: number, c: RGB) { for (let x = 0; x < this.w; x++) this.px(x, y, c); }
   disc(cx: number, cy: number, r: number, c: RGB) {
     for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) {
@@ -165,13 +178,48 @@ export function renderStageSketch(scene: StageScene, opts: StageSketchOptions = 
     const fill: RGB = [tone, tone, tone];
 
     const headR = Math.max(1, bodyH * 0.09);
-    const shoulderY = yTop + headR * 2.2;
-    cv.rect(x - bodyW / 2, shoulderY, x + bodyW / 2, yBot, fill);
-    cv.disc(x, yTop + headR, headR, fill);
+    const skel = poseSkeletonOf(p.posePreset);
 
-    // 描边:与背景/彼此分开,模型才读得出这是几个独立主体
-    cv.rect(x - bodyW / 2, shoulderY, x - bodyW / 2 + 1, yBot, OUTLINE);
-    cv.rect(x + bodyW / 2 - 1, shoulderY, x + bodyW / 2, yBot, OUTLINE);
+    if (!skel) {
+      // 没设姿态:与 v12.442 逐像素相同(矩形躯干 + 圆头 + 两侧描边)
+      const shoulderY = yTop + headR * 2.2;
+      cv.rect(x - bodyW / 2, shoulderY, x + bodyW / 2, yBot, fill);
+      cv.disc(x, yTop + headR, headR, fill);
+      cv.rect(x - bodyW / 2, shoulderY, x - bodyW / 2 + 1, yBot, OUTLINE);
+      cv.rect(x + bodyW / 2 - 1, shoulderY, x + bodyW / 2, yBot, OUTLINE);
+      continue;
+    }
+
+    // 设了姿态:躯干按骨架的上下沿,四肢画成折线。
+    // 身体坐标 (bx, by):bx 以身宽为单位、by 0=脚底 1=头顶 —— 投影高度已按 heightFactor 缩过,
+    // 所以这里直接用 yTop..yBot 这一段,不需要再乘一次(乘两次就是把坐着的人又压扁一半)。
+    const bx = (v: number) => x + v * bodyW;
+    const by = (v: number) => yBot - v * bodyH;
+    const limbW = Math.max(1, bodyH * 0.055);
+
+    // 躺倒时画面高度已被 heightFactor 压到站立的 0.18,横向长度要用**站立高度**换算回来
+    const standH = bodyH / skel.heightFactor;
+
+    if (skel.horizontal) {
+      // 躺倒:身体横过来 —— 躯干是一条横躺的矩形,头在右端
+      const half = standH * 0.5;
+      cv.rect(x - half, yTop + bodyH * 0.15, x + half * 0.6, yBot, fill);
+      cv.disc(x + half * 0.78, yTop + bodyH * 0.5, Math.max(1, bodyH * 0.45), fill);
+      cv.rect(x - half, yTop + bodyH * 0.15, x + half * 0.6, yTop + bodyH * 0.15 + 1, OUTLINE);
+    } else {
+      cv.rect(x - bodyW / 2, by(skel.torsoTop), x + bodyW / 2, by(skel.torsoBottom), fill);
+      cv.disc(x, by(skel.torsoTop) - headR, headR, fill);
+      cv.rect(x - bodyW / 2, by(skel.torsoTop), x - bodyW / 2 + 1, by(skel.torsoBottom), OUTLINE);
+      cv.rect(x + bodyW / 2 - 1, by(skel.torsoTop), x + bodyW / 2, by(skel.torsoBottom), OUTLINE);
+    }
+
+    if (!skel.horizontal) {
+      for (const limb of skel.limbs) {
+        for (let i = 1; i < limb.length; i++) {
+          cv.line(bx(limb[i - 1][0]), by(limb[i - 1][1]), bx(limb[i][0]), by(limb[i][1]), limbW, fill);
+        }
+      }
+    }
   }
 
   return encodePNG(W, H, cv.buf);
