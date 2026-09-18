@@ -37,6 +37,52 @@ export interface StageActor {
    * v12.440 起参与几何(`facingOf`);此前字段存在但从未被读。
    */
   facingDeg?: number;
+  /**
+   * 姿态预设(v12.441);缺省 = 未设,不进提示词。
+   *
+   * 刻意只给**一份固定词表**而不是自由文本输入:提示词全链路是英文(v12.6.1 定的口径),
+   * 用户填中文动作会被视频模型当画面文字渲染出来(v2.22 那次 CJK 乱码就是这么来的)。
+   * 词表里的每一项都对应一句写死的英文短语,顺带保证同一动作在每一镜的说法一致。
+   */
+  posePreset?: PosePresetId;
+}
+
+/** 姿态预设 id —— 短剧里最常用的一批身体动作(不含朝向,朝向是 `facingDeg`) */
+export type PosePresetId =
+  | 'standing' | 'sitting' | 'kneeling' | 'crouching' | 'lying'
+  | 'walking' | 'running' | 'leaning'
+  | 'arms-crossed' | 'hands-on-hips' | 'arm-raised' | 'pointing' | 'reaching'
+  | 'covering-face' | 'head-down';
+
+interface PosePreset { cn: string; en: string }
+
+/**
+ * 词表:中文给界面,英文进提示词。
+ * 英文刻意只描述**身体**,不含情绪与镜头语言 —— 情绪走剧本的 emotion,镜头走 cinema 那套,
+ * 三者在提示词里各占一段,混着写会互相打架(v12.9.1 在角色外观上栽过同一类)。
+ */
+export const POSE_PRESETS: Record<PosePresetId, PosePreset> = {
+  standing: { cn: '站立', en: 'standing upright' },
+  sitting: { cn: '坐着', en: 'seated' },
+  kneeling: { cn: '跪地', en: 'kneeling on one knee' },
+  crouching: { cn: '蹲下', en: 'crouching low' },
+  lying: { cn: '躺倒', en: 'lying on the ground' },
+  walking: { cn: '走动', en: 'mid-stride walking' },
+  running: { cn: '奔跑', en: 'running at full stride' },
+  leaning: { cn: '倚靠', en: 'leaning against a surface' },
+  'arms-crossed': { cn: '抱臂', en: 'arms crossed over the chest' },
+  'hands-on-hips': { cn: '叉腰', en: 'hands on hips' },
+  'arm-raised': { cn: '举手', en: 'one arm raised overhead' },
+  pointing: { cn: '指向', en: 'pointing with one arm extended' },
+  reaching: { cn: '伸手', en: 'reaching out with one hand' },
+  'covering-face': { cn: '掩面', en: 'hands covering the face' },
+  'head-down': { cn: '低头', en: 'head lowered, shoulders slumped' },
+};
+
+/** 取姿态预设;未设或不认识的 id 一律当未设(旧数据 / 手改库 / 前端传错都不该把出片打挂) */
+export function poseOf(actor: Pick<StageActor, 'posePreset'>): PosePreset | null {
+  const id = actor.posePreset;
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(POSE_PRESETS, id) ? POSE_PRESETS[id] : null;
 }
 
 export interface StageCamera {
@@ -386,6 +432,16 @@ export function auditStaging(scene: StageScene): StagingIssue[] {
   return issues;
 }
 
+/** 镜头里每个人的姿态(按 id);没设姿态的人不在表里 —— 描述与提示词都据此决定加不加那一段 */
+function poseMap(scene: StageScene): Map<string, PosePreset> {
+  const m = new Map<string, PosePreset>();
+  for (const a of scene.actors || []) {
+    const p = poseOf(a);
+    if (p) m.set(a.id, p);
+  }
+  return m;
+}
+
 const SIDE_CN = { left: '左', right: '右' } as const;
 
 /** 朝向的中文说明(界面用);`inFrameIds` 用来只提画面里看得到的对象 */
@@ -444,6 +500,7 @@ export function describeStaging(scene: StageScene): string {
 
   const angle = inferCameraAngle(cam.heightM ?? 1.6);
   const ids = new Set(inFrame.map((p) => p.id));
+  const poseById = poseMap(scene);
   const parts = inFrame
     .slice()
     .sort((a, b) => a.distanceM - b.distanceM)
@@ -451,7 +508,9 @@ export function describeStaging(scene: StageScene): string {
       const who = p.name || p.id;
       const occ = p.occludedBy.length ? `,被${p.occludedBy.join('、')}部分遮挡` : '';
       const face = p.facing ? `,${facingTextCn(p.facing, ids)}` : '';
-      return `${who}位于${THIRDS_CN[p.thirds]}(${SIZE_CN[p.shotSize]},距机位约 ${p.distanceM.toFixed(1)} 米${face}${occ})`;
+      const pose = poseById.get(p.id);
+      const act = pose ? `,${pose.cn}` : '';
+      return `${who}位于${THIRDS_CN[p.thirds]}(${SIZE_CN[p.shotSize]},距机位约 ${p.distanceM.toFixed(1)} 米${face}${act}${occ})`;
     });
 
   return `${ANGLE_CN[angle]}机位,${horizontalFovDeg(cam.lens, scene.aspect).toFixed(0)}° 水平视角;${parts.join(';')}。`;
@@ -478,13 +537,16 @@ export function stageDirectiveForShot(scene: StageScene | null | undefined): str
     LS: 'full shot', WS: 'wide shot', ELS: 'extreme wide shot',
   };
   const ids = new Set(inFrame.map((p) => p.id));
+  const poseById = poseMap(scene);
   const parts = inFrame
     .slice()
     .sort((a, b) => a.distanceM - b.distanceM)
     .map((p) => {
       const occ = p.occludedBy.length ? `, partially occluded by ${p.occludedBy.join(' and ')}` : '';
       const face = p.facing ? `, ${facingPhraseEn(p.facing, ids)}` : '';
-      return `${p.name || p.id} ${POS[p.thirds]} in ${SIZE[p.shotSize]}${face}${occ}`;
+      const pose = poseById.get(p.id);
+      const act = pose ? `, ${pose.en}` : '';
+      return `${p.name || p.id} ${POS[p.thirds]} in ${SIZE[p.shotSize]}${face}${act}${occ}`;
     });
   return `. Staging: ${parts.join('; ')}`;
 }

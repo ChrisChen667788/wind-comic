@@ -10,7 +10,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { getStageScene, saveStageScene, stageReport, stageDirectiveForShot, withProjectAspect } from '@/lib/stage-scene-store';
-import type { StageScene } from '@/lib/stage-blocking';
+import { POSE_PRESETS, type StageScene } from '@/lib/stage-blocking';
+
+/** 姿态预设白名单 —— 不认识的 id 直接拒,而不是落库后由几何层静默忽略(facingDeg 就栽过这个) */
+const isPosePresetId = (v: unknown): boolean =>
+  typeof v === 'string' && Object.prototype.hasOwnProperty.call(POSE_PRESETS, v);
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -60,6 +64,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   for (const [i, a] of (scene.actors as any[]).entries()) {
     if (!a || typeof a !== 'object' || !Number.isFinite(a.x) || !Number.isFinite(a.z)) {
       return NextResponse.json({ error: `第 ${i + 1} 个人物缺少有效的 x / z(米)` }, { status: 400 });
+    }
+    if (a.posePreset === null || a.posePreset === '') delete a.posePreset;
+    else if (a.posePreset !== undefined && !isPosePresetId(a.posePreset)) {
+      return NextResponse.json({ error: `第 ${i + 1} 个人物的 posePreset 不在词表里:${JSON.stringify(a.posePreset).slice(0, 20)}` }, { status: 400 });
     }
     if (a.facingDeg === null) delete a.facingDeg;
     else if (a.facingDeg !== undefined && !Number.isFinite(a.facingDeg)) {

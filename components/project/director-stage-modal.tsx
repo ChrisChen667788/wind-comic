@@ -25,7 +25,8 @@ import { FloppyDisk as Save, CircleNotch as Loader2, Image as ImageIcon, Warning
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   projectScene, auditStaging, describeStaging, horizontalFovDeg, stageDirectiveForShot, frameSize, facingFromPoint, normalizeFacingDeg,
-  type StageScene, type StageActor,
+  POSE_PRESETS,
+  type StageScene, type StageActor, type PosePresetId,
 } from '@/lib/stage-blocking';
 import type { LensId } from '@/lib/cinematography';
 
@@ -383,6 +384,26 @@ export function DirectorStageModal({
                 ))}
                 <span className="cinema-mono opacity-60 ml-auto">{fov.toFixed(0)}° 视角</span>
               </label>
+              {/* v12.441:姿态预设。只给固定词表不给自由输入 —— 提示词全链路是英文,
+                  填中文动作会被视频模型当画面文字渲染(v2.22 的 CJK 乱码就是这么来的)。 */}
+              <div className="col-span-2 space-y-1">
+                {scene.actors.map((a) => (
+                  <label key={a.id} className="flex items-center gap-1" data-pose-row={a.id}>
+                    <span className="truncate max-w-[6rem]" title={a.name || a.id}>{a.name || a.id}</span>
+                    <select
+                      aria-label={`${a.name || a.id} 的姿态`}
+                      value={a.posePreset ?? ''}
+                      onChange={(e) => patchActor(a.id, { posePreset: (e.target.value || undefined) as PosePresetId | undefined })}
+                      className="flex-1 bg-transparent border border-[var(--cinema-border)] rounded px-1 py-0.5 text-[11px]"
+                    >
+                      <option value="">姿态未设(不进提示词)</option>
+                      {(Object.keys(POSE_PRESETS) as PosePresetId[]).map((id) => (
+                        <option key={id} value={id}>{POSE_PRESETS[id].cn}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
