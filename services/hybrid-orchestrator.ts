@@ -1,4 +1,6 @@
 import OpenAI from 'openai';
+import { refDropFor } from '@/lib/ref-capability';
+import { angleRefUrls, findAngleRefs } from '@/lib/locked-characters';
 import { resolveVerifiedServeFilePath } from '@/lib/serve-file-sign';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { API_CONFIG } from '@/lib/config';
@@ -528,7 +530,7 @@ export class HybridOrchestrator {
    * Phase 2 行为:per-shot 路由,每个镜头根据出场角色名匹配独立 cref。
    * Phase 3 (待):Cameo retry 也按命中角色独立评分,而非统一用 primary。
    */
-  setLockedCharacters(arr: Array<{ name: string; role: string; cw: number; imageUrl: string; traits?: unknown }>) {
+  setLockedCharacters(arr: Array<{ name: string; role: string; cw: number; imageUrl: string; traits?: unknown; refs?: Array<{ role: string; url: string }> }>) {
     if (!Array.isArray(arr)) return;
     const allowed: Array<'lead' | 'antagonist' | 'supporting' | 'cameo'> = ['lead', 'antagonist', 'supporting', 'cameo'];
     this.lockedCharacters = arr
@@ -541,6 +543,7 @@ export class HybridOrchestrator {
         imageUrl: c.imageUrl,
         // v2.12 Sprint A.2: 透传 traits;sanitizer 已在 create-stream 做白名单校验
         ...(c.traits ? { traits: c.traits } : {}),
+        ...(Array.isArray(c.refs) && c.refs.length ? { refs: c.refs } : {}), // v12.447:第二道白名单也得放行角度图
       }));
     if (this.lockedCharacters.length > 0) {
       const withTraits = this.lockedCharacters.filter(c => c.traits).length;
@@ -637,11 +640,24 @@ export class HybridOrchestrator {
    * 返回 [] 表示用户没锁角色,调用方应继续走旧路径(只有 primaryCharacterRef)。
    * 上限 3 (S2V-01 API 硬限制)。
    */
-  getLockedSubjectReferences(): Array<{ type: 'character'; imageUrl: string; name?: string }> {
+  /** v12.447:引擎吃不下的角度图如实说出来(不说,用户会以为多角度生效了);上报本身出错绝不拖垮出片 */
+  private reportRefUsage(engine: string, subjects: Array<{ refImageUrls?: string[] }>, shotNumber?: number): void {
+    try {
+      const usage = refDropFor(engine, subjects);
+      if (!usage) return;
+      console.warn(`[Refs] 第 ${shotNumber ?? '?'} 镜:${usage.reason}`);
+      this.emit('refUsage', { shotNumber, ...usage });
+    } catch (e) { console.warn('[Refs] 上报失败(不影响出片):', e instanceof Error ? e.message : e); }
+  }
+
+  getLockedSubjectReferences(): Array<{ type: 'character'; imageUrl: string; name?: string; refImageUrls?: string[] }> {
     return (this.lockedCharacters || [])
       .filter((c) => c && typeof c.imageUrl === 'string' && c.imageUrl.length > 0)
       .slice(0, 3)
-      .map((c) => ({ type: 'character' as const, imageUrl: c.imageUrl, name: c.name }));
+      .map((c) => {
+        const refImageUrls = angleRefUrls(c.refs); // v12.447:重生/自愈也带角度图(修前只给正面图,两套身份锚点)
+        return { type: 'character' as const, imageUrl: c.imageUrl, name: c.name, ...(refImageUrls.length ? { refImageUrls } : {}) };
+      });
   }
 
   /**
@@ -2978,7 +2994,8 @@ ${shots.map((s, i) => {
     const elementsRegistry: ElementsRegistry = buildElementsRegistry({
       characters: (characters || []).map((c: any) => {
         const nm = c.character || c.name;
-        return { name: nm, appearance: this.characterAppearanceMap[nm] || c.appearance || c.description, imageUrl: charUrlMap.get(nm) };
+        const refs = findAngleRefs(this.lockedCharacters, nm); // v12.447:装配层早就会读 refs,只是从来没人喂它
+        return { name: nm, appearance: this.characterAppearanceMap[nm] || c.appearance || c.description, imageUrl: charUrlMap.get(nm), ...(refs ? { refs } : {}) };
       }),
       scenes: (scenes || []).map((s: any) => {
         const nm = s.name || s.location;
@@ -3343,9 +3360,11 @@ ${shots.map((s, i) => {
           async (engine) => {
             if (engine === 'minimax' && this.minimaxService) {
               // ★ v2.8 (Seedance 2.0 同款): 多主体 + 场景/风格辅助参考图
-              const subjectRefs = mrBundle.subjectImages.map((url, idx) => ({
-                type: 'character' as const, imageUrl: url, name: mrBundle.characterNames[idx],
-              }));
+              const subjectRefs = mrBundle.subjectImages.map((url, idx) => { // v12.447:按名字挂上角度图,否则「用了几张」连报都报不准
+                const name = mrBundle.characterNames[idx], refImageUrls = angleRefUrls(findAngleRefs(this.lockedCharacters, name));
+                return { type: 'character' as const, imageUrl: url, name, ...(refImageUrls.length ? { refImageUrls } : {}) };
+              });
+              this.reportRefUsage('minimax', subjectRefs, board.shotNumber);
               return await this.minimaxService.generateVideo(firstFrameUrl, enhancedPrompt, {
                 aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
                 subjectReferenceUrl: hasCharRef ? characterRefUrl : undefined,
@@ -3475,10 +3494,12 @@ ${shots.map((s, i) => {
                 }
               }
               // v12.163/174:duration 跟随剧本(v3 支持 15s;声明已上移供 Elements 共用)。
+              const klingSubjects = subjectReferencesFromMount(shotMount);
+              this.reportRefUsage('kling', klingSubjects, board.shotNumber);
               return await this.klingService.generateVideo(firstFrameUrl, enhancedPrompt, {
                 duration: klingDur,
                 aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
-                subjectReferences: subjectReferencesFromMount(shotMount), // v12.15.0 Phase 2.1
+                subjectReferences: klingSubjects, // v12.15.0 Phase 2.1
                 referenceImages: klingRefs.length > 0 ? klingRefs : undefined,
                 onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
               });
@@ -4207,6 +4228,7 @@ ${characterBibleBlock}${producerContext}
         } else if (this.minimaxService) {
           // v2.14 P0.1: 把所有 lockedCharacters 转成 S2V multi-subject, 不再只用 primaryCharacterRef 单图
           const subjectRefs = this.getLockedSubjectReferences();
+          this.reportRefUsage('minimax', subjectRefs, shotNumber); // v12.447:重生也报,不许半截静默
           videoUrl = await this.minimaxService.generateVideo(board.imageUrl, board.prompt, {
             aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
             subjectReferenceUrl: this.primaryCharacterRef || undefined,
@@ -4278,7 +4300,10 @@ ${characterBibleBlock}${producerContext}
     const regenOrder = resolveEngineOrder(provider, availForRegen, parseEngineOrderEnv(process.env.VIDEO_ENGINE_ORDER));
     const genByEngine: Record<string, () => Promise<string>> = {
       veo: () => this.veoService!.generateVideo(engineFrame, videoPrompt, { duration, aspectRatio: this.videoAspect() }),
-      minimax: () => this.minimaxService!.generateVideo(engineFrame, videoPrompt, minimaxOpts),
+      minimax: () => { // v12.447:报在闭包里 —— 真轮到 MiniMax 才报
+        this.reportRefUsage('minimax', subjectRefs, shotNumber);
+        return this.minimaxService!.generateVideo(engineFrame, videoPrompt, minimaxOpts);
+      },
       // v12.348:与主管线同参 —— 有首帧走 i2v,否则 t2v。
       happyhorse: () => this.happyhorseService!.generateVideo(videoPrompt, {
         imageUrl: engineFrame && engineFrame.startsWith('http') ? engineFrame : undefined,

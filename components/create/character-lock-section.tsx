@@ -38,7 +38,17 @@ export interface LockedCharacter {
    * 编排器拼 prompt 时把这些维度合进 Character Bible,提升角色识别度与一致性。
    */
   traits?: CharacterTraits;
+  /**
+   * v12.447:多角度参考图(正面图之外的侧面/背面/3-4 等)。
+   * 多图参考引擎(可灵 Elements 每角色 1+3、MiniMax H3 共 9 张 —— H3 只能按量付费)靠它稳住**转头/转身后的同一张脸**——
+   * 只有一张正面图时,跨镜一转身就容易漂。装配层(lib/elements-registry)早就会读这个字段。
+   */
+  refs?: Array<{ role: 'frontal' | 'side' | 'three_quarter' | 'primary' | 'detail'; url: string }>;
 }
+
+/** 每个角色最多 3 张角度图 —— 与 lib/locked-characters 的 MAX_ANGLE_REFS 同一口径(可灵 1+3) */
+export const MAX_ANGLE_REFS = 3;
+const ANGLE_LABELS: Record<string, string> = { side: '侧面', three_quarter: '3/4 侧', detail: '背面/细节' };
 
 interface Props {
   value: LockedCharacter[];
@@ -214,6 +224,34 @@ interface CardProps {
 function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
+  // v12.447:角度图上传
+  const angleInputRef = useRef<HTMLInputElement | null>(null);
+  const [angleRole, setAngleRole] = useState<'side' | 'three_quarter' | 'detail'>('side');
+
+  /** 角度图走与正脸同一个上传路由(已做落盘持久化);不抽 traits —— 档案以正面图为准 */
+  async function onPickAngle(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if ((slot.refs || []).length >= MAX_ANGLE_REFS) { showToast({ title: `每个角色最多 ${MAX_ANGLE_REFS} 张角度图`, type: 'error' }); return; }
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/upload/character-face', { method: 'POST', body: form });
+      const body = await res.json();
+      if (!res.ok) { showToast({ title: body.error || '上传失败', type: 'error' }); return; }
+      if (body.url === slot.imageUrl || (slot.refs || []).some((r) => r.url === body.url)) {
+        showToast({ title: '这张图已经在了', type: 'error' });
+        return;
+      }
+      onUpdate({ refs: [...(slot.refs || []), { role: angleRole, url: body.url }] });
+    } catch (err) {
+      showToast({ title: err instanceof Error ? err.message : '上传失败', type: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  }
   const [extracting, setExtracting] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
@@ -493,6 +531,45 @@ function CharacterCard({ slotLabel, slot, onUpdate, onClear }: CardProps) {
           </select>
         </div>
       </div>
+
+      {/* v12.447:角度图 —— 只有正面图时,角色一转身就容易漂;多图参考引擎靠这些稳住同一张脸 */}
+      {slot.imageUrl && (
+        <div className="mt-2" data-angle-refs={slot.name || 'slot'}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-gray-400">角度图</span>
+            {(slot.refs || []).map((r, i) => (
+              <span key={r.url} className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 text-[10px]">
+                {ANGLE_LABELS[r.role] || r.role}
+                <button type="button" aria-label={`移除第 ${i + 1} 张角度图`}
+                  onClick={() => onUpdate({ refs: (slot.refs || []).filter((x) => x.url !== r.url) })}
+                  className="opacity-60 hover:opacity-100">×</button>
+              </span>
+            ))}
+            {(slot.refs || []).length < MAX_ANGLE_REFS && (
+              <>
+                <select
+                  aria-label="角度图类型" value={angleRole}
+                  onChange={(e) => setAngleRole(e.target.value as 'side' | 'three_quarter' | 'detail')}
+                  className="max-w-full min-w-0 px-1 py-0.5 text-[10px] bg-black/30 border border-white/10 rounded"
+                >
+                  <option value="side">侧面</option>
+                  <option value="three_quarter">3/4 侧</option>
+                  <option value="detail">背面/细节</option>
+                </select>
+                <button type="button" data-add-angle onClick={() => angleInputRef.current?.click()} disabled={busy}
+                  className="px-1.5 py-0.5 text-[10px] rounded border border-white/10 hover:border-[#E8C547]/50 disabled:opacity-50">
+                  + 传图
+                </button>
+                <input ref={angleInputRef} type="file" accept="image/*" className="hidden"
+                  aria-label="上传角度图" onChange={onPickAngle} />
+              </>
+            )}
+          </div>
+          <p className="text-[9px] text-gray-500 mt-1">
+            最多 {MAX_ANGLE_REFS} 张。可灵 Elements 每角色收 1 正面 + 3 角度;MiniMax v1 每角色只收 1 张(出片时会如实提示忽略了几张)。
+          </p>
+        </div>
+      )}
 
       {/* 操作行 */}
       <div className="mt-3 flex items-center gap-1.5">

@@ -16,7 +16,7 @@ export interface ProjectContextRow {
 export interface ProjectContext {
   styleId?: string;
   primaryRef?: string;
-  lockedCharacters: Array<{ name: string; role: string; cw: number; imageUrl: string; traits?: unknown }>;
+  lockedCharacters: Array<{ name: string; role: string; cw: number; imageUrl: string; traits?: unknown; refs?: Array<{ role: string; url: string }> }>;
 }
 
 /** 供各重生入口统一取列的 SELECT(列名与 projects 表一致)。 */

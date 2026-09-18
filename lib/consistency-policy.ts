@@ -43,6 +43,8 @@ export interface LockedCharacter {
    * 缺省 = 用户没启用反向抽取, 编排器回退到不带 traits 的旧行为。
    */
   traits?: unknown;
+  /** v12.447:多角度参考图(正面之外的侧面/背面等),见 lib/locked-characters 的净化规则 */
+  refs?: Array<{ role: string; url: string }>;
 }
 
 export interface ConsistencyContext {

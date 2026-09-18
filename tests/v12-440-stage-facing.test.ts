@@ -633,6 +633,9 @@ describe('v12.440 · 所有出片路径都带导演台站位(修前只有整片�
         videoAspect: () => '16:9',
         minimaxService: { generateVideo: async (_frame: string, prompt: string) => { prompts.push(prompt); return 'https://cdn.example/v.mp4'; } },
       };
+      // v12.447:重生的 MiniMax 闭包会先上报「角度图丢了几张」—— 假对象得带上真实现,不然调用即抛
+      fake.reportRefUsage = (HybridOrchestrator.prototype as any).reportRefUsage.bind(fake);
+      fake.emit = () => {};
       const clip = await (HybridOrchestrator.prototype as any).regenerateShot.call(
         fake, 4, { shotNumber: 4, imageUrl: 'https://cdn.example/f.png', prompt: 'she turns away' },
         { videoProvider: 'minimax', ...opts },

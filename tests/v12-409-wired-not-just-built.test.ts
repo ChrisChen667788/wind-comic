@@ -36,7 +36,12 @@ describe('v12.409 · 造好了必须接上线', () => {
   });
 
   it('Veo 时长不再写死 8 秒 —— 剧本要 15s 却只出 8s 且不报错', () => {
-    const i = ORCH.indexOf("engine === 'veo'");
+    // v12.447:锚到真正的 Veo 分支。原锚点 `engine === 'veo'` 在(去注释后的)源码里出现两次,
+    // indexOf 命中的是前面那个引擎标签小函数,离 generateExtended 1711 字符 —— 窗口 1800,
+    // 之前能过纯属侥幸;MiniMax 分支里多几行就把它挤出窗口。锚点门禁没拦住,是因为
+    // ORCH 外面包了一层 strip(),门禁对不上变量与源文件,按保守策略放过了。
+    const i = ORCH.indexOf("engine === 'veo' && this.veoService");
+    expect(i, '找不到 Veo 分支 —— 结构变了就得同步这条').toBeGreaterThan(0);
     const block = ORCH.slice(i, i + 1800);
     expect(block).toContain('generateExtended');
     expect(block, '又写回 duration: 8 了').not.toMatch(/duration:\s*8\b/);
