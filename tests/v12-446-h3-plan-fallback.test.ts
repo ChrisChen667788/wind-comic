@@ -51,6 +51,14 @@ describe('v12.446 · 认得出「套餐不支持 H3」', () => {
     expect(isModelUnavailableError('insufficient credit balance')).toBe(false);
   });
 
+  it('v12.446.1 · 「模式不支持」不是「套餐不支持」—— 实探原文,旧的宽规则会误判', () => {
+    const FAST_T2V = 'invalid params, model MiniMax-Hailuo-2.3-Fast does not support Text-to-Video mode (2013)';
+    expect(isModelUnavailableError(FAST_T2V)).toBe(false);
+    expect(detectQuotaError('minimax', undefined, FAST_T2V), '看板也不能把它记成套餐问题').not.toBe('model_unavailable');
+    // 真正的套餐类英文原文都带 token plan 字样,收紧后照样命中
+    expect(isModelUnavailableError('your current token plan not support model')).toBe(true);
+  });
+
   it('不能按 2013 这个码认 —— 它是 MiniMax 的通用「参数错误」码', () => {
     expect(isModelUnavailableError('Minimax video-01 error (2013): invalid params')).toBe(false);
     // 模型能力类的参数错误(没有套餐字样)也不该触发「换成 legacy」

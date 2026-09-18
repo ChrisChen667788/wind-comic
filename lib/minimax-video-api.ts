@@ -78,8 +78,12 @@ export function isModelUnavailableError(message: string): boolean {
   const m = message.toLowerCase();
   if (/\b2061\b/.test(message)) return true;
   if (PLAN_WORDS.test(message) && NOT_SUPPORTED.test(message)) return true;
+  // v12.446.1:删掉原来那条「not support + model」—— 太宽。实探原文(2026-09-18):
+  //   model MiniMax-Hailuo-2.3-Fast does not support Text-to-Video mode
+  // 这是**模式**不支持(参数错误),不是套餐不支持;命中它会让回落打出「当前套餐用不了」的假告警,
+  // 用量看板(v12.446 起共用本判定)也会把它记成 model_unavailable。套餐类英文原文都带
+  // "token plan" 字样,由上一行覆盖。
   return (
-    (m.includes('not support') && m.includes('model')) ||
     m.includes('model not found') ||
     m.includes('invalid model') ||
     m.includes('unknown model')
