@@ -30,11 +30,12 @@ function decode(png: Buffer) {
   }
   const raw = zlib.inflateSync(Buffer.concat(idat));
   const stride = width * 3;
+  const pixelHash = () => createHash('sha256').update(raw).digest('hex');
   const px = (x: number, y: number) => {
     const i = y * (stride + 1) + 1 + x * 3;
     return raw[i];   // 灰阶图,取 R 即可
   };
-  return { width, height, px, isInk: (x: number, y: number) => px(x, y) < 200 };
+  return { width, height, px, pixelHash, isInk: (x: number, y: number) => px(x, y) < 200 };
 }
 
 const CAM = { x: 0, z: 0, yawDeg: 0, lens: '35' as const, heightM: 1.6 };
@@ -103,13 +104,15 @@ describe('v12.443 · 姿态改变画面里的高度', () => {
 describe('v12.443 · 草图画出四肢', () => {
   const render = (s: StageScene) => decode(renderStageSketch(s, { width: 320, height: 180 }));
 
-  it('**没设姿态的草图逐字节不变**(基线哈希取自 v12.442 的代码)', () => {
+  it('**没设姿态的草图逐像素不变**(基线取自 v12.442 的代码)', () => {
     const scene: StageScene = {
       camera: CAM, aspect: '16:9',
       actors: [{ id: 'a', name: '林晚', x: -1, z: 4 }, { id: 'b', name: '陆沉', x: 1.2, z: 6, heightM: 1.8 }],
     };
-    const hash = createHash('sha256').update(renderStageSketch(scene, { width: 320, height: 180 })).digest('hex');
-    expect(hash).toBe('9a17fb7d12253c7beedf6aa8b11aa9fc9054e15f12f81006048e979da443d2c8');
+    // 锁**解码后的像素**而不是 PNG 文件字节:PNG 是 zlib 压缩的,不同 Node 版本的 zlib
+    // 输出不同 —— 本机 Node 25 与 CI 的 Node 22 算出的文件哈希就不一样(这条最初写成文件
+    // 哈希,本机绿、CI 红)。像素才是这条测试真正要锁的东西。
+    expect(render(scene).pixelHash()).toBe('489f210758485e4abf6f5db3ef0bbfb01d640213ee52322c50e4c27913355a3b');
   });
 
   it('举手:肩线以上、躯干之外有墨(站立时那片是空的)', () => {
