@@ -21,7 +21,17 @@ const REPO = process.cwd();
 function dbPathIn(cwd: string, env: Record<string, string>): string {
   const out = execFileSync(
     'npx',
-    ['tsx', '-e', `import(${JSON.stringify(path.join(REPO, 'lib/db.ts'))}).then(m => console.log('DBPATH=' + m.dbPath))`],
+    ['tsx', '-e',
+      `import(${JSON.stringify(path.join(REPO, 'lib/db.ts'))}).then((m) => {
+`
+      // Node 20 的 tsx 走 CJS 互操作时命名导出落在 default 上,Node 25 直接给命名导出 —— 两种都认
+      + `  const p = m.dbPath ?? (m.default && m.default.dbPath);
+`
+      + `  if (typeof p !== 'string') { console.error('NO_DBPATH ' + JSON.stringify(Object.keys(m))); process.exit(3); }
+`
+      + `  console.log('DBPATH=' + p);
+`
+      + `})`],
     { cwd, env: { ...process.env, VITEST: '', NODE_ENV: 'production', ...env }, encoding: 'utf-8', timeout: 120000 },
   );
   const line = out.split('\n').find((l) => l.startsWith('DBPATH='));
