@@ -326,7 +326,10 @@ export class MinimaxService {
           console.warn(
             `[Minimax] ⚠️ 当前套餐用不了 ${attempted} —— 本次回落到 legacy 的 ${LEGACY_VIDEO_MODEL}。` +
             `注意 2.3 系列已被官方降为 legacy,随时可能像 Music API 那样被无预告停掉;` +
-            `请在 MiniMax 控制台开通 H3,或显式设 MINIMAX_VIDEO_MODEL 以消除本条告警。原始错误:${emsg.slice(0, 120)}`,
+            // v12.446:原文案让人「去控制台开通 H3」—— 但 Token Plan(订阅)与积分**都开不了 H3**,
+            // 官方文档写明 H3 只走按量付费。照原文案去找会白找一圈。
+            `H3 只支持按量付费(Token Plan 订阅与积分都不行):要用 H3 需换成按量付费的 key;` +
+            `不打算用就设 MINIMAX_VIDEO_MODEL=${LEGACY_VIDEO_MODEL} 省掉这次必败的请求并消除本条告警。原始错误:${emsg.slice(0, 120)}`,
           );
           return await this.generateVideo(imageUrl, prompt, { ...options, _forceModel: LEGACY_VIDEO_MODEL });
         }

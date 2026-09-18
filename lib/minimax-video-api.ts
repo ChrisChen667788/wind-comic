@@ -59,10 +59,25 @@ export function apiVersionFor(model: string): MinimaxApiVersion {
  * 「这个错误是不是在说『你的套餐用不了这个模型』」。
  * 命中则由调用方回落到 legacy 模型 —— 与额度耗尽(那是 quota,另有 Fast 兜底)区分开:
  * 额度耗尽换模型没用,套餐不支持换模型才有用。
+ *
+ * v12.446:**国内站的真实报文是中文的**,而这里原先只认英文 —— 于是 v12.402 上线后
+ * 回落分支一次都没被走到过。生产日志原文(2026-09-03 起每天都有):
+ *   Minimax API error (400): {…"message":"invalid params, TokenPlan 或 Credit 暂不支持 MiniMax-H3 系列模型 (2013)"…}
+ * 认不出 → 抛错 → 可灵欠费、Veo 额度尽 → 整镜落成 Ken Burns 占位片,而套餐里每天 3 条
+ * Hailuo-2.3 一条都没用上(9-02 之前每天稳定出 3 条)。
+ * **不能按错误码认**:2013 是 MiniMax 的通用「参数错误」码(Hailuo-2.3-Fast 纯文生也报 2013)。
+ * 只按语义认:「计费方式/套餐」与「不支持」同时出现。「已达到 Token Plan 用量上限」有前者
+ * 没后者 —— 那是额度,换模型没用,必须不命中。
+ * 用量看板(`lib/api-usage-tracker.ts`)的 model_unavailable 也调这一份,不再各写一份。
  */
+const PLAN_WORDS = /token\s*plan|credit|套餐|订阅/i;
+const NOT_SUPPORTED = /not\s*support|不支持/i;
+
 export function isModelUnavailableError(message: string): boolean {
+  if (!message) return false;
   const m = message.toLowerCase();
   if (/\b2061\b/.test(message)) return true;
+  if (PLAN_WORDS.test(message) && NOT_SUPPORTED.test(message)) return true;
   return (
     (m.includes('not support') && m.includes('model')) ||
     m.includes('model not found') ||

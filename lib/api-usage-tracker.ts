@@ -12,7 +12,7 @@
  *
  * 已知 quota 模式 (per provider):
  *   minimax    : status_code === 1008 OR /余额不足|insufficient.balance/i
- *   minimax    : status_code === 2061 → plan not support model (auth_failed)
+ *   minimax    : status_code === 2061 或 isModelUnavailableError(中英文「套餐不支持该模型」)→ model_unavailable
  *   openai     : http 429 OR /insufficient_quota|quota.*exceeded|余额/i
  *   midjourney : /credits.*insufficient|余额|task.*pending.*queue.*full/i
  *   veo        : /pre_consume_token_quota_failed|上游负载已饱和|分组.*饱和|saturated/i (saturated)
@@ -26,6 +26,7 @@
  */
 
 import { getDbDriver } from './db-driver';
+import { isModelUnavailableError } from './minimax-video-api';
 import { nanoid } from 'nanoid';
 
 export type ApiProvider =
@@ -89,8 +90,11 @@ const QUOTA_MATCHERS: Record<ApiProvider, QuotaMatcher[]> = {
     // v2.22 fix: 2061 ("your current token plan not support model") 不是鉴权问题,
     // 是该模型在用户当前套餐里不可用 — 跟 401/403 鉴权失败语义完全不同, 单独标 model_unavailable.
     // 1004 还是真鉴权失败 (invalid token).
+    // v12.446:与视频回落共用 `isModelUnavailableError` —— 原先这里另写一份英文正则,
+    // 国内站的中文报文(「TokenPlan 或 Credit 暂不支持 MiniMax-H3 系列模型」)两边都认不出,
+    // 看板上看到的只是一次普通失败,没有「套餐不支持」告警。
     { type: 'model_unavailable', match: (sc, msg) =>
-        sc === 2061 || /token plan not support|plan.*not.*support.*model/i.test(msg || '') },
+        sc === 2061 || isModelUnavailableError(msg || '') },
     { type: 'auth_failed', match: (sc) => sc === 1004 },
     { type: 'rate_limited', match: (sc, msg) =>
         sc === 429 || /rate.?limit|too.?many.?requests/i.test(msg || '') },
