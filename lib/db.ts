@@ -1,4 +1,5 @@
 import path from 'path';
+import os from 'os';
 import fs from 'fs';
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
@@ -28,8 +29,31 @@ const isTestEnv = !!process.env.VITEST || process.env.NODE_ENV === 'test';
 //   旧库文件不在这里清理(避免删到仍被占用的文件); 由 tests/global-setup.ts 在整批
 //   测试开始前、于主进程一次性清掉 data/qfmj.test.* 残留. e2e 的 ws-server 子进程通过
 //   QFMJ_DB_PATH 复用本进程这一文件 (见 scripts/ws-server.mjs).
-const dbFile = isTestEnv ? `qfmj.test.${process.pid}.${nanoid(10)}.db` : 'qfmj.db';
-const dbPath = path.join(dataDir, dbFile);
+/**
+ * v12.442:**构建期用一次性临时库**。
+ *
+ * `next build` 会起多个 worker 并行收集页面数据(本机实测 32 个),每个 worker 导入本模块
+ * 都会对同一个 `data/qfmj.db` 建表 + 跑迁移(全是写操作)。arm64 镜像在 QEMU 下更慢,
+ * `busy_timeout = 5000` 等不到锁就抛 `SqliteError: database is locked`,整个构建失败
+ * (v12.441 的 Docker 就是这么红的;别的版本只是侥幸没撞上 —— 这是竞争,不是必现)。
+ *
+ * 构建期本来就不该读生产数据:页面全是 `force-dynamic`,这里只是被 import 带起来的副作用。
+ * 所以给每个构建进程一个**临时目录里的独占库**:互不竞争,也不会把残留文件打进镜像。
+ * 运行时两个标记都没有,照旧用 `data/qfmj.db`。
+ */
+const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build' || process.env.QFMJ_EPHEMERAL_DB === '1';
+const dbPath = isTestEnv
+  ? path.join(dataDir, `qfmj.test.${process.pid}.${nanoid(10)}.db`)
+  : isBuildPhase
+    ? path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'qfmj-build-')), 'qfmj.build.db')
+    : path.join(dataDir, 'qfmj.db');
+
+if (isBuildPhase) {
+  // 一次构建会起几十个 worker,每个都留一个临时库目录 —— 退出时顺手清掉,免得在长期存活的
+  // 构建机 /tmp 里堆积。清不掉也无所谓(系统会清),绝不能因此让构建失败。
+  const buildDir = path.dirname(dbPath);
+  process.on('exit', () => { try { fs.rmSync(buildDir, { recursive: true, force: true }); } catch { /* 清不掉就算了 */ } });
+}
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');

@@ -24,6 +24,10 @@ RUN npm ci --no-audit --no-fund --prefer-offline
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# v12.442:构建期用一次性临时库。next build 起多个 worker 并行收集页面数据,每个都会导入
+# lib/db 并对同一个 data/qfmj.db 建表+迁移,arm64(QEMU)下常撞 "database is locked" 使整个
+# 构建失败。这里显式置位,不依赖 Next 内部的 NEXT_PHASE(仅 builder 阶段,runner 不带)。
+ENV QFMJ_EPHEMERAL_DB=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
