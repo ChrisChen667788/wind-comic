@@ -102,10 +102,20 @@ describe('v12.447 · 引擎吃不下的必须说出来', () => {
     expect(on.used).toBe(4);
   });
 
-  it('MiniMax v1:每角色 1 张,原因里点明 H3 能收 9 张', () => {
+  it('MiniMax 旧接口:S2V-01 默认只锁第 1 个角色、1 张正面;原因里点明 H3 能收 9 张', () => {
+    // v12.448 更正:此前断言「两个角色各 1 张」(used=2)—— 锁的是错行为。S2V-01 默认只锁第 1 个角色
+    // (MINIMAX_S2V_MAX_SUBJECTS 不设 = 1,v12.9.0 的既定取舍),第 2 个角色连正面图都不发。
     const u = refUsageFor('minimax', [2, 1], {});
-    expect(u.used).toBe(2);         // 两个角色各 1 张正面
-    expect(u.dropped).toBe(3);      // 3 张角度图被忽略
+    expect(u.used).toBe(1);         // 只有第 1 个角色的正面图发出去
+    expect(u.unlocked).toBe(1);     // 第 2 个角色没被锁
+    expect(u.dropped).toBe(3);      // 3 张角度图被忽略(只数角度图)
+    expect(u.reason).toContain('只锁第 1 个角色');
+    expect(u.reason).toContain('另有 1 个角色没被锁');
+    // 显式放开到 2 个主体:两个角色各发 1 张正面
+    const two = refUsageFor('minimax', [2, 1], { MINIMAX_S2V_MAX_SUBJECTS: '2' });
+    expect(two.used).toBe(2);
+    expect(two.unlocked).toBe(0);
+    expect(two.dropped).toBe(3);
     expect(u.reason).toContain('H3');
     // 不能让人以为换个套餐就行:H3 只走按量付费(2026-09-18 核实)
     expect(u.reason).toContain('按量付费');

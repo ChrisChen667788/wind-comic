@@ -39,6 +39,19 @@ export async function POST(request: NextRequest) {
     ownerUserId = uid;
   }
 
+  // v12.448(对抗复查第三轮挖出,早就存在):projectId 由客户端给,此前从不校验归属 ——
+  // 流水线见项目已存在就 UPDATE 并往里写全套素材,任何登录用户填别人的项目号就能覆写别人的项目。
+  // 只校验**已存在**的项目:创作页新建时是前端先生成 `proj-<时间戳>` 再传上来,那时项目还不存在,必须放行。
+  // 放在一切计费调用(下面的 LLM 扩写)之前。
+  if (clientProjectId != null && clientProjectId !== '') {
+    const { getProject } = await import('@/lib/repos/project-repo');
+    if (await getProject(String(clientProjectId))) {
+      const { requireProjectAccess } = await import('@/lib/auth-guard');
+      const g = await requireProjectAccess(request as any, String(clientProjectId), 'edit');
+      if (!g.ok) return new Response(JSON.stringify({ error: '无权在该项目上创作', code: 'forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+    }
+  }
+
   // v2.18: idea 预处理 — 规则清洗 + (信息不足时) LLM 扩写
   // 这一步在安全闸门之前, 让闸门看到的是已清洗 + 已扩写的版本 (规则更准, 扩写不引入有害词)
   // v10.4.0: MOCK_ENGINES=1 全封闭(hermetic)— 跳过 LLM 扩写,只走规则清洗(零外部调用、确定性)

@@ -67,6 +67,10 @@ export async function runWorkflowReal(
     orch = new HybridOrchestrator() as unknown as OrchestratorLike;
   }
 
+  // v12.448:把项目号交给编排器 —— 此前只放进工作流输入,runVideoProducer 读的是编排器身上的,
+  // 导演台站位与参考视频在真跑模式下都被静默跳过。归属已由调用路由校验(见 app/api/workflows/[id]/execute*)。
+  if (typeof input.projectId === 'string' && input.projectId) orch.setProjectId?.(input.projectId);
+
   // per-call runners — 不动全局注册表, 并发安全
   const runners = buildOrchestratorRunners(orch);
   const result = await executeWorkflow(graph, {

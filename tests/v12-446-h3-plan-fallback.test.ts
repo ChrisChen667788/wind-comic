@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { isModelUnavailableError, LEGACY_VIDEO_MODEL } from '@/lib/minimax-video-api';
 import { detectQuotaError } from '@/lib/api-usage-tracker';
 import { MinimaxService } from '@/services/minimax.service';
+import { resetH3Availability } from '@/lib/h3-availability';
 
 /** 生产日志原文(request_id 换成占位) */
 const REAL_MESSAGE = 'invalid params, TokenPlan 或 Credit 暂不支持 MiniMax-H3 系列模型 (2013)';
@@ -99,6 +100,8 @@ describe('v12.446 · 回落整条链(模拟网络)', () => {
   const prevModel = process.env.MINIMAX_VIDEO_MODEL;
 
   beforeEach(() => {
+    // v12.448:「H3 不可用」会在进程内记 30 分钟 —— 每条从「未知」开始,否则上一条记下的状态让下一条直接跳过 H3
+    resetH3Availability();
     delete process.env.MINIMAX_VIDEO_MODEL; // 用默认值 = H3,和生产一致
     calls = [];
     warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

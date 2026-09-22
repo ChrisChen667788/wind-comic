@@ -318,6 +318,9 @@ export async function POST(request: NextRequest) {
               description: JSON.parse(a.data || '{}').description || '',
             }));
 
+            // v12.448:整阶段重做走 runVideoProducer,它读的是编排器身上的项目号 —— 这里从没设过,
+            // 于是导演台站位(v12.440)与参考视频(v12.448)在这条路径上都被静默跳过。单镜重生那两条是经参数传的,不受影响。
+            orchestrator.setProjectId(projectId);
             const videos = await orchestrator.runVideoProducer(
               storyboards, videoProvider || 'veo', characters, scenes, scriptData
             );

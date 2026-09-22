@@ -25,6 +25,8 @@ export interface OrchestratorLike {
   runVideoProducer?(storyboards: any, ...rest: any[]): Promise<any>;
   runEditor?(videos: any, script: any): Promise<any>;
   runDirectorReview?(script: any, videos: any, editResult?: any, storyboards?: any): Promise<any>;
+  /** v12.448:让导演台站位 / 参考视频 / 成本归属读到项目(调用方须已校验归属) */
+  setProjectId?(id: string): void;
 }
 
 /**

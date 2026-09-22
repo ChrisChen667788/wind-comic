@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { refDropFor } from '@/lib/ref-capability';
 import { angleRefUrls, findAngleRefs } from '@/lib/locked-characters';
+import { refVideoOptsForShot, refVideoNoticeText, type RefVideoEvent } from '@/lib/shot-ref-video-store';
 import { resolveVerifiedServeFilePath } from '@/lib/serve-file-sign';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { API_CONFIG } from '@/lib/config';
@@ -647,8 +648,16 @@ export class HybridOrchestrator {
       if (!usage) return;
       console.warn(`[Refs] 第 ${shotNumber ?? '?'} 镜:${usage.reason}`);
       this.emit('refUsage', { shotNumber, ...usage });
+      this.refNotice(`⚠️ 第 ${shotNumber ?? '?'} 镜:${usage.reason}`);
     } catch (e) { console.warn('[Refs] 上报失败(不影响出片):', e instanceof Error ? e.message : e); }
   }
+
+  /** v12.448:结局要让人看得见 —— 整片生成的对话流读 agentTalk,单镜重生的状态行读 status(refUsage/refVideo 事件前端还没人接) */
+  private refNotice(text: string): void {
+    this.emit('agentTalk', { role: AgentRole.VIDEO_PRODUCER, text });
+    this.emit('status', { message: text });
+  }
+  private onRefVideo(e: RefVideoEvent): void { this.emit('refVideo', e); this.refNotice(refVideoNoticeText(e)); }
 
   getLockedSubjectReferences(): Array<{ type: 'character'; imageUrl: string; name?: string; refImageUrls?: string[] }> {
     return (this.lockedCharacters || [])
@@ -3364,8 +3373,8 @@ ${shots.map((s, i) => {
                 const name = mrBundle.characterNames[idx], refImageUrls = angleRefUrls(findAngleRefs(this.lockedCharacters, name));
                 return { type: 'character' as const, imageUrl: url, name, ...(refImageUrls.length ? { refImageUrls } : {}) };
               });
-              this.reportRefUsage('minimax', subjectRefs, board.shotNumber);
-              return await this.minimaxService.generateVideo(firstFrameUrl, enhancedPrompt, {
+              const ref = await refVideoOptsForShot(this.projectId, Number(board.shotNumber), (e) => this.onRefVideo(e), () => this.reportRefUsage('minimax', subjectRefs, board.shotNumber)); // v12.448
+              return await this.minimaxService.generateVideo(firstFrameUrl, enhancedPrompt, { ...ref,
                 aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
                 subjectReferenceUrl: hasCharRef ? characterRefUrl : undefined,
                 subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
@@ -4228,8 +4237,8 @@ ${characterBibleBlock}${producerContext}
         } else if (this.minimaxService) {
           // v2.14 P0.1: 把所有 lockedCharacters 转成 S2V multi-subject, 不再只用 primaryCharacterRef 单图
           const subjectRefs = this.getLockedSubjectReferences();
-          this.reportRefUsage('minimax', subjectRefs, shotNumber); // v12.447:重生也报,不许半截静默
-          videoUrl = await this.minimaxService.generateVideo(board.imageUrl, board.prompt, {
+          const ref = await refVideoOptsForShot(this.projectId, shotNumber, (e) => this.onRefVideo(e), () => this.reportRefUsage('minimax', subjectRefs, shotNumber)); // v12.447/448:重生也报
+          videoUrl = await this.minimaxService.generateVideo(board.imageUrl, board.prompt, { ...ref,
             aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
             subjectReferenceUrl: this.primaryCharacterRef || undefined,
             subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
@@ -4300,9 +4309,9 @@ ${characterBibleBlock}${producerContext}
     const regenOrder = resolveEngineOrder(provider, availForRegen, parseEngineOrderEnv(process.env.VIDEO_ENGINE_ORDER));
     const genByEngine: Record<string, () => Promise<string>> = {
       veo: () => this.veoService!.generateVideo(engineFrame, videoPrompt, { duration, aspectRatio: this.videoAspect() }),
-      minimax: () => { // v12.447:报在闭包里 —— 真轮到 MiniMax 才报
-        this.reportRefUsage('minimax', subjectRefs, shotNumber);
-        return this.minimaxService!.generateVideo(engineFrame, videoPrompt, minimaxOpts);
+      minimax: async () => { // v12.447:报在闭包里 —— 真轮到 MiniMax 才报;v12.448 参考视频同理
+        const ref = await refVideoOptsForShot(options?.projectId || this.projectId, shotNumber, (e) => this.onRefVideo(e), () => this.reportRefUsage('minimax', subjectRefs, shotNumber));
+        return this.minimaxService!.generateVideo(engineFrame, videoPrompt, { ...minimaxOpts, ...ref });
       },
       // v12.348:与主管线同参 —— 有首帧走 i2v,否则 t2v。
       happyhorse: () => this.happyhorseService!.generateVideo(videoPrompt, {

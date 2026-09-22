@@ -31,6 +31,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try { body = await request.json(); } catch {}
   const onFailure = body?.onFailure === 'continue' ? 'continue' : 'abort';
   const input = body?.input && typeof body.input === 'object' ? body.input : {};
+  // v12.448(对抗复查挖出,v4.1.4 起就在):input.projectId 此前**从不校验归属** —— 真跑会把结果写进这个项目、
+  // 编排器还会读它的导演台站位与参考视频;任何登录用户填别人的项目号就能越权读写。带了就必须有编辑权限。
+  if (input.projectId != null && input.projectId !== '') {
+    const { requireProjectAccess } = await import('@/lib/auth-guard');
+    const g = await requireProjectAccess(request as any, String(input.projectId), 'edit');
+    if (!g.ok) return NextResponse.json({ error: '无权在该项目上运行工作流' }, { status: 403 });
+  }
   const mode = body?.mode === 'real' ? 'real' : 'dry-run';
 
   // v4.1.3: real 模式真跑 orchestrator (需 project 上下文 + LLM key)

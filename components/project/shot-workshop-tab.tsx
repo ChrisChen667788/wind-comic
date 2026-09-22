@@ -14,12 +14,13 @@
  *   - 链接出口: 跳到 /dashboard/u2v / /dashboard/u2v-flf 用 V2.14 工具调单镜
  */
 
-import { useState } from 'react';
-import { ArrowsClockwise as RefreshCw, CircleNotch as Loader2, Sparkle as Sparkles, ArrowSquareOut as ExternalLink, Lock, FilmStrip as Film, Pencil, SquaresFour as Grid } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
+import { ArrowsClockwise as RefreshCw, CircleNotch as Loader2, Sparkle as Sparkles, ArrowSquareOut as ExternalLink, Lock, FilmStrip as Film, Pencil, SquaresFour as Grid, FilmSlate } from '@phosphor-icons/react';
 import { EmptyState } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from './export-resolution-dropdown';
 import { StoryboardRegenModal } from './storyboard-regen-modal';
 import { CandidateGridModal } from './candidate-grid-modal'; // v12.35.0 九宫格候选帧
+import { RefVideoModal, type ShotRefVideoView } from './ref-video-modal'; // v12.448 动作参考视频
 
 interface Video {
   shotNumber: number;
@@ -53,6 +54,20 @@ export function ShotWorkshopTab({
   // v2.23 P0.2: 单镜分镜图重生 — 用户改 prompt 后重渲
   const [regenModalShot, setRegenModalShot] = useState<number | null>(null);
   const [gridModalShot, setGridModalShot] = useState<number | null>(null); // v12.35.0 九宫格候选帧
+  // v12.448:动作参考视频 —— 进来时读一次全部,卡片上据此打标
+  const [refModalShot, setRefModalShot] = useState<number | null>(null);
+  const [refVideos, setRefVideos] = useState<Record<number, ShotRefVideoView>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/projects/${encodeURIComponent(projectId)}/ref-video`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !Array.isArray(d?.items)) return;
+        setRefVideos(Object.fromEntries(d.items.map((x: ShotRefVideoView) => [x.shotNumber, x])));
+      })
+      .catch(() => { /* 打标是增强项,读不到不影响工坊 */ });
+    return () => { alive = false; };
+  }, [projectId]);
   // 分镜图本地 override (regen 成功后立刻替换缩略图)
   const [sbOverrides, setSbOverrides] = useState<Record<number, string>>({});
 
@@ -203,6 +218,7 @@ export function ShotWorkshopTab({
                     )}
                     {overridden && <span className="cinema-mono text-[9px] text-[var(--cinema-green)]">✓ 4K 已重渲</span>}
                     {sbRegenerated && <span className="cinema-mono text-[9px] text-[var(--cinema-amber)] inline-flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" />分镜图已重生</span>}
+                    {refVideos[v.shotNumber] && <span data-ref-video-chip className="cinema-mono text-[9px] text-[var(--cinema-amber)] inline-flex items-center gap-1"><FilmSlate className="w-2.5 h-2.5" />动作参考</span>}
                   </div>
                   {isBusy && progress && progress.shotNumber === v.shotNumber && (
                     <div className="flex items-center gap-2 mt-1">
@@ -229,6 +245,17 @@ export function ShotWorkshopTab({
                   >
                     <Pencil className="w-3 h-3" />
                     改 prompt 重生
+                  </button>
+                  {/* v12.448: 动作参考视频 — 出片时交给 MiniMax H3 照着动作与运镜生成 */}
+                  <button
+                    onClick={() => setRefModalShot(v.shotNumber)}
+                    disabled={busyShot !== null}
+                    data-ref-video-open={v.shotNumber}
+                    title="给这一镜挂一段动作参考视频(只有 MiniMax H3 能用,H3 只能按量付费)"
+                    className="cinema-btn !px-3 !py-1.5 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    <FilmSlate className="w-3 h-3" />
+                    动作参考
                   </button>
                   {/* v12.35.0: 九宫格候选帧 — 一镜出 N 构图候选,挑最优作首帧 */}
                   <button
@@ -280,6 +307,20 @@ export function ShotWorkshopTab({
             setRegenModalShot(null);
           }}
           onCancel={() => setRegenModalShot(null)}
+        />
+      )}
+
+      {/* v12.448: 动作参考视频 modal */}
+      {refModalShot !== null && (
+        <RefVideoModal
+          projectId={projectId}
+          shotNumber={refModalShot}
+          onChange={(n, rv) => setRefVideos((prev) => {
+            const next = { ...prev };
+            if (rv) next[n] = rv; else delete next[n];
+            return next;
+          })}
+          onClose={() => setRefModalShot(null)}
         />
       )}
 

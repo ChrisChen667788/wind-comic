@@ -5,6 +5,9 @@ import {
   videoCreatePath,
   type MinimaxApiVersion,
 } from '@/lib/minimax-video-api';
+import { isH3KnownUnavailable, markH3Unavailable, h3UnavailableReason } from '@/lib/h3-availability';
+import { planH3RefImages, withRefVideoHint, type RefVideoOutcome } from '@/lib/ref-video';
+import { toEngineImage } from '@/lib/first-frame';
 import { API_CONFIG } from '@/lib/config';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { classifyEmotion } from '@/lib/emotion-tag';
@@ -125,6 +128,23 @@ function _trackMinimaxError(error: unknown, model: string, method: string): void
  * MiniMax 额度耗尽常见 status_code 2056「usage limit reached」, 也兜各种 quota/额度 文案.
  * 纯函数, 可单测.
  */
+/**
+ * v12.448:从 generateVideo 的 try 块里递归出去的调用,失败时打个标记 ——
+ * 那次调用已经走完了它自己的全部兜底,外层 catch 见到标记就原样上抛,不要再兜第二遍。
+ */
+const NESTED_DONE = Symbol.for('wind-comic.minimax.nested-done');
+async function nestedAttempt<T>(f: () => Promise<T>): Promise<T> {
+  try {
+    return await f();
+  } catch (e) {
+    if (e && typeof e === 'object') (e as any)[NESTED_DONE] = true;
+    throw e;
+  }
+}
+function isNestedDone(e: unknown): boolean {
+  return !!(e && typeof e === 'object' && (e as any)[NESTED_DONE]);
+}
+
 export function isMinimaxVideoQuotaError(message: string): boolean {
   return /\b2056\b|\b1008\b|usage limit|limit reached|insufficient|quota|exceeded|额度|用尽|超出|余额/i.test(message || '');
 }
@@ -189,7 +209,7 @@ export class MinimaxService {
      * v2.8: 多主体参考 — 每个主要角色一个条目,S2V-01 可同时锁定多个主体。
      * 如果传了此字段且长度 > 0,将优先走 S2V-01 多主体模式;否则走单 subjectReferenceUrl。
      */
-    subjectReferences?: Array<{ type?: string; imageUrl: string; name?: string }>;
+    subjectReferences?: Array<{ type?: string; imageUrl: string; name?: string; refImageUrls?: string[] }>;
     /** v2.8: 辅助参考图(场景/风格),经过 S2V-01 的 reference_images 字段 */
     referenceImages?: string[];
     /** v12.9.1(#2):S2V 专用 prompt(去掉角色外观描述,身份由 subject_reference 给)。
@@ -201,18 +221,35 @@ export class MinimaxService {
     _noFastFallback?: boolean;
     /** v12.402: 内部用 — 套餐不支持 H3 时回落到 legacy 模型,防重入 */
     _forceModel?: string;
+    /** v12.448:动作参考视频(引擎可取形态,由 lib/shot-ref-video-store 给)。有它 → 先试 H3「参考生视频」 */
+    referenceVideoUrl?: string;
+    /** v12.448:参考视频的结局回报 —— 发出去了,还是被忽略了(忽略时本镜去掉参考视频照常出片) */
+    onRefOutcome?: (o: RefVideoOutcome) => void;
   }): Promise<string> {
     // 快速失败:聚合网关上 Minimax 视频路径不存在,直接抛错让 orchestrator 跳到下一引擎
     if (!this.videoEndpointAvailable) {
+      // 参考视频的结局照样要回报 —— 不然这一镜换了引擎,用户却不知道参考视频没用上(对抗复查第三轮挖出)
+      if (options?.referenceVideoUrl) options.onRefOutcome?.({ status: 'ignored', reason: 'MiniMax 视频接口在当前 MINIMAX_BASE_URL(非官方端点)上不可用,参考视频只能走 MiniMax H3;本镜交给下一个引擎' });
       throw new Error(
         `Minimax video endpoint unavailable on baseURL "${this.baseURL}" — ` +
         `gateway does not expose /v1/video_generation, skipping`
       );
     }
 
+    // v12.448:参考视频 → H3「参考生视频」。它与首帧、与 S2V-01 都互斥,所以最先单独判;
+    // 用不了(已知套餐不支持)就当场如实回报,去掉参考视频按原流程重出 —— 不能因为参考视频丢掉这一镜。
+    let refPlan: { images: string[]; dropped: number } | null = null;
+    if (options?.referenceVideoUrl && !options._forceModel) {
+      if (isH3KnownUnavailable()) {
+        options.onRefOutcome?.({ status: 'ignored', reason: `参考视频只能走 MiniMax H3(只能按量付费),当前账号用不了(${h3UnavailableReason().slice(0, 80) || '套餐不支持'});本镜按原流程出片` });
+        return this.generateVideo(imageUrl, prompt, { ...options, referenceVideoUrl: undefined, onRefOutcome: undefined, _retryCount: undefined });
+      }
+      refPlan = planH3RefImages({ frame: imageUrl, subjects: options.subjectReferences, extras: options.referenceImages, videoUrl: options.referenceVideoUrl }, toEngineImage);
+    }
+
     // S2V-01 多主体角色一致性引擎 — v2.8 Seedance 2.0 同款多参考图打包
     const hasMultiSubject = options?.subjectReferences && options.subjectReferences.length > 0;
-    if (hasMultiSubject || options?.subjectReferenceUrl) {
+    if (!refPlan && (hasMultiSubject || options?.subjectReferenceUrl)) {
       try {
         return await this.generateVideoS2V(
           options?.s2vPrompt || prompt, // v12.9.1(#2):S2V 用去外观版 prompt(身份由 subject_reference 给)
@@ -243,13 +280,18 @@ export class MinimaxService {
       // v12.402:模型 → 接口版本 → 请求体,全部由 `lib/minimax-video-api.ts` 单点决定。
       // v1 与 V2 的请求体/轮询路径/状态字面量/取片方式四处都不一样,写成 if/else
       // 就是这个项目反复栽的那个形态:同一语义两份实现。
-      const model = options?._forceModel || defaultVideoModel();
+      // v12.448:参考模式必走 H3(哪怕 MINIMAX_VIDEO_MODEL 设成了 legacy);否则已知 H3 不可用就直接 legacy,
+      // 不再每镜白发一次必败请求(lib/h3-availability)。
+      const dflt = defaultVideoModel();
+      const model = refPlan ? (apiVersionFor(dflt) === 'v2' ? dflt : 'MiniMax-H3')
+        : options?._forceModel || (isH3KnownUnavailable() && apiVersionFor(dflt) === 'v2' ? LEGACY_VIDEO_MODEL : dflt);
       const req = buildCreateRequest({
         model,
-        prompt: effectivePrompt,
+        prompt: refPlan ? withRefVideoHint(effectivePrompt) : effectivePrompt,
         imageUrl,
         aspectRatio: options?.aspectRatio,
         duration: options?.duration,
+        ...(refPlan ? { referenceImageUrls: refPlan.images, referenceVideoUrls: [options!.referenceVideoUrl!] } : {}),
       });
 
       const mode = hasRealImage(imageUrl) ? 'image-to-video' : 'text-to-video';
@@ -279,7 +321,7 @@ export class MinimaxService {
         // 1026 敏感词 — 用净化后的 prompt 自动重试一次
         if (code === 1026 && retryCount === 0) {
           console.warn('[Minimax] video 1026 sensitive content — retrying with sanitized prompt');
-          return await this.generateVideo(imageUrl, prompt, { ...options, _retryCount: 1 });
+          return await nestedAttempt(() => this.generateVideo(imageUrl, prompt, { ...options, _retryCount: 1 }));
         }
         throw new Error(`Minimax video-01 error (${code}): ${msg}`);
       }
@@ -306,8 +348,24 @@ export class MinimaxService {
 
       // 轮询结果(版本决定路径与状态解析)
       const videoUrl = await this.pollResult(taskId, undefined, req.version);
+      if (refPlan) options?.onRefOutcome?.({ status: 'sent', engine: 'minimax-h3', imagesSent: refPlan.images.length, imagesDropped: refPlan.dropped });
       return videoUrl;
     } catch (error) {
+      // v12.448:上面 try 里递归出去的那次调用**已经做完了它自己的全部兜底**(回落 / Fast / 去掉参考视频重出),
+      // 它失败了就是失败了 —— 这里再兜一遍会重复请求、重复回报(v12.402 起的 legacy 回落与 Fast 兜底同样会被重复)。
+      if (isNestedDone(error)) throw error;
+      // v12.448:参考模式失败 → 如实回报并去掉参考视频按原流程重出(原流程自带敏感词重试 / 回落 / Fast 兜底)。
+      // 重出是一条全新的路径,敏感词重试次数清零 —— 否则参考模式里用掉的那一次会让重出少一次机会。
+      if (refPlan) {
+        const rmsg = error instanceof Error ? error.message : String(error);
+        const planBlocked = isModelUnavailableError(rmsg);
+        // 记下「H3 不可用」;新记下的那一刻打一次总告警 —— 之后原流程直接走 legacy,不会再经过下面的回落分支
+        if (planBlocked && markH3Unavailable(rmsg)) console.warn(`[Minimax] ⚠️ 当前套餐用不了 H3(只能按量付费),30 分钟内直接用 legacy 的 ${LEGACY_VIDEO_MODEL}。原始错误:${rmsg.slice(0, 120)}`);
+        options?.onRefOutcome?.({ status: 'ignored', reason: planBlocked
+          ? '参考视频只能走 MiniMax H3(只能按量付费),当前账号用不了;本镜按原流程出片'
+          : `H3 参考生视频失败(${rmsg.slice(0, 120)});本镜去掉参考视频按原流程重出` });
+        return await this.generateVideo(imageUrl, prompt, { ...options, referenceVideoUrl: undefined, onRefOutcome: undefined, _retryCount: undefined });
+      }
       if (isSensitiveContentError(error) && retryCount === 0) {
         console.warn('[Minimax] video sensitive content caught — retrying sanitized');
         return await this.generateVideo(imageUrl, prompt, { ...options, _retryCount: 1 });
@@ -323,7 +381,10 @@ export class MinimaxService {
       if (!options?._forceModel && isModelUnavailableError(emsg)) {
         const attempted = defaultVideoModel();
         if (attempted !== LEGACY_VIDEO_MODEL) {
-          console.warn(
+          // v12.448:记下来,之后 30 分钟内直接走 legacy(不再每镜白打一次 H3)。大声告警只在新记下时打一次,
+          // 其余(并发的几镜同时撞到)打一行普通日志 —— 仍不静默:每次都看得见「这次用的不是 H3」。
+          if (!markH3Unavailable(emsg)) console.log(`[Minimax] H3 仍不可用(套餐不支持),本次回落 ${LEGACY_VIDEO_MODEL}`);
+          else console.warn(
             `[Minimax] ⚠️ 当前套餐用不了 ${attempted} —— 本次回落到 legacy 的 ${LEGACY_VIDEO_MODEL}。` +
             `注意 2.3 系列已被官方降为 legacy,随时可能像 Music API 那样被无预告停掉;` +
             // v12.446:原文案让人「去控制台开通 H3」—— 但 Token Plan(订阅)与积分**都开不了 H3**,
@@ -404,7 +465,7 @@ export class MinimaxService {
         // 1026 敏感词 — 自动重试一次净化版
         if (code === 1026 && retryCount === 0) {
           console.warn('[Minimax-Fast] 1026 sensitive content — retrying sanitized');
-          return await this.generateVideoFast(prompt, { ...options, _retryCount: 1 });
+          return await nestedAttempt(() => this.generateVideoFast(prompt, { ...options, _retryCount: 1 }));
         }
         // 1008 余额不足 — 直接抛,让 orchestrator 进 Ken Burns 兜底
         throw new Error(`Minimax-Fast error (${code}): ${msg}`);
@@ -414,6 +475,8 @@ export class MinimaxService {
       console.log(`[Minimax-Fast] Task created: ${taskId}`);
       return await this.pollResult(taskId, undefined, apiVersionFor(model));
     } catch (error) {
+      // 与 generateVideo 同一个坑:上面净化重试那次自己失败了,这里不能再发第三次(对抗复查第三轮挖出)
+      if (isNestedDone(error)) throw error;
       if (isSensitiveContentError(error) && retryCount === 0) {
         return await this.generateVideoFast(prompt, { ...options, _retryCount: 1 });
       }

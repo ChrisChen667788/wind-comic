@@ -112,7 +112,16 @@ export interface CreateInput {
   duration?: number;
   /** 仅 V2:'480P' | '768P' | '2K' */
   resolution?: string;
+  /**
+   * 仅 V2(v12.448):参考图 / 参考视频。给了任一 → 「参考生视频」模式:
+   * 官方规定它与首帧(first_frame)**互斥**,所以这时不再发首帧;要保留分镜构图,调用方把分镜图放进参考图。
+   */
+  referenceImageUrls?: string[];
+  referenceVideoUrls?: string[];
 }
+
+/** H3 参考素材上限(官方):图 ≤9、视频 ≤3(视频合计 ≤15 秒,由 lib/ref-video 管) */
+export const H3_REF_LIMITS = { images: 9, videos: 3 } as const;
 
 export interface CreateRequest {
   version: MinimaxApiVersion;
@@ -135,7 +144,13 @@ export function buildCreateRequest(input: CreateInput): CreateRequest {
   const version = apiVersionFor(input.model);
   const withImage = hasRealImage(input.imageUrl);
 
+  const refImages = (input.referenceImageUrls || []).filter(Boolean).slice(0, H3_REF_LIMITS.images);
+  const refVideos = (input.referenceVideoUrls || []).filter(Boolean).slice(0, H3_REF_LIMITS.videos);
+  const refMode = refImages.length > 0 || refVideos.length > 0;
+
   if (version === 'v1') {
+    // v12.448:v1 没有参考素材的字段 —— 静默丢掉就是「用户以为用上了参考视频、其实没有」,直接拒。
+    if (refMode) throw new Error(`${input.model} 走 v1 接口,不支持参考图/参考视频(只有 H3 的 V2 接口能用)`);
     // 历史形态,一个字节都不改 —— 这条路径在产的,不该被本次升级波及。
     const body: Record<string, unknown> = {
       model: input.model,
@@ -152,14 +167,18 @@ export function buildCreateRequest(input: CreateInput): CreateRequest {
 
   // V2:content 是**多模态数组**,且官方要求「任何场景都必须带一条非空 text」。
   const content: Array<Record<string, unknown>> = [{ type: 'text', text: input.prompt }];
-  if (withImage) {
+  if (refMode) {
+    for (const url of refImages) content.push({ type: 'image_url', image_url: { url }, role: 'reference_image' });
+    for (const url of refVideos) content.push({ type: 'video_url', video_url: { url }, role: 'reference_video' });
+  } else if (withImage) {
     content.push({ type: 'image_url', image_url: { url: input.imageUrl }, role: 'first_frame' });
   }
 
   const resolution = input.resolution || process.env.MINIMAX_VIDEO_RESOLUTION || '768P';
   // 有首帧时用 adaptive 跟随首帧比例(与 v1「I2V 跟首帧比例」的行为一致);
   // 纯文生视频沿用调用方给的画幅,没给则 16:9(与 v1 注释里的历史默认一致)。
-  const ratio = withImage ? (input.aspectRatio || 'adaptive') : (input.aspectRatio || '16:9');
+  // 参考模式没有首帧,adaptive 无从「跟随」—— 按调用方画幅走。
+  const ratio = withImage && !refMode ? (input.aspectRatio || 'adaptive') : (input.aspectRatio || '16:9');
 
   return {
     version,
