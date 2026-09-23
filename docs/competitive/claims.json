@@ -11,7 +11,7 @@
     "scripts/competitive-scan.mjs 读它:超过 14 天就报警,并据此生成本轮任务书。",
     "每轮分析完必须更新 lastReviewedOn,否则下一轮的到期检查就是假的。"
   ],
-  "lastReviewedOn": "2026-09-04",
+  "lastReviewedOn": "2026-09-22",
   "reviewIntervalDays": 14,
   "methodology": {
     "sources": "必须联网核实;每个数值给来源 URL + 检索日期;查不到写「未核实」,不猜",
@@ -28,20 +28,29 @@
       "evidence": "逐项核对 OpenMontage(54.7k★/AGPL:有 TTS+多语+预算审批,但节奏审计是 anti-slideshow 画面检测、无 EDL/AAF、协作只是状态看板)、ViMax(12.2k★/MIT:无 TTS/节奏审计/EDL-AAF/协作)、DramaClaw(4.8k★/Elastic 2.0 非 FOSS)、BigBanana(1.8k★/CC BY-NC-SA 禁商用)、Novella AI(89★/MIT 全本地但早期)",
       "falsifyBy": "任一 FOSS 许可项目同时具备这三项;或 OpenMontage 补上 EDL/AAF 与情绪节奏审计(它最接近,重点盯它)",
       "trend": "边界在收窄 —— OpenMontage 半年内 24k→54.7k★ 且补上了 TTS 与多语",
-      "lastVerdict": "weakened",
-      "lastVerdictOn": "2026-09-03",
-      "lastVerdictNote": "本轮收窄:「节奏审计」不再成立(火山剧创有生成内联多 Agent 校验),必须写成「**独立可拦截工程门禁**」才站得住;且 EDL/AAF 已非独有(Descript 有)"
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "截至 2026-09-19，OpenMontage 已从 54.7k 涨至约 60k★（AGPL），但经 GitHub 页面确认仍无 EDL/AAF 导出功能，亦无独立可拦截节奏审计门禁。新冒头项目（Open-AI-Micro-Drama-Generator 501★/Python、drama-skills 2.1k★/MIT、BigBanana-AI-Director 2.2k★）均无 EDL/AAF 或节奏门禁。montage-ai 有 OTIO/EDL 导出，但它是基于已有素材的转录式编辑器，不是 AI 短剧生成 pipeline，不满足「开源自托管商用」+「节奏审计独立门禁」同时成立的条件。收窄断言（独立可拦截门禁 + EDL/AAF 导出 + 开源自托管商用）截至今日仍无一家同时具备。注意 README 内 OpenMontage 星数仍写 54.7k，需更新至 ~60k。",
+      "lastVerdictSources": [
+        "https://github.com/calesthio/OpenMontage",
+        "https://github.com/mfahsold/montage-ai",
+        "https://github.com/topics/ai-short-drama"
+      ]
     },
     {
       "id": "C2-generation-commoditized",
       "statement": "生成层已红海:竞品在出片质量/多镜连贯/原生音频上都是第一梯队,Wind Comic 不在生成层竞争",
       "kind": "战场判断",
       "assertedOn": "2026-08-31",
-      "evidence": "T2V+音频 Elo 榜首易主:Wan 3.0(1242)超过 Gemini Omni Flash(1237,较上轮 1244 下滑);国内模型领跑",
+      "evidence": "T2V 带音频(2026-09-22,两名独立核对者逐名次一致):Gemini Omni Flash 1233 > Wan 3.0 1229 > MiniMax H3 Max 1227 > MiniMax H3 1220 > Seedance 2.0 720p 1210 > MAGI-2 Preview 1156 > Wan2.7 1149 > HappyHorse-1.1 1147;T2V 不带音频:Wan 3.0 1336 > Gemini 1330 > MiniMax H3 1302 > HappyHorse-1.0 1287 > HappyHorse-1.1 1272;I2V 带音频:MiniMax H3 Max 1195 > MiniMax H3 1181 > Gemini 1177 > HiDream-O1-Video 1176 > Seedance 2.0 720p 1174 > Wan 3.0 1164;I2V 不带音频(本轮新识别的榜):Gemini 1369 > Wan 3.0 1361 > Bach 1.0 Pro 1359 > MiniMax H3 1354 > PixVerse V6 1337。来源 artificialanalysis.ai/video/leaderboard 的 text-to-video 与 image-to-video 两页(含 audio-output=false 变体)。两张不带音频的榜第 6–8 名因页面动态渲染未能抓取,未补数。",
       "falsifyBy": "出现开源可自托管且质量进入第一梯队的生成模型,使「自己跑模型」重新成为差异点",
-      "lastVerdict": "overturned",
-      "lastVerdictOn": "2026-09-03",
-      "lastVerdictNote": "**已推翻**:Wan 2.7(Apache 2.0)与 LTX-2.5(宽松商业许可)已进第一梯队,LTX-2 在 AA 榜 I2V 第 3 / T2V 第 4 高于闭源 Sora 2 Pro"
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-22",
+      "lastVerdictNote": "2026-09-22 复核:与 9-19 相比四张榜**逐名次无变化**(两名核对者独立抓取后一致),9-19 记录的数字仍然有效;另新识别出「I2V 不带音频」一张榜。9-19 的判决(开源一梯队地位未动摇、上轮「已推翻」仍成立)维持。README 的 Elo 已按本轮数据更新。",
+      "lastVerdictSources": [
+        "https://artificialanalysis.ai/video/leaderboard/text-to-video",
+        "https://artificialanalysis.ai/video/leaderboard/image-to-video"
+      ]
     },
     {
       "id": "C3-byo-absorbs",
@@ -51,8 +60,12 @@
       "evidence": "已接入 MiniMax / Kling / Veo / Vidu / HappyHorse / Midjourney / flux 网关",
       "falsifyBy": "头部模型转向封闭生态(仅自家 App 可用、无公开 API),使 BYO 接不到最强的那几个",
       "lastVerdict": "weakened",
-      "lastVerdictOn": "2026-09-03",
-      "lastVerdictNote": "Seedance 2.0 海外 API 曾被中止(2026-03,好莱坞六大集体停止函,纠纷未和解)—— 「授权禁止第三方编排」已真实发生在榜首模型上"
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "截至 2026-09-19,无新增「仅自家 App 可用、无公开 API」的头部模型。Seedance MPA MOU(2026-08-17)仅覆盖输出层内容过滤与 C2PA 元数据,**不限制 API 第三方编排**,与 C18 上轮结论一致。OpenAI Sora API 将于 2026-09-24 停服(C4 已覆盖)——这是目前唯一已实际关闭 API 的榜首模型。其余 Kling / Veo / MiniMax / Runway API 查询均未见封闭公告。断言「weakened」状态维持不变,主要风险仍是 Seedance 授权禁止第三方编排的历史先例。",
+      "lastVerdictSources": [
+        "https://variety.com/2026/biz/news/motion-picture-association-deal-bytedance-ip-ai-seedance-1236836240/",
+        "https://deadline.com/2026/08/mpa-tiktok-bytedance-deepfakes-1237042847/"
+      ]
     },
     {
       "id": "C4-sora-sunset",
@@ -60,7 +73,15 @@
       "kind": "供应链风险",
       "assertedOn": "2026-08-31",
       "evidence": "OpenAI deprecations 页确认(复核 accurate=true);veo.service.ts 退役日前告警/日后剔除/链空才抛;tests/v12-173-sora-sunset.test.ts",
-      "falsifyBy": "2026-09-24 之后实测一次:配 Sora 模型链时是否真的自动剔除并走通 fallback"
+      "falsifyBy": "2026-09-24 之后实测一次:配 Sora 模型链时是否真的自动剔除并走通 fallback",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "2026-09-24 停服日期已被多个独立来源确认(OpenAI deprecations 页、OpenAI Help Center、社区公告),今日(2026-09-19)距停服仅剩 5 天,无延期信号。Sora 2 API 停服后每次调用将返回 410 Gone;Sora App 已于 2026-04-26 提前停用。代码侧:veo.service.ts 退役前告警、退役后剔除逻辑确认存在(v12.173/207 已有保护)。falsifyBy 条件「2026-09-24 之后实测 fallback」尚不可验——需在 09-24 后补做一次实测再关闭本条。",
+      "lastVerdictSources": [
+        "https://developers.openai.com/api/docs/deprecations",
+        "https://help.openai.com/en/articles/20001152-what-to-know-about-the-sora-discontinuation",
+        "https://help.apiyi.com/en/sora-2-api-shutdown-alternatives-2026-en.html"
+      ]
     },
     {
       "id": "C5-music-gap",
@@ -69,7 +90,16 @@
       "assertedOn": "2026-08-30",
       "evidence": "实测 410 + status_code 2153「no longer available to new users」;v12.379 已补自备上传通道",
       "falsifyBy": "接入 ElevenLabs Music v2 / YuE / ACE-Step 任一并跑通,或 MiniMax 恢复开放",
-      "options": "ElevenLabs Music v2($0.15/min,授权语料商用最干净,与 TTS 同厂同 key)· YuE(Apache-2.0 可自托管)· ACE-Step 1.5(Apache-2.0,消费级 GPU)"
+      "options": "ElevenLabs Music v2($0.15/min,授权语料商用最干净,与 TTS 同厂同 key)· YuE(Apache-2.0 可自托管)· ACE-Step 1.5(Apache-2.0,消费级 GPU)",
+      "lastVerdict": "falsified",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "截至 2026-09-19,已被我们自己推翻。lib/music-providers.ts (v12.410) + lib/music-providers-builtin.ts 实现了 ElevenLabs Music(priority 10) → 自托管 ACE-Step/YuE(priority 20) → MiniMax music-2.6(priority 30) 兜底链。services/agents/editor-agent.ts:647-654 已导入并调用 generateMusic。ElevenLabs Music API 对付费用户已开放(elevenlabs.io/docs 确认);ACE-Step 1.5(Apache-2.0,<4GB VRAM,<10s/song on RTX 3090)截至 2026-09-19 活跃维护;MiniMax Music 自 2026-08-20 起付费 API 进一步收紧(不再对新用户开放,免费层停服),MiniMax Music 3.0 有开源权重。原断言「Wind Comic 当前无可用的 AI 作曲能力」因 v12.410 落地而失效。falsifyBy 条件「接入 ElevenLabs Music v2 / YuE / ACE-Step 任一并跑通」已满足(代码层面),但 ElevenLabs Music 端点 /v1/music/compose 尚未有真机调通的实测记录——建议下轮补一次端到端冒烟测试。",
+      "lastVerdictSources": [
+        "https://elevenlabs.io/docs/overview/capabilities/music",
+        "https://minimax-ai.chat/models/minimax-music-3-0/",
+        "https://github.com/ace-step/ACE-Step-1.5",
+        "https://dev.to/czmilo/ace-step-15-the-complete-2026-guide-to-open-source-ai-music-generation-522e"
+      ]
     },
     {
       "id": "C6-mj-cref-deprecated",
@@ -80,8 +110,13 @@
       "falsifyBy": "实测一次 MJ 出图并检查网关实际版本;若仍是 V6 则 --cref 有效,本条降级为「随时会发生」",
       "note": "**本轮无 MJ 额度可验,如实标为待实测**。可观测信号:若失效,cameo-vision-retry 触发率会异常升高",
       "lastVerdict": "weakened",
-      "lastVerdictOn": "2026-09-03",
-      "lastVerdictNote": "MJ 侧确认 V7 起 --cref 被静默忽略、当前默认已到 V8.2;我方 v12.404 已代码级修复,但真机出图验收未做"
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "截至 2026-09-19:代码层修复已确认落地(v12.404),但真机出图仍无法验证(网关无 MJ 渠道)。lib/midjourney-params.ts:30 MJ_DEFAULT_VERSION='7',buildMjParams 对 version>=7 发 --oref,对 V6.x 发 --cref。services/midjourney.service.ts:84-95 走 buildMjParams。.env.example:43 MJ_VERSION 注释掉但代码默认 V7。新外部事实:MJ V8.2 于 2026-07-24 上线为当前默认;V8.1/8.2 的 Character Reference(--cref)和 Omni Reference(--oref)均不支持,改用 Edit Model(最多 4 张参考图);但在 V8.x 中调用 --oref 会退回 V7 执行。我方代码显式钉 --v 7,故在渠道可用时不受 V8 默认影响。falsifyBy「实测一次 MJ 出图并检查网关实际版本」仍未完成——网关 /v1/models 返回 629 个模型、MJ 相关 0 个(v12.428 记录);参数是否被真正采纳无法验证。追加待观测信号:V8.x Edit Model 支持多参考图,比 V7 --oref 更灵活,若渠道恢复时默认升级到 V8,需要评估是否切换路径。",
+      "lastVerdictSources": [
+        "https://blakecrosley.com/guides/midjourney",
+        "https://clipdance.ai/blog/midjourney-v8-character-consistency",
+        "https://docs.midjourney.com/hc/en-us/articles/36285124473997-Omni-Reference"
+      ]
     },
     {
       "id": "C7-features-underused",
@@ -90,9 +125,9 @@
       "assertedOn": "2026-08-31",
       "evidence": "逐个核对 provider 调用点:只用了基础 t2v/i2v 与 t2i",
       "falsifyBy": "v12.402–405 落地后逐项复核调用点",
-      "lastVerdict": "holds",
-      "lastVerdictOn": "2026-09-03",
-      "lastVerdictNote": "**本轮被逐处 grep 证实**,直接催生 v12.409:generateExtended / editImage / repairs 当时全仓零命中"
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "自 2026-09-04 以来有实质变化,但断言仍部分成立,降级为 weakened。逐项核对(2026-09-19 代码):\n\n1. **Veo Scene Extension** — 已接入主管线。`hybrid-orchestrator.ts:3400` 在 `wantSec > VEO_SEGMENT_SEC(8)` 时调用 `this.veoService.generateExtended()`(v12.409 落地)。此前上轮已记录「接进主管线」,本轮复核确认无变化。\n\n2. **Kling 多镜连贯 multi_shot** — **仍为接了但主管线零调用**。`kling.service.ts` 有 `generateMultiShot` 方法,但 `hybrid-orchestrator.ts` 及所有 `app/api/` 路由均**无任何调用点**,仅 `tests/v12-406-kling-multishot.test.ts` 引用函数名做结构校验。\n\n3. **Kling 自带口型** — 已接入主管线。`editor-agent.ts:609` 调用 `lipsync.syncMouthToAudio()`,`lipsync-providers.ts` 中 Kling provider 实现了该接口。上轮已记录,本轮复核无变化。\n\n4. **Kontext 局部重绘** — 已接入主管线。`app/api/projects/[id]/regenerate-storyboard/route.ts:231` 在 `decision.mode === 'edit'` 时调用 `new FalFluxService().editImage()` 执行局部重绘(v12.409 落地)。\n\n5. **MiniMax H3 参考生视频(动作迁移)** — **新增,自 2026-09-04 后上线**。v12.448 新增 `lib/ref-video.ts` + `lib/shot-ref-video-store.ts`,`refVideoOptsFo…"
     },
     {
       "id": "C8-onboarding-gap",
@@ -102,8 +137,12 @@
       "evidence": "Coze 3.0「内容创作行业技能包」+ 100 并行 agent 零代码编排;市场增速数据来自调研(标 unverified,需复核)",
       "falsifyBy": "提供一行 Docker 起 / 预置 demo 工程后,重新评估上手时间",
       "lastVerdict": "weakened",
-      "lastVerdictOn": "2026-09-03",
-      "lastVerdictNote": "v12.414 已给出一条命令的零 key 试用;但仍无预构建镜像"
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "C8 的证伪条件「提供一行 Docker 起 / 预置 demo 工程」已满足：README 第 541 行（`docker run -p 3100:3100 ... ghcr.io/chrischen667788/wind-comic:latest`）和 docker-compose.demo.yml 注释均确认 v12.421 起直接拉预构建镜像（image: ghcr.io/chrischen667788/wind-comic:latest，pull_policy: missing），无需本地 build，无需任何 API key（MOCK_ENGINES=1）。上手门槛从「git clone + npm ci + next build + 手动填 3 个付费 key」压到一条命令。劣势仍存但已显著收窄——与 Coze 等零代码平台的差距从「有无 Docker」变成「有无浏览器直开」。关于市场增速：claims.json 中「YoY +214%」标注为 unverified 并需复核——今日核实：中国 AI 漫剧细分 2025 年同比 +276%（艾媒咨询，来源见 README 市场节），全球短剧 app 下载量 Q1 2026 同比 +140%，海外 IAP 收入 H1 2026 同比 +13%。「+214%」这个具体数字未找到来源，方向正确但数字本身仍未核实；AI漫剧细分的真实增速（+276%）比 +214% 更高。",
+      "lastVerdictSources": [
+        "https://eu.36kr.com/en/p/3923212244424320",
+        "https://powerdrill.ai/blog/the-global-short-drama-economy-is-booming"
+      ]
     },
     {
       "id": "C9-minimax-hailuo-legacy",
@@ -113,7 +152,14 @@
       "evidence": "代码实测:`services/minimax.service.ts:240` 为 `process.env.MINIMAX_VIDEO_MODEL || 'MiniMax-Hailuo-2.3'`,而 `.env.local` **未设** `MINIMAX_VIDEO_MODEL` —— 即实际跑的就是这个默认值;兜底路径(同文件 ~335 行)用 `Hailuo-2.3-Fast`。供应商侧:2.3 / 2.3-Fast 已标 legacy,H3(V2 API)为推荐路径,且 H3 自带免费音频输入 + 口型自动对齐。旁证:本项目英文 README 的竞品对照表已把 **MiniMax H3** 列为竞品列 —— **我们把它当竞品写进表里,自己却还在调它的上一代**。",
       "falsifyBy": "MiniMax 官方模型列表不再把 2.3 标为 legacy;或 H3 在 V2 API 之外另有兼容路径使升级成为 no-op",
       "trend": "风险上升 —— MiniMax Music API 曾无预告停服(410 + 2153),同一供应商对 legacy 端点没有宽限期承诺",
-      "actionVersion": "v12.402"
+      "actionVersion": "v12.402",
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "原断言核心「2.3 仍是默认值」已被 v12.402 推翻:lib/minimax-video-api.ts:50 现读 `process.env.MINIMAX_VIDEO_MODEL || 'MiniMax-H3'`,默认已切 H3。次要断言「H3 只能按量付费 + Token Plan 不支持 H3」本轮再次确认成立:minimax.service.ts:388–391 注释写明「官方文档写明 H3 只走按量付费」,当前 Token Plan 文档明确将 H3 列为不支持的特殊模型,H3 V2 API 参考要求 Pay-as-You-Go。快速兜底路径(`generateVideoFast`)仍硬编码 `MiniMax-Hailuo-2.3-Fast`(minimax.service.ts:434),未随主路径升级——这是一处次级遗留。整体:依赖已更新为推荐路径,但 PAYG 约束与 Fast 路径遗留使本条处于「收窄成立」状态而非完全解除。",
+      "lastVerdictSources": [
+        "https://platform.minimax.io/docs/pricing/overview",
+        "https://openrouter.ai/minimax/hailuo-3"
+      ]
     },
     {
       "id": "C10-vidu-model-unpinned",
@@ -123,7 +169,13 @@
       "evidence": "代码实测:`services/qyt-vidu.service.ts:28` 为 `process.env.QYT_VIDU_MODEL || 'viduq3'`;`services/vidu.service.ts` 的请求体只有 `image_url/prompt/duration/style`,**无任何模型标识**。两条都是活路径:前者经 `lib/video-providers/builtins.ts:184-190`,后者经 `builtins.ts:48-50` 与 `app/api/u2v/route.ts:74`。(初稿曾断言「Vidu 停在 2.0 级别」——**查代码后推翻**:一条已在 Q3,另一条压根没钉版本。)",
       "falsifyBy": "Vidu 的 `/v1/video/generate` 官方字段表证实该端点不接受 `model` 参数(即「不传」是正确用法);或该端点已废弃、只剩 qyt 一条路径",
       "trend": "与 MJ「全仓未指定版本、走网关默认」是同一个病:**不钉版本 = 供应商换默认值时我们静默改变行为且事后无从复盘**。Vidu Q3 的短剧特效包与 7 参考图多主体锁定,只有钉住版本才谈得上「用上了」。",
-      "actionVersion": "v12.403"
+      "actionVersion": "v12.403",
+      "lastVerdict": "falsified",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "v12.403 已完整修复双路径漂移问题。当前 vidu.service.ts 全面重写:端点由 `/v1/video/generate`(不传 model)改为 `/ent/v2/img2video`(model 必填,第 85 行);model 字段由 `viduModel()` 解析环境变量或使用 `VIDU_DEFAULT_MODEL='viduq3-pro'` 兜底(第 43、81 行)。/ent/v2 官方文档证实接受 model 参数,可选值 viduq3-turbo/viduq3-pro/viduq2/viduq1。旧的「不传 = 走供应商默认 = 成片来自未知模型版本」问题已消除。qyt-vidu 路径(builtins.ts:184–205)保留独立运行,不受影响。本条可关闭。",
+      "lastVerdictSources": [
+        "https://platform.vidu.com/docs/text-to-video"
+      ]
     },
     {
       "id": "C11-native-30s-shot",
@@ -135,8 +187,13 @@
       "trend": "单镜时长这条轴国产已领先海外闭源;我们的「镜头太碎」痛点有了拼接之外的第二条解法",
       "actionVersion": "v12.407",
       "lastVerdict": "holds",
-      "lastVerdictOn": "2026-09-04",
-      "lastVerdictNote": "经 24 条独立复核确认成立,且比原断言更强:Seedance 2.5(2026-07-31)与 Wan 3.0(2026-08-24)的 30s 都是**一次 API 调用直出的连续片段**,不是拼接。但要补一句原断言没说的:**两者都是 API-only**,权重都没开放 —— 30s 拿不到自托管路径。v12.422 已接 Wan 3.0。"
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "Seedance 2.5(2026-07-31)与 Wan 3.0(2026-08-24,公测起)30s 原生单次 API 调用地位再次确认,两者均维持 API-only、无可自托管权重。Seedance 2.5:单次推理 4–30s,支持 50 路参考素材,同步音频,1080p;Wan 3.0:30fps 原生单镜 30s,720P 折后 ¥0.42/s(上轮数据),T2V 无音频 Elo 1336 榜首。自托管天花板仍是 LTX-2.5 Fast 的 20s(Pro 只有 10s)。原断言完整成立,无变化。",
+      "lastVerdictSources": [
+        "https://dev.to/sinpo_wang_259d6993245baa/seedance-25-what-developers-need-to-know-about-bytedances-30-second-video-generation-api-4b0k",
+        "https://morphic.com/resources/models/wan-3-0",
+        "https://docs.ltx.io/models/ltx-2-5"
+      ]
     },
     {
       "id": "C12-verification-caught-two-errors",
@@ -146,7 +203,15 @@
       "evidence": "交叉复核判定 Veo 3.1 条目 accurate:false —— 首发为 2025-10-15(2026-01-13 是功能更新)、Lyria 3 是 Google 独立音乐模型而非 Veo 音频组件、60s+ 系 Scene Extension 拼接;Runway 条目 accurate:false —— Gen-4.5 自 2025-12-11 起已有原生音频。两处均已在 README/GAP/ROADMAP 中更正",
       "falsifyBy": "若后续发现更正本身有误(如 Gen-4.5 音频实为 beta 限量),说明二次检索深度仍不足",
       "trend": "结论:单轮调研的自信度不可信,「数值经独立二次检索复核」必须保留为每轮硬要求 —— 本轮 2/N 条目被推翻",
-      "actionVersion": null
+      "actionVersion": null,
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "两处更正本身经本轮独立复核,均准确:\n\n1. **Veo 3.1 首发 2025-10-15** — Wikipedia「Veo (text-to-video model)」条目 stable release 字段注明「15 October 2025」,与多个博客来源一致;TechCrunch 2026-01-13 那篇是功能更新(竖屏 + 参考图),非首发。更正准确。\n\n2. **Runway Gen-4.5 自 2025-12-11 起有原生音频** — TechCrunch 原文(2025-12-11)明确:「The company updated its Gen 4.5 model ... adding native audio and long-form, multi-shot generation capabilities ... available to all paid plan users.」更正准确;「2025-12-11 是 beta 限量」一说查无实据,无需再降级。\n\n断言「holds」。",
+      "lastVerdictSources": [
+        "https://en.wikipedia.org/wiki/Veo_(text-to-video_model)",
+        "https://techcrunch.com/2025/12/11/runway-releases-its-first-world-model-adds-native-audio-to-latest-video-model/",
+        "https://www.techcrunch.com/2026/01/13/googles-update-for-veo-3-1-lets-users-create-vertical-videos-through-reference-images/"
+      ]
     },
     {
       "id": "C13-overclaimed-uniqueness",
@@ -156,7 +221,13 @@
       "evidence": "Descript Timeline Export 含 Reaper EDL 与 Pro Tools/Logic AAF(官方帮助文档);EvoLinkAI/ai-short-drama 为 MIT + Docker + 端到端;PopShort.AI 公开集成 Veo 3.1/Kling/Seedance/Nano Banana Pro;火山剧创公开声称多 Agent 校验优化冲突/反转/高潮。四条均已在 README 收回并改写为更窄的成立版本",
       "falsifyBy": "若发现这四条推翻本身有误(如 Descript 的 AAF 实为第三方插件),则说明二次复核仍不够深",
       "trend": "说过头本身是一种劣势:它让人低估真实竞争强度,也让真正站得住的那条(独立可拦截门禁)被淹没",
-      "actionVersion": "v12.415"
+      "actionVersion": "v12.415",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "四条推翻本身均准确，推翻本身没有错误。重点核实项：Descript AAF 导出——今日直接抓取 help.descript.com/hc/en-us/articles/10255813481613，确认 AAF（Pro Tools/Logic）是 Descript 内置原生功能，不需要任何第三方插件。支持格式：Premiere XML、FCPXML、Reaper（EDL）、Audition SESX、Pro Tools/Logic（AAF）。注意事项：部分 Pro Tools 版本不支持 AAF 导入，立体声文件会被拆分为双声道 Mono。这不影响「Descript 原生支持 AAF」的事实结论。收窄后仍成立的断言（独立可拦截门禁 + EDL/AAF + 开源自托管商用，无一家同时具备）截至 2026-09-19 仍有效。",
+      "lastVerdictSources": [
+        "https://help.descript.com/hc/en-us/articles/10255813481613-Timeline-exports"
+      ]
     },
     {
       "id": "C14-selfhost-contract-only",
@@ -167,9 +238,9 @@
       "falsifyBy": "提供了开箱即用的 Wan/LTX 推理包(或 compose 服务),用户 docker compose up 即可自托管出片",
       "trend": "这是「造好没接线」的变体:接口有了,但离用户真能用还差一层",
       "actionVersion": "v12.420",
-      "lastVerdict": "weakened",
-      "lastVerdictOn": "2026-09-04",
-      "lastVerdictNote": "比原断言更糟:不只是「只有契约没有推理包」,而是**30s 这一档根本没有开源权重可跑**。Wan 3.0 的 GitHub 仓库挂着 Apache-2.0 却只有 README、无 checkpoint;LTX-2.5 Fast 上限 20s、Wan 2.2 约 15s。自托管路径当前的天花板是 20s。"
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "今日读 /services/selfhost-video.service.ts（全文）：确认只约定最小 HTTP 契约（POST {SELFHOST_VIDEO_URL} → 同步 {url} 或异步 {task_id}），无任何 Wan/LTX 推理服务实现。docker-compose.demo.yml 和 docker-compose.pg.yml 均无 wan/ltx/inference 相关服务。仓库根目录亦无 wan、ltx、infer 相关目录。README 写明「v12.428 已按契约起桩验通（同步 + 异步轮询，localhost 不被 SSRF 挡），仍待用户配 SELFHOST_VIDEO_URL 接真端点」——说明契约已跑通验证，但用户仍必须自行提供推理服务。上轮附加结论「30s 这一档根本没有开源权重可跑（Wan 3.0 GitHub 仓库挂 Apache-2.0 却只有 README、无 checkpoint；LTX-2.5 Fast 上限 20s）」无变化，仍成立。"
     },
     {
       "id": "C15-cjk-text-in-frame",
@@ -179,7 +250,15 @@
       "evidence": "Seedream 5.0(Glyph-Aligned ByT5,14 语言,$0.04/张)与 Qwen-Image 2.0(20B MMDiT)已做到商业级汉字;漫剧对白框/片头字卡是短剧垂直场景的核心视觉需求",
       "falsifyBy": "已接入任一具备帧内中文渲染的图像 provider 并在片头/字卡路径被调用",
       "trend": "这是短剧垂直定位下最实的一个缺口,且竞品已有成熟方案",
-      "actionVersion": "v12.416"
+      "actionVersion": "v12.416",
+      "lastVerdict": "falsified",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "截至 2026-09-19,已被我们自己推翻。lib/text-in-frame.ts (v12.416) 实现 detectTextInFrame + routeTextInFrame,GLYPH_CAPABLE_ENGINES=['seedream','qwen-image']。services/hybrid-orchestrator.ts:1279-1290 在图像主管线中调用:当 onScreenText 非空时,routeTextInFrame 将 seedream 提升为 primary engine;lib/image-router.ts:77-79 appendSeedreamTier 确保 seedream 始终在路由中。falsifyBy「已接入任一具备帧内中文渲染的图像 provider 并在片头/字卡路径被调用」已满足:seedream 既在 ImageEngine 类型中,也在 hybrid-orchestrator 主管线片头/字卡路径被主动路由。注意:qwen-image 列在 GLYPH_CAPABLE_ENGINES 但不在 ImageEngine 类型(mj/minimax-multi/minimax-single/kontext/seedream/falflux),routeTextInFrame 选中它时 tryEngine 中没有对应 case 会抛异常——这是一处代码不一致,需要修正(要么实现 qwen-image engine case,要么从 GLYPH_CAPABLE_ENGINES 中移除)。外部核实:Seedream 5.0 Pro(2026-07-08)具备类别领先的中英文文字渲染能力。",
+      "lastVerdictSources": [
+        "https://www.heyuan110.com/posts/ai/2026-07-09-seedream-5-pro/",
+        "https://scholarviz.com/blog/seedream-5-0-lite-complete-model-guide",
+        "https://runware.ai/docs/models/bytedance-seedream-5-0-pro/guides/multilingual-text-rendering"
+      ]
     },
     {
       "id": "C16-lipsync-language-gap",
@@ -189,7 +268,15 @@
       "evidence": "**上一轮那条断言是错的,已订正**:调研说「Kling 口型已接入但子功能零调用」,代码实证推翻 —— `services/agents/editor-agent.ts:598` 主管线里真的在调 `syncMouthToAudio`;且 Sync.so **早就存在**于 `services/lipsync-providers.ts`(`SYNCSO_API_KEY`),不是缺失项。真实缺口是 `lib/language-detect.ts` 把 ja/ko/ru 的 lipsync 判为 `none`(v12.179/196 的理由是「错口型比无口型更伤」,当时只有 zh/en 音素表),于是这三种语言在更早的一步就被拦下,永远到不了语种无关的 Sync.so。v12.418 已加 `lib/lipsync-language-gate.ts` 按「语言 × 引擎能力」判定。",
       "falsifyBy": "ja/ko/ru 在配了 SYNCSO_API_KEY 的部署上仍拿不到口型;或实测发现 Sync.so 对日语同样错位(那样这条解锁本身就是错的,应退回诚实降级)",
       "trend": "教训:**别人的结论要先自己核一遍**,尤其当它让你去「补一个缺失的东西」时 —— 我照着它差点新建第三份 Sync.so 实现",
-      "actionVersion": "v12.418"
+      "actionVersion": "v12.418",
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "截至 2026-09-19:门禁已实现(v12.418),语言表底层未变,条件性解锁有效。lib/lipsync-language-gate.ts LANGUAGE_AGNOSTIC_LIPSYNC=['syncso'],decideLipsyncForLanguage 检查 SYNCSO_API_KEY:配置了则 ja/ko/ru 得到 langCode='any' 走 Sync.so;未配置则继续诚实降级。services/agents/editor-agent.ts:78,599 导入并调用 gate,editor-agent.ts:610-616 正确传 language:'en' 给语种无关引擎。Sync.so 确认 language-agnostic(官方 KB 原文)。falsifyBy「ja/ko/ru 在配了 SYNCSO_API_KEY 的部署上仍拿不到口型」:代码层面已正确解锁,断言保守成立。新外部事实:Kling 3.0 lipsync 支持 zh/en/ja/ko/es 五种语言(含明确的 phoneme-to-viseme 映射),其中 ja/ko 被显式支持——但 LANGUAGE_AGNOSTIC_LIPSYNC 不含 kling(保守设计:kling 只有 5 语言,不是真正语种无关)。该保守设计正确但造成了新的小缺口:有 Kling key 但无 SYNCSO_API_KEY 的部署,ja/ko 应该可以走 Kling 却被 gate 拦住了。",
+      "lastVerdictSources": [
+        "https://support.sync.so/articles/4079312867-what-languages-does-sync-support-for-lip-syncing",
+        "https://kling.ai/blog/kling-video-3-omni-native-lip-sync-audio-guide",
+        "https://www.atlascloud.ai/blog/tips/kling-ai-lip-sync"
+      ]
     },
     {
       "id": "C17-registry-overstated-caps",
@@ -199,7 +286,14 @@
       "evidence": "Veo 3.1 单次 duration 枚举只有 4/6/8(官方文档,4K 更锁 8s);60s+ 是 Scene Extension 续接。我们钉的 LTX_MODEL 默认 `fal-ai/ltx-2.3/text-to-video` 是 Pro 变体,枚举 6/8/10 —— 20s 属于没钉的 /fast 变体。两处均经多源独立复核。v12.422 已按实际端点修正,并让「用哪个端点」与「声称能做多长」必须一起改。",
       "falsifyBy": "官方放宽了单次枚举(如 Veo 支持 10s、LTX Pro 支持 20s);或我们把钉住的端点换成了确实支持该时长的变体",
       "trend": "这类失真有个共同形态:**它只在能力被真正行使时才发作**。v12.422 之前所有请求都写死 8s,所以虚报躺了很久没人发现;改成按剧本要时长的那一刻,它立刻变成「选中一个做不到的引擎、然后交回一个短片」。",
-      "actionVersion": "v12.422"
+      "actionVersion": "v12.422",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "v12.422 修正的两处数值本轮独立核实仍准确:①Veo 3.1 单次 duration 枚举 4/6/8 秒,官方 Gemini API 文档明确列出这三个值,8s 为上限,60s+ 为 Scene Extension 续接非原生单次;②LTX-2.5 Pro 枚举 6/8/10 秒,最大 10s;LTX-2.5 Fast 枚举 6…20 秒,最大 20s(仅 24–25fps 时可达,48–50fps 锁 10s)。修正后注册表与实际端点一致,无新失真。如将钉住端点切换为 LTX-2.5 Fast,则可声称 maxDurationSec=20;当前钉住 Pro,正确值仍为 10。",
+      "lastVerdictSources": [
+        "https://ai.google.dev/gemini-api/docs/veo",
+        "https://docs.ltx.io/models/ltx-2-5"
+      ]
     },
     {
       "id": "C18-seedance-mou-not-settlement",
@@ -209,7 +303,117 @@
       "evidence": "时间线:2026-02-13 Disney 率先发停止函,Paramount/Sony/WB/Netflix/MPA 相继跟进;2026-03 字节暂停 Seedance 2.0 全球推广;2026-08 字节与 MPA 签谅解备忘录(输出层内容过滤 + 面部屏蔽 + C2PA Content Credentials),覆盖 Seedance 与 Seedream;截至 2026-09-04 无美国联邦诉讼、API 未受限,Seedance 2.5 于 2026-07-31 在纠纷期间正式上线。但备忘录**明确不覆盖训练数据侵权责任**。",
       "falsifyBy": "训练数据侵权诉讼被正式提起或和解;或备忘录扩展到覆盖训练数据责任",
       "trend": "v12.415 基于「纠纷未和解」写下了「不接 Seedance 2.5」。状态确实变了,但没变到「已和解」。这是**产品法律风险判断,应由 owner 定夺**,不该由实现者单方面推翻一条写下来的决定 —— v12.422 因此选了无纠纷的 Wan 3.0。",
-      "actionVersion": null
+      "actionVersion": null,
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-19",
+      "lastVerdictNote": "ByteDance-MPA MOU(2026-08-17)本轮经多源确认,定性仍与上轮一致:输出侧治理框架(内容过滤 + 面部屏蔽 + C2PA Content Credentials),明确不覆盖训练数据版权责任。TechTimes(2026-08-18)标题即为「Training Liability Stays in Court」,36Kr EN 同期报道将其定性为「输出侧治理,非训练数据授权合同」。截至 2026-09-19 无美国联邦诉讼提起/和解公告,API 未受限。风险降低但未消除的判断不变。",
+      "lastVerdictSources": [
+        "https://www.techtimes.com/articles/324834/20260818/mpa-strikes-first-ai-copyright-pact-bytedance-training-liability-stays-court.htm",
+        "https://eu.36kr.com/en/p/3947572561909380",
+        "https://thenextweb.com/news/bytedance-mpa-ai-copyright-pact-seedance"
+      ]
+    },
+    {
+      "id": "C19-openmontage-convergence-pace",
+      "statement": "截至 2026-09-19，OpenMontage 正在以约 2–3k★/月的速度增长（54.7k→60k，约 15 天），但在本轮复核时间窗口内未补上 EDL/AAF 导出或独立节奏审计门禁",
+      "kind": "护城河边界节奏",
+      "evidence": "GitHub 页面：54.7k★（2026-09-03）→ ~60k★（2026-09-19）；功能列表 12 pipelines/100+ tools/700+ skills，无 EDL/AAF 或 pacing gate 字样",
+      "falsifyBy": "OpenMontage release notes 或 README 出现 EDL/AAF 导出功能或节奏/冲突审计门禁；或其他 FOSS 项目补上三条之一",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C20-c8-docker-gap-closed",
+      "statement": "截至 v12.421，C8 中「无预构建 Docker 镜像」的证伪条件已满足：README 提供 `docker run ghcr.io/chrischen667788/wind-comic:latest` 一行命令，docker-compose.demo.yml 配置为 pull_policy: missing 直接拉取，无需本地 build 无需 API key",
+      "kind": "自身差距已关闭",
+      "evidence": "README:541–542（docker run 一行命令）；docker-compose.demo.yml（image 字段 + pull_policy: missing + 注释「v12.421 起直接拉预构建镜像」）",
+      "falsifyBy": "ghcr.io/chrischen667788/wind-comic:latest 拉取失败（镜像未实际推送），或 docker run 命令无法正常启动 web UI",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C21-market-growth-214-unverified",
+      "statement": "C8 中的市场增速「YoY +214%」截至 2026-09-19 无可核实来源；中国 AI 漫剧细分真实增速为 +276%（艾媒咨询），全球短剧 app 下载量增速为 +140%（Q1 2026）",
+      "kind": "数字核实",
+      "evidence": "36kr 英文版：H1 2026 海外 IAP +13% YoY；powerdrill.ai：AI漫剧 +276%、下载量 +140%；未找到任何来源支持「+214%」这个具体数字",
+      "falsifyBy": "找到艾媒、DataEye、克劳锐等机构发布的报告，其中明确给出「AI 短剧市场 YoY +214%」这一具体数字及其口径",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C22-kling-multishot-zero-callsite",
+      "statement": "截至 2026-09-19,Kling 多镜连贯(generateMultiShot)是 C7 五项特色能力中唯一仍在主管线零调用的功能——其余四项(Veo Scene Extension / Kling 口型 / Kontext 局部重绘 / H3 参考生视频)均已接入",
+      "kind": "自身差距(C7 子项)",
+      "evidence": "grep -rn 'generateMultiShot' 在 hybrid-orchestrator.ts 及所有 app/api/ 路由下零命中;仅 tests/v12-406-kling-multishot.test.ts 引用函数名做结构校验",
+      "falsifyBy": "hybrid-orchestrator.ts 或任一 app/api/ 路由中出现 klingService.generateMultiShot 的实际调用",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C23-veo-extension-conditional",
+      "statement": "Veo Scene Extension 在主管线中是条件触发:仅当剧本镜头 duration > 8s 时才调用 generateExtended,写死 8s 的镜头永远走不到续接路径——这意味着短剧惯用的 5s/8s 镜头实际上从不使用该能力",
+      "kind": "接了但触发条件过窄",
+      "evidence": "hybrid-orchestrator.ts:3400 `if (wantSec > VEO_SEGMENT_SEC)`,VEO_SEGMENT_SEC=8;短剧典型镜头时长 4–8s 均低于或等于阈值",
+      "falsifyBy": "短剧编排默认镜头时长改为 > 8s,或 Scene Extension 改为优先路径而非按长度条件触发",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C24-sora-fallback-verified",
+      "statement": "Wind Comic 在 2026-09-24 Sora 2 API 停服后,配 Sora 模型链的项目能自动剔除 Sora 并走通 fallback 引擎出片,无人工干预",
+      "kind": "供应链保护实测",
+      "evidence": "veo.service.ts 退役前告警/退役后剔除逻辑已在 v12.173/207 写入;Sora 停服时间窗口为 2026-09-24 之后",
+      "falsifyBy": "2026-09-24 后实测一次:配 Sora 为首选引擎,触发剔除流程并确认 fallback 引擎出片成功",
+      "assertedOn": "2026-09-19",
+      "lastVerdict": "weakened",
+      "lastVerdictOn": "2026-09-22",
+      "lastVerdictNote": "v12.452 已用假时钟 + 模拟网络真跑闸门翻转前后(tests/v12-452-sora-sunset-runtime.test.ts,5 个注入点全抓红),并补上「上游若早于闸门停服,Sora 的非 transient 报错会让整条链中止」的缺口。仍缺的只剩停服后的真机验证 —— 本仓 owner 的配置不走 Sora(veo_3_1_vip → veo_3_1_fast_vip → Seedance),真机验证要等有 Sora 配置的部署反馈。"
+    },
+    {
+      "id": "C25-wan3-weights-closed",
+      "statement": "截至 2026-09-19,Wan 3.0 无可下载的开源权重,自托管路径的 30s 生成能力缺口仍未解决(自托管天花板是 LTX-2.5 Fast 20s / Wan 2.7 ~15s)",
+      "kind": "开源自托管能力边界",
+      "evidence": "多源冲突:一说 API-only(GitHub 仓库只有 README),一说 Apache-2.0 权重已开放;C14 上轮注记(2026-09-04)倾向 API-only。未在 HuggingFace/ModelScope 确认到 Wan 3.0 checkpoint。",
+      "falsifyBy": "在 HuggingFace 或 ModelScope 上找到 Wan 3.0 官方权重文件并可本地加载;或 Alibaba 官方博客宣布开源",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C26-minimax-fast-path-legacy",
+      "statement": "minimax.service.ts generateVideoFast 兜底路径硬编码 `MiniMax-Hailuo-2.3-Fast`(第 434 行),未随主路径升级到 H3 系——如 MiniMax 关闭 Hailuo-2.3-Fast 端点,兜底会静默失效",
+      "kind": "自有依赖遗留(次级)",
+      "evidence": "代码实测:主路径 defaultVideoModel() 已默认 MiniMax-H3;但 generateVideoFast 独立读 process.env.MINIMAX_FAST_VIDEO_MODEL || 'MiniMax-Hailuo-2.3-Fast'",
+      "falsifyBy": "MiniMax 关闭 Hailuo-2.3-Fast 端点并返回 410;或 generateVideoFast 被更新为使用 H3 Fast 端点",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C27-elevenlabs-music-smoke",
+      "statement": "截至 2026-09-19,lib/music-providers-builtin.ts 中 ElevenLabs Music 端点(POST /v1/music/compose)在代码层面正确实现,但无真机端到端冒烟记录——实际是否可通仍未知",
+      "kind": "接了但没验收",
+      "evidence": "lib/music-providers-builtin.ts:17-53 实现调用逻辑;elevenlabs.io/docs 确认 API 对付费用户开放;但无 passing smoke test 记录",
+      "falsifyBy": "提交一次有 ELEVENLABS_API_KEY 的真机 generateMusic 调用并记录响应;或发现 /v1/music/compose 端点返回 4xx/5xx",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C28-qwen-image-glyph-gap",
+      "statement": "lib/text-in-frame.ts 把 qwen-image 列为能渲染中文的引擎,但图像路由的候选里没有它、tryEngine 也没有实现 —— 由于 routeTextInFrame 只从路由已给出的候选里挑,它**不可能被选中**:不是会抛异常的 bug,而是一条死配置,且让「没有可用引擎」的提示文案误导人去配一个用不上的引擎",
+      "kind": "代码不一致(列了但没实现)",
+      "evidence": "lib/image-router.ts:19 ImageEngine = 'mj'|'minimax-multi'|'minimax-single'|'kontext'|'seedream'|'falflux';grep qwen-image services/ 无结果",
+      "falsifyBy": "在 ImageEngine 类型中加入 qwen-image 并在 tryEngine 中实现对应 case;或从 GLYPH_CAPABLE_ENGINES 中删除 qwen-image",
+      "assertedOn": "2026-09-19",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-22",
+      "lastVerdictNote": "9-19 调研原判「选中它会 fallthrough 抛异常」—— 2026-09-22 读代码核实:services/hybrid-orchestrator.ts:1286 以 [route.primary, ...route.fallbacks] 作为可选集调用 routeTextInFrame,候选里永远没有 qwen-image,所以说过头了;真实问题是死配置 + 误导文案。"
+    },
+    {
+      "id": "C29-kling-ja-ko-lipsync-gating",
+      "statement": "Kling 3.0 lipsync 已支持 ja/ko(含 phoneme-to-viseme),但 lib/lipsync-language-gate.ts LANGUAGE_AGNOSTIC_LIPSYNC 不含 kling——有 Kling key 但无 SYNCSO_API_KEY 的部署,ja/ko 仍被 gate 拦住,无法利用 Kling 的 ja/ko 能力",
+      "kind": "能力未用满(gate 过于保守)",
+      "evidence": "lipsync-language-gate.ts:34 LANGUAGE_AGNOSTIC_LIPSYNC=['syncso'];Kling 3.0 官方文档确认支持 zh/en/ja/ko/es 含 phoneme-to-viseme;language-detect.ts:24-26 ja/ko/ru 的 lipsync='none'",
+      "falsifyBy": "在 lipsync-language-gate.ts 加入 kling 对 ja/ko 的条件判断(kling key 存在 + 语言为 ja/ko → 允许);或实测 Kling ja/ko 口型严重错位(则保守设计成立)",
+      "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C30-mj-v8-edit-model",
+      "statement": "MJ V8.2 已成默认版本,Edit Model(最多 4 张参考图)替代了 V7 的 Omni Reference(--oref)。我方代码显式钉 --v 7 规避了默认升级,但若网关未来仅支持 V8.x,--v 7 将失效",
+      "kind": "供应链风险",
+      "evidence": "blakecrosley.com/guides/midjourney 确认 V8.2(2026-07-24);lib/midjourney-params.ts:30 MJ_DEFAULT_VERSION='7';V8.1/8.2 不支持 --oref,使用 Edit Model",
+      "falsifyBy": "MJ 网关宣布 V7 端点退役;或实测 --v 7 prompt 被网关拒绝/静默升级",
+      "assertedOn": "2026-09-19"
     }
   ],
   "watchlist": [

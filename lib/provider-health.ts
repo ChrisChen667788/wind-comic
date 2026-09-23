@@ -8,6 +8,7 @@
 
 export type HealthStatus =
   | 'ok'
+  | 'plan_limited' // v12.452:能用,但当前套餐只开了一部分(例:MiniMax Token Plan 调不动 H3,出片回落旧模型)
   | 'out_of_credits'
   | 'auth_error'
   | 'misconfigured'
@@ -30,6 +31,7 @@ export interface ProviderHealth {
 export const STATUS_META: Record<HealthStatus, { label: string; tone: 'ok' | 'warn' | 'bad' | 'muted'; action?: string }> = {
   // v12.209:label/action 存 i18n key(消费方页面用 t.providerHealth[key] 翻译),lib 层零中文
   ok: { label: 'ok', tone: 'ok' },
+  plan_limited: { label: 'planLimited', tone: 'warn', action: 'upgradePlan' },
   out_of_credits: { label: 'outOfCredits', tone: 'bad', action: 'recharge' },
   auth_error: { label: 'authError', tone: 'bad', action: 'checkKey' },
   misconfigured: { label: 'misconfigured', tone: 'warn', action: 'addConfig' },

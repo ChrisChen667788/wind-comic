@@ -4,6 +4,8 @@ import {
   isPlaceholder, classifyHttp, classifyMinimax, extractGatewayBalance, overallHealth,
   type ProviderHealth, type ProviderKind,
 } from '@/lib/provider-health';
+import { probeMinimaxVideo } from '@/lib/minimax-video-probe';
+import { API_CONFIG } from '@/lib/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -139,6 +141,15 @@ export async function GET(request: NextRequest) {
     probeChatLLM('creative-llm', `创意 LLM · ${process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro'} (编剧/导演)`, creativeBase, creativeKey, process.env.OPENAI_CREATIVE_MODEL || 'deepseek-v4-pro'),
     probeChatLLM('minimax-llm-fallback', `MiniMax LLM 兜底 · ${process.env.LLM_FALLBACK_MODEL || 'MiniMax-M2.7'}`, fbBase, fbKey, process.env.LLM_FALLBACK_MODEL || 'MiniMax-M2.7'),
     probeMinimaxTTS(),
+    // v12.452:MiniMax 只探 TTS 时,Token Plan 上 TTS 是好的 → 页面一片绿,而视频默认模型 H3 根本调不动。
+    // 零成本:只发缺必填参数的请求(套餐校验先于参数校验,两种拒都不建任务);万一建了任务探针当场自停。
+    // 钥匙与地址直接取出片代码用的那份(API_CONFIG.minimax:MINIMAX_API_KEY + 归一化去掉 /v1 的 base)——
+    // 探针自己读环境变量的话,配成 `…/v1` 时探针打错地址报红、出片却是好的。
+    probeMinimaxVideo({
+      baseUrl: API_CONFIG.minimax.baseURL,
+      key: API_CONFIG.minimax.apiKey,
+      fetch: (url, init) => timedFetch(url, init),
+    }),
     probeGateway('qingyuntop', 'qingyuntop 网关 (Vidu/聚合视频)', process.env.QINGYUNTOP_BASE_URL || 'https://api.qingyuntop.top', process.env.QINGYUNTOP_API_KEY),
     probeGateway('vectorengine', 'vectorengine 网关 (补全: TTS/MJ/Kling/图像)', veBase, veKey),
   ]);

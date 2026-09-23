@@ -837,6 +837,7 @@ const zhCN: Translations = {
     },
   providerHealth: {
     ok: "正常",
+    planLimited: "受限",
     outOfCredits: "额度用尽",
     authError: "鉴权失败",
     misconfigured: "配置缺失",
@@ -847,6 +848,7 @@ const zhCN: Translations = {
     addConfig: "补配置",
     checkNetwork: "检查网络/服务",
     optionalSetup: "可选接入",
+    upgradePlan: "换计费方式",
   },
 };
 
@@ -1275,6 +1277,7 @@ const en: Translations = {
     },
   providerHealth: {
     ok: "Healthy",
+    planLimited: "Plan-limited",
     outOfCredits: "Out of credits",
     authError: "Auth failed",
     misconfigured: "Misconfigured",
@@ -1285,6 +1288,7 @@ const en: Translations = {
     addConfig: "Add config",
     checkNetwork: "Check network/service",
     optionalSetup: "Optional",
+    upgradePlan: "Change billing",
   },
 };
 
@@ -1687,6 +1691,7 @@ const zhTW: Translations = {
     },
   providerHealth: {
     ok: "正常",
+    planLimited: "受限",
     outOfCredits: "額度用盡",
     authError: "鑑權失敗",
     misconfigured: "配置缺失",
@@ -1697,6 +1702,7 @@ const zhTW: Translations = {
     addConfig: "補配置",
     checkNetwork: "檢查網路/服務",
     optionalSetup: "可選接入",
+    upgradePlan: "換計費方式",
   },
 };
 
@@ -2099,6 +2105,7 @@ const ja: Translations = {
     },
   providerHealth: {
     ok: "正常",
+    planLimited: "プラン制限",
     outOfCredits: "残高切れ",
     authError: "認証失敗",
     misconfigured: "設定不足",
@@ -2109,6 +2116,7 @@ const ja: Translations = {
     addConfig: "設定追加",
     checkNetwork: "ネット/サービス確認",
     optionalSetup: "任意接続",
+    upgradePlan: "課金方式を変更",
   },
 };
 
@@ -2592,6 +2600,7 @@ const ko: Translations = {
   },
   "providerHealth": {
     "ok": "정상",
+    "planLimited": "요금제 제한",
     "outOfCredits": "크레딧 소진",
     "authError": "인증 실패",
     "misconfigured": "설정 오류",
@@ -2601,7 +2610,8 @@ const ko: Translations = {
     "checkKey": "Key 확인",
     "addConfig": "설정 추가",
     "checkNetwork": "네트워크/서비스 확인",
-    "optionalSetup": "선택 사항"
+    "optionalSetup": "선택 사항",
+    "upgradePlan": "결제 방식 변경"
   }
 };
 const ru: Translations = {
@@ -3082,6 +3092,7 @@ const ru: Translations = {
   },
   "providerHealth": {
     "ok": "В норме",
+    "planLimited": "Ограничено тарифом",
     "outOfCredits": "Квота исчерпана",
     "authError": "Ошибка авторизации",
     "misconfigured": "Неверная конфигурация",
@@ -3091,7 +3102,8 @@ const ru: Translations = {
     "checkKey": "Проверить ключ",
     "addConfig": "Добавить конфигурацию",
     "checkNetwork": "Проверить сеть/сервис",
-    "optionalSetup": "Необязательно"
+    "optionalSetup": "Необязательно",
+    "upgradePlan": "Сменить тариф"
   }
 };
 

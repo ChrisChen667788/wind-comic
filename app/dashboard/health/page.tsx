@@ -31,7 +31,7 @@ const TONE_CLS: Record<string, string> = {
   muted: 'text-[var(--muted)] bg-white/5 border-white/10',
 };
 const STATUS_ICON: Record<HealthStatus, typeof CheckCircle2> = {
-  ok: CheckCircle2, out_of_credits: XCircle, auth_error: XCircle,
+  ok: CheckCircle2, plan_limited: AlertTriangle, out_of_credits: XCircle, auth_error: XCircle,
   misconfigured: AlertTriangle, down: XCircle, not_configured: CircleDashed,
 };
 
@@ -116,9 +116,16 @@ export default function HealthPage() {
   const load = useCallback(async (fresh = false) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/health/providers${fresh ? '?fresh=1' : ''}`);
-      setData(await res.json());
-    } catch { /* ignore */ }
+      // v12.452:① 带上令牌 —— 这个接口在安全收口时加了鉴权,而本页同一组 fetch 里只有这一处没跟着改
+      // (另外两处早就带了);靠 httpOnly cookie 的会话能过,cookie 被隐私设置拦掉或过期的就 401。
+      // ② 不是 200 就当加载失败 —— 原来把 `{message:'Unauthorized'}` 直接 setData,
+      // 于是 data 真、data.providers 空,整页被 React 错误边界白屏:失败要长得像失败,不能白屏。
+      const tok = getToken();
+      const res = await fetch(`/api/health/providers${fresh ? '?fresh=1' : ''}`, tok ? { headers: { Authorization: `Bearer ${tok}` } } : undefined);
+      if (!res.ok) { setData(null); return; }
+      const body = await res.json();
+      setData(body && Array.isArray(body.providers) ? body : null);
+    } catch { setData(null); }
     finally { setLoading(false); }
   }, []);
 

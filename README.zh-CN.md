@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v12.451</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v12.452</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -242,16 +242,16 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **5984 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **6006 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
 
 ## 🥊 跟竞品比
 
-> 阵容核验 **2026-08-31**(Artificial Analysis 盲投竞技场;6 路并行联网调研 + 关键数值独立二次检索复核。完整分析见 [`docs/COMPETITIVE-GAP-2026-08.md`](docs/COMPETITIVE-GAP-2026-08.md)):**榜首易主,且由国内模型拿下** —— T2V 带音频:**Wan 3.0(1242)** → Gemini Omni Flash(1237,较上轮 1244 下滑)。新进入者 **xAI Grok Imagine Video 1.5**(6-16):**7 路视觉参考同帧锚定**(角色+场景+道具+风格)+ 原生音频 + 语音克隆,$0.08(480p)/$0.14(720p)/$0.25/s(1080p)——**参考路数超过我们现有的 cref+sref 两路**。**Kling 3.0** 仍是短剧综合首选(原生 4K / 60fps / 15s / **6 连贯镜头** / 自带多语对白+口型,$0.084–0.112/s);**Veo 3.1**(2025-10-15 首发,2026-01-13 加 4K 与竖屏)的 **Scene Extension 可把成片接到 60s+ —— 但那是拼接,单次生成上限仍是 8–10s**;内置自研音视频联合生成(**Lyria 3 是 Google 另一个独立音乐模型,不是 Veo 的音频组件**),$0.40/s 起。注:Veo 3.1 自身 T2V+音频 Elo 约 1091,榜上的 1237 是 Gemini Omni Flash —— 那是另一个产品,别混为一谈。**✅ Sora 2 API 停服(2026-09-24)已由 OpenAI 官方确认,本项目 v12.173/207 起已有防护**:退役日前每次告警、退役日后自动从模型链剔除走 fallback,链空才抛(`tests/v12-173-sora-sunset.test.ts` 守着)——**这条不是待办**。
+> 阵容核验 **2026-09-22**(Artificial Analysis 盲投竞技场,两名独立核对者分别抓取、逐名次一致;18 条旧断言逐条重验 + 35 个硬指标独立复核。台账见 [`docs/competitive/claims.json`](docs/competitive/claims.json),完整分析见 [`docs/COMPETITIVE-GAP-2026-09.md`](docs/COMPETITIVE-GAP-2026-09.md)):**榜首又回到 Google,而无音频两张榜仍是国产领跑** —— T2V **带**音频:Gemini Omni Flash **1233** > Wan 3.0 1229 > MiniMax H3 Max 1227 > MiniMax H3 1220 > Seedance 2.0 720p 1210;T2V **不带**音频:**Wan 3.0 1336** > Gemini 1330 > MiniMax H3 1302;图生视频带音频:**MiniMax H3 Max 1195** > MiniMax H3 1181 > Gemini 1177,不带音频:Gemini 1369 > Wan 3.0 1361 > Bach 1.0 Pro 1359 > MiniMax H3 1354。新进入者 **xAI Grok Imagine Video 1.5**(6-16):**7 路视觉参考同帧锚定**(角色+场景+道具+风格)+ 原生音频 + 语音克隆,$0.08(480p)/$0.14(720p)/$0.25/s(1080p)——**参考路数超过我们现有的 cref+sref 两路**。**Kling 3.0** 仍是短剧综合首选(原生 4K / 60fps / 15s / **6 连贯镜头** / 自带多语对白+口型,$0.084–0.112/s);**Veo 3.1**(2025-10-15 首发,2026-01-13 加 4K 与竖屏)的 **Scene Extension 可把成片接到 60s+ —— 但那是拼接,单次生成上限仍是 8–10s**;内置自研音视频联合生成(**Lyria 3 是 Google 另一个独立音乐模型,不是 Veo 的音频组件**),$0.40/s 起。注:Veo 3.1 自身 T2V+音频 Elo 约 1091,榜上的 1237 是 Gemini Omni Flash —— 那是另一个产品,别混为一谈。**✅ Sora 2 API 停服(2026-09-24)已由 OpenAI 官方确认,本项目 v12.173/207 起已有防护**:退役日前每次告警、退役日后自动从模型链剔除走 fallback,链空才抛(`tests/v12-173-sora-sunset.test.ts` 守着)——**这条不是待办**。
 > **🔴 上一轮说过头了 —— 本轮把四条「独有」逐一收回(核验 2026-09-03)**。这不是被竞品追上,是**当初就说过头了**:① 「EDL/AAF 导出竞品独有」—— **Descript 早有** Timeline Export(Premiere XML · FCPXML · Reaper EDL · **Pro Tools/Logic AAF**);② 「唯一 MIT 开源可自托管的端到端短剧平台」—— **不成立**,`EvoLinkAI/ai-short-drama`(MIT + Docker + 小说→成片全链)同样满足,另有 LocalMiniDrama / Toonflow / huobao-drama 等多个活跃项目;③ 「BYO 多 provider 注册表独有」—— **PopShort.AI 已公开集成**跨厂商模型(Veo 3.1 / Kling / Seedance / Nano Banana Pro);④ 「节奏/反转审计竞品无对应项」—— **火山剧创**公开声称「多 Agent 校验 + 200+ 爆款镜头策略,智能优化冲突/反转/高潮」。**收窄之后仍然站得住的那条**:火山剧创是**生成内联优化**、Descript 有导出但无节奏审计也不开源 —— 截至 2026-09-03,**仍无一家同时具备「节奏审计固化为可拦截的独立工程门禁 + EDL/AAF 导出 + 开源自托管商用」**。请注意这比上一轮**窄**:上一轮写「节奏审计」,这一轮必须写「**独立可拦截门禁**」才成立。开源阵营规模:OpenMontage **54.7k★**(AGPL)、ViMax **12.2k★**(MIT)、DramaClaw 4.8k★(Elastic 2.0,非 FOSS)、BigBanana 1.8k★(禁商用)、Novella AI 89★(MIT)。完整分析见 [`docs/COMPETITIVE-GAP-2026-09.md`](docs/COMPETITIVE-GAP-2026-09.md)。
-> **🇨🇳 国产阵营:时长与参考路数双双突破,而我们在用的两个引擎都该升版了** —— **Seedance 2.5**(7-31)与 **Wan 3.0**(8-24 正式上线)双双做到**原生 30s 单镜头**;Seedance 支持 **50 个参考素材**、按 token 计费(¥42–70/百万 tokens);Wan 3.0 720P 折后 **¥0.42/s**,还能**文档直转视频**(PPT/Word/PDF→30s)。**Vidu Q3** 是国产里唯一明确打「短剧/漫剧工业化」的(7 参考图多主体锁定 + 6 类电影特效 + 口型驱动,Turbo 1080p ≈¥0.41/s);**PixVerse C1**(4-08)短剧垂直定位最明确(分镜宫格直出 + 多人对白口型)。**⚠️ 两条自查结论**:① `services/minimax.service.ts:240` 默认 `MiniMax-Hailuo-2.3`(`.env.local` 未覆盖,即实际就跑它),而 **2.3 / 2.3-Fast 已被官方降为 legacy**,H3(V2)才是推荐路径 —— **我们把 MiniMax H3 当竞品写进了对照表,自己却还在调它的上一代**。这是当前最紧迫的注册表更新项;② **两条 Vidu 调用路径不一致**:`qyt-vidu.service.ts` 钉死 `viduq3`,而 `vidu.service.ts` **一个模型字段都不传**、跑供应商默认值 —— 和 MJ「全仓未指定版本走网关默认」同一个病:**供应商换默认值时我们会静默改变行为,且事后无从复盘**。
+> **🇨🇳 国产阵营:时长与参考路数双双突破,而我们在用的两个引擎都该升版了** —— **Seedance 2.5**(7-31)与 **Wan 3.0**(8-24 正式上线)双双做到**原生 30s 单镜头**;Seedance 支持 **50 个参考素材**、按 token 计费(¥42–70/百万 tokens);Wan 3.0 720P 折后 **¥0.42/s**,还能**文档直转视频**(PPT/Word/PDF→30s)。**Vidu Q3** 是国产里唯一明确打「短剧/漫剧工业化」的(7 参考图多主体锁定 + 6 类电影特效 + 口型驱动,Turbo 1080p ≈¥0.41/s);**PixVerse C1**(4-08)短剧垂直定位最明确(分镜宫格直出 + 多人对白口型)。**⚠️ 一条自查结论**:① 上一轮那两条自查**都已修掉** —— 默认视频模型在 v12.402 改成了 H3,两条不一致的 Vidu 调用路径在 v12.403 收成了一条。取而代之的是一道计费墙:**H3 只能按量付费,MiniMax 官方定价页明写 Token Plan 不覆盖它**(2026-09-22 复核,768P $0.08/秒、2K $0.13/秒)。Token Plan 的 key 每次调 H3 都被拒,出片因此回落 Hailuo-2.3(v12.446 才让这条回落真正走通 —— 此前它只认英文报文,空转了 16 天),而**参考视频动作迁移(v12.448)整项用不了**。健康页现在会直说这件事,不再靠一个语音合成探针把 MiniMax 显示成一片绿(v12.452);② **Sora 2 API 于 2026-09-24 退役**(2026-09-22 在 OpenAI 弃用页复核,无延期)。护栏从 v12.173/207 就在 —— 到期前告警、到期后从模型链剔除、剔完链空才抛 —— 但在 v12.452 之前,「锁住」它的两条测试只是在源码里搜字符串,**这个分支从来没被执行过**。现在用假时钟 + 模拟上游真跑了一遍,顺带暴露出一个缺口:**上游若早于我们的 UTC 零点闸门停服**,Sora 的报错原来会让整条链中止,而不是退到 veo/kling。
 > **⭐ BYO 架构再次接住这波**:榜上模型基本都开放 API,填 key 即为本管线可调度引擎 —— 竞品越强,本管线越强。
 > **⚠️ 也要说清劣势**:生成质量不由我们决定(不训模型,上限即所接引擎上限);**零门槛比不过** Coze 3.0 这类零代码平台(市场 YoY +214%,差距会被放大);**当前无作曲能力**(MiniMax Music 已对新用户停服,只剩自备 BGM 通道);而且**已接入的特色能力普遍没用满** —— Veo 的 Scene Extension、Kling 的多镜连贯与自带口型、Kontext 的局部重绘都还没调用,这是当下性价比最高的一块。
 > 结论不变:**生成层已是红海(且国内模型在领跑),Wind Comic 护城河在「制作/平台层」**——节奏审计、EDL/AAF、实时协作、发布预检、自托管、开源、BYO。
@@ -445,7 +445,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 5984/5984 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 6006/6006 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

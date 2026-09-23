@@ -154,7 +154,11 @@ export class VeoService {
         console.warn(`[Veo] Model ${m} failed: ${lastError.message?.slice(0, 150)} (transient=${transient})`);
 
         // 非 transient 错误 (比如协议/校验错误) 就没必要再试其他模型了
-        if (!transient) {
+        // v12.452:**Sora 系例外** —— 它 2026-09-24 停服,停服后上游具体回什么(410?404 model_not_found?网关自定义?)
+        // 在那天之前没法实探,不能编一个报文去认。而下面的日期闸门按 UTC 零点翻,上游若提前停,
+        // 这中间 Sora 报的「非 transient」错误会让整条链中止、连 veo 兜底都不试。Sora 失败一律换下一个模型。
+        const soraFamily = m.toLowerCase().startsWith('sora');
+        if (!transient && !soraFamily) {
           this.model = originalModel;
           this.format = originalFormat;
           _trackVeoError(lastError, m, 'generateVideo'); // v12.149 引擎天气埋点
