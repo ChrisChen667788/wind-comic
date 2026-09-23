@@ -102,18 +102,18 @@ export function CharacterLockSection({ value, onChange }: Props) {
   }, [value.length]); // 只看长度避免循环
 
   const updateSlot = (idx: number, patch: Partial<LockedCharacter>) => {
-    setSlots(prev => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], ...patch };
-      // role 变了 → cw 跟着变(除非用户已手动覆盖,Phase 1 不暴露手动 cw)
-      if (patch.role) {
-        const preset = ROLE_PRESETS.find(p => p.id === patch.role);
-        if (preset) next[idx].cw = preset.cw;
-      }
-      // 通知父组件
-      onChange(next.filter(s => s.name.trim() && s.imageUrl));
-      return next;
-    });
+    // v12.453:先算好再分别落地。原来把 onChange(父组件的 setState)写在 setSlots 的更新函数**里面** ——
+    // React 可能在渲染期调用更新函数(StrictMode 下还会调两次),于是报「渲染中更新别的组件」,
+    // 且父组件可能被通知两次。更新函数必须是纯的。
+    const next = [...slots];
+    next[idx] = { ...next[idx], ...patch };
+    // role 变了 → cw 跟着变(除非用户已手动覆盖,Phase 1 不暴露手动 cw)
+    if (patch.role) {
+      const preset = ROLE_PRESETS.find(p => p.id === patch.role);
+      if (preset) next[idx].cw = preset.cw;
+    }
+    setSlots(next);
+    onChange(next.filter(s => s.name.trim() && s.imageUrl));
   };
 
   const clearSlot = (idx: number) => {
@@ -197,7 +197,10 @@ export function CharacterLockSection({ value, onChange }: Props) {
         )}
         {libHint && <div className="text-[10px] text-amber-400/80 mt-1">{libHint}</div>}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* v12.453:按**可用宽度**排,不按视口断点 —— 这个栅格在窄列里只有 320px 宽,
+          而 md:grid-cols-3 看的是视口(≥768 就三列),于是每个槽位被压到 99px:
+          角色名输入框只剩 18px,整排控件溢出到卡片外、点不到。每格最少 200px,放不下就换行。 */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
         {slots.map((slot, idx) => (
           <CharacterCard
             key={idx}
