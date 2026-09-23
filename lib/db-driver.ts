@@ -12,6 +12,7 @@
  * 单测: tests/v4-2-1-db-driver.test.ts.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { sqliteParamsToPg } from './db-dialect';
 
 export type DbDialect = 'sqlite' | 'postgres';
@@ -69,18 +70,41 @@ class SqliteDriver implements DbDriver {
     const r = db.prepare(sql).run(...params);
     return { changes: r.changes, lastInsertRowid: r.lastInsertRowid };
   }
+  /**
+   * v12.449:**同一连接上的事务必须排队。**
+   *
+   * 原实现是「BEGIN → await fn → COMMIT」,注释假设 fn「只做 DB + 同步计算」—— 但全仓 13 处调用
+   * 在 fn 里 await(动态 import、异步查询),一让出执行权,同进程另一个事务就在同一连接上再 BEGIN,
+   * 抛 `cannot start a transaction within a transaction`;抛错那一方的 catch 还会 ROLLBACK,
+   * **把先开的那个事务一起回滚**,先开的那个随后 COMMIT 又因「没有活动事务」失败 —— 两边全挂。
+   * v12.448 用真库测「同一镜并发保存参考视频」当场撞出(导演台站位保存是同一写法)。
+   *
+   * 修法:事务按到达顺序排队,前一个结束(不论成败)才开下一个。
+   * 嵌套(fn 里又调 transaction)同一连接做不到,排队会自己等自己 —— 用 AsyncLocalStorage 认出来,**立即报错**而不是挂死。
+   * 已知仍在:事务开着时,别处**不带 tx 的**普通读写也走这条连接,会落进这个事务(better-sqlite3 单连接的固有限制,与本修无关)。
+   */
+  private txTail: Promise<unknown> = Promise.resolve();
+  private readonly txScope = new AsyncLocalStorage<true>();
+
   async transaction<T>(fn: (tx: DbExecutor) => Promise<T>): Promise<T> {
-    const db = await this.db();
-    // better-sqlite3 同步, BEGIN…COMMIT 同连接顺序执行即原子 (fn 内只做 DB + 同步计算)
-    db.prepare('BEGIN').run();
-    try {
-      const result = await fn(this);
-      db.prepare('COMMIT').run();
-      return result;
-    } catch (e) {
-      try { db.prepare('ROLLBACK').run(); } catch { /* ignore */ }
-      throw e;
+    if (this.txScope.getStore()) {
+      throw new Error('SQLite 不支持嵌套事务:当前已在一个事务里 —— 内层请改用外层传进来的 tx,不要再调 transaction()');
     }
+    const run = () => this.txScope.run(true, async () => {
+      const db = await this.db();
+      db.prepare('BEGIN').run();
+      try {
+        const result = await fn(this);
+        db.prepare('COMMIT').run();
+        return result;
+      } catch (e) {
+        try { db.prepare('ROLLBACK').run(); } catch { /* ignore */ }
+        throw e;
+      }
+    });
+    const p = this.txTail.then(run, run);
+    this.txTail = p.catch(() => { /* 前一个失败不影响后面排队 */ });
+    return p;
   }
 }
 
