@@ -45,6 +45,8 @@ const LEDGER = path.join(process.cwd(), '.tools', 'archived-projects.json');
 const FIXTURE_ID = /^(ad-|ev-ad-|dd-verify-|sketchlock-|kling-full-)/;
 /** 演示工程永远保留 —— 它们是「无 key 也能逛完整工作台」的入口。 */
 const KEEP = new Set(['proj-demo-v10', 'qfmj-demo-showcase']);
+// v12.451:演示工程每人一份(qfmj-demo-<16 位哈希>),与 lib/demo-project 的 isDemoProjectId 同一判据
+const isDemoProjectId = (id) => id === 'qfmj-demo-showcase' || /^qfmj-demo-[0-9a-f]{16}$/.test(id);
 
 const apply = process.argv.includes('--apply');
 const restore = process.argv.includes('--restore');
@@ -89,7 +91,7 @@ async function main() {
   const plan = [];
   for (const p of rows) {
     if (p.status === 'archived') continue;
-    if (KEEP.has(p.id)) continue;
+    if (KEEP.has(p.id) || isDemoProjectId(p.id)) continue;
 
     let coverOk = false;
     for (const u of p.covers || []) if (await alive(h, u)) { coverOk = true; break; }

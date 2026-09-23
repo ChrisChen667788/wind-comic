@@ -7,10 +7,16 @@
  * 组装一部 4 镜悬疑短剧直接入库:分镜/视频/成片/时间线/审核/质量分全真,
  * 导出(EDL/AAF/平台)即刻可用。
  *
- * 幂等:固定 DEMO_PROJECT_ID,资产走 upsertAsset —— 重复导入 = 刷新还原,不翻倍。
+ * 幂等:同一个人重复导入 = 刷新还原他自己那份,资产走 upsertAsset 不翻倍。
  * 媒体 URL 全部 root-relative(/cases/…、/styles/…),随仓库走、零外部依赖。
+ *
+ * v12.451:**每人一份**。此前全站只有一个固定项目号:只有第一个导入的人能打开;之后任何人点「导入」,
+ * 都被跳到一个自己无权访问的项目,**还顺手把第一个人的那份重置成出厂状态**(updateProjectById 不看归属)。
+ * 现在第一个导入的人沿用 DEMO_PROJECT_ID(单用户自部署与 e2e 零变化),之后的人各自一份 `qfmj-demo-<16 位哈希>`;
+ * 导入只碰**归调用者所有**的那份。
  */
-import { getProject, insertProjectFull, updateProjectById } from './repos/project-repo';
+import { createHash } from 'node:crypto';
+import { getOwnedProject, getProject, insertProjectFull, updateProjectById } from './repos/project-repo';
 import { upsertAsset } from './repos/asset-repo';
 import { insertQualityScore } from './quality-scores';
 import { getDbDriver } from './db-driver';
@@ -18,6 +24,33 @@ import { auditScript } from './pacing-audit';
 import { auditHooks } from './hook-audit';
 
 export const DEMO_PROJECT_ID = 'qfmj-demo-showcase';
+
+/** 第一个导入者之后,每个人自己那份的项目号(由用户 id 决定,重复导入落在同一份上) */
+export function perUserDemoId(userId: string): string {
+  return `qfmj-demo-${createHash('sha256').update(String(userId)).digest('hex').slice(0, 16)}`;
+}
+
+/** 是不是演示工程(固定号或每人一份的号)—— 归档/清理脚本据此保留 */
+export function isDemoProjectId(id: string): boolean {
+  return id === DEMO_PROJECT_ID || /^qfmj-demo-[0-9a-f]{16}$/.test(id);
+}
+
+/**
+ * 这个人的演示工程落在哪个项目号上。只读、不认领:
+ * ① 固定号归他 → 固定号;② 他自己那份已存在 → 那份;③ 固定号还没人用 → 固定号(由导入时认领);④ 否则 → 他自己那份(新建)。
+ * ② 排在 ③ 前:固定号的主人删掉项目后,已有自己那份的人刷新时不会再多出一份。
+ */
+export async function resolveDemoProjectId(userId: string): Promise<{ id: string; owned: boolean }> {
+  if (await getOwnedProject(DEMO_PROJECT_ID, userId)) return { id: DEMO_PROJECT_ID, owned: true };
+  const mine = perUserDemoId(userId);
+  if (await getOwnedProject(mine, userId)) return { id: mine, owned: true };
+  if (!(await getProject(DEMO_PROJECT_ID))) return { id: DEMO_PROJECT_ID, owned: false };
+  if (await getProject(mine)) {
+    // 哈希撞上别人的项目:实际不可能,真发生了宁可报错也不能写进别人的项目
+    throw new Error(`演示工程项目号 ${mine} 已被其他用户占用`);
+  }
+  return { id: mine, owned: false };
+}
 
 const TITLE = '雨夜信号(演示工程)';
 const IDEA =
@@ -164,7 +197,7 @@ const PACING_AUDIT = {
  * 返回 projectId;调用方负责鉴权。
  */
 export async function importDemoProject(userId: string): Promise<{ projectId: string; refreshed: boolean }> {
-  const existing = await getProject(DEMO_PROJECT_ID);
+  let { id: projectId, owned } = await resolveDemoProjectId(userId);
   const scriptData = {
     title: TITLE,
     synopsis: IDEA,
@@ -187,9 +220,9 @@ export async function importDemoProject(userId: string): Promise<{ projectId: st
   pacingReport.hooks = auditHooks(demoScript);
   (scriptData as any).pacingReport = pacingReport;
 
-  if (!existing) {
-    await insertProjectFull({
-      id: DEMO_PROJECT_ID,
+  if (!owned) {
+    const insert = (id: string) => insertProjectFull({
+      id,
       userId,
       title: TITLE,
       description: IDEA,
@@ -199,8 +232,23 @@ export async function importDemoProject(userId: string): Promise<{ projectId: st
       primaryCharacterRef: null,
       lockedCharacters: [],
     });
+    try {
+      await insert(projectId);
+    } catch (e) {
+      // 两人同时首次导入、都想认领固定号:后到的那位插入撞主键 → 重新判一次(固定号已归别人,落到他自己那份)
+      const again = await resolveDemoProjectId(userId);
+      if (again.owned) {
+        projectId = again.id; owned = true;
+      } else if (again.id !== projectId) {
+        projectId = again.id;
+        await insert(projectId);
+      } else {
+        throw e;
+      }
+    }
   }
-  await updateProjectById(DEMO_PROJECT_ID, {
+  // 走到这里,projectId 一定归 userId 所有(刚认领 / 本来就是他的)—— 下面的写入不会碰别人的项目
+  await updateProjectById(projectId, {
     status: 'completed',
     cover_urls: JSON.stringify([SHOTS[0].image]),
     script_data: JSON.stringify(scriptData),
@@ -209,7 +257,7 @@ export async function importDemoProject(userId: string): Promise<{ projectId: st
 
   // ── 资产(全部 upsert,重复导入零翻倍)──
   const put = (type: string, name: string, data: unknown, mediaUrls: string[] = [], shotNumber?: number) =>
-    upsertAsset({ projectId: DEMO_PROJECT_ID, type, name, data, mediaUrls, shotNumber: shotNumber ?? null });
+    upsertAsset({ projectId, type, name, data, mediaUrls, shotNumber: shotNumber ?? null });
 
   await put('plan', '导演计划', {
     title: TITLE,
@@ -251,7 +299,7 @@ export async function importDemoProject(userId: string): Promise<{ projectId: st
   // 质量分(质量 tab 有真数据;失败不阻断 —— 演示导入是体验增强,不是关键路径)
   try {
     await insertQualityScore({
-      projectId: DEMO_PROJECT_ID,
+      projectId,
       overall: 91, continuity: 90, lighting: 92, face: 89,
       narrative: '四镜三转完成「电波之谜→破译→现身→质问」闭环;镜 4 双重反问为续集留钩,叙事完成度高。',
       sampleFrames: SHOTS.map((s) => s.image),
@@ -267,7 +315,7 @@ export async function importDemoProject(userId: string): Promise<{ projectId: st
 
   // v10.6.4: 「还原出厂」补全 —— upsert 不碰 stale 列,跨场景演示(台账标失效/
   // retake 标待重渲)会留下残留;重置时统一归零,让幂等导入名副其实。
-  await getDbDriver().run('UPDATE project_assets SET stale = 0 WHERE project_id = ?', [DEMO_PROJECT_ID]);
+  await getDbDriver().run('UPDATE project_assets SET stale = 0 WHERE project_id = ?', [projectId]);
 
-  return { projectId: DEMO_PROJECT_ID, refreshed: !!existing };
+  return { projectId, refreshed: owned };
 }
