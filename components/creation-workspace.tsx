@@ -10,6 +10,7 @@ import { type Project } from '@/types/agents';
 import { ArrowLineLeft as PanelLeftClose, ArrowLineRight as PanelLeftOpen, DotsThree as MoreHorizontal, Play, FilmStrip as Film, CaretDown as ChevronDown, CaretUp as ChevronUp, Download } from '@phosphor-icons/react';
 import { VideoModal } from '@/components/ui/video-modal';
 import { OverallProgressBar } from '@/components/ui/overall-progress';
+import { PipelineStatusBadge } from '@/components/pipeline-status-badge';
 import { WorkspaceHotkeys } from '@/components/workspace-hotkeys';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 import { useAuth } from '@/components/auth-provider';
@@ -80,7 +81,7 @@ export function CreationWorkspace({ project }: Props) {
           </button>
           <div>
             <h1 className="text-sm font-medium text-white/90 tracking-tight">{project.title || '未命名项目'}</h1>
-            <div className="text-[10px] text-white/25 font-medium tracking-wider uppercase">创作中</div>
+            <PipelineStatusBadge />
           </div>
         </div>
         <div className="flex items-center gap-1.5">

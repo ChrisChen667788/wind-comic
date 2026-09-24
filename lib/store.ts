@@ -84,6 +84,14 @@ interface ProjectWorkspaceStore {
   activeAgent: AgentRole;
   setActiveAgent: (role: AgentRole) => void;
   addChatMessage: (role: AgentRole, message: ChatMessage) => void;
+
+  /**
+   * v12.454:出片流程中断的原因。null = 没中断过。
+   * 此前失败只弹一个几秒就消失的浮层,浮层一没,界面仍是「创作中」、节点「等待…」——
+   * 与「跑得慢」无法区分。失败必须留在界面上。
+   */
+  pipelineError: { message: string; at: string } | null;
+  setPipelineError: (e: { message: string; at: string } | null) => void;
   setChatMessages: (role: AgentRole, messages: ChatMessage[]) => void;
 
   // 导演审核
@@ -148,6 +156,9 @@ export const useProjectWorkspaceStore = create<ProjectWorkspaceStore>((set) => (
   chatMessages: {},
   activeAgent: AgentRole.WRITER,
   setActiveAgent: (role) => set({ activeAgent: role }),
+  pipelineError: null,
+  setPipelineError: (pipelineError) => set({ pipelineError }),
+
   addChatMessage: (role, message) => set((state) => ({
     chatMessages: {
       ...state.chatMessages,
@@ -166,7 +177,11 @@ export const useProjectWorkspaceStore = create<ProjectWorkspaceStore>((set) => (
   isProducing: false,
   setIsProducing: (v) => set({ isProducing: v }),
 
-  clearAgentOutputs: () => set({ directorReview: null, reviewHistory: [], chatMessages: {} }),
+  // v12.454(对抗复查):重新开机走的是这里、不是 resetWorkspace —— 不清中断标记,
+  // 顶栏会在新一轮全程顶着上一次的「已中断」,用户无法判断新任务到底在不在跑
+  // v12.454(对抗复查挖出):**重新开机走的是这里,不是 resetWorkspace** —— 不清中断标记的话,
+  // 顶栏会在新一轮全程顶着上一次的「已中断」,用户无从判断新任务到底在不在跑
+  clearAgentOutputs: () => set({ directorReview: null, reviewHistory: [], chatMessages: {}, pipelineError: null }),
 
   resetWorkspace: () => set({
     currentProject: null,
@@ -178,6 +193,7 @@ export const useProjectWorkspaceStore = create<ProjectWorkspaceStore>((set) => (
     directorReview: null,
     reviewHistory: [],
     isProducing: false,
+    pipelineError: null,   // v12.454:重置工作台要一并清掉中断标记,否则下一个项目一进来就顶着上一次的「已中断」
   }),
 }));
 

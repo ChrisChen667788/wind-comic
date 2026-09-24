@@ -454,6 +454,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS series_anchors (
   updated_at TEXT NOT NULL
 )`);                          // 阶段二十六 多集:系列 id(同系列各集共享角色/画风);null=单集
 addColumnIfMissing('projects', 'episode_number', 'INTEGER');                  // 集号(1 起);null=单集
+// v12.454 画布节点位置(JSON {nodeId:{x,y}});NULL = 没拖过,用默认布局
+addColumnIfMissing('projects', 'canvas_layout', 'TEXT');
 
 // v2.0 给 users 表加 invite_code_used 字段，用于审计哪个码引入了用户
 addColumnIfMissing('users', 'invite_code_used', 'TEXT');

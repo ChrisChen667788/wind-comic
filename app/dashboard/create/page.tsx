@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CreationWorkspace } from '@/components/creation-workspace';
+import { markPipelineFailed, failureReasonFromResponse } from '@/lib/pipeline-failure';
 import { useProjectWorkspaceStore, useActiveGenerationStore } from '@/lib/store';
 import { AgentRole, type Project } from '@/types/agents';
 import { MagicWand as Wand2, Lightning as Zap, Sparkle as Sparkles, Lightbulb, FilmSlate, Play, Pencil } from '@phosphor-icons/react';
@@ -346,7 +347,15 @@ export default function DashboardCreatePage() {
           sketchLock: sketchLock || undefined,
         }),
       });
-      if (!response.ok) throw new Error('创作失败');
+      if (!response.ok) {
+        // v12.454:失败要留在界面上。原来只 throw → 一个几秒就消失的浮层,之后界面仍显示
+        // 「创作中」、节点「等待编剧完成…」,与「跑得慢」无法区分,用户一直干等。
+        let body: unknown = null;
+        try { body = await response.json(); } catch { /* 不是 JSON 就按状态码说话 */ }
+        const reason = failureReasonFromResponse(response.status, body);
+        markPipelineFailed(useProjectWorkspaceStore.getState() as any, { projectId, agentRole: AgentRole.WRITER, reason });
+        throw new Error(reason);
+      }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -716,6 +725,8 @@ export default function DashboardCreatePage() {
 
       case 'error': {
         const title = data.userMsg || data.message || '创作出错';
+        // v12.454:同上 —— 浮层之外,把中断留在界面上
+        markPipelineFailed(s as any, { projectId, agentRole: AgentRole.WRITER, reason: String(title).slice(0, 120), at: ts });
         const desc = data.code ? `[${data.code}] ${data.stage || ''}` : undefined;
         showToast({
           title, description: desc, type: 'error', duration: 8000,

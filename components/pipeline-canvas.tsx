@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -25,6 +25,10 @@ import { EditorNode } from '@/components/nodes/editor-node';
 import { ReviewNode } from '@/components/nodes/review-node';
 import { AgentRole, type PipelineNodeData, type ProjectAsset, type PipelineNodeStatus } from '@/types/agents';
 import { useProjectWorkspaceStore } from '@/lib/store';
+import { useToast } from '@/components/ui/toast-provider';
+import { applyCanvasPositions, type CanvasPositions } from '@/lib/canvas-layout';
+import { createLayoutSaver, roundPositions } from '@/lib/canvas-layout-client';
+import { getToken } from '@/lib/auth';
 
 const nodeTypes: NodeTypes = {
   script: ScriptNode,
@@ -240,17 +244,51 @@ export function PipelineCanvas() {
   const storeNodes = useProjectWorkspaceStore(s => s.nodes);
   const assets = useProjectWorkspaceStore(s => s.assets);
   const setActiveAgent = useProjectWorkspaceStore(s => s.setActiveAgent);
+  const projectId = useProjectWorkspaceStore(s => s.currentProject?.id);
+
+  // v12.454:拖过的位置存库、刷新还在。此前只写内存 store(纯 zustand 无持久化),刷新即回默认布局。
+  const savedPositions = useRef<CanvasPositions>({});
+  const layoutLoadedFor = useRef<string | null>(null);
+  const { showToast } = useToast();
+  // 存不上要说出来:真机验证时拖太远被接口按范围拒(400),界面却毫无反馈 —— 刷新才发现没存
+  const saver = useRef(createLayoutSaver(500, undefined, (reason) => {
+    showToast({ title: '画布布局没保存上', description: reason, type: 'warning', duration: 6000 });
+  }));
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<PipelineNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  // 换项目就把存下来的位置拉回来(只读接口,失败静默退回默认布局 —— 布局是增强项,不能挡住画布)
+  useEffect(() => {
+    if (!projectId || layoutLoadedFor.current === projectId) return;
+    layoutLoadedFor.current = projectId;
+    savedPositions.current = {};
+    // 换项目必须连本地节点一起清:八个节点 id 在所有项目里都一样,不清的话下面那个 posMap
+    // 会拿**上一个项目**的坐标喂给新项目,新项目永久顶着别人的布局(对抗复查挖出)
+    setNodes([]);
+    let alive = true;
+    (async () => {
+      try {
+        const tok = getToken();
+        const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/canvas-layout`, tok ? { headers: { Authorization: `Bearer ${tok}` } } : undefined);
+        if (!res.ok) return;
+        const body = await res.json();
+        if (!alive || !body?.positions || typeof body.positions !== 'object') return;
+        savedPositions.current = body.positions as CanvasPositions;
+        setNodes(prev => applyCanvasPositions(prev, savedPositions.current));
+      } catch { /* 拉不到就用默认布局 */ }
+    })();
+    return () => { alive = false; };
+  }, [projectId, setNodes]);
 
   useEffect(() => {
     if (storeNodes.length === 0) return;
     setNodes(prev => {
       const posMap = new Map(prev.map(n => [n.id, n.position]));
+      // 已经拖过的位置 > 本次渲染里的位置 > store 给的默认位置
       return storeNodes.map(sn => ({
         ...sn,
-        position: posMap.get(sn.id) || sn.position,
+        position: savedPositions.current[sn.id] ? { ...savedPositions.current[sn.id] } : (posMap.get(sn.id) || sn.position),
       }));
     });
   }, [storeNodes, setNodes]);
@@ -262,9 +300,21 @@ export function PipelineCanvas() {
   }, [nodes, setEdges]);
 
   const setStoreNodes = useProjectWorkspaceStore(s => s.setNodes);
-  const onNodeDragStop = useCallback(() => {
-    setStoreNodes(nodes as Node<PipelineNodeData>[]);
-  }, [nodes, setStoreNodes]);
+  // 位置以**回调带回来的被拖节点**为准:闭包里的 nodes 可能还是拖动开始前那一帧,
+  // 末次位置会存成旧值(对抗复查挖出)。多选拖动时第三个参数是这一批全部被拖的节点。
+  const onNodeDragStop = useCallback((_event: any, dragged?: Node<PipelineNodeData>, draggedNodes?: Node<PipelineNodeData>[]) => {
+    const moved = new Map((draggedNodes?.length ? draggedNodes : dragged ? [dragged] : []).map((n) => [n.id, n.position]));
+    const latest = nodes.map((n) => (moved.has(n.id) ? { ...n, position: moved.get(n.id)! } : n)) as Node<PipelineNodeData>[];
+    setStoreNodes(latest);
+    if (!projectId) return;
+    const positions = roundPositions(latest);
+    savedPositions.current = positions;
+    saver.current.schedule(projectId, positions); // 防抖 + keepalive,见 lib/canvas-layout-client
+  }, [nodes, setStoreNodes, projectId]);
+
+  // 卸载(切页/切项目)时把还没发出去的那次**补发**而不是丢掉 —— 拖完立刻离开是常见操作,
+  // keepalive 保证请求仍能送达(对抗复查挖出)
+  useEffect(() => { const s = saver.current; return () => s.flush(); }, []);
 
   const onNodeClick = useCallback((_event: any, node: Node<PipelineNodeData>) => {
     if (node.data.agentRole) {
