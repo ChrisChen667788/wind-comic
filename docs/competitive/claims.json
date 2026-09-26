@@ -29,12 +29,12 @@
       "falsifyBy": "任一 FOSS 许可项目同时具备这三项;或 OpenMontage 补上 EDL/AAF 与情绪节奏审计(它最接近,重点盯它)",
       "trend": "边界在收窄 —— OpenMontage 半年内 24k→54.7k★ 且补上了 TTS 与多语",
       "lastVerdict": "holds",
-      "lastVerdictOn": "2026-09-19",
-      "lastVerdictNote": "截至 2026-09-19，OpenMontage 已从 54.7k 涨至约 60k★（AGPL），但经 GitHub 页面确认仍无 EDL/AAF 导出功能，亦无独立可拦截节奏审计门禁。新冒头项目（Open-AI-Micro-Drama-Generator 501★/Python、drama-skills 2.1k★/MIT、BigBanana-AI-Director 2.2k★）均无 EDL/AAF 或节奏门禁。montage-ai 有 OTIO/EDL 导出，但它是基于已有素材的转录式编辑器，不是 AI 短剧生成 pipeline，不满足「开源自托管商用」+「节奏审计独立门禁」同时成立的条件。收窄断言（独立可拦截门禁 + EDL/AAF 导出 + 开源自托管商用）截至今日仍无一家同时具备。注意 README 内 OpenMontage 星数仍写 54.7k，需更新至 ~60k。",
+      "lastVerdictOn": "2026-09-25",
+      "lastVerdictNote": "仍成立,但要带两条限定:① 我方「节奏审计独立门禁」在 v12.455 之前只提示不拦(与本台账口径不符),v12.455 起 PACING_GATE=block 才真拦,默认档仍只提示;② openframe(AGPL)已有 FCPXML/EDL 导出,ArcReel 已定案做时间线 ——三件套里「EDL 导出」一项开源侧已不稀缺,护城河实际只剩「三项同时具备」这个组合。",
       "lastVerdictSources": [
-        "https://github.com/calesthio/OpenMontage",
-        "https://github.com/mfahsold/montage-ai",
-        "https://github.com/topics/ai-short-drama"
+        "https://github.com/murongg/openframe",
+        "https://github.com/ArcReel/ArcReel",
+        "https://github.com/calesthio/OpenMontage"
       ]
     },
     {
@@ -319,7 +319,15 @@
       "kind": "护城河边界节奏",
       "evidence": "GitHub 页面：54.7k★（2026-09-03）→ ~60k★（2026-09-19）；功能列表 12 pipelines/100+ tools/700+ skills，无 EDL/AAF 或 pacing gate 字样",
       "falsifyBy": "OpenMontage release notes 或 README 出现 EDL/AAF 导出功能或节奏/冲突审计门禁；或其他 FOSS 项目补上三条之一",
-      "assertedOn": "2026-09-19"
+      "assertedOn": "2026-09-19",
+      "lastVerdict": "falsified",
+      "lastVerdictOn": "2026-09-25",
+      "lastVerdictNote": "按本条自己的推翻条件「其他 FOSS 项目补上三条之一」:murongg/openframe(AGPL,117★)已有 FCPXML/EDL 导出(代码 apps/web/src/platform/runtime_timeline.ts、apps/desktop/electron/handlers/media.ts)。C1 三件套仍无一家同时具备:openframe 无节奏审计门禁、无 Docker;ArcReel(AGPL,5,170★)有费用追踪与剪映草稿,2026-09-24 以 issue #2671 定案做剪辑时间线模型(FCPXML/OTIO 为可选导出),截至 2026-09-25 代码中尚无。",
+      "lastVerdictSources": [
+        "https://github.com/murongg/openframe",
+        "https://github.com/ArcReel/ArcReel",
+        "https://github.com/ArcReel/ArcReel/issues/2671"
+      ]
     },
     {
       "id": "C20-c8-docker-gap-closed",
@@ -414,6 +422,50 @@
       "evidence": "blakecrosley.com/guides/midjourney 确认 V8.2(2026-07-24);lib/midjourney-params.ts:30 MJ_DEFAULT_VERSION='7';V8.1/8.2 不支持 --oref,使用 Edit Model",
       "falsifyBy": "MJ 网关宣布 V7 端点退役;或实测 --v 7 prompt 被网关拒绝/静默升级",
       "assertedOn": "2026-09-19"
+    },
+    {
+      "id": "C31-pacing-gate-was-nonblocking",
+      "statement": "截至 v12.454,对外宣称的「节奏审计是独立可拦截门禁」与代码不符:审计只提示不拦(writer-agent 注释「非阻塞」),全仓无任何拦截。v12.455 补上 PACING_GATE=block 真拦截:不达标在角色设计前停下,不因超时自动放行,续跑绕不过去,请求字段 pacingGate 只能收紧;明确放行须带 pacingOverride:true 并在剧本资产留痕;默认档仍只提示",
+      "kind": "自我校准",
+      "assertedOn": "2026-09-25",
+      "evidence": "services/agents/writer-agent.ts:476-507(非阻塞);lib/pacing-gate.ts;lib/create-pipeline.ts 节奏门禁段;services/hybrid-orchestrator.ts startProduction;tests/v12-455-pacing-gate.test.ts(断言下游 runCharacterDesigner/runSceneDesigner/runStoryboardArtist 未被调用,含续跑、人工闸门超时、请求放松三条绕过路径)+ 18 处注入缺陷全部被断言拦住;整季批量进程内路径:tests/v12-455-series-episode-status.test.ts",
+      "falsifyBy": "block 档下不达标的中文剧本仍能走到角色设计;或人工闸门超时、续跑、请求字段 pacingGate 任一能放松/绕过;或 pacingOverride 放行没有在剧本资产留下 override 记录;或整季批量把被拦的集记成 completed;或对外文案把默认档说成「拦截」",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-25",
+      "actionVersion": "v12.455",
+      "lastVerdictNote": "冲突词典只有中文:非中文剧本在 block 档跳过审计并明示「这次没有生效」,不能宣称门禁覆盖多语种剧本。"
+    },
+    {
+      "id": "C32-test-density-not-unique",
+      "statement": "「测试密度 + 入库门禁全赛道无竞品」不成立:开源的 ArcReel(AGPL,5,170★)有 822 个测试文件(本仓 631),CI 含 basedpyright、import-linter、zizmor、audit_tests 测试卫生门禁",
+      "kind": "自我校准",
+      "assertedOn": "2026-09-25",
+      "evidence": "GitHub API git/trees 递归计数(严格口径 test_*.py / *_test.py / *.test|spec.ts)2026-09-25;ArcReel .github/workflows/test.yml",
+      "falsifyBy": "若按 ArcReel 自己的 audit_tests 口径,其测试文件大量为空壳/夹具,实际有效测试远少于本仓",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-25",
+      "lastVerdictSources": [
+        "https://github.com/ArcReel/ArcReel",
+        "https://github.com/ArcReel/ArcReel/blob/main/.github/workflows/test.yml"
+      ]
+    },
+    {
+      "id": "C33-timeline-export-vs-closed",
+      "statement": "Seedance/即梦、可灵、TapNow、OiiOii 均无结构化剪辑时间线导出(EDL / XML / OTIO / 剪映草稿),只交付视频文件;即梦「去剪映编辑」送进剪映的是散素材。我方有 EDL(CMX 3600)+ FCP7 XML + 内置多轨时间线。开源侧 openframe 已有 FCPXML/EDL",
+      "kind": "护城河边界",
+      "assertedOn": "2026-09-25",
+      "evidence": "四家各自联网核查 + 对抗复核(2026-09-25):可灵输出单个 mp4、无时间线编辑器;TapNow 无时间线(Filmora 评测);OiiOii 导出整片或单镜;即梦官网有「可存为与 Premiere/Final Cut 兼容的项目文件」营销语,未披露格式,第三方评测均为下载视频或推素材库",
+      "falsifyBy": "四家任一上线 EDL/XML/OTIO/剪映草稿导出;或即梦所称「兼容 Premiere/Final Cut 的项目文件」被证实是时间线格式;或 ArcReel 发布 FCPXML/OTIO 导出(那时开源侧与我方持平)",
+      "trend": "窗口在收窄 —— ArcReel 2026-09-24 定案做剪辑时间线,openframe 已有",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-09-25",
+      "lastVerdictSources": [
+        "https://dreamina.capcut.com/ai-video/ai-video-workflow",
+        "https://filmora.wondershare.com/video-editor-review/tapnow-ai-review.html",
+        "https://www.uisdc.com/hunter/0221628140.html",
+        "https://github.com/murongg/openframe",
+        "https://github.com/ArcReel/ArcReel/issues/2671"
+      ]
     }
   ],
   "watchlist": [
@@ -447,7 +499,11 @@
       "targets": [
         "港大 ViMax",
         "OpenMontage",
-        "GitHub 新出现的 multi-agent video / AI short drama 项目"
+        "GitHub 新出现的 multi-agent video / AI short drama 项目",
+        "ArcReel(AGPL,剪映草稿+费用追踪,时间线在做)",
+        "murongg/openframe(AGPL,FCPXML/EDL)",
+        "NomaDamas/CozyClay(AGPL,浏览器 3D 预演)",
+        "HBAI-Ltd/Toonflow-app(MIT,16k★)"
       ]
     },
     {

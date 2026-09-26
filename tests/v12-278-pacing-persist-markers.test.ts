@@ -33,10 +33,11 @@ const startsOf = (sc: any): number[] => {
 };
 
 describe('v12.278 · ① 审计结果必须随 script 落库', () => {
-  it('两处 saveAsset 都带 pacingReport(此前只存 synopsis/title/shots/theme)', () => {
+  it('每处 saveAsset 都带 pacingReport(此前只存 synopsis/title/shots/theme)', () => {
     const src = fs.readFileSync('lib/create-pipeline.ts', 'utf-8');
     const saves = src.split('\n').filter((l) => l.includes("saveAsset(projectId, 'script'"));
-    expect(saves.length, '应有两处 script 落库').toBe(2);
+    // v12.455:节奏门禁拦下 / 显式放行时再落一次(带按当前剧本重审的报告与门禁结论),由两处变三处
+    expect(saves.length, '应有三处 script 落库(编剧 / 拉片复刻 / 节奏门禁)').toBe(3);
     for (const line of saves) {
       expect(line, `该行未带 pacingReport: ${line.trim().slice(0, 80)}`).toContain('pacingReport');
     }

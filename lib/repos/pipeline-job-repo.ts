@@ -153,10 +153,12 @@ export async function completeJob(id: string): Promise<void> {
  * 失败处理:attempts 未耗尽 → 重新 queued(下个 tick 重试);
  * 耗尽 → failed 落 last_error(死信)。返回最终 state。
  */
-export async function failJob(id: string, error: string): Promise<PipelineJobState> {
+export async function failJob(id: string, error: string, opts?: { terminal?: boolean }): Promise<PipelineJobState> {
   const job = await getPipelineJob(id);
   if (!job) return 'failed';
-  const terminal = job.attempts >= MAX_ATTEMPTS;
+  // v12.455:流水线明确说「这是终态」(error 事件带 terminal:true,如节奏门禁拦下)时直接失败,
+  // 不再拿同一份输入把剩余的重试次数白跑完。
+  const terminal = opts?.terminal === true || job.attempts >= MAX_ATTEMPTS;
   const state: PipelineJobState = terminal ? 'failed' : 'queued';
   await getDbDriver().run(
     'UPDATE pipeline_jobs SET state = ?, last_error = ?, updated_at = ? WHERE id = ?',

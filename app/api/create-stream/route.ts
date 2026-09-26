@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export { activeOrchestrators };
 
 export async function POST(request: NextRequest) {
-  const { idea: rawIdea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references, editStyle, language, sketchLock } = await request.json();
+  const { idea: rawIdea, videoProvider, style, duration, aspect, projectId: clientProjectId, isPreset, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references, editStyle, language, sketchLock, pacingGate, pacingOverride } = await request.json();
 
   if (!rawIdea || !rawIdea.trim()) {
     return new Response(JSON.stringify({ error: '请提供故事创意' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -114,6 +114,10 @@ export async function POST(request: NextRequest) {
     editStyle, // v12.0.4 一句指令调剪辑风格
     language, // v12.134 issue #2:显式选剧本语言('auto'/空 → 自动检测)
     sketchLock: sketchLock === true, // v12.143 全片草图锁(对标阅文分镜面板)
+    // v12.455 节奏门禁:pacingGate 只能比服务端 PACING_GATE 更严(lib/pacing-gate.ts 负责收口);
+    // pacingOverride 必须是字面 true 才算「确认放行」,防止 'false' 字符串之类被当真值。
+    pacingGate: typeof pacingGate === 'string' ? pacingGate : undefined,
+    pacingOverride: pacingOverride === true,
   };
   const encoder = new TextEncoder();
   const sseHeaders = { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' };

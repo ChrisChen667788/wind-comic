@@ -26,6 +26,9 @@
 > 火山剧创是**生成内联优化**,Descript 有导出但无节奏审计也不开源 ——
 > 截至 2026-09-03,**仍无一家同时具备「节奏审计固化为可拦截的独立工程门禁 + EDL/AAF 导出 + 开源自托管商用」**。
 > 注意这是**比上一轮更窄**的断言:上一轮写的是「节奏审计」,这一轮必须写成「**独立可拦截门禁**」才成立。
+>
+> **⚠️ 2026-09-25 自查更正**:这条收窄断言在 v12.455 之前**与代码不符** —— 节奏审计只提示不拦(`services/agents/writer-agent.ts` 注释「非阻塞」),全仓没有任何地方拿审计结果做拦截。v12.455 补上真拦截(`lib/pacing-gate.ts`):`PACING_GATE=block` 时不达标就在角色设计之前停下,不超时放行,续跑绕不过去,请求字段 `pacingGate` 只能收紧(明确放行须带 `pacingOverride: true`,会留痕),测试断言「下游确实没被调用」(`tests/v12-455-pacing-gate.test.ts`)。默认档仍只提示。
+> 同日核查:开源的 [openframe](https://github.com/murongg/openframe)(AGPL)已有 FCPXML/EDL 导出,[ArcReel](https://github.com/ArcReel/ArcReel)(AGPL,5,170★)2026-09-24 定案做剪辑时间线 —— 三件套仍无一家同时具备,但「EDL 导出」一项在开源侧已不稀缺。
 
 ---
 
@@ -56,7 +59,7 @@
 | 真人脸唇形重塑 | Sync.so Lipsync-2-Pro(任意语言,含免费层)· Kling 口型(**5 语言**,非 20+) | ⚠️ Kling 已接、**子功能零调用** | 0 |
 | 多参考图同帧锚定 | GPT Image 2:**16 路** · Nano Banana Pro:14 图双通道 · Seedream 5.0 Lite:14 图 | ⚠️ 近似(拼合图 + 空间词) | 覆盖率未知 |
 | 独立评分 grader | Anthropic Outcomes 实测 **+8–10pp** | ✅ **v12.412 配置就位** | 默认仍自评(如实告警) |
-| 节奏审计为独立门禁 | 火山剧创是生成内联,非可拦截门禁 | ✅ 独立后置门禁 | ✅ |
+| 节奏审计为独立门禁 | 火山剧创是生成内联,非可拦截门禁 | ✅ **v12.455 起可真拦**(`PACING_GATE=block`;此前只提示,本表曾写错) | 默认只提示 |
 | Style Bible / 8 维 DNA | **8 家竞品逐项核对后仍无对应** | ✅ | ✅ |
 
 ---
@@ -66,8 +69,9 @@
 ### 仍然站得住的优势
 - **Style Bible 关键帧锁画风**:8 家已调研竞品(火山剧创 / AniShort / DramaClaw / OpenMontage / ViMax / Toonflow / EvoLinkAI / PopShort.AI)中无对应功能;
 - **角色 8 维 DNA + cameo vision retry**:竞品的角色一致性是生成内联权重,无结构化描述 + retry 机制;
-- **节奏审计是独立可拦截门禁**(而非生成内联优化)—— 这条**必须这样写才成立**;
-- **5000+ 单测 + 十道入库门禁**:全赛道无竞品公开同等测试密度。
+- **节奏审计可设为独立拦截门禁**(而非生成内联优化)—— v12.455 起 `PACING_GATE=block` 真拦(不达标在角色设计前停下、不超时放行);**此前这里写的「可拦截」与代码不符**,默认档至今仍只提示;
+- **结构化剪辑时间线导出**(EDL / FCP7 XML + 内置多轨时间线):Seedance/即梦、可灵、TapNow、OiiOii 均无(2026-09-25 核查),但开源 [openframe](https://github.com/murongg/openframe) 已有 FCPXML/EDL、ArcReel 已定案做时间线 —— 窗口在收窄;
+- ~~5000+ 单测 + 十道入库门禁:全赛道无竞品公开同等测试密度~~ **2026-09-25 收回**:开源的 [ArcReel](https://github.com/ArcReel/ArcReel)(AGPL,5,170★)有 822 个测试文件(本仓 631 个),CI 另有 basedpyright 类型检查、import-linter 分层检查、zizmor 安全审计和 `audit_tests --check` 测试卫生门禁(与本仓 fake-green-gate 同一思路)。测试密度只能当可信度叙事,不是独有优势。
 
 ### 不粉饰的劣势
 1. **帧内中文文字渲染缺失** —— 漫剧对白框、片头字卡是短剧垂直场景的核心需求,libass 后期叠加替代不了;

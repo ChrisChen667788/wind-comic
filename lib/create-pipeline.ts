@@ -56,12 +56,19 @@ export interface CreatePipelineInput {
   seriesRecap?: string;
   /** v12.143(对标阅文分镜面板):全片草图锁 —— 每镜先出构图草图再锁构图渲染(每镜多一次出图)。 */
   sketchLock?: boolean;
+  /**
+   * v12.455 节奏门禁档位('off'|'warn'|'block')。只能比服务端 PACING_GATE 更严,不能放松;
+   * 见 lib/pacing-gate.ts。
+   */
+  pacingGate?: string;
+  /** v12.455 明确确认「节奏不达标也照拍」—— block 档下放行本次,并在剧本资产里留痕。 */
+  pacingOverride?: boolean;
 }
 
 export type PipelineEmit = (type: string, data: unknown) => void;
 
 export async function runCreatePipeline(input: CreatePipelineInput, emit: PipelineEmit, opts?: { resume?: boolean }): Promise<void> {
-  const { idea, projectId, videoProvider, style, aspect, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references, replicaScript, editStyle, language, sketchLock } = input as CreatePipelineInput & Record<string, any>;
+  const { idea, projectId, videoProvider, style, aspect, enableGates, templateId, primaryCharacterRef, lockedCharacters, cameraDefault, previewSeedImage, references, replicaScript, editStyle, language, sketchLock, pacingGate, pacingOverride } = input as CreatePipelineInput & Record<string, any>;
   // v12.32.0:阶段耗时归因 —— 各阶段边界本就发 send('step',{step}),顺手用它做计时埋点(零额外侵入)。
   const _stageTimer = new StageTimer();
   let _curStage: string | null = null;
@@ -522,6 +529,50 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       if (gateResult?.action === 'edit' && gateResult.editedData) {
         script = gateResult.editedData;
         send('script', script);
+      }
+    }
+
+    // ── v12.455 节奏门禁 ──
+    // 放在人工闸门之后:闸门里改过的剧本按改后的内容审。放在角色设计之前:那是第一笔大头出图开销。
+    // 续跑(cp.script)也会走到这里并重审 —— 同一份不达标的剧本续跑不会被悄悄放过去。
+    {
+      const { gateScriptForProduction, pacingGateBlockMessage } = await import('@/lib/pacing-gate');
+      const priorReport = (script as any)?.pacingReport;
+      const gate = gateScriptForProduction(script, {
+        requestedMode: pacingGate, genre: plan?.genre, idea,
+        replica: Boolean(replicaScript), override: pacingOverride === true,
+      });
+      if (gate.verdict !== 'skip' || gate.reasons.length > 0) {
+        send('pacingGate', { mode: gate.mode, verdict: gate.verdict, reasons: gate.reasons, passed: gate.report?.passed ?? null });
+      }
+      // 开了 block 却因语种/拉片复刻没审:必须说出来,不能让人以为「审过了」
+      if (gate.verdict === 'skip' && gate.mode === 'block' && gate.reasons.length > 0) {
+        send('status', { message: `节奏门禁这次没有生效:${gate.reasons[0]}` });
+      }
+      if (gate.verdict === 'block' || gate.verdict === 'override') {
+        // 剧本连同重审报告和门禁结论落库:被拦的人要能在项目页看到为什么、改完再续跑。
+        // saveAsset 目前自己吞异常;外面再包一层是防它以后改成抛 —— 落库失败绝不能挡住下面的终态拦截
+        // (否则一次库抖动就让拦截变成普通异常,worker 按次数重试)。
+        try {
+          const pacingGateRecord = { mode: gate.mode, verdict: gate.verdict, reasons: gate.reasons, at: new Date().toISOString() };
+          await saveAsset(projectId, 'script', '剧本', { synopsis: script.synopsis, title: script.title, shots: script.shots, theme: (script as any).theme, pacingReport: gate.report ?? priorReport ?? null, pacingGate: pacingGateRecord });
+        } catch (e) {
+          console.warn(`[PacingGate] ${projectId} 门禁结论落库失败(不影响拦截):`, e instanceof Error ? e.message : e);
+        }
+      }
+      if (gate.verdict === 'block') {
+        const message = pacingGateBlockMessage(gate);
+        console.warn(`[PacingGate] ${projectId} 拦下: ${gate.reasons.slice(0, 3).join(' | ')}`);
+        // 项目不能停在「创作中」:SSE 直通路径没有 worker 替它收尾(同 v12.433 收尾段的口径)
+        try { await updateProjectById(projectId, { status: 'failed', script_data: JSON.stringify(script) }); } catch {}
+        // terminal:true —— 队列 worker 据此直接判终态,不拿同一份剧本把重试次数白跑完;
+        // retryable:false —— 界面不给「重试此步」按钮(重试同一剧本必然再被拦)
+        send('error', { message, code: 'PACING_GATE_BLOCKED', userMsg: message, retryable: false, terminal: true, stage: 'script' });
+        return;
+      }
+      if (gate.verdict === 'override') {
+        console.warn(`[PacingGate] ${projectId} 节奏不达标,按用户确认放行: ${gate.reasons.slice(0, 3).join(' | ')}`);
+        send('status', { message: `⚠️ 剧本节奏审计未通过,已按你的确认继续拍(已记录):${gate.reasons.slice(0, 2).join(';')}` });
       }
     }
 

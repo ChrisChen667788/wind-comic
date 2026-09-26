@@ -78,9 +78,14 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
   // v10.4.2: 流水线内部致命错误是「发 error 事件后正常返回」(SSE 语义,不抛)——
   // worker 据此判失败,否则空跑/早退任务会被误标 done,死信重投就形同虚设。
   let fatalError = '';
+  // v12.455:流水线声明「这是终态、重试同一输入没用」(terminal === true,如节奏门禁拦下)→ 直接终态。
+  // 刻意不看 retryable:那个字段的语义是「能否只重试这一步」(见 lib/pipeline-error.ts 头注释),
+  // 欠费/限流/无 key 等早就带 retryable:false,拿它判终态会顺手改掉那些错误的重试行为。
+  let fatalTerminal = false;
   const emit = (type: string, data: unknown) => {
     emitPipeline(job.id, type, data);
     if (type === 'error') {
+      if ((data as { terminal?: unknown })?.terminal === true) fatalTerminal = true;
       fatalError = String((data as { message?: unknown })?.message ?? 'pipeline error');
     }
     if (type === 'step' && data && typeof (data as { step?: unknown }).step === 'string') {
@@ -115,7 +120,7 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
     }
     await appendChain; // 进度全部落库后再标完成
     if (fatalError) {
-      const state = await failJob(job.id, fatalError);
+      const state = await failJob(job.id, fatalError, { terminal: fatalTerminal });
       await markProjectFailedIfTerminal(job, state);
       console.error(`[PipelineWorker] ${state === 'queued' ? 'retrying' : 'FAILED'} ${job.id} (pipeline error): ${fatalError.slice(0, 120)}`);
     } else {

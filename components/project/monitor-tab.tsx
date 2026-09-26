@@ -243,7 +243,7 @@ export function MonitorTab({ projectId, storyboards = [] }: { projectId: string;
             <FileDown size={13} /> {jyBusy ? '生成中…' : '导出剪映草稿(2 个文件)'}
           </button>
           <span className="cinema-mono text-[10px] opacity-50">
-            两个 json 放进剪映草稿目录同一文件夹
+            两个 json 放进剪映草稿目录同一文件夹 · 仅剪映 5.9 及以下可读(6.0 起草稿加密)
           </span>
         </div>
         {jyNote && (

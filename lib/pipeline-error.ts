@@ -42,6 +42,7 @@ export type PipelineErrorCode =
   | 'PROVIDER_ARREARS'        // v12.376:上游欠费 —— 重试没用,要充值或换引擎
   | 'QUOTA_SATURATED'         // v12.376:配额/限流已满 —— 当次重试没用,等刷新或换引擎
   | 'PROVIDER_DISCONTINUED'   // v12.376:接口已对本账号停用 —— 充值和重试都没用
+  | 'PACING_GATE_BLOCKED'     // v12.455:PACING_GATE=block 且剧本节奏不达标 —— 重试同一剧本没用,要改剧本或显式放行
   | 'UNKNOWN';
 
 export interface PipelineErrorOptions {

@@ -133,7 +133,6 @@ function isValidVideoUrl(url: string | undefined): boolean {
   return false;
 }
 
-
 // v10.4.0: MOCK_ENGINES=1 全封闭(hermetic)— 即使配了真 LLM key 也走 fallbackScript 模板路径
 // (零外部调用、确定性,journey e2e 与 CI 无 key 环境行为一致;媒体引擎由 mock provider 接管)
 const hasLLM = !!API_CONFIG.openai.apiKey && !API_CONFIG.openai.apiKey.startsWith('your_') && process.env.MOCK_ENGINES !== '1';
@@ -4473,6 +4472,7 @@ ${characterBibleBlock}${producerContext}
         this.emit('agentTalk', { role: AgentRole.STORYBOARD, text: `🎥 情绪节拍自动运镜(${notes.length} 镜):${notes.slice(0, 6).join(';')}${notes.length > 6 ? '…' : ''}` });
       }
     }
+    (await import('@/lib/pacing-gate')).assertPacingGate(script, plan?.genre, idea); // v12.455 节奏门禁,判据同 create-pipeline;拦下即抛
     const characters = await this.runCharacterDesigner(plan.characters);
     const scenes = await this.runSceneDesigner(plan.scenes);
     // 分镜师：第1阶段 — 纯文字分镜规划

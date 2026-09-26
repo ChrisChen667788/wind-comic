@@ -11,6 +11,7 @@
 import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '../../../auth/lib';
 import { listSeriesEpisodesFull, setEpisodeStatus } from '@/lib/repos/series-repo';
+import { runSeriesEpisodeOnce } from '@/lib/series-episode-run';
 import { selectGeneratableEpisodes } from '@/lib/series';
 import { buildSeriesRecap, buildRecapDirective } from '@/lib/series-recap';
 import { runPool } from '@/lib/season-orchestrator';
@@ -102,13 +103,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const report = await runPool(
       targets,
       async (ep) => {
+        // v12.455:以前传空回调、返回就标 completed —— 流水线「发 error 后正常返回」的失败
+        // (节奏门禁拦下、剧本没出、一条片都没出)全被写成 completed。判据收在 lib/series-episode-run。
         try {
-          await runCreatePipeline(inputFor(ep), () => {}); // 批量非交互:吞掉进度事件
-          await setEpisodeStatus(ep.id, 'completed');
-          return true;
+          return await runSeriesEpisodeOnce(ep.id, inputFor(ep), { runCreatePipeline, setEpisodeStatus });
         } catch (e) {
           console.error(`[Series ${id}] 第 ${ep.episode_number} 集生成失败:`, e instanceof Error ? e.message : e);
-          await setEpisodeStatus(ep.id, 'draft'); // 回退,可重试
           throw e;
         }
       },
