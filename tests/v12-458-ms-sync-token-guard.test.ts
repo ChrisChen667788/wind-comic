@@ -13,6 +13,8 @@ import { spawnSync } from 'node:child_process';
 import { tokenProblem } from '@/scripts/modelscope-sync.mjs';
 
 const SCRIPT = path.resolve('scripts/modelscope-sync.mjs');
+/** 形态与真令牌一致的合成样本 —— 只在测试里用,从未发放。 */
+const SAMPLE_TOKEN = 'ms-0a1b2c3d-4e5f-6789-abcd-ef0123456789'; // dummy sample(密钥扫描按此行的占位词放行)
 
 function run(token: string, extraPath?: string) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'v12458-ms-'));
@@ -44,7 +46,7 @@ describe('v12.458 · 令牌格式预检', () => {
   });
 
   it('正常令牌(含首尾空白/换行)→ 通过', () => {
-    expect(tokenProblem('ms-0a1b2c3d-4e5f-6789-abcd-ef0123456789')).toBeNull();
+    expect(tokenProblem(SAMPLE_TOKEN)).toBeNull();
     expect(tokenProblem('  ms-0a1b2c3d-4e5f\n')).toBeNull();
   });
 
@@ -69,7 +71,7 @@ describe('v12.458 · 脚本行为', () => {
     const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'v12458-bin-'));
     fs.writeFileSync(path.join(bin, 'modelscope'), '#!/bin/sh\necho "fake upload failure" >&2\nexit 1\n', { mode: 0o755 });
     try {
-      const r = run('ms-0a1b2c3d-4e5f-6789-abcd-ef0123456789', bin);
+      const r = run(SAMPLE_TOKEN, bin);
       expect(r.code, r.out.slice(-400)).toBe(1);
       expect(r.out, '确实走到了导出与上传这一步').toMatch(/导出 \d+ 个 git 跟踪文件/);
       expect(r.out).toMatch(/fake upload failure/);
