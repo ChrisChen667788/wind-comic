@@ -128,12 +128,22 @@ function syncLine(line) {
     [/\b\d{3,5}\s*单测/g, `${T} 单测`],
     [/\b\d{3,5}\s*测试全过/g, `${T} 测试全过`],
     [/### 10\. \*\*\d{3,5} tests/g, `### 10. **${T} tests`],
-    // 版本号(仅「vX.Y」形态的自述位置,避免动到历史版本表)
-    [/v2\.0 → v12\.\d+/g, `v2.0 → ${vShort}`],
-    [/\bv12\.\d+\s*·\s*\d{3,5}\s*单测/g, `${vShort} · ${T} 单测`],
+    // 版本号(仅「vX.Y」形态的自述位置,避免动到历史版本表)—— 见 syncVersionRefs
+    [/\bv12(?:\.\d+)+\s*·\s*\d{3,5}\s*单测/g, `${vShort} · ${T} 单测`],
   ];
   for (const [re, rep] of rules) s = s.replace(re, rep);
-  return s;
+  return syncVersionRefs(s);
+}
+
+/**
+ * v12.456:自述位置「v2.0 → v12.x」的版本号,**必须整个吃掉(含补丁段)**。
+ * 此前写的是 `v12\.\d+`,只吃前两段、补丁段原样留在后面。v12.370.x 那几个补丁版
+ * 写进去的 `.1` 于是每次发版都被保留,MARKETING 里一路积成了 `v12.455.1.1.1`
+ * —— 对外文案上的版本号是错的,而 --check 看不出来(替换后的结果和原文「一致」)。
+ * 纯函数、不碰测试数,单测可以直接导入。
+ */
+export function syncVersionRefs(line, v = vShort) {
+  return line.replace(/v2\.0 → v12(?:\.\d+)+/g, `v2.0 → ${v}`);
 }
 
 /** 逐行处理,表格行原样透传。 */

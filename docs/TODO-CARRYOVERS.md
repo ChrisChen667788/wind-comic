@@ -36,6 +36,21 @@
 - **工作量**: 0.5 天(配置环境 v12.333 已就绪,买到 key 即可开跑)。
 - **优先级**: P2 —— 阻塞的是"竖屏项目会不会静默拿到横屏素材"这一条正确性,不是新功能。
 
+## C. 片段重拍的缝合层没有调用方(v12.456 记账)
+
+- **背景**: v12.456 修好了 `services/segment-retake.service.ts` 的缝合(一次编码、音频按原片),
+  但全仓 `executeSegmentRetake` / `planAndExecute` **零调用**。`POST /api/projects/[id]/segment-retake`
+  的非 dryRun 分支把 `patchUrl` 原样记成 take(`recordSegmentTake`),**从不缝合**;
+  `adoptSegmentTake` 再把它写进该镜活动版 —— 采用即把整镜(如 8s)换成那段裸补丁(如 3s),
+  正是 v12.314 要守的「时长不变」不变量。前端目前只调 dryRun,所以还没人踩到。
+- **验收**: 路由非 dryRun 分支取该镜活动版视频 + 补丁到本地 → `planAndExecute` → 持久化缝合产物 →
+  take 记的是缝合后的地址;`measuredDurationS` 与 `plan.totalAfterS` 差一帧以上就拒记并如实报错;
+  `scripts/wired-capability-gate.mjs` 加一项锁住调用方;持久化之后删掉服务自建的临时目录(不传 `outputDir` 时
+  产物就在 `os.tmpdir()/seg-retake-*` 里,服务成功返回时不会自己删 —— v12.313 起的约定,接线时由调用方收尾,
+  否则每次重拍在 /tmp 留一个目录)。
+- **工作量**: 0.5~1 天。
+- **优先级**: P1 —— 片段重拍端到端走不通(v12.456 起中英 README 已注明「界面目前只到预演计划」)。
+
 ---
 
 # 历史 · v2.x(2026-05-04)

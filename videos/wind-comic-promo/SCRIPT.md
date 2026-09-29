@@ -4,7 +4,7 @@
 **Voice settings:** default
 **Voice direction:** Engineer to engineer. Level, unhurried, certain. No sell, no lift at the end of
 lines. The claims are specific enough that pushing them would cheapen them — read them like facts
-you have checked. Land on the nouns ("two seconds", "byte-copied", "shot three"), not on adjectives.
+you have checked. Land on the nouns ("two seconds", "frame-exact", "shot three"), not on adjectives.
 
 ---
 
@@ -39,9 +39,9 @@ you have checked. Land on the nouns ("two seconds", "byte-copied", "shot three")
 ## Line 5 — Retake two seconds (Frame 5)
 
 **Time:** 30.0–39.0s
-**Delivery:** "Those two" is the hinge. The final pair — "not re-encoded, not degraded" — drops in tone, no emphasis needed.
+**Delivery:** "Those two" is the hinge. The closing run — "one high-quality pass, frame-exact, same length" — drops in tone, no emphasis needed.
 
-    Hate two seconds of an eight-second shot? Retake those two. The other six are byte-copied — not re-encoded, not degraded.
+    Hate two seconds of an eight-second shot? Retake those two. The other six aren't regenerated — one high-quality pass, frame-exact, same length.
 
 ## Line 6 — The rest is a studio (Frame 6)
 

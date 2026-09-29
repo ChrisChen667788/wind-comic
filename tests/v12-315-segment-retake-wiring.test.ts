@@ -7,10 +7,11 @@
  * 就又是「同一语义两套口径」—— 这个仓已经在转场/音色/称谓词表/相对时间/
  * fetchWithTimeout 上栽过五次,不能再添一笔。测试直接锁这条分工。
  *
- * ── 缝合为什么用 concat demuxer 而不是 filter concat ──────────────
- * `-c copy` 让**保留段是原片的字节拷贝**:用户只改了 2 秒,另外 6 秒不该跟着劣化一代。
- * 代价是三段编码参数必须一致,所以补丁段先按原片参数归一(normalizePatch)。
- * 用 filter concat 会把整镜重编码 —— 那正是这个功能要省掉的浪费。
+ * ── 缝合方式(v12.456 更正)─────────────────────────────────────
+ * 这里原写「concat demuxer + `-c copy` 让保留段是原片的字节拷贝」—— **从来不成立**:
+ * 切片那步没带 copy,按 x264 默认档重编码了;本组只锁了 concat 那一步的 `-c copy`,所以一直绿。
+ * 字节拷贝也做不到(`-c copy` 只能切在关键帧上)。现在是一趟 filter graph + 一次高质量编码,
+ * 画质与音高由 v12-456 那组真跑 ffmpeg 去量;这里只锁结构。
  *
  * ── v12.314 的不变量换来的好处 ────────────────────────────────────
  * 缝合后该镜时长一字不变,于是压缩时间轴、配音 adelay、字幕起点、EDL record-in
@@ -46,25 +47,24 @@ describe('v12.315 · 执行层不做时长算术(分工边界)', () => {
     expect(block, '要把人话原因带出去').toContain('plan?.reason');
   });
 
-  it('缝合走 concat demuxer + -c copy(保留段零损失)', () => {
-    expect(SVC).toContain("'-f', 'concat'");
-    expect(SVC).toMatch(/'-c',\s*'copy'/);
+  it('v12.456:一趟 filter graph 缝合、只编码一次(保留段是高质量重编码,不是字节拷贝)', () => {
+    expect(SVC).toMatch(/concat=n=\$\{pads\.length\}/);
+    expect(SVC, '画质档要显式给,不能落回 x264 默认 crf 23').toMatch(/'-crf',\s*RETAKE_VIDEO_CRF/);
+    expect(SVC, '保留段已不是 copy —— 若 copy 回来了,README 的说法要跟着重审').not.toMatch(/'-c',\s*'copy'/);
   });
 
-  it('补丁段先按原片参数归一,否则 concat 拼不了', () => {
-    expect(SVC).toContain('normalizePatch');
-    const i = SVC.indexOf('async function normalizePatch');
-    const block = SVC.slice(i, i + 1600);
-    expect(block, '要对齐分辨率').toMatch(/scale=/);
-    expect(block, '要对齐帧率').toMatch(/fps=/);
-    expect(block, '要对齐音频').toMatch(/-ar|aac/);
+  it('补丁段按原片参数归一(分辨率/帧率/音频),音频参数不硬写', () => {
+    const i = SVC.indexOf('export function buildStitchGraph');
+    const block = SVC.slice(i, i + 2600);
+    expect(block, '要对齐分辨率').toMatch(/scale=\$\{w\}:\$\{h\}/);
+    expect(block, '要对齐帧率').toMatch(/fps=\$\{fps\}/);
+    expect(block, '要对齐音频采样率').toMatch(/aresample=\$\{audio\.sampleRate\}/);
+    expect(SVC, 'v12.456 前补丁被硬写成 44100/2,播出来变调').not.toMatch(/'44100'|'-ac',\s*'2'/);
   });
 
-  it('切片用精确定位(setStartTime 在 input 之后)', () => {
-    const i = SVC.indexOf('async function cutSegment');
-    const block = SVC.slice(i, i + 500);
-    expect(block).toContain('setStartTime');
-    expect(block).toContain('setDuration');
+  it('v12.456:切点帧精确 —— trim 作用在解码后的帧上;setStartTime 是 -i 之前的快速定位,不用', () => {
+    expect(SVC).toContain('trim=start=${t(fromS)}:end=${t(toS)}');
+    expect(SVC).not.toContain('setStartTime');
   });
 
   it('失败时清掉自建临时目录,但不动调用方传进来的(v12.313 的教训)', () => {

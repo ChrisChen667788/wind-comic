@@ -18,7 +18,7 @@ A 60-second promo for **Wind Comic (青枫漫剧) v12.319** — an open-source (
 This is not a "look, AI makes video" promo. Every competitor can generate a clip. The one thing this video must land is **control**: the last three releases added the two capabilities that turn generation from a slot machine into direction —
 
 - **Director's console** — place actors and the camera on a stage, and the exact blocking ("who stands where, who occludes whom, what focal length") becomes both a precise prompt directive and a layout sketch that locks composition. Composition problems are reported *before* you spend money generating, not after.
-- **Segment retake** — hate 2 seconds out of an 8-second shot? Retake only those 2 seconds. The other 6 are byte-copied, not re-encoded, so they don't degrade a generation. Shot duration is unchanged by construction, so the timeline, voiceover delays, subtitle starts and EDL record-ins never need recomputing.
+- **Segment retake** — hate 2 seconds out of an 8-second shot? Retake only those 2 seconds. The other 6 aren't regenerated — they get one high-quality re-encode (x264 crf 17), cut on exact frames. (Not a byte copy: `-c copy` can only cut on keyframes.) Shot duration is unchanged by construction, so the timeline, voiceover delays, subtitle starts and EDL record-ins never need recomputing.
 
 Tone: confident, precise, engineer-to-engineer. No hype adjectives, no "revolutionary". The proof is in specifics — 4131 tests, EDL/FCPXML/AAF that come out of the same source as the film, BYO-key across engines.
 

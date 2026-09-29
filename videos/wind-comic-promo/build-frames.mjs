@@ -295,7 +295,7 @@ F.push({
               <div class="seg f05-seg"></div><div class="seg f05-seg"></div><div class="seg f05-seg"></div>
             </div>
             <div class="labels" id="f05-labels">
-              <div>byte-copied · -c copy</div><div class="mid2">regenerated · 2.000s</div><div class="rt">byte-copied · -c copy</div>
+              <div>kept · re-encoded once</div><div class="mid2">regenerated · 2.000s</div><div class="rt">kept · re-encoded once</div>
             </div>
           </div>
           <div class="cells">

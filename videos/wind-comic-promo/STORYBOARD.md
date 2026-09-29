@@ -68,8 +68,8 @@ that is the value-before-evidence check from `story-spine.md` § 2.
 - src: compositions/frames/05-retake-two-seconds.html
 - duration: 8.7s
 - transition_in: crossfade
-- scene: An 8-second bar. Two seconds light up and regenerate; the other six carry a "byte-copied" tag and never flinch. Total stays 8.000s.
-- voiceover: Hate two seconds of an eight-second shot? Retake those two. The other six are byte-copied — not re-encoded, not degraded.
+- scene: An 8-second bar. Two seconds light up and regenerate; the other six carry a "kept · re-encoded once" tag and never flinch. Total stays 8.000s.
+- voiceover: Hate two seconds of an eight-second shot? Retake those two. The other six aren't regenerated — one high-quality pass, frame-exact, same length.
 - narrativeRole: mechanism 2 — the second thing that makes iteration cheap instead of destructive
 - asset_candidates: none
 
