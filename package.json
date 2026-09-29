@@ -132,8 +132,8 @@
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.28",
-    "puppeteer": "^25.11.0",
-    "tsx": "^4.23.13",
+    "puppeteer": "^25.12.0",
+    "tsx": "^4.23.15",
     "vitest": "^4.1.11"
   },
   "overrides": {
