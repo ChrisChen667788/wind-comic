@@ -75,6 +75,30 @@ export function cardLooksClobbered(markdown) {
   return { rel, ms, clobbered: rel > 0 };
 }
 
+/**
+ * v12.458:令牌格式预检。返回 null = 通过;否则返回一句人话 —— **绝不含令牌本身**。
+ *
+ * 实际发生过两次:一次把占位文字「你的令牌」原样传进来,一次首字符是 macOS 上 ⌥V 打出的「√」
+ * (粘贴应是 ⌘V)。两次都一路走到 modelscope CLI 里,炸成几十行 `UnicodeEncodeError: 'latin-1'`
+ * 的 Python traceback(令牌被塞进 Cookie 头,HTTP 头只收 latin-1)—— 看不出是令牌错了,
+ * 还白白导出了一遍 2000 多个文件。令牌只会是可打印 ASCII,在这里拦下并说清楚。
+ */
+export function tokenProblem(raw) {
+  const t = String(raw ?? '').trim();
+  if (!t) return '缺 MODELSCOPE_API_TOKEN(不写盘,只从环境变量读)';
+  for (let i = 0; i < t.length; i++) {
+    const code = t.charCodeAt(i);
+    if (code >= 0x21 && code <= 0x7e) continue;
+    const ch = t[i];
+    const hint = ch === '√' ? ' —— macOS 上 ⌥V 会打出「√」,粘贴请用 ⌘V'
+      : /[\u3400-\u9fff]/.test(ch) ? ' —— 看起来还是占位文字,请换成 ModelScope 个人中心「访问令牌」里的真实令牌'
+      : /\s/.test(ch) ? ' —— 令牌中间不该有空白,可能粘贴时混进了换行或空格'
+      : '';
+    return `MODELSCOPE_API_TOKEN 第 ${i + 1} 个字符不是可打印 ASCII(共 ${t.length} 个字符)${hint}`;
+  }
+  return null;
+}
+
 async function fetchCard() {
   const r = await fetch(`${RESOLVE}/README.md`, { headers: { 'User-Agent': 'wind-comic-sync' } });
   return r.ok ? await r.text() : '';
@@ -84,14 +108,18 @@ async function main() {
   const argv = process.argv.slice(2);
   const cardOnly = argv.includes('--card-only');
   const preview = argv.includes('--preview-deletes');
-  if (!process.env.MODELSCOPE_API_TOKEN) {
-    console.error('[ms-sync] 缺 MODELSCOPE_API_TOKEN(不写盘,只从环境变量读)');
+  const bad = tokenProblem(process.env.MODELSCOPE_API_TOKEN);
+  if (bad) {
+    console.error(`[ms-sync] ${bad}`);
     process.exit(2);
   }
+  // 首尾空白(粘贴常带换行)去掉再交给 modelscope CLI
+  process.env.MODELSCOPE_API_TOKEN = process.env.MODELSCOPE_API_TOKEN.trim();
 
   if (preview) {
     const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'ms-preview-'));
-    const local = new Set(exportTracked(dest));
+    let local;
+    try { local = new Set(exportTracked(dest)); } finally { fs.rmSync(dest, { recursive: true, force: true }); }
     const roots = ['', 'assets', 'docs', 'docs/screenshots', 'scripts', 'lib', 'services'];
     const remote = new Set();
     for (const root of roots) {
@@ -114,12 +142,17 @@ async function main() {
 
   if (!cardOnly) {
     const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'ms-sync-'));
-    const files = exportTracked(dest);
-    if (files.some((f) => f === '.env.local')) { console.error('[ms-sync] 导出里出现 .env.local —— 中止'); process.exit(1); }
-    console.log(`[ms-sync] 导出 ${files.length} 个 git 跟踪文件 → ${dest}`);
-    console.log('[ms-sync] 上传中(不带 --sync:它会删掉远端独有文件,曾因此丢过 configuration.json)…');
-    const out = sh('modelscope', ['upload', REPO, '.', '--repo-type', 'model'], { cwd: dest });
-    console.log(redact(out).split('\n').filter((l) => /Existed|Uploaded|Failed|Committed|Elapsed/.test(l)).join('\n'));
+    // v12.458:导出的是整仓 2000 多个文件的副本 —— 成功失败都要删(此前失败时每次留下一份)
+    try {
+      const files = exportTracked(dest);
+      if (files.some((f) => f === '.env.local')) throw new Error('导出里出现 .env.local —— 中止');
+      console.log(`[ms-sync] 导出 ${files.length} 个 git 跟踪文件 → ${dest}`);
+      console.log('[ms-sync] 上传中(不带 --sync:它会删掉远端独有文件,曾因此丢过 configuration.json)…');
+      const out = sh('modelscope', ['upload', REPO, '.', '--repo-type', 'model'], { cwd: dest });
+      console.log(redact(out).split('\n').filter((l) => /Existed|Uploaded|Failed|Committed|Elapsed/.test(l)).join('\n'));
+    } finally {
+      fs.rmSync(dest, { recursive: true, force: true });
+    }
   }
 
   // **必做**:文件夹上传会用仓库根的 README.md 覆盖模型卡
