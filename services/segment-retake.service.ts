@@ -187,7 +187,13 @@ export function buildStitchGraph(
 
   if (plan.tail) keep('tail', plan.tail.fromS, plan.tail.toS);
 
-  filters.push(`${pads.join('')}concat=n=${pads.length}:v=1:a=${audio ? 1 : 0}${audio ? '[outv][outa]' : '[outv]'}`);
+  filters.push(`${pads.join('')}concat=n=${pads.length}:v=1:a=${audio ? 1 : 0}${audio ? '[catv][outa]' : '[catv]'}`);
+  // v12.456.1:输出帧率必须显式钉在原片上。concat 的输出链路在部分 ffmpeg 构建上**不带帧率**
+  // (CI 上的 ffmpeg-static Linux 版、johnvansickle 静态构建实测都是),ffmpeg 于是按默认 25fps
+  // 出片:24fps 的 8 秒镜变成 199 帧、前后段整体错位(PSNR 21.5dB)。macOS 的 6.0 / 8.1 与
+  // Ubuntu 6.1.1 恰好都把 24 带下去了,所以本地全绿、CI 才红。帧本来就落在原片栅格上,
+  // 这一步不增删帧,只把帧率写死。
+  filters.push(`[catv]fps=${fps}[outv]`);
   return { filters, hasAudio: !!audio };
 }
 
