@@ -10,7 +10,7 @@
 
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { exportPostgresSchema } from '../lib/db-schema-export';
+import { buildPgMigrationDdl } from '../lib/db-schema-export';
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -19,7 +19,8 @@ async function main() {
     process.exit(0);
   }
 
-  const ddl = exportPostgresSchema({ applyReady: true });
+  // v12.457:建表 + **补列**(见 buildPgMigrationDdl 的注释:只建表的话升级部署拿不到新列)
+  const ddl = buildPgMigrationDdl();
   const outPath = resolve('db/schema.pg.sql');
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, ddl + '\n');

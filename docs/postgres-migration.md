@@ -79,6 +79,13 @@ DB_DRIVER=pg DATABASE_URL=postgres://postgres:pw@localhost:5434/wind npm run pg:
   (SQLite 未开 PRAGMA foreign_keys, FK 本不强制 → 去掉免按依赖排序) + **去行注释**
   (有的注释含 `;` 会坑分号切语句) + **补 `IF NOT EXISTS`** (sqlite_master 丢了它 → 幂等),
   顺序 apply; **幂等可重复跑**。生成的 `db/schema.pg.sql` 一并入库供 review
+- **v12.457 起 `pg:migrate` 也能升级老部署**:此前只有 `CREATE TABLE IF NOT EXISTS`,表已存在就 no-op,
+  所以用 `addColumnIfMissing`(SQLite 专有)后加的列永远到不了已在跑的 PG(v12.454 的 `canvas_layout` 就是)。
+  现在的顺序是 **建表 → `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 补列 → 索引等其余对象**(`buildPgMigrationDdl`)。
+  补列时:没默认值的 `NOT NULL` 不带(老表已有行会让 ALTER 失败)、主键不补;列名必须是小写普通标识符
+  (补列加了双引号,驼峰名会在 PG 里补出另一列 —— 测试守着)。需要 PostgreSQL 9.6+。
+  **真 PG 实测**(postgres:16):按旧行为只建表 → 删掉全部 31 个后加的列、插一行老数据 → 新 `pg:migrate` 连跑两遍:
+  479 条 DDL 全部成功,31 列 0 缺失,老行保留,带默认值的新列在老行上填了默认值;空库全新部署同样两遍通过。
 - `npm run pg:verify` — `DB_DRIVER=pg` 下跑 `user-repo` / `project-repo` 的
   create/get/list/update + `DbDriver.transaction`, 证业务层 (非裸 SQL) 在 PG 工作
 - **bigint 坑已修**: `pg` 默认把 `int8`/`BIGSERIAL`/`COUNT(*)` 解析成 string,
