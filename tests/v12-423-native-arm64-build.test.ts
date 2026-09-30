@@ -24,8 +24,9 @@ const WF = RAW.split('\n').map((l) => l.replace(/(^|\s)#.*$/, '$1')).join('\n');
 describe('v12.423 · 原生 arm64 构建', () => {
   it('两个架构各自跑在原生 runner 上,不再经 QEMU', () => {
     expect(WF, '窗口自证:这不是那个 workflow?').toContain('docker/build-push-action');
-    expect(WF).toContain('ubuntu-24.04-arm');
-    expect(WF).toContain('ubuntu-latest');
+    // amd64 / arm64 各自对上原生 runner(v12.460 起 amd64 从 ubuntu-latest 锁成 ubuntu-24.04)
+    expect(WF).toMatch(/platform: linux\/amd64\s+runner: ubuntu-24\.04\s/);
+    expect(WF).toMatch(/platform: linux\/arm64\s+runner: ubuntu-24\.04-arm\s/);
     // QEMU 是这一版要去掉的东西
     expect(WF.includes('setup-qemu-action'), 'QEMU 还在 —— 那 43 分钟就没省下来').toBe(false);
     // 也不该再有「一次出两个架构」的写法

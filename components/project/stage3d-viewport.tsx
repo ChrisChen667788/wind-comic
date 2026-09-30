@@ -21,10 +21,10 @@
  * 不拖动时不占 GPU。不支持 WebGL 由调用方退回 2D 预览(探测在弹窗里,不从本文件导入以免 three 进首包)。
  */
 
-import { Component, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Canvas, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Grid, Line, Html } from '@react-three/drei';
-import { Plane, Vector3, WebGLRenderer } from 'three';
+import { Component, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera, Grid, Line } from '@react-three/drei';
+import { Plane, Vector3, WebGLRenderer, type Camera, type Object3D } from 'three';
 import {
   horizontalFovDeg, verticalFovDeg, frameSize,
   type StageScene, type ProjectedActor,
@@ -85,13 +85,54 @@ export function mannequinYawRad(facingDeg: number | undefined): number | null {
   return typeof facingDeg === 'number' && Number.isFinite(facingDeg) ? (-facingDeg * Math.PI) / 180 : null;
 }
 
+/**
+ * 名字标签的屏幕位置(v12.460)。与 drei `<Html center>` 同一套算法:世界坐标 → project → 画布像素,
+ * 标签自身再用 translate(-50%,-50%) 居中;在相机背后或近裁剪面之内的不显示。
+ */
+export function projectLabel(world: Vector3, camera: Camera, size: { width: number; height: number }) {
+  const v = world.clone().project(camera);
+  const visible = Number.isFinite(v.x) && Number.isFinite(v.y) && Math.abs(v.z) <= 1;
+  return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height, visible };
+}
+
+type AnchorMap = RefObject<Map<string, Object3D>>;
+type LabelMap = RefObject<Map<string, HTMLElement>>;
+
+/**
+ * 名字标签不用 drei `<Html>`(v12.460)。
+ *
+ * `<Html>` 会在 3D 场景里**另起一个 ReactDOM 根**,卸载时同步 `root.unmount()` 再 `removeChild`。
+ * r3f 9.8 起场景拆除挪到「React 提交卸载的那一刻」同步执行 —— 正撞上 React 的
+ * 「Attempted to synchronously unmount a root while React was already rendering」,紧跟一条未捕获的
+ * `removeChild` NotFoundError。真浏览器 A/B:r3f 9.7 干净,9.8.0 / 9.8.1 每次切回平面或关台都报;
+ * 只拿掉 `<Html>` 就干净(e2e/stage3d.spec.ts)。
+ *
+ * 现在:标签是画布**外面**的普通 DOM(外层 React 树渲染,不再有嵌套根),
+ * 场景里只留一个锚点;这里每帧把锚点投影成像素,直接写标签的 transform。
+ * 锚点挂在人偶那个 group 里 —— 躺倒、转向都跟着同一套变换走,不另算一遍。
+ */
+function LabelProjector({ anchors, labels }: { anchors: AnchorMap; labels: LabelMap }) {
+  const world = useMemo(() => new Vector3(), []);
+  useFrame(({ camera, size }) => {
+    for (const [id, el] of labels.current) {
+      const anchor = anchors.current.get(id);
+      const p = anchor ? projectLabel(anchor.getWorldPosition(world), camera, size) : null;
+      if (!p?.visible) { el.style.visibility = 'hidden'; continue; }
+      el.style.visibility = 'visible';
+      el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%)`;
+    }
+  });
+  return null;
+}
+
 function Mannequin({
-  actor, inFrame, draggable, onDragStart,
+  actor, inFrame, draggable, onDragStart, labelAnchor,
 }: {
   actor: StageScene['actors'][number];
   inFrame: boolean;
   draggable: boolean;
   onDragStart: (e: ThreeEvent<PointerEvent>) => void;
+  labelAnchor: (obj: Object3D | null) => void;
 }) {
   // v12.445:人偶按姿态变矮/放倒/长出四肢 —— 与 `projectScene` 和布局草图共用同一张骨架表。
   // 修前 3D 人偶只认 heightM:v12.443 起几何已经把坐着的人压矮了,3D 里却还站着(两套口径)。
@@ -134,23 +175,21 @@ function Mannequin({
           </mesh>
         </>
       )}
-      <Html position={[0, h + 0.18, 0]} center style={{ pointerEvents: 'none' }}>
-        <span style={{ fontSize: 11, whiteSpace: 'nowrap', color: '#fff', textShadow: '0 1px 2px #000' }}>
-          {actor.name || actor.id}
-        </span>
-      </Html>
+      {/* 名字标签的锚点:标签本身在画布外(见 LabelProjector) */}
+      <group ref={labelAnchor} position={[0, h + 0.18, 0]} />
     </group>
   );
 }
 
 function StageContents({
-  scene, projected, view, onActorMove, onCameraMove,
+  scene, projected, view, onActorMove, onCameraMove, anchors,
 }: {
   scene: StageScene;
   projected: ProjectedActor[];
   view: Stage3DView;
   onActorMove?: (id: string, x: number, z: number) => void;
   onCameraMove?: (x: number, z: number) => void;
+  anchors: AnchorMap;
 }) {
   const drag = useRef<Drag>(null);
   const [dragging, setDragging] = useState(false);
@@ -218,6 +257,7 @@ function StageContents({
           <Mannequin
             actor={a} inFrame={inFrame.get(a.id) ?? false}
             draggable={canDrag} onDragStart={start({ kind: 'actor', id: a.id })}
+            labelAnchor={(obj) => { if (obj) anchors.current.set(a.id, obj); else anchors.current.delete(a.id); }}
           />
         </group>
       ))}
@@ -237,15 +277,18 @@ function StageContents({
 }
 
 /**
- * 建渲染器;建不起来就通知调用方退回 2D。
+ * 建渲染器;建不起来就通知调用方退回 2D,然后**同步抛出**。
  *
- * 为什么不靠 ErrorBoundary:r3f v9 的 `<Canvas>` 在一个 async `run()` 里 `await configure()`,
+ * 为什么先通知、不靠 ErrorBoundary:r3f 9.7 的 `<Canvas>` 在一个 async `run()` 里 `await configure()`,
  * `new WebGLRenderer` 抛的错成了**未处理的 Promise 拒绝** —— 既不进 r3f 自己的边界,也不进外层边界。
  * v12.439 在真浏览器里强制 getContext 失败实测:只有控制台一条报错,界面剩一块黑框。
- * (onCreated 里 throw 同理,也在那个 async 里,一样接不住。)
+ * 所以由工厂直接回调父组件切 fallback,不指望错误一路冒上来。
  *
- * 失败时返回一个永不完成的 Promise:configure 就停在这里、不再报错;
- * 调用方随即卸掉 Canvas 换成 fallback,这个悬着的 Promise 跟着被回收。
+ * 为什么现在是抛出、而不是返回一个永不完成的 Promise(v12.460):那是 r3f 9.7 下为了不产生未处理拒绝的办法。
+ * r3f 9.8 起 configure 同步执行并 try/catch 工厂 —— 同步抛出会被接住、把 root.ready 置为 rejected,
+ * 并由 `<Canvas>` 的 `.catch(setError)` 收下,不再有未处理拒绝。反倒是悬着的 Promise 在 9.8 下有害:
+ * 卸载时的 teardown 要等 root.ready 落定才动手,永远等不到 —— 画布和整个根一直留在 r3f 的 `_roots` 里,
+ * 每失败一次漏一份(三视角复查报出,测试里用真的 createRoot / unmount 对拍)。
  */
 export function makeRendererFactory(onFail: (err: unknown) => void) {
   return (defaults: { canvas: HTMLCanvasElement | OffscreenCanvas } & Record<string, unknown>) => {
@@ -258,7 +301,7 @@ export function makeRendererFactory(onFail: (err: unknown) => void) {
       return gl;
     } catch (err) {
       onFail(err);
-      return new Promise<WebGLRenderer>(() => {});
+      throw err;
     }
   };
 }
@@ -283,6 +326,8 @@ export default function Stage3DViewport({
 }) {
   const { width, height } = frameSize(scene.aspect);
   const [glFailed, setGlFailed] = useState(false);
+  const anchors = useRef(new Map<string, Object3D>());
+  const labels = useRef(new Map<string, HTMLElement>());
   const glFactory = useMemo(() => makeRendererFactory((err) => {
     console.warn('[stage3d] WebGL 渲染器建不起来,退回 2D:', err);
     setGlFailed(true);
@@ -300,8 +345,22 @@ export default function Stage3DViewport({
         <Canvas
           frameloop="demand" dpr={[1, 2]} gl={glFactory as any}
         >
-          <StageContents scene={scene} projected={projected} view={view} onActorMove={onActorMove} onCameraMove={onCameraMove} />
+          <StageContents scene={scene} projected={projected} view={view} onActorMove={onActorMove} onCameraMove={onCameraMove} anchors={anchors} />
+          <LabelProjector anchors={anchors} labels={labels} />
         </Canvas>
+        {/* 名字标签:画布外的普通 DOM,位置由 LabelProjector 每帧写入;首帧前先藏着,免得在左上角闪一下 */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" data-stage3d-labels>
+          {scene.actors.map((a) => (
+            <span
+              key={a.id}
+              ref={(el) => { if (el) labels.current.set(a.id, el); else labels.current.delete(a.id); }}
+              data-stage3d-label={a.id}
+              style={{ position: 'absolute', left: 0, top: 0, visibility: 'hidden', fontSize: 11, whiteSpace: 'nowrap', color: '#fff', textShadow: '0 1px 2px #000' }}
+            >
+              {a.name || a.id}
+            </span>
+          ))}
+        </div>
         {view === 'lens' && (
           // 三分线叠加在画布上方,和 2D 预览/PNG 草图同一套参考线
           <div className="pointer-events-none absolute inset-0">

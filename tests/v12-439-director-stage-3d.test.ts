@@ -361,23 +361,49 @@ describe('v12.439 · 弹窗与项目页接线', () => {
       const box = root.querySelector('[data-stage3d-view="lens"]') as HTMLElement;
       expect(box.style.aspectRatio.replace(/\s/g, ''), 'three 的 aspect 取自画布尺寸').toBe('540/960');
       expect(box.querySelector('canvas')).toBeTruthy();
+      // v12.460:名字标签是画布外的普通 DOM(不再是 drei <Html> 在场景里另起的 ReactDOM 根)
+      const labels = [...box.querySelectorAll('[data-stage3d-labels] [data-stage3d-label]')] as HTMLElement[];
+      expect(labels.map((l) => l.textContent), '每个人一个标签,文字是角色名').toEqual(['林晚']);
+      expect(labels[0].closest('canvas'), '标签不能在画布里').toBeNull();
+      // jsdom 里 r3f 不出帧 → 还没投影过 → 必须藏着(不然会在左上角闪一下)
+      expect(labels[0].style.visibility).toBe('hidden');
     }, 10000);
 
-    it('渲染器建不起来:通知退回 2D,且不抛(r3f 的 async configure 里抛错谁都接不住)', async () => {
+    it('渲染器建不起来:先通知退回 2D,再同步抛出(v12.460 起;r3f 9.8 的 configure 会接住)', async () => {
       const { makeRendererFactory } = await import('@/components/project/stage3d-viewport');
       const fails: unknown[] = [];
-      const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
       const factory = makeRendererFactory((e) => fails.push(e));
-      let out: unknown;
-      expect(() => { out = factory({ canvas: document.createElement('canvas') }); }).not.toThrow();
-      warn.mockRestore();
-      expect(fails, 'jsdom 没有 WebGL,必须报失败').toHaveLength(1);
-      expect(out).toBeInstanceOf(Promise);
-      const settled = await Promise.race([
-        (out as Promise<unknown>).then(() => 'resolved', () => 'rejected'),
-        new Promise((r) => setTimeout(() => r('pending'), 50)),
-      ]);
-      expect(settled, '拒绝会变成未处理的 Promise 错误;要悬着等调用方卸载').toBe('pending');
+      expect(() => factory({ canvas: document.createElement('canvas') }), '不许再返回悬着的 Promise').toThrow();
+      quiet.mockRestore();
+      expect(fails, 'jsdom 没有 WebGL,必须先报失败(父组件靠它切 2D)').toHaveLength(1);
+    });
+
+    it('**真的 r3f 根**:渲染器建不起来 → configure 拒绝、卸载后根被释放,不留在 _roots 里(v12.460)', async () => {
+      // 旧工厂返回永不完成的 Promise:r3f 9.8 的 teardown 要等 root.ready 落定,永远等不到 → 画布和根一直挂在 _roots 上
+      const { makeRendererFactory } = await import('@/components/project/stage3d-viewport');
+      const { createRoot, _roots } = await import('@react-three/fiber');
+      const { waitFor } = await import('@testing-library/react');
+      const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const quietWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const canvas = document.createElement('canvas');
+        const fails: unknown[] = [];
+        const root = createRoot(canvas);
+        expect(_roots.has(canvas), '窗口自证:建根后应在表里').toBe(true);
+        const configured = root.configure({ gl: makeRendererFactory((e) => fails.push(e)) as never, size: { width: 320, height: 180, top: 0, left: 0 } });
+        const outcome = await Promise.race([
+          configured.then(() => 'resolved', () => 'rejected'),
+          new Promise((r) => setTimeout(() => r('pending'), 200)),
+        ]);
+        expect(outcome, 'configure 必须落定(拒绝),不能悬着').toBe('rejected');
+        expect(fails).toHaveLength(1);
+        root.unmount();
+        await waitFor(() => expect(_roots.has(canvas), '卸载后根没被释放 —— teardown 还在等 root.ready').toBe(false), { timeout: 2000 });
+      } finally {
+        quiet.mockRestore();
+        quietWarn.mockRestore();
+      }
     });
 
     it('GlBoundary:3D 子树抛错时显示 fallback,而不是把整个弹窗打白', async () => {

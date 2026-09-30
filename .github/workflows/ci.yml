@@ -16,10 +16,13 @@ on:
   # 免得每次都要靠推空提交来换一次 CI。
   workflow_dispatch:
 
+# v12.460:runner 一律锁 ubuntu-24.04,不用 ubuntu-latest。GitHub 2026-10-19 起把 ubuntu-latest 切到 Ubuntu 26 ——
+# 系统包、Playwright 装的依赖、预装工具会一起变,那天起的红灯会和代码改动混在一起、分不清是谁的问题。
+# 升 26.04 要单独一版评估(先在分支上把全套 CI 跑绿),三个 workflow 一起改;tests/v12-460-runner-pin.test.ts 锁着。
 jobs:
   test:
     name: Test + Typecheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     strategy:
@@ -56,7 +59,7 @@ jobs:
   # 零安全扫描、零许可证审查。企业采购/尽调看的就是这三样,补齐。
   security:
     name: Security + License
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
@@ -120,7 +123,7 @@ jobs:
 
   e2e:
     name: E2E smoke (Playwright)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: test
 
@@ -161,7 +164,7 @@ jobs:
 
   build:
     name: Build (Next.js)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: test
 

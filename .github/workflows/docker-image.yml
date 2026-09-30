@@ -15,7 +15,7 @@
 # **实测代价:最近一次完整构建 43 分钟**(另一次 13 分钟是命中了缓存)。
 # `npm ci` + `next build` 在模拟层上跑,慢的是 CPU 密集的那一段,缓存救不了。
 #
-# 现在按架构分 job,各自跑在**原生**机器上(`ubuntu-latest` / `ubuntu-24.04-arm`),
+# 现在按架构分 job,各自跑在**原生**机器上(`ubuntu-24.04` / `ubuntu-24.04-arm`),
 # 再由第三个 job 把两个 digest 合成一个 manifest list。两边并行,总时长约等于慢的那一边。
 #
 # `ubuntu-24.04-arm` 对**公开仓库免费**(2025-08 GA,4 vCPU)。本仓库是 public,可用。
@@ -65,7 +65,7 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             arch: amd64
           - platform: linux/arm64
             # 公开仓库免费的原生 arm64 runner(2025-08 GA)。私有仓库用这个标签会失败。
@@ -153,7 +153,7 @@ jobs:
   # ── 把两个 digest 合成一个 manifest list,tag 只在这里落一次 ──────────
   merge:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Log in to GHCR
         uses: docker/login-action@v4
