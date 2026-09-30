@@ -4326,7 +4326,7 @@ ${characterBibleBlock}${producerContext}
           : this.klingService!.generateVideo(engineFrame, videoPrompt, { duration: Math.min(duration, 10), aspectRatio: this.videoAspect() as any });
       },
     };
-    const attempts = regenOrder.map((e) => ({ name: e, gen: genByEngine[e] }));
+    const attempts = (await import('@/lib/regen-hermetic')).hermeticRegenAttempts(regenOrder.map((e) => ({ name: e, gen: genByEngine[e] })), { prompt: videoPrompt, durationS: duration, aspect: this.videoAspect() }); // v12.459:MOCK_ENGINES=1 时全封闭
 
     let isAnimatic = false;
     videoUrl = '';

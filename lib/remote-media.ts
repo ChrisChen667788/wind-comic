@@ -43,8 +43,12 @@ export async function downloadToTempFile(url: string, opts: DownloadOptions = {}
   const fetchImpl = opts.fetchImpl ?? fetch;
   const res = await fetchImpl(url);
   if (!res.ok) throw new Error(`下载远端成片失败 HTTP ${res.status}`);
-  const ab = await res.arrayBuffer();
   const max = opts.maxBytes ?? 2 * 1024 * 1024 * 1024;
+  // v12.459:先看 Content-Length 预拒 —— arrayBuffer() 会把整个响应体读进堆,
+  // 事后再比大小时,超大响应已经把进程撑爆了(对抗复查挖出)。没给长度的照旧读完再比。
+  const declared = Number(res.headers?.get?.('content-length') ?? NaN);
+  if (Number.isFinite(declared) && declared > max) throw new Error(`远端成片过大(声明 ${declared} > ${max})`);
+  const ab = await res.arrayBuffer();
   if (ab.byteLength > max) throw new Error(`远端成片过大(${ab.byteLength} > ${max})`);
   const ext = opts.ext || guessExt(url, res.headers?.get?.('content-type') ?? null);
   const dir = opts.dir || path.join(os.tmpdir(), 'qfmj-remote');

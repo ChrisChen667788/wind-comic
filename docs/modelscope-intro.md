@@ -4,7 +4,7 @@
   <img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v12.458.1</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v12.459</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -19,7 +19,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-6137%2F6137-2ea44f"  alt="6137 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-6178%2F6178-2ea44f"  alt="6178 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -110,7 +110,7 @@ Every tool can generate a clip. These three let you **direct** one — and they 
 
 **Director's console** *(v12.316–318)* — place the actors and the camera on a top-down stage; the exact blocking becomes two things a model can actually use: a **precise staging directive** appended to the prompt (`"Lin Wan at frame left in full shot; Lu Chen right of center in wide shot"`), and a **layout sketch** fed through the existing `[STORYBOARD LOCK]` channel (layout only — style still comes from the prompt). Shot size and camera angle are **derived from the geometry**, not typed in by hand, so lens/framing and the written spec can't disagree. A deterministic composition audit reports *who is out of frame, who is occluding whom, whether the camera clips an actor* — **before you spend a cent generating**.
 
-**Segment retake** *(v12.315)* — hate two seconds of an eight-second shot? Retake **those two**. The other six aren't regenerated: they're re-encoded **once**, in the same pass that splices in the new two seconds, at x264 crf 17 (the visually-lossless range). It's not a byte copy — `-c copy` can only cut on keyframes, and here the cut has to land on the exact frame you picked. The whole audio track keeps the source's sample rate and channel layout, so the spliced seconds don't shift pitch. Shot duration is unchanged by construction, which means the compressed timeline, voice-over delays, subtitle starts and EDL record-ins **need no recomputation**. Takes are versioned like voice retakes — adopt or roll back. **Current state (v12.456):** the splice step is implemented and tested, but it isn't wired into the retake API yet — today the UI stops at a dry-run plan (how much to generate, where it lands). End-to-end retake comes in a follow-up release.
+**Segment retake** *(v12.315)* — hate two seconds of an eight-second shot? Retake **those two**. The other six aren't regenerated: they're re-encoded **once**, in the same pass that splices in the new two seconds, at x264 crf 17 (the visually-lossless range). It's not a byte copy — `-c copy` can only cut on keyframes, and here the cut has to land on the exact frame you picked. The whole audio track keeps the source's sample rate and channel layout, so the spliced seconds don't shift pitch. Shot duration is unchanged by construction, which means the compressed timeline, voice-over delays, subtitle starts and EDL record-ins **need no recomputation**. Takes are versioned like voice retakes — adopt or roll back. **End to end since v12.459:** box the bad frames in the frame inspector → a free dry-run shows what will be generated → confirm, and the server generates the patch *starting from the source frame at the cut-in point*, splices it, checks the video frame count before recording the take, and lists it for preview. The first adoption keeps the original as a take of its own, so rolling back is one click. If every video engine fails it refuses instead of splicing in a still-image placeholder, and the request is synchronous (engines take ~30–120 s).
 
 **Frame-by-frame inspection** *(v12.328–330)* — step through a finished shot frame by frame, box the broken stretch, and hand that exact range to segment retake. Frames are extracted with **accurate seek** (`-ss` after `-i`, not the fast keyframe-only seek), and the timestamp under each frame uses the **same frame-snapping** as the retake planner — so the frame you picked is the frame it cuts at. When the strip is thinned to stay responsive, it says so; frames that fail to decode are reported, not silently skipped.
 
@@ -271,7 +271,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/llm-providers.md) for the full matrix.
 
-### 10. **6137 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **6178 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -604,7 +604,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 6137/6137 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 6178/6178 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/CONTRIBUTING.md) for the repo's contribution guide.
 

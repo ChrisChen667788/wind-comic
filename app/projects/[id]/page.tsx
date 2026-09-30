@@ -1358,29 +1358,6 @@ export default function ProjectDetailPage() {
           shotNumber={frameShot.shotNumber}
           shotTitle={frameShot.title}
           onClose={() => setFrameShot(null)}
-          onRetake={async ({ fromS, toS }) => {
-            // 区间由服务端算好(与 planSegmentRetake 同一帧吸附口径),前端只负责转交。
-            // 先 dryRun 预演:计划不通过就把人话原因显示出来,不去花钱调引擎。
-            try {
-              const r = await fetch(`/api/projects/${id}/segment-retake`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ shotNumber: frameShot.shotNumber, fromS, toS, dryRun: true }),
-              });
-              const j = await r.json();
-              if (!r.ok || j?.plan?.ok === false) {
-                showToast({ title: '这段不能单独重拍', description: String(j?.error || j?.plan?.reason || '').slice(0, 140), type: 'error', duration: 5000 });
-                return;
-              }
-              showToast({
-                title: '可以重拍',
-                description: `生成 ${Number(j.plan?.generateDurationS ?? 0).toFixed(3)}s、补 ${(toS - fromS).toFixed(3)}s,该镜总时长不变`,
-                type: 'success', duration: 5000,
-              });
-            } catch (e) {
-              showToast({ title: '预演失败', description: (e instanceof Error ? e.message : '请检查网络后重试').slice(0, 120), type: 'error', duration: 4000 });
-            }
-          }}
         />
       )}
 

@@ -36,22 +36,7 @@
 - **工作量**: 0.5 天(配置环境 v12.333 已就绪,买到 key 即可开跑)。
 - **优先级**: P2 —— 阻塞的是"竖屏项目会不会静默拿到横屏素材"这一条正确性,不是新功能。
 
-## C. 片段重拍的缝合层没有调用方(v12.456 记账)
 
-- **背景**: v12.456 修好了 `services/segment-retake.service.ts` 的缝合(一次编码、音频按原片),
-  但全仓 `executeSegmentRetake` / `planAndExecute` **零调用**。`POST /api/projects/[id]/segment-retake`
-  的非 dryRun 分支把 `patchUrl` 原样记成 take(`recordSegmentTake`),**从不缝合**;
-  `adoptSegmentTake` 再把它写进该镜活动版 —— 采用即把整镜(如 8s)换成那段裸补丁(如 3s),
-  正是 v12.314 要守的「时长不变」不变量。前端目前只调 dryRun,所以还没人踩到。
-- **验收**: 路由非 dryRun 分支取该镜活动版视频 + 补丁到本地 → `planAndExecute` → 持久化缝合产物 →
-  take 记的是缝合后的地址;`measuredDurationS` 与 `plan.totalAfterS` 差一帧以上就拒记并如实报错;
-  `scripts/wired-capability-gate.mjs` 加一项锁住调用方;持久化之后删掉服务自建的临时目录(不传 `outputDir` 时
-  产物就在 `os.tmpdir()/seg-retake-*` 里,服务成功返回时不会自己删 —— v12.313 起的约定,接线时由调用方收尾,
-  否则每次重拍在 /tmp 留一个目录)。
-- **工作量**: 0.5~1 天。
-- **优先级**: P1 —— 片段重拍端到端走不通(v12.456 起中英 README 已注明「界面目前只到预演计划」)。
-
----
 
 # 历史 · v2.x(2026-05-04)
 
@@ -141,3 +126,24 @@ d8bb3fa feat(ui): v2.13.4 — Aceternity-style MovingBorder + TextGenerate + Spo
 ---
 
 **作者**: Claude Opus 4.7 · **生成日期**: 2026-05-04 · **每个 sprint 收尾扫一遍此文件清账**
+
+---
+
+# 已结清
+
+## C. 片段重拍的缝合层没有调用方(v12.456 记账 · **v12.459 结清**)
+
+- **背景**: v12.456 修好了 `services/segment-retake.service.ts` 的缝合(一次编码、音频按原片),
+  但全仓 `executeSegmentRetake` / `planAndExecute` **零调用**。`POST /api/projects/[id]/segment-retake`
+  的非 dryRun 分支把 `patchUrl` 原样记成 take(`recordSegmentTake`),**从不缝合**;
+  `adoptSegmentTake` 再把它写进该镜活动版 —— 采用即把整镜(如 8s)换成那段裸补丁(如 3s),
+  正是 v12.314 要守的「时长不变」不变量。前端目前只调 dryRun,所以还没人踩到。
+- **验收**: 路由非 dryRun 分支取该镜活动版视频 + 补丁到本地 → `planAndExecute` → 持久化缝合产物 →
+  take 记的是缝合后的地址;`measuredDurationS` 与 `plan.totalAfterS` 差一帧以上就拒记并如实报错;
+  `scripts/wired-capability-gate.mjs` 加一项锁住调用方;持久化之后删掉服务自建的临时目录(不传 `outputDir` 时
+  产物就在 `os.tmpdir()/seg-retake-*` 里,服务成功返回时不会自己删 —— v12.313 起的约定,接线时由调用方收尾,
+  否则每次重拍在 /tmp 留一个目录)。
+- **工作量**: 0.5~1 天。
+- **优先级**: P1 —— 片段重拍端到端走不通(v12.456 起中英 README 已注明「界面目前只到预演计划」)。
+
+- **结清方式(v12.459)**: `services/segment-retake-run.ts` 端到端执行(补丁由服务端经单镜重生生成、首帧取原片切入点、缝合前验补丁画面长度、缝合后验帧数、落盘、记 take),路由接线 + 预算护栏 + 同镜互斥;逐帧检视弹窗里的面板走完预演/确认/采用/回退;采用同步改 persistent_url 且保留该镜 data;首次采用自动留「原片」take;`wired-capability-gate` 已登记 `planAndExecute(` 与 `runSegmentRetake(`。真机:浏览器里真跑通一次(MiniMax 真出片)+ e2e/segment-retake.spec.ts 全封闭重跑。

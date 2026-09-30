@@ -40,6 +40,12 @@ export interface SegmentTakeRecord {
   videoUrl: string;
   createdAt: string;
   adopted: boolean;
+  /** v12.459:第一次采用片段重拍前自动记下的「原片」—— 采用它就是回退 */
+  original: boolean;
+  /** v12.459:补丁是引擎全挂后的静止图占位片(仅 MOCK_ENGINES 下会被记下) */
+  patchIsAnimatic: boolean;
+  /** v12.459:缝合产物实测时长(秒) */
+  measuredDurationS?: number;
 }
 
 /** 记一条片段重拍 take(不动活动版 —— 采用前用户还能反悔) */
@@ -49,25 +55,60 @@ export async function recordSegmentTake(input: {
   fromS: number;
   toS: number;
   videoUrl: string;
+  /** v12.459:缝合产物落盘后的持久地址 —— 采用时要连同它一起写进活动版 */
+  persistentUrl?: string | null;
   prompt?: string;
   planSummary?: unknown;
+  /** v12.459:溯源与标记(补丁原始地址、是否占位、实测时长、从哪一版缝的) */
+  extra?: Record<string, unknown>;
+  /** v12.459:「原片」快照 */
+  original?: boolean;
 }): Promise<{ takeId: string }> {
-  const takeId = `segtake-${input.shotNumber}-${Date.now()}`;
+  const takeId = `segtake-${input.shotNumber}-${Date.now()}${input.original ? '-orig' : ''}`;
   await createAsset({
     projectId: input.projectId,
     type: SEG_TAKE_TYPE,
     id: takeId,
-    name: `片段重拍 · 镜 ${input.shotNumber} ${input.fromS.toFixed(1)}-${input.toS.toFixed(1)}s`,
+    name: input.original
+      ? `片段重拍 · 镜 ${input.shotNumber} 原片`
+      : `片段重拍 · 镜 ${input.shotNumber} ${input.fromS.toFixed(1)}-${input.toS.toFixed(1)}s`,
     data: {
+      ...(input.extra || {}),
       fromS: input.fromS, toS: input.toS,
       prompt: input.prompt, plan: input.planSummary,
+      original: !!input.original,
       createdAt: new Date().toISOString(),
     },
     mediaUrls: [input.videoUrl],
+    persistentUrl: input.persistentUrl ?? null,
     shotNumber: input.shotNumber,
     version: 1,
   });
   return { takeId };
+}
+
+/**
+ * v12.459:把只有外链的原片落到本地(data/media/seg-retakes),返回站内签名地址;失败返回 null。
+ * 下载走 lib/media-local-path(safeFetch + 大小上限)。动态 import:本模块被很多路由引用,别让它们都背上下载依赖。
+ */
+async function persistOriginalCopy(projectId: string, shotNumber: number, url: string): Promise<{ url: string } | null> {
+  try {
+    const [{ resolveLocalMediaPath }, { persistentMediaDir }, { serveFilePathUrl }, fs, path] = await Promise.all([
+      import('./media-local-path'), import('./media-persist'), import('./serve-file-sign'), import('fs'), import('path'),
+    ]);
+    const src = await resolveLocalMediaPath(url, { allowRemote: true, ext: '.mp4', maxBytes: 512 * 1024 * 1024 });
+    if (!src) return null;
+    try {
+      const out = path.join(persistentMediaDir('seg-retakes'), `segtake-orig-${projectId}-${shotNumber}-${Date.now()}.mp4`);
+      await fs.promises.copyFile(src.path, out);
+      return { url: serveFilePathUrl(out) };
+    } finally {
+      if (src.tempFile) { try { fs.unlinkSync(src.tempFile); } catch { /* 删不掉不阻塞 */ } }
+    }
+  } catch (e) {
+    console.warn(`[segment-retake] 原片落盘失败,只记外链:${e instanceof Error ? e.message.slice(0, 120) : e}`);
+    return null;
+  }
 }
 
 /** 列出某镜的片段重拍历史(新→旧,标出当前采用的那条) */
@@ -87,9 +128,12 @@ export async function listSegmentTakes(projectId: string, shotNumber?: number): 
         fromS: Number(d.fromS) || 0,
         toS: Number(d.toS) || 0,
         prompt: d.prompt,
-        videoUrl: (parseJson(r.media_urls) || [])[0] || '',
+        videoUrl: r.persistent_url || (parseJson(r.media_urls) || [])[0] || '',
         createdAt: String(d.createdAt || r.created_at),
         adopted: adoptedIds.has(r.id),
+        original: d.original === true,
+        patchIsAnimatic: d.patchIsAnimatic === true,
+        measuredDurationS: Number.isFinite(Number(d.measuredDurationS)) ? Number(d.measuredDurationS) : undefined,
       };
     })
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -102,6 +146,8 @@ export async function listSegmentTakes(projectId: string, shotNumber?: number): 
  */
 export async function adoptSegmentTake(projectId: string, takeId: string): Promise<{
   ok: boolean; shotNumber?: number; videoUrl?: string; invalidated?: string[]; error?: string;
+  /** v12.459:回退到的原片只有外链(当时落盘失败)—— 可能已过期,前端要如实提示 */
+  warning?: string;
 }> {
   const take = await getAsset(takeId);
   if (!take || take.project_id !== projectId || take.type !== SEG_TAKE_TYPE || take.shot_number == null) {
@@ -110,11 +156,52 @@ export async function adoptSegmentTake(projectId: string, takeId: string): Promi
   const shotNumber = take.shot_number;
   const mediaUrls = parseJson(take.media_urls) || [];
   if (!mediaUrls[0]) return { ok: false, error: '该记录没有可用的视频地址' };
+  const takeData = parseJson(take.data) || {};
 
-  const data = { ...(parseJson(take.data) || {}), adoptedSegmentTakeId: takeId };
+  const active = (await listAssetsByType(projectId, SEG_ACTIVE_TYPE)).find((r) => r.shot_number === shotNumber);
+  if (!active) return { ok: false, error: `镜 ${shotNumber} 还没有视频活动版,无法采用片段重拍` };
+  const activeData = parseJson(active.data) || {};
+
+  // v12.459:第一次采用前把**当前活动版**记成「原片」take —— 采用它就是回退。
+  // 不记的话,活动版一被覆盖,原片地址就只剩在旧 take 里(若有),多数情况下彻底丢失;
+  // 而且原片文件不再被任何行引用,04:10 的清理任务会把它当孤儿删掉。
+  const takes = await listAssetsByType(projectId, SEG_TAKE_TYPE);
+  const hasOriginal = takes.some((t) => t.shot_number === shotNumber && parseJson(t.data)?.original === true);
+  if (!hasOriginal && !activeData.adoptedSegmentTakeId) {
+    const origUrl = active.persistent_url || (parseJson(active.media_urls) || [])[0] || '';
+    if (origUrl) {
+      // 原片只有引擎外链(当年落盘失败,persistent_url 为空)时,那条链几天后就 403 ——
+      // 先把它落到本地再记,否则「回退到原片」几天后回退到的是一条死链。落不下来就如实标记。
+      const kept = active.persistent_url ? null : await persistOriginalCopy(projectId, shotNumber, origUrl);
+      await recordSegmentTake({
+        projectId, shotNumber, fromS: 0, toS: Number(activeData.duration) || 0,
+        videoUrl: kept?.url || (parseJson(active.media_urls) || [])[0] || origUrl,
+        persistentUrl: kept?.url ?? active.persistent_url ?? null,
+        original: true,
+        extra: { activeData, ...(!active.persistent_url && !kept ? { originalRemoteOnly: true } : {}) },
+      });
+    }
+  }
+
+  // v12.459 修两处 v12.315 起的老毛病:
+  //  ① 只改了 media_urls、没改 persistent_url —— 而重新合成、逐帧检视、各类导出一律
+  //     `persistent_url || media_urls[0]`,于是采用了等于没采用,成片里还是旧画面;
+  //  ② 用 take 的 data **整个替换**活动版的 data —— 该镜的 duration / status 随之丢失,
+  //     重新合成时时长退回默认 8 秒。现在保留活动版原有字段,只叠加采用标记。
+  //  回退到「原片」时,恢复当时快照下来的整份 data(含 isAnimatic 等来源标记)。
+  const base = takeData.original === true && takeData.activeData ? takeData.activeData : activeData;
+  const data: Record<string, unknown> = { ...base, adoptedSegmentTakeId: takeId };
+  // 占位标记跟着**这一版画面**走,不跟着活动版旧 data 走:缝合时已算好 resultIsAnimatic ——
+  // 补丁是占位片,或原片是占位片而只重拍了其中一段(其余仍是静止图缓推)→ 仍是占位;
+  // 整镜换成真补丁 → 不再是占位。不这样做,真补丁替掉整镜后补渲名单仍会反复重拍它(对抗复查挖出),
+  // 反过来只补了一秒的占位镜又会被当成已修好。回退到原片时恢复快照里的原值。
+  if (takeData.original !== true) {
+    if (takeData.resultIsAnimatic === true || takeData.patchIsAnimatic === true) data.isAnimatic = true;
+    else if (takeData.resultIsAnimatic === false) delete data.isAnimatic;
+  }
   const changed = await updateAssetBySelector(
     projectId, { type: SEG_ACTIVE_TYPE, shotNumber },
-    { mediaUrls, data, bumpVersion: true },
+    { mediaUrls, persistentUrl: take.persistent_url ?? null, data, bumpVersion: true },
   );
   if (changed === 0) {
     return { ok: false, error: `镜 ${shotNumber} 还没有视频活动版,无法采用片段重拍` };
@@ -152,5 +239,10 @@ export async function adoptSegmentTake(projectId: string, takeId: string): Promi
     if (n > 0) invalidated.push(`storyboard#${shotNumber}`);
   } catch { /* 同上 */ }
 
-  return { ok: true, shotNumber, videoUrl: mediaUrls[0], invalidated };
+  return {
+    ok: true, shotNumber, videoUrl: take.persistent_url || mediaUrls[0], invalidated,
+    ...(takeData.original === true && takeData.originalRemoteOnly === true
+      ? { warning: '原片当时没能落盘,只存了引擎外链 —— 若链接已过期,这一镜需要重新生成' }
+      : {}),
+  };
 }

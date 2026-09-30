@@ -165,11 +165,15 @@ describe('v12.328 · 本地读盘必须走验签入口(消费方门禁当场拦�
   it('**不得直接读 ?path=** —— 「签了前门,漏了侧门」是 v12.237 的原话', () => {
     expect(ROUTE, '直接取 ?path= 读盘 = 任意文件读取面')
       .not.toMatch(/searchParams\.get\(['"]path['"]\)/);
-    expect(ROUTE).toContain('resolveVerifiedServeFilePath');
+    // v12.459 起解析收口到 lib/media-local-path(与片段重拍共用),验签在那里做
+    expect(ROUTE).toContain('resolveLocalMediaPath');
+    const LIB = fs.readFileSync('lib/media-local-path.ts', 'utf-8');
+    expect(LIB).toContain('resolveVerifiedServeFilePath');
+    expect(LIB).not.toMatch(/searchParams\.get\(['"]path['"]\)/);
   });
 
   it('key 形态仍可解析(persistAsset 洗过的 URL 只带 key)', () => {
-    expect(ROUTE).toContain('resolveByKey');
+    expect(fs.readFileSync('lib/media-local-path.ts', 'utf-8')).toContain('resolveByKey');
   });
 
   it('解析不出就返回 null,不退化成「当作裸路径」', () => {

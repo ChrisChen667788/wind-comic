@@ -39,10 +39,22 @@ const strip3 = {
   retakeHint: { fromS: 3, toS: 3.125 },
 };
 
+/** v12.459:弹窗里还有片段重拍面板(读 take 列表、预演)—— fetch 按地址分别回 */
+function routeFetch(strip: { ok: boolean; status: number; body: unknown }) {
+  return vi.fn(async (url: string, init?: RequestInit) => {
+    if (String(url).includes('/segment-retake')) {
+      const body = init?.body ? JSON.parse(String(init.body)) : null;
+      if (body?.dryRun) {
+        return { ok: true, status: 200, json: async () => ({ dryRun: true, plan: { ok: true, patchFromS: body.fromS, patchToS: body.toS, generateDurationS: 3, totalAfterS: 8, padSeconds: 2.875 } }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ takes: [] }) };
+    }
+    return { ok: strip.ok, status: strip.status, json: async () => strip.body };
+  });
+}
+
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn(async () => ({
-    ok: true, status: 200, json: async () => strip3,
-  })) as unknown as typeof fetch);
+  vi.stubGlobal('fetch', routeFetch({ ok: true, status: 200, body: strip3 }) as unknown as typeof fetch);
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -65,32 +77,32 @@ describe('v12.330 · 真渲染(不是只读源码)', () => {
     expect(screen.getByText(/已选 #72–#74/)).toBeTruthy();
   });
 
-  it('**换算与重拍区间来自服务端**,前端不自己算', async () => {
-    const onRetake = vi.fn();
-    render(<FrameInspectModal projectId="p1" shotNumber={3} onClose={() => {}} onRetake={onRetake} />);
+  it('**换算与重拍区间来自服务端**,前端不自己算(v12.459:区间直接交给弹窗里的重拍面板预演)', async () => {
+    const f = routeFetch({ ok: true, status: 200, body: strip3 });
+    vi.stubGlobal('fetch', f as unknown as typeof fetch);
+    render(<FrameInspectModal projectId="p1" shotNumber={3} onClose={() => {}} />);
     await waitFor(() => screen.getByAltText('第 72 帧'));
     fireEvent.click(screen.getByAltText('第 72 帧').closest('button')!);
     fireEvent.click(screen.getByAltText('第 74 帧').closest('button')!);
     fireEvent.click(screen.getByText('换算重拍区间'));
     await waitFor(() => expect(screen.getByText(/3\.000s → 3\.125s/)).toBeTruthy());
     fireEvent.click(screen.getByText('用这段做片段重拍'));
-    expect(onRetake).toHaveBeenCalledWith(expect.objectContaining({ fromS: 3, toS: 3.125 }));
+    await waitFor(() => {
+      const call = f.mock.calls.find(([u, init]) => String(u).includes('/segment-retake') && (init as RequestInit)?.method === 'POST');
+      expect(call, '要向服务端发预演').toBeTruthy();
+      expect(JSON.parse(String((call![1] as RequestInit).body))).toMatchObject({ shotNumber: 3, fromS: 3, toS: 3.125, dryRun: true });
+    });
   });
 
   it('抽稀与解码失败**如实显示**,不假装完整', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: true, status: 200,
-      json: async () => ({ ...strip3, thinned: true, step: 3, failedFrames: [80, 81] }),
-    })) as unknown as typeof fetch);
+    vi.stubGlobal('fetch', routeFetch({ ok: true, status: 200, body: { ...strip3, thinned: true, step: 3, failedFrames: [80, 81] } }) as unknown as typeof fetch);
     render(<FrameInspectModal projectId="p1" shotNumber={3} onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText(/已抽稀:每 3 帧取 1/)).toBeTruthy());
     expect(screen.getByText(/2 帧解码失败/)).toBeTruthy();
   });
 
   it('后端报错时把人话显示出来,不是静默空白(v12.300 的口径)', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: false, status: 409, json: async () => ({ error: '第 3 镜还没有成片时长 —— 先出一次片再来逐帧看' }),
-    })) as unknown as typeof fetch);
+    vi.stubGlobal('fetch', routeFetch({ ok: false, status: 409, body: { error: '第 3 镜还没有成片时长 —— 先出一次片再来逐帧看' } }) as unknown as typeof fetch);
     render(<FrameInspectModal projectId="p1" shotNumber={3} onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText(/先出一次片/)).toBeTruthy());
   });
@@ -102,16 +114,20 @@ describe('v12.330 · 接线', () => {
     expect(INSPECTOR).toMatch(/逐帧检视/);
   });
 
-  it('项目页挂载了弹窗并传入了 onRetake', () => {
+  it('项目页挂载了弹窗;弹窗里挂着片段重拍面板(v12.459 起重拍流程在面板里走完)', () => {
     expect(PAGE).toContain('FrameInspectModal');
-    expect(PAGE).toContain('onRetake');
+    expect(CMP).toContain('<SegmentRetakePanel');
   });
 
   it('**重拍先 dryRun 预演** —— 计划不通过就说原因,不去花钱调引擎', () => {
-    const i = PAGE.indexOf('segment-retake');
-    const block = PAGE.slice(i - 200, i + 700);
+    const PANEL = strip(fs.readFileSync('components/project/segment-retake-panel.tsx', 'utf-8'));
+    const i = PANEL.indexOf('const preview = async');
+    const block = PANEL.slice(i, PANEL.indexOf('const confirm = async'));
+    expect(block, '窗口自证').toContain('preview');
     expect(block).toMatch(/dryRun: true/);
-    expect(block, '失败要让用户看见').toMatch(/showToast/);
+    expect(block, '失败要让用户看见').toMatch(/setPlanError/);
+    // 真重拍按钮只在拿到计划之后才渲染
+    expect(PANEL).toMatch(/\{plan && range && \(/);
   });
 
   it('前端不做帧→秒换算(否则就是第三套帧吸附口径)', () => {

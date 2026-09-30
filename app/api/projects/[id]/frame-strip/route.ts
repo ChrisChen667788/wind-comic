@@ -43,25 +43,11 @@ async function shotVideoPath(projectId: string, shotNumber: number): Promise<str
   if (!row) return null;
   const url = (row as any).persistent_url || parseJson((row as any).media_urls)?.[0] || '';
   if (!url) return null;
-  // ⚠️ 这里**必须走验签入口**。第一版我照抄了 video-composer 的「直接读 ?path=」写法,
-  // 被消费方门禁当场拦下 —— 规则病史写得很清楚:v12.236 只给 HTTP 端点验签,漏了
-  // 服务端本地读盘路径,于是 cameo / pull-sheet / video-anchor 把 ?path= 喂进来即可
-  // 读任意文件(「签了前门,漏了侧门」)。
-  // 本路径的 URL 虽来自数据库而非请求体,但「论证它此刻不可达」远不如「直接走验证
-  // 入口」可靠 —— 数据库里的值本身也可能源于某处用户输入。
-  const { resolveVerifiedServeFilePath } = await import('@/lib/serve-file-sign');
-  const verified = resolveVerifiedServeFilePath(url);
-  if (verified) return verified;
-  // persistAsset 洗过的 URL 只带 key(不带 path/sig),走内容寻址解析 —— key 是内容
-  // 哈希,不构成路径穿越面。
-  try {
-    const key = new URL(url, 'http://localhost').searchParams.get('key');
-    if (key) {
-      const { resolveByKey } = await import('@/lib/asset-storage');
-      return resolveByKey(key)?.absPath || null;
-    }
-  } catch { /* 不是可解析的 URL */ }
-  return null;
+  // ⚠️ 这里**必须走验签入口**(v12.236:只给 HTTP 端点验签、漏了服务端读盘,?path= 可读任意文件)。
+  // v12.459 起解析逻辑收口到 lib/media-local-path,与片段重拍共用一份;逐帧检视不下载远端,
+  // 本来就只认站内文件,所以不开 allowRemote。
+  const { resolveLocalMediaPath } = await import('@/lib/media-local-path');
+  return (await resolveLocalMediaPath(url))?.path ?? null;
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

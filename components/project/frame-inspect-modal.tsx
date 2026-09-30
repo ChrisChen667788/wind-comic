@@ -18,6 +18,14 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { SegmentRetakePanel } from './segment-retake-panel';
+import { getToken } from '@/lib/auth';
+
+/** v12.459:带上令牌 —— 此前只靠 httpOnly cookie,cookie 被隐私设置拦掉或过期时整块 401(健康页 v12.452 同病) */
+function authHeaders(): Record<string, string> {
+  const t = getToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
 
 interface FrameItem {
   frameIndex: number;
@@ -41,12 +49,14 @@ export interface FrameInspectModalProps {
   shotNumber: number;
   shotTitle?: string;
   onClose: () => void;
-  /** 用户确认要重拍时回调 —— 区间来自服务端,不由本组件计算 */
-  onRetake?: (range: { fromS: number; toS: number; fromFrame: number; toFrame: number }) => void;
 }
 
+/**
+ * v12.459:框出的区间直接交给弹窗底部的片段重拍面板(预演 → 确认重拍 → take 列表 / 采用 / 回退)。
+ * 此前这里只有一个 onRetake 回调,项目页拿到后只做预演、弹个提示就结束 —— 界面上走不到真重拍。
+ */
 export function FrameInspectModal({
-  projectId, shotNumber, shotTitle, onClose, onRetake,
+  projectId, shotNumber, shotTitle, onClose,
 }: FrameInspectModalProps) {
   const [data, setData] = useState<StripResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +73,7 @@ export function FrameInspectModal({
       const qs = new URLSearchParams({ shot: String(shotNumber) });
       if (from != null) qs.set('from', String(from));
       if (to != null) qs.set('to', String(to));
-      const r = await fetch(`/api/projects/${projectId}/frame-strip?${qs}`);
+      const r = await fetch(`/api/projects/${projectId}/frame-strip?${qs}`, { headers: authHeaders() });
       const j = await r.json();
       if (!r.ok) { setError(j?.error || `加载失败(HTTP ${r.status})`); setData(null); return; }
       setData(j as StripResponse);
@@ -90,7 +100,7 @@ export function FrameInspectModal({
         to: String((hi + 1) / data.fps),
         max: '2',
       });
-      const r = await fetch(`/api/projects/${projectId}/frame-strip?${qs}`);
+      const r = await fetch(`/api/projects/${projectId}/frame-strip?${qs}`, { headers: authHeaders() });
       const j = await r.json();
       if (r.ok && j?.retakeHint) setRange(j.retakeHint);
       else setError(j?.error || '无法换算重拍区间');
@@ -176,20 +186,13 @@ export function FrameInspectModal({
               </button>
             )}
             {range && (
-              <>
-                <span className="font-mono text-xs text-amber-300">
-                  {range.fromS.toFixed(3)}s → {range.toS.toFixed(3)}s
-                </span>
-                <button
-                  onClick={() => onRetake?.({ ...range, fromFrame: lo!, toFrame: hi! })}
-                  className="rounded bg-amber-400 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-amber-300"
-                >
-                  用这段做片段重拍
-                </button>
-              </>
+              <span className="font-mono text-xs text-amber-300">
+                {range.fromS.toFixed(3)}s → {range.toS.toFixed(3)}s
+              </span>
             )}
           </div>
         </footer>
+        <SegmentRetakePanel projectId={projectId} shotNumber={shotNumber} range={range} />
       </div>
     </div>
   );

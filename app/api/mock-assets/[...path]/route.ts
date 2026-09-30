@@ -10,28 +10,15 @@
  * 产物不可变 → Cache-Control: immutable。
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import { ffmpegBin } from '@/lib/lipsync-providers/local-2d';
+import { ensureMockClipFile, MOCK_AR_SIZE } from '@/lib/mock-clip';
 import { rateLimit, clientIp, isRateLimitActive } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const execFileP = promisify(execFile);
-
 const SEED_RE = /^[0-9a-f]{8}$/;
-const AR_SIZE: Record<string, [number, number]> = {
-  '16:9': [1024, 576],
-  '9:16': [576, 1024],
-  '1:1': [768, 768],
-  '4:3': [1024, 768],
-  '3:4': [768, 1024],
-  '2.35:1': [1128, 480],
-};
+const AR_SIZE = MOCK_AR_SIZE;
 
 const IMMUTABLE = { 'Cache-Control': 'public, max-age=31536000, immutable' };
 
@@ -85,30 +72,8 @@ function sineWav(seconds: number, freq: number): Buffer {
 }
 
 async function clipMp4(seed: string, ar: string, dur: number): Promise<Buffer> {
-  const [w, h] = AR_SIZE[ar] || AR_SIZE['16:9'];
-  const cacheDir = path.join(os.tmpdir(), 'qfmj-mock-assets');
-  const file = path.join(cacheDir, `${seed}-${w}x${h}-${dur}.mp4`);
-  if (fs.existsSync(file)) return fs.readFileSync(file);
-
-  const bin = ffmpegBin();
-  if (!bin) throw new Error('ffmpeg unavailable');
-  fs.mkdirSync(cacheDir, { recursive: true });
-  const color = seed.slice(0, 6);
-  const freq = 220 + (parseInt(seed.slice(4, 8), 16) % 440);
-  const tmp = `${file}.part-${process.pid}.mp4`;
-  await execFileP(
-    bin,
-    [
-      '-y',
-      '-f', 'lavfi', '-i', `color=c=0x${color}:s=${w}x${h}:d=${dur}:r=24`,
-      '-f', 'lavfi', '-i', `sine=frequency=${freq}:duration=${dur}`,
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac', '-shortest', tmp,
-    ],
-    { timeout: 20_000 },
-  );
-  fs.renameSync(tmp, file); // 原子落位,避免并发读到半截文件
-  return fs.readFileSync(file);
+  // v12.459:生成逻辑收口到 lib/mock-clip(单镜重生的全封闭分支也用它)
+  return fs.readFileSync(await ensureMockClipFile(seed, ar, dur));
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {

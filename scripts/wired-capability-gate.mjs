@@ -58,6 +58,27 @@ const CAPABILITIES = [
     consumers: ['app', 'services', 'lib'],
     why: '决策造出来没人消费,等于没有决策',
   },
+  {
+    name: '片段重拍缝合(一趟编码、音频按原片)',
+    symbol: 'planAndExecute(',
+    producer: 'services/segment-retake.service.ts',
+    consumers: ['services', 'app', 'lib'],
+    why: 'v12.315–v12.458 零调用 —— 路由把裸补丁记成 take,采用即整镜(8s)换成补丁(3s),README 却写成可用功能',
+  },
+  {
+    name: '片段重拍端到端(生成补丁 → 缝合 → 校验 → 落盘 → 记 take)',
+    symbol: 'runSegmentRetake(',
+    producer: 'services/segment-retake-run.ts',
+    consumers: ['app'],
+    why: 'v12.459 接线:必须有路由真的调它,否则又退回「能力写好了、界面走不到」',
+  },
+  {
+    name: '单镜重生全封闭(MOCK_ENGINES=1 不碰真引擎)',
+    symbol: 'hermeticRegenAttempts(',
+    producer: 'lib/regen-hermetic.ts',
+    consumers: ['services'],
+    why: 'v12.459 真机验证时 MOCK_ENGINES=1 仍真调了 MiniMax —— 单镜重生不走插件链,全封闭对它无效',
+  },
 ];
 
 /** 剥注释 —— 否则会被「说明里提到过这个符号」骗过,那正是本门禁要防的自欺 */

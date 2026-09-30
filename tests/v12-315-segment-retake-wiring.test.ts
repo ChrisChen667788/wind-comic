@@ -116,8 +116,10 @@ describe('v12.315 · take 历史与 voice-retake 同构', () => {
   });
 
   it('活动版不存在时明确报错,不静默建一条', () => {
+    // v12.459 起 adopt 先记「原片」、合并 data,函数变长 —— 窗口取到文件末尾(adopt 是最后一个函数)
     const i = TAKE.indexOf('export async function adoptSegmentTake');
-    const block = TAKE.slice(i, i + 1200);
+    const block = TAKE.slice(i);
+    expect(block, '不许替缺失的活动版建一条(记「原片」走 recordSegmentTake,建的是 take)').not.toContain('createAsset(');
     expect(block).toMatch(/changed === 0/);
     expect(block).toMatch(/无法采用/);
   });
@@ -137,8 +139,12 @@ describe('v12.315 · API 路由', () => {
   });
 
   it('**时长读 timeline 终值,不读 script 设计值**(v12.298 的口径)', () => {
-    const i = ROUTE.indexOf('async function shotFinalDuration');
-    const block = ROUTE.slice(i, i + 500);
+    // v12.459:shotFinalDuration 移到 services/segment-retake-run(路由与执行链共用一份)
+    expect(ROUTE).toContain('shotFinalDuration(id, shotNumber)');
+    const RUN = strip(fs.readFileSync('services/segment-retake-run.ts', 'utf-8'));
+    const i = RUN.indexOf('async function shotFinalDuration');
+    expect(i, '找不到 shotFinalDuration').toBeGreaterThan(0);
+    const block = RUN.slice(i, i + 500);
     expect(block).toContain("listAssetsByType(projectId, 'timeline')");
     expect(block, '不能退回 script').not.toContain("'script'");
   });
