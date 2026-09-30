@@ -377,7 +377,7 @@ fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 | `MINIMAX_VIDEO_MODEL` | 可选 | `MiniMax-Hailuo-2.3` | MiniMax 标准视频模型 ID |
 | `MINIMAX_FAST_VIDEO_MODEL` | 可选 | `MiniMax-Hailuo-2.3-Fast` | MiniMax 快速/低成本视频兜底模型 ID |
 | `VIDU_API_KEY` | 可选 | — | Vidu 视频生成密钥 |
-| `VIDU_BASE_URL` | 可选 | `https://api.vidu.ai` | Vidu API 端点 |
+| `VIDU_BASE_URL` | 可选 | `https://api.vidu.com` | Vidu API 端点 |
 | `KELING_API_KEY` | 可选 | — | 可灵（快手）视频生成密钥；也被 vectorengine-tts 引用 |
 | `KELING_BASE_URL` | 可选 | `https://api.klingai.com` | 可灵 API 端点 |
 | `KELING_4K_MODEL` | 可选 | `kling-v1-6` | 可灵 4K 视频模型名称 |

@@ -58,8 +58,8 @@ export class ViduService {
 
   constructor() {
     this.apiKey = API_CONFIG.vidu.apiKey;
-    // 官方主机是 api.vidu.com;历史默认值 api.vidu.ai 打不到官方接口。
-    this.baseURL = process.env.VIDU_BASE_URL || 'https://api.vidu.com';
+    // 主机默认值只在 lib/config.ts 一处(v12.461)—— 这里再写一份,就又回到两份默认值各说各话。
+    this.baseURL = API_CONFIG.vidu.baseURL;
   }
 
   private headers(): Record<string, string> {

@@ -49,7 +49,11 @@ export const API_CONFIG = {
 
   vidu: {
     apiKey: process.env.VIDU_API_KEY || '',
-    baseURL: process.env.VIDU_BASE_URL || 'https://api.vidu.ai',
+    // v12.461:Vidu 主机的**唯一**默认值,vidu.service 直接读这里。
+    // 此前这里写的是 api.vidu.ai(打不到官方接口),v12.403 只在 service 里另写了一份正确的
+    // api.vidu.com —— 两份默认值一对一错,错的那份恰好没人读,所以没人发现;谁先接上它,流量就打错主机。
+    // getter:与 service 原先「构造时读 env」的时机一致(理由同上面 v12.419 那两项)。
+    get baseURL() { return process.env.VIDU_BASE_URL || 'https://api.vidu.com'; },
     pricing: 0.3  // ¥/秒
   },
 
