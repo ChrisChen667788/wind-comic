@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import Database from 'better-sqlite3';
 import jwt from 'jsonwebtoken';
 import sharp from 'sharp';
+import fs from 'node:fs';
 import path from 'node:path';
 
 /**
@@ -11,9 +12,24 @@ import path from 'node:path';
  * 每一步都回到**用户看得到的东西**(提示词原文、告警、图片尺寸)或**库里的数据**核对。
  *
  * 一次性项目(归属 demo 账号,9:16),测完删除。服务器 JWT_SECRET 须与本文件一致;建议 MOCK_ENGINES=1。
+ * 跑法(在仓库根目录):`MOCK_ENGINES=1 JWT_SECRET=e2e-fixture-secret-not-for-prod npx playwright test e2e/director-stage.spec.ts --project=desktop`
+ * —— :3000 上没有服务时 Playwright 会自己起 `npm run dev`(带上这两个环境变量);已有手动起的服务则直接复用,它的密钥得一致。
  */
 const SECRET = process.env.JWT_SECRET || 'e2e-fixture-secret-not-for-prod';
-const PHOTO_DIR = process.env.POSE_PHOTO_DIR || '';
+/**
+ * 照片识别用的两张图,直接从仓库自带的图里取,不用另外准备:
+ *   · 全身正面 —— 从角色设定截图(assets/v12-425/08-character-sheets.jpg)里裁出西装那位;
+ *   · 半身像   —— public/styles/portrait-natural.jpg(只到肩膀,应得到「判不准」而不是瞎猜)。
+ * 想换自己的照片:POSE_PHOTO_DIR 指向一个放着同名两张图的目录。
+ */
+async function posePhotos(outDir: string): Promise<{ full: string; half: string }> {
+  const dir = process.env.POSE_PHOTO_DIR;
+  if (dir) return { full: path.join(dir, 'pose-suit-front.jpg'), half: path.join(dir, 'portrait-natural.jpg') };
+  fs.mkdirSync(outDir, { recursive: true });
+  const full = path.join(outDir, 'pose-suit-front.jpg');
+  await sharp('assets/v12-425/08-character-sheets.jpg').extract({ left: 1005, top: 555, width: 175, height: 436 }).resize({ height: 872 }).toFile(full);
+  return { full, half: path.resolve('public/styles/portrait-natural.jpg') };
+}
 
 function seed() {
   const pid = `e2e-dstage-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -139,14 +155,15 @@ test.describe('导演台走查(真浏览器)', () => {
       expect.soft(d4).toMatch(/rais/i);
 
       // ⑥ 照片识别(真推理)
-      if (PHOTO_DIR) {
+      {
+        const photos = await posePhotos(testInfo.outputDir);
         const input = dlg.getByLabel('陆沉 的姿态参考照片');
-        await input.setInputFiles(path.join(PHOTO_DIR, 'pose-suit-front.jpg'));
+        await input.setInputFiles(photos.full);
         const row = dlg.locator('[data-pose-row]').nth(1);
         await expect.poll(async () => (await row.textContent()) ?? '', { timeout: 90_000 }).toMatch(/已识别|不太确定|没认出|判不准|跑不了|没带/);
         log(`照片识别(全身正面): ${(await row.textContent())?.replace(/\s+/g, ' ')}`);
         log(`陆沉姿态下拉: ${await dlg.getByLabel('陆沉 的姿态', { exact: true }).inputValue()}`);
-        await input.setInputFiles(path.join(PHOTO_DIR, 'portrait-natural.jpg'));
+        await input.setInputFiles(photos.half);
         await page.waitForTimeout(8000);
         log(`照片识别(半身像): ${(await row.textContent())?.replace(/\s+/g, ' ')}`);
       }
