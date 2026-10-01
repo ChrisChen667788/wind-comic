@@ -11,6 +11,8 @@
  * 纯逻辑,可单测。
  */
 
+import { isInlineImage } from './image-router';
+
 export const SKETCH_LOCK_ENV = 'STORYBOARD_SKETCH_LOCK';
 
 /** 是否启用草图锁(默认关):本次请求显式 opt-in 优先,否则看 env。 */
@@ -32,9 +34,13 @@ export function buildSketchDirective(meta?: SketchCameraMeta): string {
   return ` [STORYBOARD LOCK] Strictly follow the composition, framing, subject placement and camera angle of the provided reference storyboard sketch${extra ? ` (${extra})` : ''}. The sketch defines LAYOUT ONLY — render full detail, color and style from the prompt, but keep the sketch's spatial arrangement.`;
 }
 
-/** 把草图作为**首要构图参考**并入 refs(置最前、去重、限 4;非 http 丢弃)。 */
+/**
+ * 把草图作为**首要构图参考**并入 refs(置最前、去重、限 4;既非 http 也非内联图的丢弃)。
+ * v12.463:保留内联图 —— 本地存储下草图经 toEngineImage 转成 base64,修前在这里被当成「非 http」丢掉,
+ * 草图锁从没把草图送到过引擎。认不认得内联图由各引擎按 image-router.refsForEngine 自己取。
+ */
 export function mergeSketchIntoRefs(sketchUrl: string, refs?: string[]): string[] {
-  const merged = [sketchUrl, ...(refs || [])].filter((u) => typeof u === 'string' && u.startsWith('http'));
+  const merged = [sketchUrl, ...(refs || [])].filter((u) => typeof u === 'string' && (u.startsWith('http') || isInlineImage(u)));
   const seen = new Set<string>();
   return merged.filter((u) => (seen.has(u) ? false : (seen.add(u), true))).slice(0, 4);
 }
@@ -59,4 +65,18 @@ export function sketchApplyMode(engine: string, comfyControlNet = false): Sketch
   if (comfyControlNet && engine === 'comfyui') return 'controlnet';
   if (['falflux', 'kontext', 'mj', 'minimax-multi', 'minimax-single', 'seedream'].includes(engine)) return 'reference';
   return 'none';
+}
+
+/**
+ * v12.463:这张草图到底送不送得到出图引擎。送不到就**不追加**草图锁的提示 ——
+ * 「Strictly follow … the provided reference storyboard sketch」而图根本没给,只会让模型去猜一张不存在的图。
+ *  - http:照旧(能取图的引擎自己取);
+ *  - 内联图(本地存储):只有 MiniMax / fal 认得,两家都不可用就送不到;
+ *  - 其它(没转成功的站内相对地址等):送不到。
+ */
+export function sketchDeliverable(engSketch: string, avail: { falAvailable: boolean; minimaxAvailable: boolean }): boolean {
+  if (engSketch.startsWith('http')) return true;
+  if (isInlineImage(engSketch) && (avail.falAvailable || avail.minimaxAvailable)) return true;
+  console.warn(`[SketchLock] 草图送不到出图引擎(${isInlineImage(engSketch) ? '本地草图只有 MiniMax / fal 收得了,两家都没配' : '地址引擎取不到'})—— 这次不加草图锁提示,按普通重生出图`);
+  return false;
 }

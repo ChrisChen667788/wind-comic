@@ -8,6 +8,7 @@ import {
 import { isH3KnownUnavailable, markH3Unavailable, h3UnavailableReason } from '@/lib/h3-availability';
 import { planH3RefImages, withRefVideoHint, type RefVideoOutcome } from '@/lib/ref-video';
 import { toEngineImage } from '@/lib/first-frame';
+import { refsForEngine } from '@/lib/image-router';
 import { API_CONFIG } from '@/lib/config';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { classifyEmotion } from '@/lib/emotion-tag';
@@ -820,7 +821,8 @@ export class MinimaxService {
     if (!this.imageEndpointAvailable) {
       throw new Error(`Minimax image endpoint unavailable on baseURL "${this.baseURL}"`);
     }
-    const validRefs = (refs || []).filter((u) => typeof u === 'string' && u.startsWith('http')).slice(0, 4);
+    // v12.463:也收内联图(本地存储下的草图)—— 官方:image_file「支持公网 URL 或 Base64 编码的 Data URL」,< 10MB
+    const validRefs = refsForEngine(refs, 'minimax-multi').slice(0, 4);
     if (validRefs.length === 0) {
       // 没有效 refs — 直接降级到普通 generateImage, 不浪费一个 multi-ref 请求
       return this.generateImage(prompt, options);

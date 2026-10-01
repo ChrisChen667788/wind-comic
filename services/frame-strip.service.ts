@@ -78,7 +78,7 @@ export async function extractFrames(input: ExtractFramesInput): Promise<{
       const ok = await grabFrame(videoPath, timestamps[i], tmp);
       if (!ok) { failed.push(frameIndexes[i]); continue; }
       try {
-        const put = await storagePut(fs.readFileSync(tmp), 'image/jpeg', 'jpg');
+        const put = await storagePut(fs.readFileSync(tmp), 'image/jpeg', '.jpg');
         // 按下标落位,保证**帧序与时间戳严格对应**(并发下不能靠 push 的先后)
         out[i] = { frameIndex: frameIndexes[i], atSec: timestamps[i], url: put.url };
       } catch {

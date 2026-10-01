@@ -277,7 +277,10 @@ export function getStorageDriver(): StorageDriver {
 
 /** 便捷写入:按内容 hash 取 key(同内容只存一份)。 */
 export async function storagePut(body: Buffer, contentType: string, ext: string): Promise<StoragePutResult> {
-  return getStorageDriver().put(contentHashKey(body), ext, body, contentType);
+  // v12.463:扩展名统一带点。驱动直接拼 `${key}${ext}`,而导演台草图(v12.317 起)与逐帧检视的帧图传的是 'png' / 'jpg' ——
+  // 落盘成 `<key>png`,没有扩展名:浏览器靠嗅探还能显示,toEngineImage 却认不出 MIME,本地图转不成 base64 送引擎。
+  const e = ext && !ext.startsWith('.') ? `.${ext}` : ext;
+  return getStorageDriver().put(contentHashKey(body), e, body, contentType);
 }
 
 /** 测试/工具用:本地临时目录写法(不进持久盘)。 */

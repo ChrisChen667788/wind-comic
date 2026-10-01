@@ -150,11 +150,14 @@ export function collectValidRefs(opts: {
   cref?: string;
   sref?: string;
   referenceImages?: string[];
+  /** v12.463:也收内联图(本地存储下的草图)—— 由各引擎按 refsForEngine 自己取认得的那部分 */
+  allowInline?: boolean;
 }): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   const push = (u?: string) => {
-    if (typeof u !== 'string' || !u.startsWith('http') || seen.has(u)) return;
+    if (typeof u !== 'string' || seen.has(u)) return;
+    if (!u.startsWith('http') && !(opts.allowInline && isInlineImage(u))) return;
     seen.add(u);
     out.push(u);
   };
@@ -164,4 +167,50 @@ export function collectValidRefs(opts: {
     for (const u of opts.referenceImages) push(u);
   }
   return out;
+}
+
+/**
+ * v12.463 · 内联图(`data:image/…;base64,…`)。
+ *
+ * 本地存储部署下,站内图(`/api/serve-file?…`)引擎够不着,`lib/first-frame` 的 toEngineImage 把它转成内联图。
+ * 而出图链路各处只放行 http 参考图 —— 于是**草图锁的草图在本地部署下从没送到过引擎**
+ * (导演台渲的布局草图天生是本地文件;v12.347 起 AI 画的、上传的草图也落到本地),
+ * 提示词却照样追加「Strictly follow … the provided reference storyboard sketch」。
+ */
+export const isInlineImage = (u: unknown): u is string =>
+  typeof u === 'string' && /^data:image\/[a-z0-9.+-]+;base64,/i.test(u);
+
+/** MiniMax 官方上限 10MB;base64 膨胀 4/3,折成字符数(布局草图只有几十 KB,远在其下) */
+export const INLINE_IMAGE_MAX_CHARS = Math.floor((10 * 1024 * 1024 * 4) / 3);
+
+/**
+ * 认得内联图的引擎 —— **只收官方文档写明支持的**(2026-10-01 逐家核对原页面):
+ *  - MiniMax image-01 `subject_reference[].image_file`:「支持公网 URL 或 Base64 编码的 Data URL」,< 10MB
+ *    https://platform.minimax.cn/docs/api-reference/image-generation-i2i
+ *  - fal.ai:「You can pass a Base64 data URI as a file input. The API will handle the file decoding for you.」
+ *    https://fal.ai/models/fal-ai/flux-pro/kontext/api
+ * 不在表里的:MJ(只认 cref/sref 公网图)、网关 kontext(参考图只作提示词文本 —— 内联图塞进去会把提示词撑爆)、
+ * 网关 seedream(上游文档支持 base64,但经网关转发未核实;本仓吃过「网关静默忽略字段」的亏,不冒险)。
+ */
+export const INLINE_REF_ENGINES: ReadonlySet<ImageEngine> = new Set<ImageEngine>(['minimax-multi', 'minimax-single', 'falflux']);
+
+/** 给某个引擎的参考图:http 照给;内联图只给认得它的引擎,且不超上限 */
+export function refsForEngine(refs: ReadonlyArray<string | null | undefined> | undefined, engine: ImageEngine): string[] {
+  const inlineOk = INLINE_REF_ENGINES.has(engine);
+  return (refs || []).filter((u): u is string =>
+    typeof u === 'string' && (u.startsWith('http') || (inlineOk && isInlineImage(u) && u.length <= INLINE_IMAGE_MAX_CHARS)));
+}
+
+/**
+ * 参考图里有内联图(实际上就是开了草图锁、而草图在本地)时,把认得内联图的引擎排到最前。
+ * 否则按参考图数量的老规矩,1–2 张会先给 MJ —— MJ 只看 cref/sref,草图被静默丢掉,出图「成功」而构图没锁住。
+ * 链里没有这类引擎就原样返回(由调用方决定是否还追加草图锁的提示,见 storyboard-sketch.sketchDeliverable)。
+ */
+export function preferInlineRefEngines(route: ImageRouteDecision, hasInline: boolean): ImageRouteDecision {
+  if (!hasInline) return route;
+  const chain = [route.primary, ...route.fallbacks];
+  const capable = chain.filter((e) => INLINE_REF_ENGINES.has(e));
+  if (capable.length === 0 || capable[0] === chain[0]) return route;
+  const ordered = [...capable, ...chain.filter((e) => !INLINE_REF_ENGINES.has(e))];
+  return { primary: ordered[0], fallbacks: ordered.slice(1), reason: `${route.reason}; local sketch → ${ordered[0]} first (only it can receive an inline image)` };
 }

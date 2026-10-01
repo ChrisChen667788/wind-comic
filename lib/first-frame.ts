@@ -14,6 +14,21 @@ const MIME: Record<string, string> = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif',
 };
 
+/** 按文件头认图片类型(PNG / JPEG / GIF / WebP);认不出返回 null */
+export function sniffImageMime(file: string): string | null {
+  try {
+    const fd = fs.openSync(file, 'r');
+    const b = Buffer.alloc(12);
+    fs.readSync(fd, b, 0, 12, 0);
+    fs.closeSync(fd);
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+    if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+    if (b.toString('ascii', 0, 3) === 'GIF') return 'image/gif';
+    if (b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
+  } catch { /* 读不了就当认不出 */ }
+  return null;
+}
+
 /** serve-file URL → 本地绝对路径(?path= 直解 / ?key= 注册表反查);非站内 → null。 */
 export function serveFileToLocalPath(url: string): string | null {
   try {
@@ -47,7 +62,8 @@ export function toEngineImage(url: string | null | undefined): string | null {
   try {
     const stat = fs.statSync(local);
     if (stat.size > 18 * 1024 * 1024) return null; // 引擎 base64 上限普遍 ~20MB,留余量
-    const mime = MIME[path.extname(local).toLowerCase()];
+    // v12.463:扩展名缺失(storagePut 修前落成 `<key>png` 的老文件)时按文件头认 —— 不认识的(mp4 等)照旧不转
+    const mime = MIME[path.extname(local).toLowerCase()] || sniffImageMime(local);
     if (!mime) return null; // mp4 等非图不转
     return `data:${mime};base64,${fs.readFileSync(local).toString('base64')}`;
   } catch { return null; }

@@ -1136,7 +1136,7 @@ export class HybridOrchestrator {
     // 把草图作首要构图参考并入 refs + 追加「锁定构图/机位」提示,让出图遵循草图空间布局。
     // 复用 v12.133 修好的真图输入通道(参考图软构图约束);ComfyUI ControlNet 硬锁为后续。
     if (opts?.sketchUrl) {
-      const { shouldSketchLock, buildSketchDirective, mergeSketchIntoRefs } = await import('@/lib/storyboard-sketch');
+      const { shouldSketchLock, buildSketchDirective, mergeSketchIntoRefs, sketchDeliverable } = await import('@/lib/storyboard-sketch');
       if (shouldSketchLock(process.env, opts.sketchLock)) {
         // v12.317:草图也要过 toEngineImage。原先两种来源(AI 生成 / 用户上传)恰好都是 http,
         // 所以一直没暴露;而本地存储给的是 `/api/serve-file?key=…` —— 引擎够不着,
@@ -1145,7 +1145,7 @@ export class HybridOrchestrator {
         const { toEngineImage } = await import('@/lib/first-frame');
         const engSketch = toEngineImage(opts.sketchUrl) || opts.sketchUrl;
         opts = { ...opts, referenceImages: mergeSketchIntoRefs(engSketch, opts.referenceImages) };
-        prompt = `${prompt}${buildSketchDirective(opts.sketchMeta)}`;
+        prompt = `${prompt}${sketchDeliverable(engSketch, { falAvailable: !!this.falFluxService, minimaxAvailable: !!this.minimaxService?.isImageAvailable() }) ? buildSketchDirective(opts.sketchMeta) : ''}`; // v12.463:送不到不谎称
         console.log(`[SketchLock] v12.135 草图构图约束启用: ${opts.label || 'image'}`);
       }
     }
@@ -1255,20 +1255,20 @@ export class HybridOrchestrator {
     // ═══ v2.20 P0.3: 智能路由 — 按 refs 数量分流 ═══
     // 关键改进: refs ≥ 3 时优先走 Minimax multi-ref (能用全部 4 张), 而不是 MJ 退化成 2 张.
     // 这样 Style Bible + 主角 + 配角 + 场景 可以同时锁住, 不再每镜舍弃一半参考.
-    const { decideImageRoute, collectValidRefs, appendSeedreamTier, preferFalFluxForRefs } = await import('@/lib/image-router');
+    const { decideImageRoute, collectValidRefs, appendSeedreamTier, preferFalFluxForRefs, preferInlineRefEngines, refsForEngine, isInlineImage } = await import('@/lib/image-router');
     const validRefs = collectValidRefs({
       cref: opts?.cref,
       sref: opts?.sref,
-      referenceImages: opts?.referenceImages,
+      referenceImages: opts?.referenceImages, allowInline: true, // v12.463:本地草图(内联图)也算参考图
     });
     // v12.133(issue #2 Bug A):有参考图时把 falFlux 提为一等引擎(原生 image_url),
     // 插到不认参考图的 kontext/minimax-single 之前 —— 修「角色参考被忽略」。
-    const route = appendSeedreamTier(preferFalFluxForRefs(decideImageRoute({
+    const route = preferInlineRefEngines(appendSeedreamTier(preferFalFluxForRefs(decideImageRoute({
       validRefs,
       mjAvailable: !!this.mjService,
       minimaxAvailable: !!this.minimaxService?.isImageAvailable(),
       kontextAvailable: !!veKey || !!qytKey,
-    }), validRefs.length, !!this.falFluxService));
+    }), validRefs.length, !!this.falFluxService)), validRefs.some(isInlineImage)); // v12.463:本地草图 → 认得内联图的引擎在前
     // v12.416:这一镜要不要在**画面里**写汉字。
     // libass 字幕是后期叠加的一层字;片头字卡 / 对白框 / 招牌上的字得长在画面里、
     // 跟着透视和光线走 —— 叠一层替代不了。而通用图像模型画汉字基本是乱码,
@@ -1327,7 +1327,7 @@ export class HybridOrchestrator {
           if (opts?.cref && !refImages.includes(opts.cref)) refImages.push(opts.cref);
           if (opts?.sref && !refImages.includes(opts.sref)) refImages.push(opts.sref);
           return await this.falFluxService.generateImage(prompt, {
-            referenceImages: refImages.filter((u) => u && u.startsWith('http')).slice(0, 4),
+            referenceImages: refsForEngine(refImages, 'falflux').slice(0, 4), // v12.463:fal 认内联图
             aspectRatio: (opts?.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4') || '16:9',
           });
         }
@@ -1346,7 +1346,7 @@ export class HybridOrchestrator {
           // v12.140(P0-3):有参考图先走 i2i(角色/草图参考直达);网关拒 image 字段自动退纯 t2i
           if (hasRefImages && validRefs.length > 0 && process.env.SEEDREAM_I2I_DISABLE !== '1') {
             try {
-              const u = await apiImage(sm, qytBase, qytKey, size, validRefs.slice(0, 4));
+              const u = await apiImage(sm, qytBase, qytKey, size, refsForEngine(validRefs, 'seedream').slice(0, 4));
               // v12.148:seedream i2i 输出跟随参考图尺寸、忽略 size(实测 9:16 项目出 2848x1600)
               // —— 画幅守门:漂移则中央 cover 裁切到目标,失败原图透传。
               const { ensureImageAspect } = await import('@/lib/image-aspect-guard');

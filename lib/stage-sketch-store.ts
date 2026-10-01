@@ -75,7 +75,7 @@ export async function renderStageSketchForShot(
   // v12.439:尺寸按**项目画幅**(getStageScene 已挂上 scene.aspect),与投影同源
   const { width, height } = frameSize(scene.aspect);
   const png = renderStageSketch(scene, { width, height });
-  const put = await storagePut(png, 'image/png', 'png');
+  const put = await storagePut(png, 'image/png', '.png');
   // 镜头元数据也由舞台算出来 —— 与草图同源,不让用户再填一遍(调用方显式给了就用调用方的)
   const sketch = await storeShotSketch(projectId, shotNumber, put.url, { mode: 'stage', sketchMeta: sketchMetaOverride ?? sketchMetaFromScene(scene) });
   return { sketch, sketchUrl: put.url };
