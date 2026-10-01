@@ -21,12 +21,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { FloppyDisk as Save, CircleNotch as Loader2, Image as ImageIcon, Warning } from '@phosphor-icons/react';
+import { FloppyDisk as Save, CircleNotch as Loader2, Image as ImageIcon, Warning, Plus, X } from '@phosphor-icons/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   projectScene, auditStaging, describeStaging, horizontalFovDeg, stageDirectiveForShot, frameSize, facingFromPoint, normalizeFacingDeg,
-  POSE_PRESETS,
-  type StageScene, type StageActor, type PosePresetId,
+  POSE_PRESETS, STAGE_MAX_ACTORS, STAGE_NAME_MAX,
+  type StageScene, type StageActor, type PosePresetId, type StageSketchInfo,
 } from '@/lib/stage-blocking';
 import type { LensId } from '@/lib/cinematography';
 import { PosePhotoButton } from './pose-photo-button';
@@ -81,8 +81,38 @@ const clampStage = (x: number, z: number) => ({
   z: Number(Math.max(ZMIN, Math.min(ZMAX, z)).toFixed(2)),
 });
 
+/** 新人物的 id:取最小的没被用过的 aN —— 删了再加不会撞上已存舞台里的旧 id */
+export function nextActorId(actors: StageActor[]): string {
+  const used = new Set(actors.map((a) => a.id));
+  for (let i = 0; ; i++) if (!used.has(`a${i}`)) return `a${i}`;
+}
+/** 没给名字时的默认名:角色 A、角色 B…… 跳过已占用的 */
+export function nextActorName(actors: StageActor[]): string {
+  const used = new Set(actors.map((a) => a.name));
+  for (let i = 0; i < 26; i++) { const n = `角色 ${String.fromCharCode(65 + i)}`; if (!used.has(n)) return n; }
+  return `角色 ${actors.length + 1}`;
+}
+/**
+ * 剧本里这一镜有、台上还没有的角色(v12.462)。重开存过的舞台时,舞台以库里为准 ——
+ * 修前剧本后来加进这一镜的角色就此消失,也没有地方加回来。按名字比对,顺序跟剧本走。
+ */
+export function missingCastNames(characterNames: string[] | undefined, actors: StageActor[]): string[] {
+  const on = new Set(actors.map((a) => (a.name || '').trim()));
+  const out: string[] = [];
+  for (const n of characterNames || []) {
+    const t = (n || '').trim();
+    if (t && !on.has(t) && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+const SKETCH_SOURCE: Record<string, string> = {
+  stage: '导演台按站位渲的布局草图 —— 保存站位时会跟着重渲',
+  generate: 'AI 画的构图草图 —— 导演台不会替换它;站位改了请自己核对,或点「渲布局草图」换成导演台的',
+  set: '上传的构图草图 —— 导演台不会替换它;站位改了请自己核对,或点「渲布局草图」换成导演台的',
+};
+
 export function DirectorStageModal({
-  projectId, shotNumber, shotTitle, initialScene, characterNames, aspect, onClose, onSaved,
+  projectId, shotNumber, shotTitle, initialScene, initialSketch, characterNames, aspect, onClose, onSaved,
 }: {
   projectId: string;
   shotNumber: number;
@@ -90,6 +120,8 @@ export function DirectorStageModal({
   /** 项目画幅(如 '9:16');决定画面宽高比 → 谁在画内、景别多大。与服务端 getStageScene 挂的是同一个值 */
   aspect?: string | null;
   initialScene?: StageScene | null;
+  /** 这一镜当前那张构图草图(v12.462:重开时显示,修前关掉再开就看不到了) */
+  initialSketch?: StageSketchInfo | null;
   /** 该镜出场角色 —— 直接用剧本里的名字建人,不让用户再敲一遍 */
   characterNames?: string[];
   onClose: () => void;
@@ -100,7 +132,7 @@ export function DirectorStageModal({
       ? initialScene
       : {
           camera: { x: 0, z: 0, yawDeg: 0, lens: '35', heightM: 1.6 },
-          actors: (characterNames?.length ? characterNames : ['角色 A']).slice(0, 6).map((n, i) => ({
+          actors: (characterNames?.length ? characterNames : ['角色 A']).slice(0, STAGE_MAX_ACTORS).map((n, i) => ({
             id: `a${i}`, name: n, x: (i - ((characterNames?.length || 1) - 1) / 2) * 1.4, z: 5,
           })),
         },
@@ -108,7 +140,7 @@ export function DirectorStageModal({
   const [saving, setSaving] = useState(false);
   const [sketching, setSketching] = useState(false);
   const [msg, setMsg] = useState('');
-  const [sketchUrl, setSketchUrl] = useState<string | null>(null);
+  const [sketch, setSketch] = useState<StageSketchInfo | null>(initialSketch ?? null);
   const dragRef = useRef<DragTarget>(null);
   /**
    * 发起拖动的那根指针(v12.440 第二轮审查补)。多指触摸时,另一根手指进出俯视图也会触发
@@ -156,6 +188,24 @@ export function DirectorStageModal({
   function patchActor(id: string, p: Partial<StageActor>) {
     setScene((s) => ({ ...s, actors: s.actors.map((a) => (a.id === id ? { ...a, ...p } : a)) }));
   }
+  /**
+   * v12.462:人物可以加、删、改名。修前人物只能从剧本自动建(最多 6 个、没角色就一个「角色 A」),
+   * 重开存过的舞台后剧本新加的角色没法补进来,想删一个路人也删不掉。
+   * 新人物放在机位正前方 5 米、按现有人数错开,免得与已有的人叠在一起看不见。
+   */
+  function addActor(name?: string) {
+    setScene((s) => {
+      if (s.actors.length >= STAGE_MAX_ACTORS) return s;
+      const n = s.actors.length;
+      const pos = clampStage((n % 2 ? 1 : -1) * Math.ceil(n / 2) * 1.2, 5);
+      return { ...s, actors: [...s.actors, { id: nextActorId(s.actors), name: name || nextActorName(s.actors), ...pos }] };
+    });
+  }
+  function removeActor(id: string) {
+    setScene((s) => (s.actors.length <= 1 ? s : { ...s, actors: s.actors.filter((a) => a.id !== id) }));
+    setFocusId((f) => (f === id ? null : f));
+  }
+  const missingCast = useMemo(() => missingCastNames(characterNames, scene.actors), [characterNames, scene.actors]);
 
   function onPointerMove(e: React.PointerEvent) {
     if (dragPointerRef.current !== null && e.pointerId !== dragPointerRef.current) return;
@@ -213,11 +263,24 @@ export function DirectorStageModal({
       });
       const b = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(b?.message || b?.error || `HTTP ${r.status}`);
-      setMsg('已保存 —— 该镜后续出片会带上这份站位');
+      setMsg(`已保存 —— 该镜后续出片会带上这份站位${savedNote(b)}`);
       onSaved?.(scene);
     } catch (e) {
       setMsg(`保存失败:${e instanceof Error ? e.message : String(e)}`);
     } finally { setSaving(false); }
+  }
+
+  /**
+   * 保存后的补充说明(v12.462):站位变了 → 已出的分镜图/视频标了待重渲;导演台草图跟着重渲了;
+   * 或者这镜的草图是 AI 画的/上传的、没跟着变 —— 这三件事用户都该知道。
+   */
+  function savedNote(b: { staleMarked?: number; changed?: boolean; sketch?: StageSketchInfo | null; sketchRerendered?: boolean }) {
+    const notes: string[] = [];
+    if (b.sketch) setSketch(b.sketch);
+    if (b.staleMarked) notes.push('这一镜已出的分镜图/视频是按旧站位出的,已标记为待重渲');
+    if (b.sketchRerendered) notes.push('布局草图已按新站位重渲');
+    else if (b.changed && b.sketch && b.sketch.mode !== 'stage') notes.push('这镜的构图草图不是导演台渲的,没跟着站位变,请核对');
+    return notes.length ? `;${notes.join(';')}` : '';
   }
 
   async function renderSketch() {
@@ -228,15 +291,21 @@ export function DirectorStageModal({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shotNumber, actors: scene.actors, camera: scene.camera }),
       });
-      if (!s.ok) throw new Error(`保存舞台失败 HTTP ${s.status}`);
-      const r = await fetch(`/api/projects/${projectId}/shot-sketch`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shotNumber, mode: 'stage' }),
-      });
-      const b = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(b?.error || `HTTP ${r.status}`);
-      setSketchUrl(b.sketchUrl);
-      setMsg('草图已生成 —— 重生该镜分镜图时开启草图锁即用它锁构图');
+      const sb = await s.json().catch(() => ({}));
+      if (!s.ok) throw new Error(sb?.error || `保存舞台失败 HTTP ${s.status}`);
+      onSaved?.(scene);   // 渲草图也存了站位 —— 分镜卡的「已摆位」要跟着亮
+      const note = savedNote({ ...sb, sketchRerendered: false });
+      // 当前草图已是导演台渲的:保存那一步已经按新站位重渲过了,不必再渲一遍
+      if (!(sb?.sketchRerendered && sb?.sketch?.mode === 'stage')) {
+        const r = await fetch(`/api/projects/${projectId}/shot-sketch`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shotNumber, mode: 'stage' }),
+        });
+        const b = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(b?.error || `HTTP ${r.status}`);
+        setSketch({ url: b.sketchUrl, mode: 'stage' });
+      }
+      setMsg(`草图已生成 —— 重生该镜分镜图时开启草图锁即用它锁构图${note}`);
     } catch (e) {
       setMsg(`渲草图失败:${e instanceof Error ? e.message : String(e)}`);
     } finally { setSketching(false); }
@@ -376,21 +445,31 @@ export function DirectorStageModal({
                   onChange={(e) => patchCamera({ heightM: Number(e.target.value) })} className="flex-1" />
                 <span className="cinema-mono w-11 text-right">{(scene.camera.heightM ?? 1.6).toFixed(1)}m</span>
               </label>
-              <label className="col-span-2 flex items-center gap-1">焦距
+              {/* v12.462:不能包在 <label> 里 —— label 会把整行文字当成第一个按钮(18mm)的名字,
+                  点「焦距」二字或右边的视角读数都会触发 18mm,焦距被悄悄改掉(真浏览器走查撞到) */}
+              <div role="group" aria-label="焦距" className="col-span-2 flex items-center gap-1">
+                <span>焦距</span>
                 {LENSES.map((l) => (
-                  <button key={l} onClick={() => patchCamera({ lens: l })}
+                  <button key={l} type="button" aria-pressed={scene.camera.lens === l} onClick={() => patchCamera({ lens: l })}
                     className={`px-1.5 py-0.5 rounded border text-[10px] ${scene.camera.lens === l ? 'border-[var(--cinema-amber)]' : 'border-[var(--cinema-border)] opacity-60'}`}>
                     {l}mm
                   </button>
                 ))}
                 <span className="cinema-mono opacity-60 ml-auto">{fov.toFixed(0)}° 视角</span>
-              </label>
+              </div>
               {/* v12.441:姿态预设。只给固定词表不给自由输入 —— 提示词全链路是英文,
                   填中文动作会被视频模型当画面文字渲染(v2.22 的 CJK 乱码就是这么来的)。 */}
               <div className="col-span-2 space-y-1">
                 {scene.actors.map((a) => (
-                  <label key={a.id} className="flex flex-wrap items-center gap-1" data-pose-row={a.id}>
-                    <span className="truncate max-w-[6rem]" title={a.name || a.id}>{a.name || a.id}</span>
+                  <div key={a.id} className="flex flex-wrap items-center gap-1" data-pose-row={a.id}>
+                    <input
+                      aria-label={`${a.name || a.id} 的名字`}
+                      value={a.name ?? ''}
+                      maxLength={STAGE_NAME_MAX}
+                      placeholder={a.id}
+                      onChange={(e) => patchActor(a.id, { name: e.target.value })}
+                      className="w-[6rem] bg-transparent border border-[var(--cinema-border)] rounded px-1 py-0.5 text-[11px]"
+                    />
                     <select
                       aria-label={`${a.name || a.id} 的姿态`}
                       value={a.posePreset ?? ''}
@@ -407,8 +486,28 @@ export function DirectorStageModal({
                       actorName={a.name || a.id}
                       onRead={(v) => patchActor(a.id, { posePreset: v.posePreset, ...(v.facingDeg !== undefined ? { facingDeg: v.facingDeg } : {}) })}
                     />
-                  </label>
+                    <button type="button" onClick={() => removeActor(a.id)} disabled={scene.actors.length <= 1}
+                      aria-label={`移除 ${a.name || a.id}`} title={scene.actors.length <= 1 ? '至少留一个人' : '从这一镜的舞台上移除'}
+                      className="p-0.5 rounded border border-[var(--cinema-border)] opacity-70 hover:opacity-100 disabled:opacity-30">
+                      <X size={11} />
+                    </button>
+                  </div>
                 ))}
+                {/* v12.462:加人。剧本里这镜有、台上还没有的角色优先给出来,一点就加 */}
+                <div className="flex flex-wrap items-center gap-1 pt-1" data-cast-add>
+                  {missingCast.length > 0 && <span className="opacity-60">剧本里这镜还有:</span>}
+                  {missingCast.map((n) => (
+                    <button key={n} type="button" onClick={() => addActor(n)} disabled={scene.actors.length >= STAGE_MAX_ACTORS}
+                      className="px-1.5 py-0.5 rounded border border-[var(--cinema-amber)] text-[10px] disabled:opacity-40">
+                      + {n}
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => addActor()} disabled={scene.actors.length >= STAGE_MAX_ACTORS}
+                    title={scene.actors.length >= STAGE_MAX_ACTORS ? `一镜最多 ${STAGE_MAX_ACTORS} 个人物` : '加一个人物到舞台上'}
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-[var(--cinema-border)] text-[10px] disabled:opacity-40">
+                    <Plus size={10} /> 添加人物
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -457,10 +556,13 @@ export function DirectorStageModal({
           </div>
         </div>
 
-        {sketchUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          // v12.439:草图随项目画幅出竖图后,`w-full` 会把 540×960 撑到整屏高 —— 限高、宽度随比例
-          <img src={sketchUrl} alt={`第 ${shotNumber} 镜布局草图`} className="mt-2 mx-auto block max-h-[420px] w-auto max-w-full rounded-md border border-[var(--cinema-border)]" />
+        {sketch && (
+          <figure className="mt-2" data-sketch-mode={sketch.mode}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {/* v12.439:草图随项目画幅出竖图后,`w-full` 会把 540×960 撑到整屏高 —— 限高、宽度随比例 */}
+            <img src={sketch.url} alt={`第 ${shotNumber} 镜${sketch.mode === 'stage' ? '布局' : '构图'}草图`} className="mx-auto block max-h-[420px] w-auto max-w-full rounded-md border border-[var(--cinema-border)]" />
+            <figcaption className="mt-1 text-center text-[10px] opacity-60">{SKETCH_SOURCE[sketch.mode] || SKETCH_SOURCE.set}</figcaption>
+          </figure>
         )}
 
         <div className="mt-3 flex items-center gap-2">

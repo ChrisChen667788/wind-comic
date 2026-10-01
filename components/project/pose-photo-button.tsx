@@ -21,6 +21,20 @@ import { POSE_PRESETS, type PosePresetId } from '@/lib/stage-blocking';
  */
 const LOW_CONFIDENCE = 0.45;
 
+/** 姿态识别要用的三个文件(v12.444 自托管);wasm 两个由 prebuild/predev 从 node_modules 拷出来,模型随仓库提交 */
+export const POSE_ASSET_FILES = ['vision_wasm_internal.js', 'vision_wasm_internal.wasm', 'pose_landmarker_lite.task'] as const;
+
+/**
+ * 缺哪几个姿态识别文件(v12.462)。先探测再加载,而不是等 MediaPipe 报错再猜:
+ * 缺文件时它的报错里带着 `vision_wasm_internal…` —— 修前按 /wasm/ 先匹配,
+ * 于是「这份部署没拷 wasm」被说成了「这台设备/浏览器跑不了」,让用户去怀疑自己的电脑。
+ */
+export async function missingPoseAssets(fetchImpl: typeof fetch = fetch): Promise<string[]> {
+  const res = await Promise.all(POSE_ASSET_FILES.map((f) =>
+    fetchImpl(`/vendor/mediapipe/${f}`, { method: 'HEAD' }).then((r) => (r.ok ? null : f), () => f)));
+  return res.filter((f): f is (typeof POSE_ASSET_FILES)[number] => !!f);
+}
+
 export function PosePhotoButton({ actorName, onRead }: {
   actorName: string;
   onRead: (v: { posePreset: PosePresetId; facingDeg?: number }) => void;
@@ -35,6 +49,12 @@ export function PosePhotoButton({ actorName, onRead }: {
     if (!file) return;
     setBusy(true); setMsg('');
     try {
+      if (typeof WebAssembly === 'undefined') { setMsg('这台设备/浏览器跑不了姿态识别(不支持 WebAssembly),请手动选姿态'); return; }
+      const missing = await missingPoseAssets();
+      if (missing.length) {
+        setMsg(`这份部署缺少姿态识别文件(public/vendor/mediapipe/${missing.join('、')})—— 本地开发运行 npm run prebuild 即可补上;请先手动选姿态`);
+        return;
+      }
       const { FilesetResolver, PoseLandmarker } = await import('@mediapipe/tasks-vision');
       const fileset = await FilesetResolver.forVisionTasks('/vendor/mediapipe');
       const landmarker = await PoseLandmarker.createFromOptions(fileset, {
@@ -60,10 +80,10 @@ export function PosePhotoButton({ actorName, onRead }: {
       }
     } catch (err) {
       const text = err instanceof Error ? err.message : String(err);
-      // 分清「这台设备跑不了」与「这份部署没带模型」——两者的解决办法完全不同
-      setMsg(/wasm|WebAssembly|SIMD/i.test(text) ? '这台设备/浏览器跑不了姿态识别,请手动选姿态'
-        : /404|fetch|Failed to load|model/i.test(text) ? '这份部署没带姿态模型文件(public/vendor/mediapipe),请手动选姿态'
-          : `识别失败:${text.slice(0, 80)}`);
+      // 文件齐全(上面已探测)还失败:多半是这台设备编译不了 wasm(老浏览器 / 不支持 SIMD);
+      // 其余情况把原话给出来,而不是笼统一句
+      setMsg(/WebAssembly|SIMD|CompileError|instantiate/i.test(text) ? '这台设备/浏览器跑不了姿态识别,请手动选姿态'
+        : `识别失败:${text.slice(0, 80)}`);
     } finally {
       setBusy(false);
     }

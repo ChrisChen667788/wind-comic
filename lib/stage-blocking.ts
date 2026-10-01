@@ -164,6 +164,99 @@ const LENS_MM: Record<string, number> = {
   '18': 18, '24': 24, '35': 35, '50': 50, '85': 85, '100': 100, anamorphic: 40,
 };
 
+/**
+ * 舞台存储类型(v12.462 从 stage-scene-store 挪来):项目页要用它从资产里认出「这一镜摆过位」,
+ * 而 stage-scene-store 会连带引入数据库驱动 —— 客户端一引就整页 500(v12.318 栽过)。纯常量放纯几何层。
+ */
+export const STAGE_SCENE_TYPE = 'stage-scene';
+/** 一镜最多几个人物:与弹窗从剧本建人时的上限一致 */
+export const STAGE_MAX_ACTORS = 6;
+/** 人物名字最长多少字(名字会原样进英文提示词,太长的只会把句子撑乱) */
+export const STAGE_NAME_MAX = 24;
+/** 机位高度的有效范围(米),与俯视图机高滑杆一致 */
+export const STAGE_CAM_HEIGHT_RANGE: [number, number] = [0.2, 4];
+
+/**
+ * 资产里哪些镜摆过位(v12.462)。项目页分镜卡的「已摆位」以它为准 ——
+ * 修前只认本次会话里点过保存的镜,刷新页面后全部变回「导演台 · 摆位」,与库里的事实不符。
+ */
+export function stagedShotsFromAssets(assets: ReadonlyArray<{ type?: string; shotNumber?: number | null }> | null | undefined): Record<number, true> {
+  const out: Record<number, true> = {};
+  for (const a of assets || []) {
+    if (a?.type === STAGE_SCENE_TYPE && typeof a.shotNumber === 'number' && Number.isFinite(a.shotNumber)) out[a.shotNumber] = true;
+  }
+  return out;
+}
+
+/** 这一镜当前那张构图草图(v12.462):导演台重开时显示,并标出它从哪来 */
+export interface StageSketchInfo {
+  url: string;
+  /** 'stage' = 导演台渲的;'generate' = AI 画的;'set' = 用户上传的 */
+  mode: string;
+}
+
+/**
+ * 校验 POST /stage 的请求体(v12.462 从路由里收进来,并补上机位字段)。纯函数。
+ *
+ * 修前只查 `camera.yawDeg` 是数字:`lens:"notALens"` 照存,几何层 `LENS_MM[...] ?? 35` 静默按 35mm 算,
+ * 用户选的焦距下次打开就「没了」,全程零报错 —— 与 v12.440 修掉的 facingDeg 是同一类毛病。
+ * 这里一律拒 400 并说出是哪个字段;null / 空串视同清除(与朝向、姿态一致)。
+ */
+export function validateStagePayload(body: unknown, isPose: (v: unknown) => boolean):
+  { ok: true; scene: StageScene } | { ok: false; error: string } {
+  const b = (body && typeof body === 'object' ? body : {}) as Record<string, any>;
+  const camera = b.camera && typeof b.camera === 'object' ? { ...b.camera } : null;
+  const actorsIn = b.actors;
+  if (!camera || !Number.isFinite(camera.yawDeg) || !Array.isArray(actorsIn)) {
+    return { ok: false, error: '舞台数据不完整:需要 camera(含 yawDeg)与 actors 数组' };
+  }
+  for (const k of ['x', 'z'] as const) {
+    if (camera[k] === undefined || camera[k] === null) camera[k] = 0;
+    else if (!Number.isFinite(camera[k])) return { ok: false, error: `机位 ${k} 必须是数字(米)` };
+  }
+  if (camera.lens === null || camera.lens === '') delete camera.lens;
+  else if (camera.lens !== undefined && !(typeof camera.lens === 'string' && Object.prototype.hasOwnProperty.call(LENS_MM, camera.lens))) {
+    return { ok: false, error: `焦距不在档位里:${JSON.stringify(camera.lens).slice(0, 20)}(可选 ${Object.keys(LENS_MM).join(' / ')})` };
+  }
+  if (camera.heightM === null) delete camera.heightM;
+  else if (camera.heightM !== undefined) {
+    const [lo, hi] = STAGE_CAM_HEIGHT_RANGE;
+    if (!Number.isFinite(camera.heightM) || camera.heightM < lo || camera.heightM > hi) {
+      return { ok: false, error: `机位高度必须在 ${lo}–${hi} 米之间,收到 ${JSON.stringify(camera.heightM).slice(0, 20)}` };
+    }
+  }
+  if (actorsIn.length > STAGE_MAX_ACTORS) return { ok: false, error: `一镜最多 ${STAGE_MAX_ACTORS} 个人物,收到 ${actorsIn.length} 个` };
+  const ids = new Set<string>();
+  const actors: StageActor[] = [];
+  for (const [i, raw] of (actorsIn as any[]).entries()) {
+    if (!raw || typeof raw !== 'object' || !Number.isFinite(raw.x) || !Number.isFinite(raw.z)) {
+      return { ok: false, error: `第 ${i + 1} 个人物缺少有效的 x / z(米)` };
+    }
+    const a = { ...raw };
+    if (typeof a.id !== 'string' || !a.id.trim() || a.id.length > 40) return { ok: false, error: `第 ${i + 1} 个人物缺少有效的 id` };
+    if (ids.has(a.id)) return { ok: false, error: `人物 id 重复:${a.id.slice(0, 20)}` };
+    ids.add(a.id);
+    if (a.name === null || a.name === undefined) delete a.name;
+    else if (typeof a.name !== 'string') return { ok: false, error: `第 ${i + 1} 个人物的名字必须是文字` };
+    else {
+      // 控制字符会把提示词那句话截断/换行;首尾空白去掉,空名视同未设(显示 id)
+      const name = a.name.replace(/[\u0000-\u001f\u007f]/g, '').trim();
+      if (name.length > STAGE_NAME_MAX) return { ok: false, error: `第 ${i + 1} 个人物的名字超过 ${STAGE_NAME_MAX} 个字` };
+      if (name) a.name = name; else delete a.name;
+    }
+    if (a.posePreset === null || a.posePreset === '') delete a.posePreset;
+    else if (a.posePreset !== undefined && !isPose(a.posePreset)) {
+      return { ok: false, error: `第 ${i + 1} 个人物的 posePreset 不在词表里:${JSON.stringify(a.posePreset).slice(0, 20)}` };
+    }
+    if (a.facingDeg === null) delete a.facingDeg;
+    else if (a.facingDeg !== undefined && !Number.isFinite(a.facingDeg)) {
+      return { ok: false, error: `第 ${i + 1} 个人物的 facingDeg 必须是数字(度),收到 ${JSON.stringify(a.facingDeg).slice(0, 20)}` };
+    }
+    actors.push(a);
+  }
+  return { ok: true, scene: { actors, camera } };
+}
+
 /** 35mm 全画幅的长边(毫米) */
 export const SENSOR_LONG_MM = 36;
 
@@ -338,7 +431,6 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
     // 两者只在画面正中与边缘重合,中间错开 —— 18mm 下错 4.3% 画幅,35mm 1.5%。
     // 没有 3D 画面对照时看不出来;一加 3D 视口,人物位置就和提示词、体检、草图对不上。
     const screenX = behind ? (rel > 0 ? 2 : -2) : Math.tan(relRad) / tanHalfH;
-    const inFrame = !behind && Math.abs(screenX) <= 1;
     // 纵向:直线透视下的成像高度由**沿光轴的深度**决定,不是水平距离。
     // 修前用水平距离 —— 人物偏离画面中心 20° 时纵向位置差约 6%(已对照 three.js 验证)。
     const depth = Math.max(distanceM * Math.cos(relRad), 1e-6);
@@ -351,11 +443,24 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
     const camH = cam.heightM ?? 1.6;
     const screenBottom = (0 - camH) / (depth * tanHalfV);
     const screenTop = (h - camH) / (depth * tanHalfV);
+    // v12.462:竖直方向也得有一部分落在画框里。修前只看左右 —— 舞台相机没有俯仰,机高拉到 3 米配长焦,
+    // 人整个落在画框下方之外(3D 机位视角里只看得见地面、布局草图一片空白),
+    // 体检却说「在画内」,提示词照样描述他站在画面哪边(真浏览器走查撞到)。
+    const inFrame = !behind && Math.abs(screenX) <= 1 && screenTop >= -1 && screenBottom <= 1;
     return {
       id: a.id, name: a.name, distanceM, depth, rel, screenX, inFrame,
       heightM: h, standHeightM: standH, screenTop, screenBottom,
     };
   });
+
+  /** 身体(按半宽)有没有伸进画框 —— 中心出画但离镜头很近的人,肩膀仍可能挡在画面边上 */
+  const bodyReachesFrame = (o: (typeof raw)[number]) => {
+    if (o.inFrame) return true;
+    if (Math.abs(o.rel) >= 90) return false;
+    if (o.screenTop < -1 || o.screenBottom > 1) return false;   // 整个在画框上方/下方之外,挡不到画里的人
+    const halfW = (o.standHeightM * 0.13) / (o.depth * tanHalfH);
+    return Math.abs(o.screenX) - halfW <= 1;
+  };
 
   // 「望向谁」只在**画内**的人里找:锥内最近的若是画外的人,提示词不能说他(会诱导模型把他画进来),
   // 而真正被望向、也在画内的那个人就被挤掉了。先筛画内,再取最近。
@@ -364,9 +469,13 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
 
   return raw.map((r, i) => {
     const facing = facingOf(actors[i], cam, visible);
-    // 遮挡:角度接近(投影重叠)且更近的人
+    // 遮挡:角度接近(投影重叠)且更近的人。
+    // v12.462:遮挡者**身体得有一部分在画框里**才算。修前不看这一条 —— 远处画外、离画框还差好几度的人
+    // 也会被写成「partially occluded by X」,提示词里出现一个本不在画面里的人,模型会把他画进来。
+    // 但也不能简单要求遮挡者 inFrame(中心在画内):离机位很近、中心刚出画的人,肩膀正挡在画面边上 ——
+    // 那正是过肩前景,删掉它才是错的。所以按身体半宽(站高 × 0.13,与草图的人形宽度同一比例)在画面上的投影算。
     const occludedBy = raw
-      .filter((o) => o.id !== r.id && o.distanceM < r.distanceM && Math.abs(o.rel - r.rel) < 4)
+      .filter((o) => o.id !== r.id && o.distanceM < r.distanceM && Math.abs(o.rel - r.rel) < 4 && bodyReachesFrame(o))
       .map((o) => o.name || o.id);
     const out: ProjectedActor = {
       id: r.id,
@@ -403,9 +512,13 @@ export function auditStaging(scene: StageScene): StagingIssue[] {
 
   for (const p of projected) {
     if (!p.inFrame) {
+      // v12.462:左右出画与上下出画是两回事,办法也不同 —— 上下出画多半是机位太高/太低(舞台相机没有俯仰)
+      const vertical = Math.abs(p.screenX) <= 1 && (p.screenTop < -1 || p.screenBottom > 1);
       issues.push({
         kind: 'off-frame', actorId: p.id,
-        message: `${p.name || p.id} 不在画面内(偏离画面中心 ${Math.abs(p.screenX).toFixed(2)},>1 即出画)——请转机位或换更广的镜头`,
+        message: vertical
+          ? `${p.name || p.id} 整个在画面${p.screenTop < -1 ? '下方' : '上方'}之外(机位是平视的,不会低头/抬头)——${p.screenTop < -1 ? '降低机高' : '抬高机位'}或换更广的镜头`
+          : `${p.name || p.id} 不在画面内(偏离画面中心 ${Math.abs(p.screenX).toFixed(2)},>1 即出画)——请转机位或换更广的镜头`,
       });
     } else if (p.occludedBy.length > 0) {
       issues.push({
@@ -557,5 +670,16 @@ export function stageDirectiveForShot(scene: StageScene | null | undefined): str
       const act = pose ? `, ${pose.en}` : '';
       return `${p.name || p.id} ${POS[p.thirds]} in ${SIZE[p.shotSize]}${face}${act}${occ}`;
     });
-  return `. Staging: ${parts.join('; ')}`;
+  // v12.462:机位角也进提示词。修前界面上的中文描述写着「高角度俯拍机位」,进提示词的这句却只字不提 ——
+  // 机高滑杆拉到 3 米,出片照样平视(真浏览器走查撞到)。平视不写:旧舞台(默认 1.6 米)的这句话逐字不变。
+  // 「. Staging:」标记保持原样,withStageDirective 靠它判断「已经带过站位句」。
+  const angle = ANGLE_EN[inferCameraAngle(scene.camera.heightM ?? 1.6)];
+  return `. Staging: ${angle ? `${angle}; ` : ''}${parts.join('; ')}`;
 }
+
+/** 机位角的英文说法;平视不写(不改变旧数据的提示词) */
+const ANGLE_EN: Partial<Record<CameraAngle, string>> = {
+  high: 'high-angle camera looking down',
+  low: 'low-angle camera looking up',
+  overhead: 'overhead top-down camera',
+};

@@ -32,6 +32,14 @@ interface DialogFooterProps {
   children: React.ReactNode
 }
 
+/**
+ * v12.462:弹窗的无障碍名称取自它的标题。修前所有弹窗一律 aria-label="对话框" ——
+ * 读屏只念「对话框」,不知道是导演台还是镜头参数(真浏览器走查按名字找导演台时撞到)。
+ * DialogContent 生成 id,DialogTitle 挂上它;没有标题的弹窗仍回落到「对话框」
+ * (aria-labelledby 指向不存在的元素时按规范被忽略,改用 aria-label)。
+ */
+const DialogTitleIdContext = React.createContext<string | undefined>(undefined)
+
 const DialogContext = React.createContext<{
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -56,6 +64,7 @@ export function DialogContent({ className, children }: DialogContentProps) {
 
   // v10.3.5 a11y: 焦点陷阱 + Escape(document 级)+ 焦点归还 —— hook 必须在任何 early-return 之前调用
   const dialogRef = useFocusTrap<HTMLDivElement>(!!context?.open && mounted, () => context?.onOpenChange(false))
+  const titleId = React.useId()
 
   if (!context) return null
   const { open, onOpenChange } = context
@@ -63,16 +72,19 @@ export function DialogContent({ className, children }: DialogContentProps) {
 
   // 使用 Portal 渲染到 body，避免 React Flow 的 CSS transform 破坏 fixed 定位
   const content = (
+    // v12.462:外层可滚动、内层 min-h-full 居中。修前外层是 fixed + 居中、不能滚 ——
+    // 弹窗比屏幕高时(导演台渲出竖版草图后,1440×900 上就会)上下两头被裁掉:
+    // 标题、关闭按钮、「保存站位」全都够不着,只能按 Esc(真浏览器走查撞到)。
     <div
-      className="fixed inset-0 flex items-center justify-center"
+      className="fixed inset-0 overflow-y-auto"
       style={{ zIndex: 99999 }}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* Backdrop —— 纯视觉 + 点击关闭,读屏忽略 */}
+      {/* Backdrop —— 纯视觉 + 点击关闭,读屏忽略;fixed 铺满视口,滚动时不跟着走 */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-black/85 backdrop-blur-md"
+        className="fixed inset-0 bg-black/85 backdrop-blur-md"
         style={{ animation: 'fadeIn 0.15s ease' }}
         onClick={(e) => {
           e.preventDefault()
@@ -81,11 +93,22 @@ export function DialogContent({ className, children }: DialogContentProps) {
         }}
       />
 
+      {/* 点弹窗外的空白处与点遮罩一样关闭 —— 这一层盖在遮罩上面,得自己接住 */}
+      <div
+        className="relative flex min-h-full items-center justify-center py-8"
+        onClick={(e) => {
+          if (e.target !== e.currentTarget) return
+          e.preventDefault()
+          e.stopPropagation()
+          onOpenChange(false)
+        }}
+      >
       {/* Dialog */}
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
         aria-label="对话框"
         tabIndex={-1}
         className={cn(
@@ -107,7 +130,8 @@ export function DialogContent({ className, children }: DialogContentProps) {
         >
           <X className="w-4 h-4 text-white" />
         </button>
-        {children}
+        <DialogTitleIdContext.Provider value={titleId}>{children}</DialogTitleIdContext.Provider>
+      </div>
       </div>
     </div>
   )
@@ -120,7 +144,8 @@ export function DialogHeader({ children }: DialogHeaderProps) {
 }
 
 export function DialogTitle({ children }: DialogTitleProps) {
-  return <h2 className="text-xl font-semibold text-white">{children}</h2>
+  const id = React.useContext(DialogTitleIdContext)
+  return <h2 id={id} className="text-xl font-semibold text-white">{children}</h2>
 }
 
 export function DialogDescription({ children }: DialogDescriptionProps) {

@@ -14,7 +14,6 @@ import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '@/app/api/auth/lib';
 import { db } from '@/lib/db';
 import { canEditProject } from '@/lib/project-share';
-import { createAsset, listAssetsByType } from '@/lib/repos/asset-repo';
 import { buildSketchGenPrompt } from '@/lib/storyboard-sketch';
 
 export const runtime = 'nodejs';
@@ -42,30 +41,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const aspectRatio = typeof body?.aspectRatio === 'string' ? body.aspectRatio : '16:9';
 
   let sketchUrl: string | null = null;
-  const stageMeta: Record<string, unknown> = {};
 
   if (mode === 'stage') {
     // 舞台渲草图:不花钱、不调引擎。没摆过位就明确说,而不是渲一张空白图糊弄。
-    const { getStageScene } = await import('@/lib/stage-scene-store');
-    const scene = await getStageScene(id, shotNumber);
-    if (!scene) {
+    // v12.462:渲图 + 落库收进 lib/stage-sketch-store —— 保存站位时也要按同一口径重渲。
+    const { renderStageSketchForShot } = await import('@/lib/stage-sketch-store');
+    let r: Awaited<ReturnType<typeof renderStageSketchForShot>>;
+    try {
+      r = await renderStageSketchForShot(id, shotNumber, sketchMeta);
+    } catch (e) {
+      return NextResponse.json({ error: `草图落库失败: ${e instanceof Error ? e.message.slice(0, 120) : e}` }, { status: 500 });
+    }
+    if (!r) {
       return NextResponse.json(
         { error: `第 ${shotNumber} 镜还没在导演台摆过位 —— 先摆位(POST /api/projects/${id}/stage)再渲草图` },
         { status: 409 },
       );
     }
-    const { renderStageSketch, sketchMetaFromScene } = await import('@/lib/stage-sketch');
-    const { storagePut } = await import('@/lib/storage');
-    const { frameSize } = await import('@/lib/stage-blocking');
-    // v12.439:尺寸按**项目画幅**(getStageScene 已挂上 scene.aspect),不看请求体的 aspectRatio ——
-    // 导演台从来不传它,修前竖屏项目的舞台草图一律出 960×540 横图,而几何又按 36×24 投影,人被拉宽。
-    // 图的宽高比与投影同源(frameSize 走 sensorDims),草图才与提示词里的站位/景别一致。
-    const { width: w, height: h } = frameSize(scene.aspect);
-    const png = renderStageSketch(scene, { width: w, height: h });
-    const put = await storagePut(png, 'image/png', 'png');
-    sketchUrl = put.url;
-    // 镜头元数据也由舞台算出来 —— 与草图同源,不让用户再填一遍
-    if (!body?.sketchMeta) Object.assign(stageMeta, sketchMetaFromScene(scene));
+    return NextResponse.json({
+      shotNumber, mode, sketchUrl: r.sketchUrl,
+      hint: '重生该镜分镜图时传 sketchLock:true 即用此草图锁构图(POST recompose/regenerate-storyboard)',
+    });
   } else if (mode === 'set') {
     const url = typeof body?.imageUrl === 'string' ? body.imageUrl : '';
     if (!url.startsWith('http')) {
@@ -95,20 +91,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!sketchUrl) return NextResponse.json({ error: '未能得到草图 URL' }, { status: 500 });
 
-  // 落 storyboard-sketch 资产(每镜留最新一张:先删该镜旧草图再建)
+  // 落 storyboard-sketch 资产(每镜留最新一张:先删该镜旧草图再建)—— v12.462 与导演台重渲共用一份口径
   const finalSketchUrl: string = sketchUrl;
   try {
-    const existing = await listAssetsByType(id, 'storyboard-sketch');
-    // 只删同镜号的旧草图(deleteAssetsByType 会删全部,故用逐条删同镜号)
-    const { assetShotNumber } = await import('@/lib/heal-shots');
-    for (const a of existing.filter((x: any) => assetShotNumber(x) === shotNumber)) {
-      try { db.prepare('DELETE FROM project_assets WHERE id = ?').run((a as any).id); } catch { /* ignore */ }
-    }
-    // v12.347:草图 URL 可能是引擎外链,原本直接当 persistent_url 存 —— 库里 9 条假持久就是这么来的。
-    const { persistAsset } = await import('@/lib/asset-storage');
-    const sketchPersisted = await persistAsset(finalSketchUrl).catch(() => null);
-    if (!sketchPersisted) console.warn(`[shot-sketch] 落盘失败,回退外链(会过期):${String(finalSketchUrl).slice(0, 80)}`);
-    await createAsset({ projectId: id, type: 'storyboard-sketch', name: `Shot ${shotNumber} 构图草图`, data: { mode, sketchMeta: sketchMeta || (Object.keys(stageMeta).length ? stageMeta : null) }, mediaUrls: [sketchPersisted?.url || finalSketchUrl], shotNumber, persistentUrl: sketchPersisted?.url || null });
+    const { storeShotSketch } = await import('@/lib/stage-sketch-store');
+    await storeShotSketch(id, shotNumber, finalSketchUrl, { mode, sketchMeta: sketchMeta || null });
   } catch (e) {
     return NextResponse.json({ error: `草图落库失败: ${e instanceof Error ? e.message.slice(0, 120) : e}`, sketchUrl }, { status: 500 });
   }

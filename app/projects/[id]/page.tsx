@@ -40,7 +40,7 @@ import { InviteProjectButton } from '@/components/project/invite-project-button'
 import { ShotCinematographyModal } from '@/components/project/shot-cinematography-modal';
 import { DirectorStageModal } from '@/components/project/director-stage-modal';
 import { FrameInspectModal } from '@/components/project/frame-inspect-modal';
-import type { StageScene } from '@/lib/stage-blocking';
+import { stagedShotsFromAssets, type StageScene, type StageSketchInfo } from '@/lib/stage-blocking';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
 import { HealShotsButton } from '@/components/project/heal-shots-button';
@@ -165,7 +165,7 @@ export default function ProjectDetailPage() {
   const [inspectShot, setInspectShot] = useState<InspectShot | null>(null);
   const [specOverrides, setSpecOverrides] = useState<Record<number, ShotSpec>>({});
   // v12.318 导演台:当前打开的镜 + 已摆过位的镜号(chip 高亮用,省一次全量刷新)
-  const [stageShot, setStageShot] = useState<{ shotNumber: number; title?: string; scene?: StageScene | null; characters?: string[] } | null>(null);
+  const [stageShot, setStageShot] = useState<{ shotNumber: number; title?: string; scene?: StageScene | null; characters?: string[]; sketch?: StageSketchInfo | null } | null>(null);
   // v12.330:逐帧检视 —— v12.315 的片段重拍与 v12.328 的逐帧检视此前都只有 API、没有入口
   const [frameShot, setFrameShot] = useState<{ shotNumber: number; title?: string } | null>(null);
   const [stagedShots, setStagedShots] = useState<Record<number, true>>({});
@@ -355,9 +355,12 @@ export default function ProjectDetailPage() {
   const videos = assets.filter((a: any) => a.type === 'video').sort((a: any, b: any) => (a.shotNumber || 0) - (b.shotNumber || 0));
   // v12.1.0 片段预览叠播配音:镜号 → shot-audio(TTS 配音)URL
   const shotAudioByShot: Record<number, string> = {};
+  // v12.462:「已摆位」以库里的舞台为准 —— 修前只认本次会话里点过保存的镜,刷新后全部变回「导演台 · 摆位」
+  const stagedFromAssets = stagedShotsFromAssets(assets);
   for (const a of assets as any[]) {
     if (a.type === 'shot-audio' && typeof a.shotNumber === 'number' && a.mediaUrls?.[0]) shotAudioByShot[a.shotNumber] = a.mediaUrls[0];
   }
+  const isStaged = (n: number) => !!(stagedShots[n] || stagedFromAssets[n]);
   const timeline = assets.find((a: any) => a.type === 'timeline');
   const review = project.directorNotes;
   // v12.425 导演评分可能只有壳没有分(旧项目/评审未跑完)——
@@ -867,23 +870,25 @@ export default function ProjectDetailPage() {
                         <button
                           onClick={async () => {
                             let scene: StageScene | null = null;
+                            let sketch: StageSketchInfo | null = null;
                             try {
                               const r = await fetch(`/api/projects/${id}/stage?shot=${sb.shotNumber}`);
-                              if (r.ok) scene = (await r.json())?.scene ?? null;
+                              if (r.ok) { const b = await r.json(); scene = b?.scene ?? null; sketch = b?.sketch ?? null; }
                             } catch { /* 读不到就当没摆过,不拦开台 */ }
                             setStageShot({
                               shotNumber: sb.shotNumber,
                               title: sb.data?.description?.slice(0, 60),
                               scene,
+                              sketch,
                               characters: scriptShot?.characters,
                             });
                           }}
                           title="导演台 — 拖人摆位、定机位、实时构图体检"
                           className="mt-1 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--cinema-border)] hover:border-[var(--cinema-amber)] transition"
                         >
-                          <UsersThree size={11} className={stagedShots[sb.shotNumber] ? 'text-[var(--cinema-amber)]' : 'text-[var(--cinema-text-3)]'} />
+                          <UsersThree size={11} className={isStaged(sb.shotNumber) ? 'text-[var(--cinema-amber)]' : 'text-[var(--cinema-text-3)]'} />
                           <span className="cinema-mono text-[9px] truncate opacity-75">
-                            {stagedShots[sb.shotNumber] ? '已摆位 · 导演台' : '导演台 · 摆位'}
+                            {isStaged(sb.shotNumber) ? '已摆位 · 导演台' : '导演台 · 摆位'}
                           </span>
                         </button>
                       </div>
@@ -1344,6 +1349,7 @@ export default function ProjectDetailPage() {
           shotNumber={stageShot.shotNumber}
           shotTitle={stageShot.title}
           initialScene={stageShot.scene}
+          initialSketch={stageShot.sketch}
           aspect={project?.aspect}
           characterNames={stageShot.characters}
           onClose={() => setStageShot(null)}

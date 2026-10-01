@@ -129,7 +129,8 @@ describe('v12.347 两个漏落盘的端点', () => {
       'app/api/projects/[id]/heal-shots/route.ts',
       'app/api/projects/[id]/candidates/pick/route.ts',
       'app/api/projects/[id]/anytext-cover/route.ts',
-      'app/api/projects/[id]/shot-sketch/route.ts',
+      // v12.462:草图落库收进 lib/stage-sketch-store(shot-sketch 路由与保存站位共用)
+      'lib/stage-sketch-store.ts',
     ]) expect(read(rel)).toMatch(/会过期/);
   });
 

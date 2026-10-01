@@ -182,7 +182,12 @@ export async function POST(
 
         // 用户的 customPrompt 先经 sanitize + 加 --no text 等通用负向 prompt
         const { optimizeMidjourneyPrompt } = await import('@/lib/prompt-filter');
-        const finalPrompt = optimizeMidjourneyPrompt(customPrompt.trim());
+        // v12.462:整张重生要带导演台站位。修前只有出视频的路径读舞台(v12.440 接了五条),
+        // 分镜图重生直接拿用户那句 prompt 出图 —— 而导演台保存后说的是「该镜后续出片会带上这份站位」,
+        // 草图锁的提示也是「重生该镜分镜图时开启草图锁即用它」。站位句要在 optimize 之前加:
+        // 它会在末尾追加 `--no text …` 参数,站位句落在参数后面会被当成参数的一部分。
+        const { withStageDirective } = await import('@/lib/stage-scene-store');
+        const finalPrompt = optimizeMidjourneyPrompt(await withStageDirective(projectId, shotNumber, customPrompt.trim()));
 
         // v2.24 B: 引用图优先级 — 用户上传的 referenceImage > Style Bible
         // sref 通道: 用户上传 > styleAnchor; cref 不变 (主角脸独立通道)

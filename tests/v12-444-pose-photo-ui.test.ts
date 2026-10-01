@@ -20,6 +20,12 @@ vi.mock('@mediapipe/tasks-vision', () => ({
   },
 }));
 vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ close: () => {} })));
+// v12.462:识别前先 HEAD 探测三个自托管文件在不在 —— 缺哪个就直说缺哪个
+const assets = { missing: [] as string[] };
+vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  const f = String(url).split('/').pop() || '';
+  return { ok: !assets.missing.includes(f), status: assets.missing.includes(f) ? 404 : 200, json: async () => ({}) };
+}));
 
 const IDX = { nose: 0, lShoulder: 11, rShoulder: 12, lWrist: 15, rWrist: 16, lHip: 23, rHip: 24, lKnee: 25, rKnee: 26, lAnkle: 27, rAnkle: 28 };
 function standing(extra: Partial<Record<keyof typeof IDX, [number, number, number?]>> = {}) {
@@ -52,7 +58,7 @@ const pick = async () => {
   return document.querySelector('[data-pose-photo-msg]')!.textContent || '';
 };
 
-beforeEach(() => { mock.landmarks = [standing({ rWrist: [0.68, 0.12] })]; mock.throwOn = null; });
+beforeEach(() => { mock.landmarks = [standing({ rWrist: [0.68, 0.12] })]; mock.throwOn = null; assets.missing = []; });
 afterEach(async () => { (await import('@testing-library/react')).cleanup(); });
 
 describe('v12.444 · 识别成功就写回人物', () => {
@@ -85,10 +91,30 @@ describe('v12.444 · 三种失败三种话', () => {
     expect(await pick()).toContain('这台设备');
   });
 
-  it('这份部署没带模型文件', async () => {
+  it('这份部署缺模型文件 → 点名缺哪个、怎么补(v12.462 起先探测,不等加载报错再猜)', async () => {
+    assets.missing = ['pose_landmarker_lite.task'];
+    await open();
+    const msg = await pick();
+    expect(msg).toContain('缺少姿态识别文件');
+    expect(msg).toContain('pose_landmarker_lite.task');
+    expect(msg).toContain('npm run prebuild');
+  });
+
+  it('**缺 wasm 文件(新克隆直接 npm run dev 的情形)→ 说缺文件,不说「设备跑不了」**', async () => {
+    // 修前:缺文件时 MediaPipe 的报错里带着 vision_wasm_internal…,先命中 /wasm/,被说成用户设备不行
+    assets.missing = ['vision_wasm_internal.js', 'vision_wasm_internal.wasm'];
+    await open();
+    const msg = await pick();
+    expect(msg).toContain('vision_wasm_internal.wasm');
+    expect(msg).not.toContain('这台设备');
+  });
+
+  it('文件都在、加载仍失败 → 把原话给出来,不笼统归咎于部署或设备', async () => {
     mock.throwOn = 'model';
     await open();
-    expect(await pick()).toContain('没带姿态模型');
+    const msg = await pick();
+    expect(msg).toContain('识别失败');
+    expect(msg).toContain('Failed to load model');
   });
 
   it('照片里没认出人', async () => {
@@ -124,6 +150,9 @@ describe('v12.444 · 资产与打包', () => {
     const ignore = fs.readFileSync(path.join(REPO, '.gitignore'), 'utf-8');
     expect(ignore, 'wasm 不入库').toContain('/public/vendor/mediapipe/*.wasm');
     expect(ignore, '模型要入库(别被同目录规则误伤)').not.toContain('/public/vendor/mediapipe/*.task');
+    // v12.462:开发模式也要拷 —— 修前只有 prebuild,新克隆 `npm run dev` 时照片识别直接用不了
+    const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf-8'));
+    expect(pkg.scripts.predev, 'npm run dev 前也要把 wasm 拷到 public/').toContain('fetch-pose-model');
     // Dockerfile 整目录 COPY public/,所以这些文件天然进镜像;顺手锁住这个前提
     expect(fs.readFileSync(path.join(REPO, 'Dockerfile'), 'utf-8')).toMatch(/COPY .*\/app\/public \.\/public/);
   });

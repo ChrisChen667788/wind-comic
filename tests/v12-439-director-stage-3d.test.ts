@@ -28,6 +28,8 @@ vi.mock('@/lib/repos/asset-repo', () => ({
   listAssetsByType: vi.fn(async (_pid: string, type: string) => (type === 'stage-scene' ? stored.rows : [])),
   createAsset: vi.fn(async () => ({ id: 'a1' })),
   listProjectAssets: vi.fn(async () => []), getAsset: vi.fn(), updateAssetDataInProject: vi.fn(),
+  // v12.462:草图落库收进 lib/stage-sketch-store(删同镜旧草图走 deleteAsset)
+  deleteAsset: vi.fn(async () => true), setAssetsStaleByShots: vi.fn(async () => 0),
 }));
 
 vi.mock('@/lib/auth-guard', () => ({ requireProjectAccess: vi.fn(async () => ({ ok: true, userId: 'u1' })) }));

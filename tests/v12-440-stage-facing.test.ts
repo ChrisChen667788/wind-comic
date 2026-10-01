@@ -37,7 +37,9 @@ describe('v12.440 · 旧数据逐字不变(期望值取自 v12.439 代码)', () 
     },
     {
       scene: { camera: { x: 0.5, z: -1, yawDeg: -5, lens: '50', heightM: 0.8 }, actors: [{ id: 'a', name: '沈青梧', x: 0, z: 5 }, { id: 'b', x: 0.1, z: 8 }], aspect: '9:16' },
-      d: '. Staging: 沈青梧 at frame center in wide shot; b right of center in wide shot, partially occluded by 沈青梧',
+      // v12.462 有意改变:非平视的舞台,提示词带上机位角。这一条的中文描述一直写着「低角度仰拍」,
+      // 英文提示词却只字不提 —— 机高滑杆对出片毫无作用,正是 v12.462 修的两套口径。平视(上一条)仍逐字不变。
+      d: '. Staging: low-angle camera looking up; 沈青梧 at frame center in wide shot; b right of center in wide shot, partially occluded by 沈青梧',
       c: '低角度仰拍机位,23° 水平视角;沈青梧位于画面中央(远景,距机位约 6.0 米);b位于中偏右(远景,距机位约 9.0 米,被沈青梧部分遮挡)。',
     },
   ];

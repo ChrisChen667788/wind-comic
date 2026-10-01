@@ -156,18 +156,28 @@ describe('v12.317 · 画的内容与几何一致', () => {
 });
 
 describe('v12.317 · 接线:复用既有 sketch 通道,不新开参考图', () => {
+  // v12.462:渲图 + 落库收进 lib/stage-sketch-store(保存站位时也要按同一口径重渲),这里跟着读那一份
+  const STORE = fs.readFileSync('lib/stage-sketch-store.ts', 'utf-8');
+  const STORE_RENDER = STORE.slice(STORE.indexOf('export async function renderStageSketchForShot'));
+
   it('路由多了 stage 模式,且仍落同一个 storyboard-sketch 资产', () => {
     expect(ROUTE).toContain("'stage'");
-    expect(ROUTE).toContain('renderStageSketch');
-    expect(ROUTE).toContain("type: 'storyboard-sketch'");
+    expect(ROUTE).toContain('renderStageSketchForShot(');
+    expect(STORE_RENDER).toContain('renderStageSketch(');
+    expect(STORE).toContain("SHOT_SKETCH_TYPE = 'storyboard-sketch'");
+    expect(STORE).toMatch(/createAsset\(\{\s*projectId, type: SHOT_SKETCH_TYPE/);
+    // 其它两种来源也走同一个落库口径
+    expect(ROUTE).toContain('storeShotSketch(');
   });
 
   it('**stage 模式不调引擎、不花钱**(这正是它相对 AI 画草图的优势)', () => {
     const i = ROUTE.indexOf("if (mode === 'stage')");
     const block = ROUTE.slice(i, ROUTE.indexOf("} else if (mode === 'set')", i));
     expect(i).toBeGreaterThan(0);
+    expect(block, '窗口自证:切到的确实是 stage 分支').toContain('renderStageSketchForShot(');
     expect(block, 'stage 分支不该调生成引擎').not.toContain('generateImage');
-    expect(block).toContain('storagePut');
+    expect(STORE_RENDER, '渲草图那一份也不该调生成引擎').not.toContain('generateImage');
+    expect(STORE_RENDER).toContain('storagePut');
   });
 
   it('没摆过位时明确说,而不是渲一张空白图糊弄', () => {
@@ -183,8 +193,9 @@ describe('v12.317 · 接线:复用既有 sketch 通道,不新开参考图', () =
   it('画幅取项目(scene.aspect),不信请求体(竖屏短剧不能拿横屏草图锁构图)', () => {
     const i = ROUTE.indexOf("if (mode === 'stage')");
     const block = ROUTE.slice(i, ROUTE.indexOf("} else if (mode === 'set')", i));
-    expect(block).toContain('frameSize(scene.aspect)');
-    expect(block, '请求体的 aspectRatio 只给 AI 生成模式用').not.toMatch(/aspectRatio\s*===/);
+    expect(STORE_RENDER).toContain('frameSize(scene.aspect)');
+    expect(block, '窗口自证:切到的确实是 stage 分支').toContain('renderStageSketchForShot(');
+    expect(block, '请求体的 aspectRatio 只给 AI 生成模式用').not.toMatch(/aspectRatio/);
   });
 
   it('**草图进引擎前过 toEngineImage** —— 否则本地图够不着,草图锁静默失效', () => {

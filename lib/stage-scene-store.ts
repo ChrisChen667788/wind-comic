@@ -11,7 +11,9 @@
 import type { StageScene } from './stage-blocking';
 import { describeStaging, auditStaging, projectScene } from './stage-blocking';
 
-export const STAGE_SCENE_TYPE = 'stage-scene';
+// v12.462:常量挪到纯几何层(客户端项目页要用),这里再导出,服务端调用方不必改
+import { STAGE_SCENE_TYPE } from './stage-blocking';
+export { STAGE_SCENE_TYPE };
 
 export interface StoredStageScene extends StageScene {
   shotNumber: number;
