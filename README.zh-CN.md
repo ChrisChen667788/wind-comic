@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v12.463</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v12.464</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -242,7 +242,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **6260 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **6274 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -312,7 +312,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 | 拉片分析 · 五栏出厂真值 | 分镜规格 · 出厂参数 + 一致性仪表 |
 |---|---|
 | ![拉片](assets/v12-425/15-pull-sheet.jpg) | ![分镜规格](assets/v12-425/13-storyboard-specs.jpg) |
-| 每镜给出叙事要素 / 时间 / 镜头语言 / 影像处理 / 声音五栏,且是**流水线生成时的真实摄影语言,不是 AI 事后看图反推**;可导出 CSV / 剧本册 MD / PDF,也能回灌外部片子做复刻。 | 画幅 / 色彩 / 帧率 / 安全框是**工程参数不是滤镜**(Scope 2.39:1 · ACES 1.3 · 24fps),真实进入生成 prompt 与导出参数;右侧逐镜一致性打分,低分镜一键跳转重生。 |
+| 每镜给出叙事要素 / 时间 / 镜头语言 / 影像处理 / 声音五栏,且是**流水线生成时的真实摄影语言,不是 AI 事后看图反推**;可导出 CSV / 剧本册 MD / PDF,也能回灌外部片子做复刻。 | 画幅取项目创建时选定的 `projects.aspect`(整片生成、分镜构图、导演台同一来源),格式条只读显示;帧率进入 EDL / AAF 导出与片段重拍;色彩空间与安全框目前只记录、不进生成。右侧逐镜一致性打分,低分镜一键跳转重生。 |
 
 > ⚠️ **撤回一条旧结论**:v12.416 那轮在这里写过「点项目页 tab 与滚 body 都不换视图」。**那条是错的。**
 > 真因是标签栏在折叠线以下,坐标点击打空;先 `scrollIntoView` 再 `el.click()` 就能切换,本轮 12 张靠它拍成。
@@ -446,7 +446,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 6260/6260 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 6274/6274 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

@@ -776,8 +776,8 @@ export default function ProjectDetailPage() {
           {/* 分镜 */}
           {activeTab === 'storyboard' && (
             <div>
-              {/* v7.4 项目级格式条 (画幅/色彩/帧率/安全框) */}
-              <ProjectFormatBar projectId={id} initialFormat={assets.find((a: any) => a.type === 'project-format')?.data} />
+              {/* v7.4 项目级格式条 (画幅/色彩/帧率/安全框);v12.464 画幅改为只读显示 projects.aspect */}
+              <ProjectFormatBar projectId={id} aspect={project?.aspect} initialFormat={assets.find((a: any) => a.type === 'project-format')?.data} />
               {/* Sprint A.4 · 顶部 Cameo 一致性汇总条 + 批量重生按钮 */}
               <CameoSummary
                 storyboards={storyboards}

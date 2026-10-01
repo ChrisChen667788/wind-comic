@@ -1,8 +1,11 @@
 /**
- * /api/projects/[id]/format · v7.4 — 项目级格式 (画幅 / 色彩空间 / 帧率 / 安全框)
+ * /api/projects/[id]/format · v7.4 — 项目级格式 (色彩空间 / 帧率 / 安全框)
  *
- * GET  → { format }                  读当前 (无则默认 Scope/ACES/24/安全框)
+ * GET  → { format }                  读当前 (无则默认 ACES/24/安全框)
  * POST { format } → { ok, format }   upsert 到 project_assets type='project-format'
+ *
+ * v12.464:画幅不归这里 —— 只有 `projects.aspect` 一处(详情接口吐 `aspect`)。旧资产里的 `aspectId`
+ * 读时由 normalizeProjectFormat 丢弃,请求体带了也不落库。
  */
 
 import { NextRequest, NextResponse } from 'next/server';

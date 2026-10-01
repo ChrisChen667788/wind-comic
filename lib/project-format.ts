@@ -1,29 +1,18 @@
 /**
  * lib/project-format (v7.4) — 项目级格式 / 色彩 / 帧率预设 (对标 CineFlow Director's Suite 顶栏)
  *
- * 纯逻辑 + 预设:画幅(IMAX/Scope/竖屏…) · 色彩空间(ACES/LogC/Rec709…) · 帧率(24-120fps升格) · 安全框。
- *   - compileFormatPrompt(): → 生成提示词片段 (画幅质感)
- *   - aspectRatioOf(): → 喂给生成接口的 '9:16' 字符串
+ * 纯逻辑 + 预设:色彩空间(ACES/LogC/Rec709…) · 帧率(24-120fps升格) · 安全框。
+ *   - compileFormatPrompt(): → 生成提示词片段
  *   - describeFormat(): → 中文一行摘要
+ *   - describeProjectAspect(): → 格式条上显示的画幅(取自 projects.aspect,见下)
+ *
+ * v12.464:**画幅不在这里**。v7.4 起这里有一份 `aspectId`(默认 Scope 2.39:1)和 `aspectRatioOf()`,
+ * 但全仓没有任何生成代码读过它 —— 真正决定出片、分镜构图、导演台几何的是 v10.6.0 的 `projects.aspect`。
+ * 结果是 9:16 项目的格式条写着「Scope 2.39:1」,改了也不生效。现在画幅只有 `projects.aspect` 一处,
+ * 格式条只读显示它;旧资产里残留的 `aspectId` 在 normalize 时丢弃。
  */
 
-export interface AspectPreset {
-  id: string;
-  label: string;     // IMAX 1.43:1
-  ratio: string;     // 生成接口用 '16:9' / '9:16' / '2.39:1'
-  prompt: string;    // 英文质感片段
-}
-
-export const FORMAT_PRESETS: AspectPreset[] = [
-  { id: 'imax',     label: 'IMAX 1.43:1',  ratio: '1.43:1', prompt: 'IMAX 1.43:1 full-frame, immersive scale' },
-  { id: 'scope',    label: 'Scope 2.39:1', ratio: '2.39:1', prompt: 'anamorphic cinemascope 2.39:1, ultra widescreen' },
-  { id: 'flat',     label: 'Flat 1.85:1',  ratio: '1.85:1', prompt: 'theatrical flat 1.85:1' },
-  { id: '16:9',     label: '16:9 横屏',    ratio: '16:9',   prompt: '16:9 widescreen' },
-  { id: '9:16',     label: '9:16 竖屏',    ratio: '9:16',   prompt: '9:16 vertical for mobile' },
-  { id: '1:1',      label: '1:1 方形',     ratio: '1:1',    prompt: '1:1 square' },
-  { id: '4:3',      label: '4:3 经典',     ratio: '4:3',    prompt: '4:3 classic academy' },
-  { id: '2.35:1',   label: '2.35:1',       ratio: '2.35:1', prompt: '2.35:1 widescreen' },
-];
+import { normalizeVideoAspect } from './video-aspect';
 
 export interface ColorSpacePreset { id: string; label: string; prompt: string; }
 export const COLOR_SPACES: ColorSpacePreset[] = [
@@ -37,7 +26,6 @@ export const COLOR_SPACES: ColorSpacePreset[] = [
 export const FRAME_RATES = [24, 25, 30, 48, 60, 120] as const;
 
 export interface ProjectFormat {
-  aspectId: string;
   colorSpaceId: string;
   fps: number;
   /** 安全框叠层 (Title/Action Safe) */
@@ -45,32 +33,24 @@ export interface ProjectFormat {
 }
 
 export const DEFAULT_PROJECT_FORMAT: ProjectFormat = {
-  aspectId: 'scope', colorSpaceId: 'aces', fps: 24, safeArea: true,
+  colorSpaceId: 'aces', fps: 24, safeArea: true,
 };
 
-export const getAspect = (id: string) => FORMAT_PRESETS.find((p) => p.id === id);
 export const getColorSpace = (id: string) => COLOR_SPACES.find((p) => p.id === id);
 
 export function normalizeProjectFormat(raw: any): ProjectFormat {
   const r = raw && typeof raw === 'object' ? raw : {};
   return {
-    aspectId: FORMAT_PRESETS.some((p) => p.id === r.aspectId) ? r.aspectId : DEFAULT_PROJECT_FORMAT.aspectId,
     colorSpaceId: COLOR_SPACES.some((p) => p.id === r.colorSpaceId) ? r.colorSpaceId : DEFAULT_PROJECT_FORMAT.colorSpaceId,
     fps: (FRAME_RATES as readonly number[]).includes(Number(r.fps)) ? Number(r.fps) : DEFAULT_PROJECT_FORMAT.fps,
     safeArea: r.safeArea === undefined ? true : !!r.safeArea,
   };
 }
 
-/** 喂给生成接口的画幅比例字符串 (如 '9:16') */
-export function aspectRatioOf(f: ProjectFormat): string {
-  return getAspect(normalizeProjectFormat(f).aspectId)?.ratio || '16:9';
-}
-
-/** 项目格式 → 生成提示词片段 (画幅质感 + 色彩 + 升格) */
+/** 项目格式 → 生成提示词片段 (色彩 + 升格) */
 export function compileFormatPrompt(f: ProjectFormat): string {
   const n = normalizeProjectFormat(f);
   const parts = [
-    getAspect(n.aspectId)?.prompt,
     getColorSpace(n.colorSpaceId)?.prompt,
     n.fps >= 48 ? `${n.fps}fps high frame rate for slow motion` : `${n.fps}fps cinematic`,
   ].filter((p): p is string => !!p && p.length > 0);
@@ -80,9 +60,20 @@ export function compileFormatPrompt(f: ProjectFormat): string {
 export function describeFormat(f: ProjectFormat): string {
   const n = normalizeProjectFormat(f);
   return [
-    getAspect(n.aspectId)?.label,
     getColorSpace(n.colorSpaceId)?.label,
     `${n.fps}fps`,
     n.safeArea ? '安全框' : null,
   ].filter(Boolean).join(' · ');
+}
+
+const ASPECT_LABELS: Record<string, string> = { '9:16': '9:16 竖屏', '16:9': '16:9 横屏', '1:1': '1:1 方形' };
+
+/**
+ * v12.464:项目画幅(`projects.aspect`)→ 格式条上的显示。
+ * 空值按库列默认 16:9(与详情接口同一口径)。`engineReady` = 视频引擎能原样出这个比例
+ * (引擎只收 16:9 / 9:16 / 1:1,判定沿用 `normalizeVideoAspect`,不另立一份清单)。
+ */
+export function describeProjectAspect(aspect?: string | null): { ratio: string; label: string; engineReady: boolean } {
+  const ratio = typeof aspect === 'string' && aspect.trim() ? aspect.trim() : '16:9';
+  return { ratio, label: ASPECT_LABELS[ratio] ?? ratio, engineReady: normalizeVideoAspect(ratio) === ratio };
 }

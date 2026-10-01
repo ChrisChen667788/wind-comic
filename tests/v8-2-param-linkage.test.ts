@@ -36,7 +36,7 @@ describe('paramDocToJson / parseParamDoc 往返', () => {
     const doc = buildParamDoc({
       shots: [{ shotNumber: 1, cameraSpec: { shotSize: 'WS', lighting: { setup: 'low-key', keyTempK: 3200, contrast: 'high' } } }],
       continuity: { linkMode: 'last-frame', mainSeed: 42 },
-      format: { aspectId: '9:16', fps: 30 },
+      format: { colorSpaceId: 'rec709', fps: 30 },
     });
     const json = paramDocToJson(doc);
     const parsed = parseParamDoc(json);
@@ -61,7 +61,7 @@ describe('paramDocToJson / parseParamDoc 往返', () => {
 
 describe('diffParamDoc', () => {
   // 固定 continuity/format 基线 (避免随机种子导致 continuity 误判变化 — 真实场景下 next 由序列化文档解析而来, 种子已固定)
-  const fixed = { continuity: { mainSeed: 1, auxSeed: 2 }, format: { aspectId: 'scope' } };
+  const fixed = { continuity: { mainSeed: 1, auxSeed: 2 }, format: { fps: 24 } };
   const base = buildParamDoc({
     shots: [{ shotNumber: 1, cameraSpec: { shotSize: 'MS' } }, { shotNumber: 2, cameraSpec: { shotSize: 'WS' } }],
     ...fixed,
@@ -80,7 +80,7 @@ describe('diffParamDoc', () => {
   it('格式/连贯性变化检出', () => {
     const next = buildParamDoc({
       shots: [{ shotNumber: 1, cameraSpec: { shotSize: 'MS' } }, { shotNumber: 2, cameraSpec: { shotSize: 'WS' } }],
-      format: { aspectId: '9:16' },
+      format: { fps: 30 },
       continuity: { mainSeed: 1, auxSeed: 2, linkMode: 'hard-cut' },
     });
     const d = diffParamDoc(base, next);

@@ -10,8 +10,8 @@ import {
   colorTempWord, getLightingSetup,
 } from '@/lib/cinematography';
 import {
-  FORMAT_PRESETS, COLOR_SPACES, FRAME_RATES, DEFAULT_PROJECT_FORMAT,
-  normalizeProjectFormat, aspectRatioOf, compileFormatPrompt, describeFormat,
+  COLOR_SPACES, FRAME_RATES, DEFAULT_PROJECT_FORMAT,
+  normalizeProjectFormat, compileFormatPrompt, describeFormat,
 } from '@/lib/project-format';
 
 describe('v7.4 光影/摄影机 预设', () => {
@@ -87,34 +87,29 @@ describe('describeShotSpec 含光影 (非自然时)', () => {
 });
 
 describe('lib/project-format', () => {
+  // v12.464:画幅预设(FORMAT_PRESETS / aspectId / aspectRatioOf)已删 —— 没有任何生成代码读它,
+  // 项目画幅只有 projects.aspect 一处(见 tests/v12-464-format-bar-aspect)。
   it('预设非空 + 帧率含 24/120', () => {
-    expect(FORMAT_PRESETS.length).toBeGreaterThanOrEqual(6);
     expect(COLOR_SPACES.some((c) => c.id === 'aces')).toBe(true);
     expect(FRAME_RATES).toContain(24);
     expect(FRAME_RATES).toContain(120);
   });
-  it('默认: Scope + ACES + 24fps + 安全框', () => {
-    expect(DEFAULT_PROJECT_FORMAT).toEqual({ aspectId: 'scope', colorSpaceId: 'aces', fps: 24, safeArea: true });
+  it('默认: ACES + 24fps + 安全框', () => {
+    expect(DEFAULT_PROJECT_FORMAT).toEqual({ colorSpaceId: 'aces', fps: 24, safeArea: true });
   });
   it('normalize 非法回落 / 合法保留', () => {
     expect(normalizeProjectFormat(null)).toEqual(DEFAULT_PROJECT_FORMAT);
-    const out = normalizeProjectFormat({ aspectId: '9:16', colorSpaceId: 'NOPE', fps: 999, safeArea: false });
-    expect(out.aspectId).toBe('9:16');
+    const out = normalizeProjectFormat({ colorSpaceId: 'NOPE', fps: 999, safeArea: false });
     expect(out.colorSpaceId).toBe('aces'); // 回落
     expect(out.fps).toBe(24);
     expect(out.safeArea).toBe(false);
   });
-  it('aspectRatioOf → 生成接口比例字符串', () => {
-    expect(aspectRatioOf({ ...DEFAULT_PROJECT_FORMAT, aspectId: '9:16' })).toBe('9:16');
-    expect(aspectRatioOf({ ...DEFAULT_PROJECT_FORMAT, aspectId: 'scope' })).toBe('2.39:1');
-  });
   it('compileFormatPrompt + describeFormat', () => {
-    const f = { aspectId: 'imax', colorSpaceId: 'aces', fps: 120, safeArea: true };
+    const f = { colorSpaceId: 'aces', fps: 120, safeArea: true };
     const p = compileFormatPrompt(f);
-    expect(p).toContain('IMAX');
     expect(p).toContain('ACES');
     expect(p).toContain('120fps high frame rate');
-    expect(describeFormat(f)).toContain('IMAX 1.43:1');
+    expect(describeFormat(f)).toContain('ACES 1.3');
     expect(describeFormat(f)).toContain('120fps');
   });
 });
