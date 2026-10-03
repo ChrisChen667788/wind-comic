@@ -132,4 +132,12 @@ describe('定时任务纳入版本控制', () => {
     expect(i).toBeGreaterThan(0);
     expect(sh.slice(Math.max(0, i - 200), i)).toContain('launchctl unload');
   });
+
+  it('收尾只杀本轮保存的进程树,不能误杀其他项目的 next dev', () => {
+    const cron = fs.readFileSync(path.join(process.cwd(), 'scripts/rerun-cron.sh'), 'utf-8');
+    expect(cron).not.toMatch(/pkill\s+-f\s+["']next dev["']/);
+    expect(cron).toContain('DEV_SERVER_PID=$!');
+    expect(cron).toContain('terminate_process_tree "$DEV_SERVER_PID"');
+    expect(cron).toContain('trap stop_owned_dev_server EXIT');
+  });
 });

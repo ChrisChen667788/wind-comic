@@ -18,9 +18,42 @@ command -v node >/dev/null || { say "❌ 找不到 node,退出"; exit 1; }
 
 # dev server:没起就临时起一个,跑完关掉(不动用户自己开着的那个)
 STARTED_BY_US=0
+DEV_SERVER_PID=""
+
+terminate_process_tree() {
+  local pid="${1:-}"
+  if [[ ! "$pid" =~ ^[0-9]+$ ]]; then
+    return
+  fi
+
+  local child
+  while IFS= read -r child; do
+    [ -n "$child" ] && terminate_process_tree "$child"
+  done < <(pgrep -P "$pid" 2>/dev/null || true)
+
+  kill -TERM "$pid" 2>/dev/null || true
+}
+
+stop_owned_dev_server() {
+  if [ "$STARTED_BY_US" -ne 1 ] || [ -z "$DEV_SERVER_PID" ]; then
+    return
+  fi
+
+  # 只能按本轮保存的父子 PID 清理。按进程名做全局匹配会误杀同机
+  # 其他仓库的 Next.js 服务；2026-10-03 曾因此关掉 Anti-FOMO :3010。
+  terminate_process_tree "$DEV_SERVER_PID"
+  STARTED_BY_US=0
+  say "已关闭本次临时启动的 dev server (pid=$DEV_SERVER_PID)"
+}
+
+trap stop_owned_dev_server EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 if ! curl -sf -o /dev/null --max-time 5 http://localhost:3000/; then
   say "dev server 未运行,临时启动…"
   nohup npm run dev >> "$LOG" 2>&1 < /dev/null &
+  DEV_SERVER_PID=$!
   STARTED_BY_US=1
   for i in $(seq 1 60); do
     curl -sf -o /dev/null --max-time 3 http://localhost:3000/ && break
@@ -67,11 +100,7 @@ code=$?
 say "rerun-daily 退出码 $code"
 [ -n "$STALE_WARN" ] && say "$STALE_WARN"
 
-if [ "$STARTED_BY_US" -eq 1 ]; then
-  # 只关我们自己起的那个
-  pkill -f "next dev" 2>/dev/null
-  say "已关闭本次临时启动的 dev server"
-fi
+stop_owned_dev_server
 
 say "──────── 结束 ────────"
 exit 0
