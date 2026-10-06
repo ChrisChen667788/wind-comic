@@ -88,10 +88,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { HybridOrchestrator } = await import('@/services/hybrid-orchestrator');
   const orchestrator = new HybridOrchestrator();
   // v12.132(issue #2 Bug B):补拍也贯通角色参考(此前只 setUserStyle,漏 char ref → 补的镜丢角色)
+  // v12.467:画幅也从这里贯通(补拍出来的镜要和整片同一画幅);下面自动重合成也用它
+  let projectAspect: string | undefined;
   try {
     const { parseProjectContext, applyProjectContext, PROJECT_CONTEXT_COLUMNS } = await import('@/lib/orchestrator-project-context');
     const row = db.prepare(`SELECT ${PROJECT_CONTEXT_COLUMNS} FROM projects WHERE id = ?`).get(id) as any;
-    applyProjectContext(orchestrator, parseProjectContext(row));
+    projectAspect = applyProjectContext(orchestrator, parseProjectContext(row)).aspect || undefined;
   } catch { /* ignore */ }
 
   // 取剧本拿每镜 prompt/时长
@@ -139,7 +141,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const r = await fetch(`${origin}/api/projects/${id}/recompose`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: request.headers.get('authorization') || '', Cookie: request.headers.get('cookie') || '' },
-        body: JSON.stringify({ aspect: body?.aspect || '9:16', captionStyle: body?.captionStyle || 'karaoke' }),
+        body: JSON.stringify({ aspect: body?.aspect || projectAspect || '16:9', captionStyle: body?.captionStyle || 'karaoke' }), // v12.467:原写死 9:16,横屏项目会被重合成竖屏
       });
       recomposed = { status: r.status, ...(await r.json().catch(() => ({}))) };
     } catch (e) {

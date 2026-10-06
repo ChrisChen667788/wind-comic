@@ -4,7 +4,7 @@
  * 为某镜一次生成 N 个**构图各异**的候选关键帧(九宫格),SSE 逐格回流 → 前端网格实时填充 →
  * 用户挑最优(走 /candidates/pick)→ 选中帧作首帧 seed。把 AI 随机性从「碰运气」变「筛选池」。
  *
- * body: { shotNumber:number, basePrompt:string, count?:4|6|9, aspectRatio?, useStyleBible?, useCref? }
+ * body: { shotNumber:number, basePrompt:string, count?:4|6|9, aspectRatio?(缺省=项目画幅), useStyleBible?, useCref? }
  * SSE:
  *   data:{type:'status',message}
  *   data:{type:'candidate', candidate:{id,index,variantLabel,imageUrl}}   // 逐格
@@ -21,6 +21,7 @@ import { getUserFromRequest } from '../../../auth/lib';
 import { assertBudget } from '@/lib/budget-enforce';
 import { buildCandidatePrompts, clampCandidateCount, gridDimensions } from '@/lib/candidate-grid';
 import { resolveConcurrency } from '@/lib/gen-concurrency';
+import { parseProjectAspect } from '@/lib/orchestrator-project-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,11 +30,11 @@ export const maxDuration = 300;
 const EST_COST_PER_IMG_CNY = 0.3;
 
 function getProjectContext(projectId: string): {
-  userId: string | null; styleId: string | null; styleAnchorUrl: string | null; primaryCharacterRef: string | null;
+  userId: string | null; styleId: string | null; styleAnchorUrl: string | null; primaryCharacterRef: string | null; aspect: string | null;
 } {
   try {
-    const proj = db.prepare('SELECT user_id, style_id, primary_character_ref FROM projects WHERE id = ?')
-      .get(projectId) as { user_id?: string; style_id?: string; primary_character_ref?: string } | undefined;
+    const proj = db.prepare('SELECT user_id, style_id, primary_character_ref, aspect FROM projects WHERE id = ?')
+      .get(projectId) as { user_id?: string; style_id?: string; primary_character_ref?: string; aspect?: string | null } | undefined;
     const bibleRow = db.prepare(
       `SELECT media_urls FROM project_assets WHERE project_id = ? AND type = 'styleBible' ORDER BY created_at DESC LIMIT 1`,
     ).get(projectId) as { media_urls?: string } | undefined;
@@ -46,10 +47,11 @@ function getProjectContext(projectId: string): {
       styleId: proj?.style_id || null,
       styleAnchorUrl,
       primaryCharacterRef: proj?.primary_character_ref || null,
+      aspect: parseProjectAspect(proj?.aspect) || null,
     };
   } catch (e) {
     console.warn('[candidates] load ctx failed:', e);
-    return { userId: null, styleId: null, styleAnchorUrl: null, primaryCharacterRef: null };
+    return { userId: null, styleId: null, styleAnchorUrl: null, primaryCharacterRef: null, aspect: null };
   }
 }
 
@@ -91,7 +93,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         if (ctx.styleId) orchestrator.setUserStyle(ctx.styleId);
         if (useStyleBible !== false && ctx.styleAnchorUrl) (orchestrator as unknown as { styleAnchorImageUrl?: string }).styleAnchorImageUrl = ctx.styleAnchorUrl;
         if (useCref !== false && ctx.primaryCharacterRef) orchestrator.setPrimaryCharacterRef(ctx.primaryCharacterRef);
-        if (aspectRatio) orchestrator.setAspect(aspectRatio);
+        // v12.467:没传画幅时用项目画幅(此前缺省 16:9)
+        const effectiveAspect: string = aspectRatio || ctx.aspect || '16:9';
+        orchestrator.setAspect(effectiveAspect);
         const { optimizeMidjourneyPrompt } = await import('@/lib/prompt-filter');
         const { withColorSpace } = await import('@/lib/project-format-store'); // v12.466 项目色彩空间
 
@@ -112,7 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
               const imageUrl = await (orchestrator as unknown as {
                 generateImage: (p: string, o: Record<string, unknown>) => Promise<string>;
               }).generateImage(finalPrompt, {
-                aspectRatio: aspectRatio || '16:9',
+                aspectRatio: effectiveAspect,
                 label: `Shot ${shotNumber} 候选 ${cand.id}(${cand.variantLabel})`,
                 cref: useCref !== false ? ctx.primaryCharacterRef : undefined,
                 sref: useStyleBible !== false ? ctx.styleAnchorUrl : undefined,

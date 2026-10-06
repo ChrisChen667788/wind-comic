@@ -3930,7 +3930,7 @@ ${shots.map((s, i) => {
             const shotMove = (script as any)?.shots?.find((sh: any) => sh.shotNumber === fv.shotNumber)?.cameraMovement;
             const dir: 'in' | 'out' | 'pan' = movementToKenBurns(shotMove)
               ?? (['in', 'out', 'pan'] as const)[i % 3];
-            const localMp4 = await stillFrameToVideo(stillImage, fv.duration || 8, undefined, dir);
+            const localMp4 = await stillFrameToVideo(stillImage, fv.duration || 8, undefined, dir, (await import('@/lib/video-reframe')).dimsForAspect(this.aspect)); // v12.467:占位片跟项目画幅(缺省是 1280x720)
             fv.videoUrl = `${serveFilePathUrl(localMp4)}`;
             (fv as any).isAnimatic = true;
             this.emit('videoClip', fv);
@@ -4355,7 +4355,7 @@ ${characterBibleBlock}${producerContext}
       const { stillFrameToVideo } = await import('./video-composer');
       const { movementToKenBurns } = await import('@/lib/emotion-camera');
       const dir = movementToKenBurns((storyboard as any).cameraMovement || storyboard.prompt) ?? 'in';
-      const localMp4 = await stillFrameToVideo(storyboard.imageUrl, duration, undefined, dir);
+      const localMp4 = await stillFrameToVideo(storyboard.imageUrl, duration, undefined, dir, (await import('@/lib/video-reframe')).dimsForAspect(this.aspect)); // v12.467:同上
       videoUrl = `${serveFilePathUrl(localMp4)}`;
       isAnimatic = true;
       console.warn(`[Regenerate] Shot ${shotNumber} 所有引擎失败 → Ken Burns animatic(${dir})`);

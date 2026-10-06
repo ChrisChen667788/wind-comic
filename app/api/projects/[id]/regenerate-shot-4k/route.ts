@@ -26,6 +26,8 @@ import { API_CONFIG } from '@/lib/config';
 import { checkPlan, planRejection } from '@/lib/plan-gate';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { NextResponse } from 'next/server';
+import { normalizeVideoAspect } from '@/lib/video-aspect';
+import { parseProjectAspect } from '@/lib/orchestrator-project-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -53,6 +55,16 @@ function getStoryboardForShot(
   } catch (e) {
     console.warn('[regen-4k] DB read failed:', e);
     return null;
+  }
+}
+
+/** v12.467:项目画幅 → 视频引擎三档(读不到按 16:9,与编排器默认一致) */
+function projectVideoAspect(projectId: string): '16:9' | '9:16' | '1:1' {
+  try {
+    const row = db.prepare('SELECT aspect FROM projects WHERE id = ?').get(projectId) as { aspect?: string | null } | undefined;
+    return normalizeVideoAspect(parseProjectAspect(row?.aspect));
+  } catch {
+    return '16:9';
   }
 }
 
@@ -122,6 +134,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           videoPrompt,
           {
             duration,
+            aspectRatio: projectVideoAspect(projectId), // v12.467:9:16 项目 4K 重渲也要竖屏
             onProgress: (progress, status) => {
               send('progress', { progress, status, shotNumber });
             },

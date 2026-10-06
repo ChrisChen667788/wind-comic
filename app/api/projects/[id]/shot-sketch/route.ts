@@ -15,6 +15,7 @@ import { getUserFromRequest } from '@/app/api/auth/lib';
 import { db } from '@/lib/db';
 import { canEditProject } from '@/lib/project-share';
 import { buildSketchGenPrompt } from '@/lib/storyboard-sketch';
+import { parseProjectAspect } from '@/lib/orchestrator-project-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const payload = getUserFromRequest(request);
   if (!payload?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const proj = db.prepare('SELECT user_id, style_id FROM projects WHERE id = ?').get(id) as any;
+  const proj = db.prepare('SELECT user_id, style_id, aspect FROM projects WHERE id = ?').get(id) as any;
   if (!proj) return NextResponse.json({ error: 'project not found' }, { status: 404 });
   if (proj.user_id !== payload.sub && !(await canEditProject(id, payload.sub))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -38,7 +39,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const mode: 'generate' | 'set' | 'stage' =
     body?.mode === 'set' ? 'set' : body?.mode === 'stage' ? 'stage' : 'generate';
   const sketchMeta = body?.sketchMeta && typeof body.sketchMeta === 'object' ? body.sketchMeta : undefined;
-  const aspectRatio = typeof body?.aspectRatio === 'string' ? body.aspectRatio : '16:9';
+  // v12.467:没传画幅时用项目画幅(此前缺省 16:9 —— 9:16 项目的草图锁会锁出一张横构图)
+  const aspectRatio = typeof body?.aspectRatio === 'string' ? body.aspectRatio : (parseProjectAspect(proj.aspect) || '16:9');
 
   let sketchUrl: string | null = null;
 

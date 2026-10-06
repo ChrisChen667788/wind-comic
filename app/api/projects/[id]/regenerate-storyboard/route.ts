@@ -8,7 +8,7 @@
  *   customPrompt: string,        // 用户改后的 prompt (会被 optimize + 加 --no text)
  *   useStyleBible?: boolean,     // 默认 true — 用项目的 Style Bible 作首位 sref
  *   useCref?: boolean,           // 默认 true — 用主角图作 cref
- *   aspectRatio?: '16:9'|'9:16'|...
+ *   aspectRatio?: '16:9'|'9:16'|...   // 缺省 = 项目画幅(v12.467)
  * }
  *
  * 200 → SSE stream:
@@ -24,6 +24,7 @@ import { db } from '@/lib/db';
 import { createAsset, listAssetsByType } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { parseProjectAspect } from '@/lib/orchestrator-project-context';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -66,11 +67,12 @@ function getProjectContext(projectId: string): {
   styleId: string | null;
   styleAnchorUrl: string | null;
   primaryCharacterRef: string | null;
+  aspect: string | null;
 } {
   try {
     const proj = db.prepare(
-      'SELECT style_id, primary_character_ref FROM projects WHERE id = ?',
-    ).get(projectId) as { style_id?: string; primary_character_ref?: string } | undefined;
+      'SELECT style_id, primary_character_ref, aspect FROM projects WHERE id = ?',
+    ).get(projectId) as { style_id?: string; primary_character_ref?: string; aspect?: string | null } | undefined;
 
     // 查 Style Bible — saveAsset(projectId, 'styleBible', ...) 把 url 存进 media_urls[0]
     const bibleRow = db.prepare(
@@ -90,10 +92,11 @@ function getProjectContext(projectId: string): {
       styleId: proj?.style_id || null,
       styleAnchorUrl,
       primaryCharacterRef: proj?.primary_character_ref || null,
+      aspect: parseProjectAspect(proj?.aspect) || null,
     };
   } catch (e) {
     console.warn('[regen-sb] failed to load project context:', e);
-    return { styleId: null, styleAnchorUrl: null, primaryCharacterRef: null };
+    return { styleId: null, styleAnchorUrl: null, primaryCharacterRef: null, aspect: null };
   }
 }
 
@@ -176,7 +179,9 @@ export async function POST(
         if (useCref !== false && ctx.primaryCharacterRef) {
           orchestrator.setPrimaryCharacterRef(ctx.primaryCharacterRef);
         }
-        if (aspectRatio) orchestrator.setAspect(aspectRatio);
+        // v12.467:没传画幅时用项目画幅。此前缺省 16:9 —— 一键成片面板的自动重拍从不传,9:16 项目重拍出横图
+        const effectiveAspect: string = aspectRatio || ctx.aspect || '16:9';
+        orchestrator.setAspect(effectiveAspect);
 
         send('status', { message: `调用图像引擎...` });
 
@@ -251,7 +256,7 @@ export async function POST(
 
         // 走 orchestrator 的 generateImage (private), 用 hack 暴露
         const imageUrl = await (orchestrator as any).generateImage(finalPrompt, {
-          aspectRatio: aspectRatio || '16:9',
+          aspectRatio: effectiveAspect,
           label: `Shot ${shotNumber} (manual regen${referenceImageUrl ? ' + userRef' : ''}${effectiveSketchUrl && sketchLock ? ' + sketchLock' : ''})`,
           cref: useCref !== false ? ctx.primaryCharacterRef : undefined,
           sref: effectiveSref,

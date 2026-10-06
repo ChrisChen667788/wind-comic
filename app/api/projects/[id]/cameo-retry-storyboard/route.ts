@@ -28,6 +28,7 @@ import { db, now } from '@/lib/db';
 import { updateAsset } from '@/lib/repos/asset-repo';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { withColorSpace } from '@/lib/project-format-store';
+import { parseProjectAspect } from '@/lib/orchestrator-project-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -124,8 +125,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { HybridOrchestrator } = await import('@/services/hybrid-orchestrator');
   const orchestrator = new HybridOrchestrator();
   try {
-    const proj = db.prepare('SELECT style_id FROM projects WHERE id = ?').get(projectId) as { style_id?: string } | undefined;
+    const proj = db.prepare('SELECT style_id, aspect FROM projects WHERE id = ?').get(projectId) as { style_id?: string; aspect?: string | null } | undefined;
     if (proj?.style_id) orchestrator.setUserStyle(proj.style_id);
+    // v12.467:重画的分镜图要和原图同一画幅 —— 此前编排器停在默认 16:9,9:16 项目重画出横图
+    const aspect = parseProjectAspect(proj?.aspect);
+    if (aspect) orchestrator.setAspect(aspect);
   } catch { /* ignore */ }
 
   const details: Array<{

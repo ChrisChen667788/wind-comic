@@ -391,6 +391,7 @@ export class KlingService {
     prompt: string,
     options?: {
       duration?: number;
+      aspectRatio?: string; // v12.467:与 generateVideo 同口径('16:9'|'9:16'|'1:1');此前 4K 重渲从不传
       onProgress?: ProgressCallback;
     },
   ): Promise<string> {
@@ -412,6 +413,7 @@ export class KlingService {
       // 期望分辨率 (kling 当前最高 1080p, 真 4K 等 master 上线; 多传一个字段不会出错)
       resolution: '4k',
     };
+    if (options?.aspectRatio) body.aspect_ratio = options.aspectRatio;
 
     console.log(`[Kling-4K] 重渲分镜 prompt=${prompt.slice(0, 80)}...`);
 

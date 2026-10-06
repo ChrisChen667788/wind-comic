@@ -23,7 +23,7 @@ describe('v12.132 · 项目上下文贯通', () => {
     expect(parseProjectContext({}).styleId).toBeUndefined();
   });
   it('applyProjectContext:调用三个 setter,返回实际贯通项', () => {
-    const orch = { setUserStyle: vi.fn(), setPrimaryCharacterRef: vi.fn(), setLockedCharacters: vi.fn() };
+    const orch = { setUserStyle: vi.fn(), setPrimaryCharacterRef: vi.fn(), setLockedCharacters: vi.fn(), setAspect: vi.fn() };
     const applied = applyProjectContext(orch, {
       styleId: 's', primaryRef: 'r',
       lockedCharacters: [{ name: 'a', role: 'lead', cw: 100, imageUrl: 'u' }],
@@ -31,10 +31,11 @@ describe('v12.132 · 项目上下文贯通', () => {
     expect(orch.setUserStyle).toHaveBeenCalledWith('s');
     expect(orch.setPrimaryCharacterRef).toHaveBeenCalledWith('r');
     expect(orch.setLockedCharacters).toHaveBeenCalledOnce();
-    expect(applied).toEqual({ style: true, primaryRef: true, locked: 1 });
+    expect(applied).toEqual({ style: true, primaryRef: true, locked: 1, aspect: null }); // v12.467 起多一项画幅
+    expect(orch.setAspect).not.toHaveBeenCalled(); // 没画幅就不动编排器的默认值
   });
   it('无角色参考时只贯通 style,不误调 setter', () => {
-    const orch = { setUserStyle: vi.fn(), setPrimaryCharacterRef: vi.fn(), setLockedCharacters: vi.fn() };
+    const orch = { setUserStyle: vi.fn(), setPrimaryCharacterRef: vi.fn(), setLockedCharacters: vi.fn(), setAspect: vi.fn() };
     applyProjectContext(orch, { styleId: 's', lockedCharacters: [] });
     expect(orch.setPrimaryCharacterRef).not.toHaveBeenCalled();
     expect(orch.setLockedCharacters).not.toHaveBeenCalled();

@@ -36,6 +36,8 @@ export interface ShotWorkshopTabProps {
   storyboards: Array<{ shotNumber?: number; imageUrl?: string }>;
   /** 用户档位, 用来本地短路 4K 锁标; 真授权由路由层最终决定 */
   userTier?: 'free' | 'creator' | 'pro' | 'enterprise';
+  /** v12.467:项目画幅(projects.aspect)—— 两个出图弹窗的默认画幅。不传时弹窗按 16:9 打开,9:16 项目重生出横图 */
+  aspect?: string;
   onShotRegenerated?: (shotNumber: number, newVideoUrl: string) => void;
 }
 
@@ -44,6 +46,7 @@ export function ShotWorkshopTab({
   videos,
   storyboards,
   userTier,
+  aspect,
   onShotRegenerated,
 }: ShotWorkshopTabProps) {
   const [busyShot, setBusyShot] = useState<number | null>(null);
@@ -297,6 +300,7 @@ export function ShotWorkshopTab({
           projectId={projectId}
           shotNumber={regenModalShot}
           currentImageUrl={getShotImage(regenModalShot)}
+          defaultAspectRatio={aspect}
           currentPrompt={
             (videos.find((v) => v.shotNumber === regenModalShot)?.meta as any)?.prompt
             || (storyboards.find((s) => s.shotNumber === regenModalShot) as any)?.prompt
@@ -329,6 +333,7 @@ export function ShotWorkshopTab({
         <CandidateGridModal
           projectId={projectId}
           shotNumber={gridModalShot}
+          defaultAspectRatio={aspect}
           basePrompt={
             (videos.find((v) => v.shotNumber === gridModalShot)?.meta as any)?.prompt
             || (storyboards.find((s) => s.shotNumber === gridModalShot) as any)?.prompt

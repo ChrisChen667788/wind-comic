@@ -1007,6 +1007,7 @@ export default function ProjectDetailPage() {
           {activeTab === 'workshop' && (
             <ShotWorkshopTab
               projectId={id}
+              aspect={project?.aspect}
               videos={videos.map((v: any) => ({
                 shotNumber: v.shotNumber || v.shot_number,
                 videoUrl: v.mediaUrls?.[0] || v.media_urls?.[0],

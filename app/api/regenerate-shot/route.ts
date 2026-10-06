@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
           const { parseProjectContext, applyProjectContext, PROJECT_CONTEXT_COLUMNS } = await import('@/lib/orchestrator-project-context');
           const row = db.prepare(`SELECT ${PROJECT_CONTEXT_COLUMNS} FROM projects WHERE id = ?`).get(projectId) as any;
           const applied = applyProjectContext(orchestrator, parseProjectContext(row));
-          console.log(`[Regenerate] v12.132 项目上下文贯通: style=${applied.style} ref=${applied.primaryRef} locked=${applied.locked}`);
+          console.log(`[Regenerate] v12.132 项目上下文贯通: style=${applied.style} ref=${applied.primaryRef} locked=${applied.locked} aspect=${applied.aspect ?? '默认 16:9'}`);
         } catch (e) {
           console.warn('[Regenerate] project context load failed:', e);
         }
