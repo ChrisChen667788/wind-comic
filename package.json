@@ -129,7 +129,7 @@
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/three": "0.186.0",
-    "@types/ws": "^8.18.1",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.28",
