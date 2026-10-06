@@ -19,7 +19,7 @@
  * 格式条只读显示它;旧资产里残留的 `aspectId` 在 normalize 时丢弃。
  */
 
-import { normalizeVideoAspect } from './video-aspect';
+import { isProjectAspect } from './video-aspect';
 
 export interface ColorSpacePreset { id: string; label: string; prompt: string; }
 export const COLOR_SPACES: ColorSpacePreset[] = [
@@ -107,10 +107,13 @@ const ASPECT_LABELS: Record<string, string> = { '9:16': '9:16 竖屏', '16:9': '
 
 /**
  * v12.464:项目画幅(`projects.aspect`)→ 格式条上的显示。
- * 空值按库列默认 16:9(与详情接口同一口径)。`engineReady` = 视频引擎能原样出这个比例
- * (引擎只收 16:9 / 9:16 / 1:1,判定沿用 `normalizeVideoAspect`,不另立一份清单)。
+ * 空值按库列默认 16:9(与详情接口同一口径)。`videoReady` = 出片能原样按这个比例出。
+ * v12.469:限制在**编排器**而不在引擎 —— LTX / Seedance 本身收 4:3,但编排器 `setAspect` 经
+ * `parseRequestedAspect` 把画幅归一成三种,视频调用再经 `videoAspect()` 换算,从不把项目原始比例交给引擎。
+ * 判定直接用 `isProjectAspect`(创建页、弹窗、编排器共用的 PROJECT_ASPECTS),不按各引擎的白名单另算。
+ * v12.468 起新项目只会记成这三种;仍会提示的是旧库里留下的 2.35:1 之类。
  */
-export function describeProjectAspect(aspect?: string | null): { ratio: string; label: string; engineReady: boolean } {
+export function describeProjectAspect(aspect?: string | null): { ratio: string; label: string; videoReady: boolean } {
   const ratio = typeof aspect === 'string' && aspect.trim() ? aspect.trim() : '16:9';
-  return { ratio, label: ASPECT_LABELS[ratio] ?? ratio, engineReady: normalizeVideoAspect(ratio) === ratio };
+  return { ratio, label: ASPECT_LABELS[ratio] ?? ratio, videoReady: isProjectAspect(ratio) };
 }

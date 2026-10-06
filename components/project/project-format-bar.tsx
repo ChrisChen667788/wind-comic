@@ -31,6 +31,8 @@ const SAFE_AREA_HINT = '在分镜 / 视频预览上叠一层竖屏安全区(顶�
 
 const ASPECT_HINT = '画幅在创建项目时确定,出片、分镜构图、导演台都按它算,这里只显示。'
   + '要另一比例的成片:「分发」页「改画幅 · 一片两投」直接重构图;要按新画幅重新出片:用新画幅重新创建。';
+// v12.469:限制在编排器(画幅统一归一成三种),不是视频引擎本身不支持 —— 见 describeProjectAspect
+const VIDEO_ASPECT_HINT = '出片管线的视频只按 16:9 / 9:16 / 1:1 出(编排器统一换算),这个画幅不会原样出成视频';
 
 export function ProjectFormatBar({ projectId, aspect, initialFormat, safeArea, onSafeAreaChange, onSaved }: {
   projectId: string;
@@ -73,9 +75,9 @@ export function ProjectFormatBar({ projectId, aspect, initialFormat, safeArea, o
         <span data-testid="format-aspect" className="cinema-input !py-1 !text-[11px] !w-auto flex items-center gap-1">
           <Lock size={10} className="opacity-50" />{a.label}
         </span>
-        {!a.engineReady && (
+        {!a.videoReady && (
           <span data-testid="format-aspect-warn" className="text-[var(--cinema-amber)]"
-            title="视频引擎只出 16:9 / 9:16 / 1:1">视频引擎不支持此画幅</span>
+            title={VIDEO_ASPECT_HINT}>视频不按此画幅出</span>
         )}
       </span>
       <label className="flex items-center gap-1.5 cinema-mono text-[10px] opacity-80" title={COLOR_HINT}>色彩

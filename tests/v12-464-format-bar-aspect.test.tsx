@@ -22,7 +22,7 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import fs from 'node:fs';
-import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import ts from 'typescript';
 
 vi.mock('@/lib/auth-guard', () => ({ requireProjectAccess: vi.fn(async () => ({ ok: true, userId: 'u1' })) }));
@@ -81,14 +81,22 @@ describe('v12.464 · 格式条显示的是项目画幅', () => {
     expect(field('画幅')?.querySelector('select') ?? null).toBeNull();
   });
 
-  it('视频引擎出不了的画幅(创建页可选 2.35:1)明说;引擎支持的三种不提示', async () => {
-    const wide = await renderBar('2.35:1');
-    expect(wide.container.querySelector('[data-testid="format-aspect"]')?.textContent).toBe('2.35:1');
-    const warn = wide.container.querySelector('[data-testid="format-aspect-warn"]');
-    expect(warn, '2.35:1 要提示视频引擎出不了').toBeTruthy();
-    expect(warn!.textContent).toContain('不支持');
+  it('旧库里留下的非三种画幅(2.35:1、4:3)明说视频不按它出;PROJECT_ASPECTS 三种不提示', async () => {
     const { cleanup } = await import('@testing-library/react');
-    for (const a of ['9:16', '16:9', '1:1']) {
+    for (const a of ['2.35:1', '4:3']) {
+      cleanup();
+      const r = await renderBar(a);
+      expect(r.container.querySelector('[data-testid="format-aspect"]')?.textContent, a).toBe(a);
+      const warn = r.container.querySelector('[data-testid="format-aspect-warn"]');
+      expect(warn, `${a} 要提示视频不会按它出`).toBeTruthy();
+      expect(warn!.textContent).toBe('视频不按此画幅出');
+      // v12.469:限制在编排器(视频比例统一换算成三种),不是引擎 —— LTX / Seedance 本身收 4:3
+      expect(warn!.getAttribute('title')).toContain('编排器');
+      expect(warn!.getAttribute('title')).not.toMatch(/视频引擎(只|不支持)/);
+    }
+    const { PROJECT_ASPECTS } = await import('@/lib/video-aspect');
+    expect(PROJECT_ASPECTS.length).toBe(3);
+    for (const a of PROJECT_ASPECTS) {
       cleanup();
       const ok = await renderBar(a);
       expect(ok.container.querySelector('[data-testid="format-aspect"]'), a).toBeTruthy();
@@ -165,33 +173,52 @@ describe('v12.464 · 项目页把详情接口的画幅递给格式条', () => {
 
 describe('v12.464 · 第二份画幅不复活', () => {
   /**
-   * 源码目录下所有 .ts/.tsx 里,作为标识符 / 属性名出现的 `name`(注释与字符串里的不算)。
-   * 只解析一遍、建索引:修前每查一个名字就把几百个源文件重新解析一遍(查 4 个 = 4 遍),
+   * 源码里所有 .ts/.tsx 中作为标识符 / 属性名出现的 `name`(注释与字符串里的不算)。
+   *
+   * 只解析一遍、建索引(cec1d998):修前每查一个名字就把几百个源文件重新解析一遍(查 4 个 = 4 遍),
    * CI 的 Node 20 上要 11 秒,撞上 vitest 默认 5 秒超时(v12.465 推送时红过一次)。
+   * 解析放在 it 里惰性做 —— 不在收集阶段做,那样既拖慢收集、又不受 it 的超时保护。
+   *
+   * v12.469:原先只扫 app/components/lib/services 四个目录,漏了 hooks/stores/types(15 个文件,
+   * 其中 types/project.ts 正是最可能再长出一个 aspectId 的地方)。改为取全部未被 .gitignore 忽略的
+   * .ts/.tsx(含尚未 git add 的新文件),只排除下面写明理由的目录 —— 不写理由的豁免不放行。
    */
+  const NOT_SOURCE: Record<string, string> = {
+    tests: '测试夹具故意写旧版 aspectId,验证它被读时丢弃',
+    e2e: 'Playwright 夹具可能种旧数据,不是产品代码',
+  };
+  const SOURCE_FILES = execFileSync('git', ['ls-files', '-co', '--exclude-standard', '--', '*.ts', '*.tsx'], { encoding: 'utf-8' })
+    .split('\n').filter(Boolean)
+    .filter((f) => fs.existsSync(f) && !(f.split('/')[0] in NOT_SOURCE));
+
   let index: Map<string, string[]> | null = null;
   function identifierHits(name: string): string[] {
     if (!index) {
-      index = new Map();
-      for (const dir of ['app', 'components', 'lib', 'services']) {
-        for (const rel of fs.readdirSync(dir, { recursive: true }) as string[]) {
-          if (!/\.tsx?$/.test(rel)) continue;
-          const file = path.join(dir, rel);
-          const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf-8'), ts.ScriptTarget.Latest, true,
-            file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-          const walk = (n: ts.Node) => {
-            if (ts.isIdentifier(n) || ts.isPrivateIdentifier(n)) {
-              const at = `${file}:${sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1}`;
-              index!.set(n.text, [...(index!.get(n.text) ?? []), at]);
-            }
-            ts.forEachChild(n, walk);
-          };
-          walk(sf);
-        }
+      const idx = new Map<string, string[]>();
+      for (const file of SOURCE_FILES) {
+        const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf-8'), ts.ScriptTarget.Latest, true,
+          file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+        const walk = (n: ts.Node) => {
+          if (ts.isIdentifier(n) || ts.isPrivateIdentifier(n)) {
+            const at = `${file}:${sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1}`;
+            const hits = idx.get(n.text);
+            if (hits) hits.push(at); else idx.set(n.text, [at]);
+          }
+          ts.forEachChild(n, walk);
+        };
+        walk(sf);
       }
+      index = idx;
     }
     return index.get(name) ?? [];
   }
+
+  it('扫描范围覆盖全部源码目录(含评审点名漏掉的 hooks / stores / types)', () => {
+    const tops = new Set(SOURCE_FILES.map((f) => (f.includes('/') ? f.split('/')[0] : '.')));
+    for (const dir of ['app', 'components', 'lib', 'services', 'hooks', 'stores', 'types']) expect(tops, dir).toContain(dir);
+    for (const dir of Object.keys(NOT_SOURCE)) expect(tops, `${dir} 应被排除`).not.toContain(dir);
+    expect(SOURCE_FILES).toContain('types/project.ts');
+  });
 
   // 全仓扫描,给足时间(只解析一遍后本机约 1–2 秒;CI 机器慢得多)
   it('aspectId / aspectRatioOf / FORMAT_PRESETS 在源码里一处都没有', { timeout: 60_000 }, () => {
