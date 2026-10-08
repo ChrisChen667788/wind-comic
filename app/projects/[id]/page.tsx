@@ -647,6 +647,7 @@ export default function ProjectDetailPage() {
               assets={assets}
               onEditStage={(tab) => setActiveTab(tab)}
               projectId={id}
+              projectAspect={project?.aspect}
               onReran={() => {
                 fetch(`/api/projects/${id}`).then((r) => r.json()).then((d) => { if (d?.id) setProject(d); }).catch(() => {});
               }}

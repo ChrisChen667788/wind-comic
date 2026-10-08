@@ -15,6 +15,7 @@ import { upsertAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { getCharacterVisualPrompt, getSceneVisualPrompt } from '@/lib/mckee-skill';
 import type { AspectRatio } from '@/lib/image-providers/types';
+import { parseProjectAspect } from '@/lib/orchestrator-project-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const payload = getUserFromRequest(request);
   if (!payload?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const proj = db.prepare('SELECT id, user_id FROM projects WHERE id = ?').get(id) as any;
+  const proj = db.prepare('SELECT id, user_id, aspect FROM projects WHERE id = ?').get(id) as any;
   if (!proj) return NextResponse.json({ error: 'project not found' }, { status: 404 });
   const owns = proj.user_id === payload.sub || (await canEditProject(id, payload.sub));
   if (!owns) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -54,10 +55,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let aspectRatio: AspectRatio;
   if (type === 'character') {
     prompt = getCharacterVisualPrompt(name, adata.description || '', adata.appearance || '', '');
+    // 角色图是参考图、不进成片,不跟项目画幅:项目页一律按竖构图框它(lib/media-frame 'character'),
+    // 本机在库的 38 张都是这里出的 896x1152。
     aspectRatio = '3:4';
   } else {
     prompt = getSceneVisualPrompt(adata.description || '', adata.location || name, '');
-    aspectRatio = '16:9';
+    // v12.470:场景图跟项目画幅 —— 整片管线的场景设计用的就是项目画幅,项目页也按项目画幅框它。
+    // 原来写死 16:9:本机 9:16 项目里还在盘上的 17 张场景图全是这里重生出的 1344x768 横图。
+    aspectRatio = (parseProjectAspect(proj.aspect) ?? '16:9') as AspectRatio;
   }
   if (feedback) prompt = `${prompt}. Adjustment per user feedback: ${feedback}`;
 

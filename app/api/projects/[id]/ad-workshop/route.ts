@@ -16,8 +16,10 @@ export const maxDuration = 600;
  *   4. publish-package → 一站并包返回
  * 各步自向本服务发 HTTP(转发调用方 Authorization),单步失败不连累后续(结果里如实标)。
  *
- * POST { platform?: 'douyin'|'xiaohongshu', aspect?: '9:16'|'16:9', regenVoiceover?: boolean,
+ * POST { platform?: 'douyin'|'xiaohongshu', aspect?: '9:16'|'16:9'|'1:1', regenVoiceover?: boolean,
  *        endCard?: {title,slogan,accentColor}, skipVariants?: boolean }
+ *   - aspect 不传 → 项目画幅(v12.470;原写死 9:16 —— 16:9 项目点一下,正式成片就被裁成竖屏)。
+ *     画幅只在 recompose 一处解析,这里原样转交,结果里回报实际出片画幅。
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const body = await request.json().catch(() => ({} as any));
   const platform: string = ['douyin', 'xiaohongshu'].includes(body?.platform) ? body.platform : 'douyin';
-  const aspect: string = ['9:16', '16:9', '1:1'].includes(body?.aspect) ? body.aspect : '9:16';
+  const aspect: string | undefined = typeof body?.aspect === 'string' ? body.aspect : undefined;
   const origin = new URL(request.url).origin;
   const auth = request.headers.get('authorization') || '';
   const cookie = request.headers.get('cookie') || ''; // v12.100:UI 走 httpOnly cookie 鉴权,必须一并转发
@@ -53,15 +55,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // 2) 重合成:karaoke + 平台安全区 + Hook/CTA 卡 + 变体
   try {
     const recomposeBody: any = {
-      aspect, captionStyle: 'karaoke', platform,
+      captionStyle: 'karaoke', platform,
       regenVoiceover: body?.regenVoiceover === true,
     };
+    if (aspect) recomposeBody.aspect = aspect;
     if (hooks[0]) recomposeBody.hookCard = { title: hooks[0] };
     if (body?.endCard && typeof body.endCard === 'object') recomposeBody.endCard = body.endCard;
     if (!body?.skipVariants && hooks.length > 1) recomposeBody.hookVariants = hooks.slice(0, 3).map((t) => ({ title: t }));
     const r = await call(`/api/projects/${id}/recompose`, { method: 'POST', body: JSON.stringify(recomposeBody) });
     report.steps.recompose = r.ok
-      ? { ok: true, finalVideoUrl: r.finalVideoUrl, variants: r.variants || [], hookCard: r.hookCard, endCard: r.endCard }
+      ? { ok: true, finalVideoUrl: r.finalVideoUrl, aspect: r.aspect, variants: r.variants || [], hookCard: r.hookCard, endCard: r.endCard }
       : { ok: false, error: r.message };
   } catch (e) { report.steps.recompose = { ok: false, error: String(e).slice(0, 120) }; }
 

@@ -8,6 +8,8 @@ import { getUserFromRequest } from '@/app/api/auth/lib';
 import { getOwnedProject } from '@/lib/repos/project-repo';
 import { listAssetsByType, upsertAsset } from '@/lib/repos/asset-repo';
 import { dimsForAspect } from '@/lib/video-reframe';
+import { parseRequestedAspect } from '@/lib/video-aspect';
+import { parseProjectAspect } from '@/lib/orchestrator-project-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +21,7 @@ export const dynamic = 'force-dynamic';
  * 产出新成片并存回 final_video。比整片重跑快一个量级,且确定性(纯本地 ffmpeg,不碰生成引擎)。
  *
  * POST { aspect?, keepShots?: number[], dropShots?: number[], endCard?: {title?, slogan?, durationSec?, bg?} }
+ *   - aspect 不传 / 认不出 → 项目画幅(v12.470;原缺省 16:9)
  *   - 属主守卫(需登录 + 是本人项目)
  *   - 从 video/script/music/timeline 资产重建 composer 输入,filter keep/drop
  *   - composeVideo(aspect 生效)→ appendEndCard(可选)→ upsert final_video(幂等替换)
@@ -27,10 +30,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const payload = getUserFromRequest(request);
   if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  if (!(await getOwnedProject(id, payload.sub))) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+  const project = await getOwnedProject(id, payload.sub);
+  if (!project) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
   const body = await request.json().catch(() => ({} as any));
-  const aspect: string = typeof body?.aspect === 'string' ? body.aspect : '16:9';
+  // v12.470:没指定画幅 → 用项目自己的画幅。原来缺省写死 16:9,而对话式编辑只有「改画幅」意图
+  // 才带 aspect —— 9:16 项目只删一镜 / 换字幕风格,成片就被重合成成横屏。
+  // 两头都归到合成画布真有的三档,成片记录里的 aspect 与实际宽高才对得上(原来 '2.35:1' 会照记,画布却是 1280x720)。
+  const aspect: string = parseRequestedAspect(body?.aspect) ?? parseProjectAspect(project.aspect) ?? '16:9';
   const keepShots: number[] | undefined = Array.isArray(body?.keepShots) ? body.keepShots.map(Number) : undefined;
   const dropShots: Set<number> = new Set((Array.isArray(body?.dropShots) ? body.dropShots : []).map(Number));
   const endCard = body?.endCard && typeof body.endCard === 'object' ? body.endCard : undefined;
@@ -349,7 +356,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     mediaUrls: [serveUrl], persistentUrl: serveUrl,
   });
 
-  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, voiceoverDropped, musicDropped,
+  return NextResponse.json({ ok: true, finalVideoUrl: serveUrl, aspect, width: w, height: h, clips: clips.length, voiceover: voiceoverClips.length, voiceoverDropped, musicDropped,
       scriptFellBackFrom,   // v12.381:请求了某语种却只有中文稿时如实告知
       voiceoverFailed: voiceoverFailed.length ? voiceoverFailed : undefined, hookCard: hookAppended, endCard: cardAppended, variants: variants.length > 0 ? variants : undefined });
 }

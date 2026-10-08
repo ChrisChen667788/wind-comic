@@ -14,6 +14,7 @@
 import type { EditOp } from './edit-intent';
 
 export interface RecomposePlan {
+  /** 只有「改画幅」意图才带;不带时 recompose 端点用项目画幅(v12.470 前是写死 16:9)。别在这里补缺省值。 */
   aspect?: '16:9' | '9:16';
   captionStyle?: 'clean' | 'social' | 'bold' | 'karaoke';
   platform?: 'douyin' | 'xiaohongshu' | 'none';

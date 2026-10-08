@@ -38,6 +38,24 @@ import {
 } from '@/lib/pipeline-stages';
 import { PLACEHOLDER_LABEL, PLACEHOLDER_HINT } from '@/lib/placeholder-provenance';
 import { healthTone } from '@/lib/quality-report';
+import { PROJECT_ASPECTS, parseRequestedAspect, type VideoAspect } from '@/lib/video-aspect';
+
+/** v12.470:广告包装车间可选的出片画幅(就是项目能选的三种)。'' = 跟随项目(不传给服务端,由 recompose 读 projects.aspect)。 */
+const ASPECT_LABEL: Record<VideoAspect, string> = {
+  '9:16': '竖屏 9:16(抖音 / 小红书)',
+  '16:9': '横屏 16:9',
+  '1:1': '方形 1:1',
+};
+
+/**
+ * 选的画幅与项目不同时说清后果。合成画布竖屏是放大裁满、横屏 / 方形是缩入补边
+ * (lib/video-reframe buildCanvasFit),而包装结果会替换当前正式成片。
+ */
+function workshopAspectNote(target: string, project: VideoAspect | null): string | null {
+  if (!target || !project || target === project) return null;
+  const effect = target === '9:16' ? '画面左右会被裁掉' : '画面会缩小并补黑边';
+  return `与项目画幅 ${project} 不同:${effect},并替换当前正式成片`;
+}
 
 const STAGE_ICON: Record<StageId, typeof FileText> = {
   script: FileText, assets: Users, storyboard: Clapperboard, final: Film,
@@ -54,6 +72,7 @@ export function DirectorConsole({
   onEditStage,
   projectId,
   onReran,
+  projectAspect,
 }: {
   assets: StageAsset[];
   onEditStage: (tab: string) => void;
@@ -61,6 +80,8 @@ export function DirectorConsole({
   projectId?: string;
   /** v6.4.1: 重跑落库后回调 (刷新项目数据) */
   onReran?: () => void;
+  /** v12.470:项目画幅(projects.aspect),广告包装车间「跟随项目」显示用 */
+  projectAspect?: string | null;
 }) {
   const stages = derivePipelineStages(assets);
   const prog = pipelineProgress(stages);
@@ -70,6 +91,10 @@ export function DirectorConsole({
   // v12.100:一键广告包装车间(hook 弹药→变体+双卡→文案→并包)
   const [workshopBusy, setWorkshopBusy] = useState(false);
   const [workshopMsg, setWorkshopMsg] = useState('');
+  // v12.470:出片画幅可选,默认跟随项目。原来写死 9:16 —— 16:9 项目点一下,正式成片就被裁成竖屏
+  const [workshopAspect, setWorkshopAspect] = useState<VideoAspect | ''>('');
+  const projectTier = parseRequestedAspect(projectAspect);
+  const workshopNote = workshopAspectNote(workshopAspect, projectTier);
   // v12.116:包装结果结构化面板(变体可点/健康分/文案标题),不再只有一行文本
   const [workshopResult, setWorkshopResult] = useState<{
     finalVideoUrl?: string | null;
@@ -137,13 +162,13 @@ export function DirectorConsole({
     try {
       const res = await fetch(`/api/projects/${projectId}/ad-workshop`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: 'douyin', aspect: '9:16' }),
+        body: JSON.stringify({ platform: 'douyin', ...(workshopAspect ? { aspect: workshopAspect } : {}) }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.message || '包装失败');
       const st = d.steps || {};
       setWorkshopMsg(
-        `✓ 包装 ${d.okSteps}/${d.totalSteps}:` +
+        `✓ 包装 ${d.okSteps}/${d.totalSteps}${st.recompose?.aspect ? `(${st.recompose.aspect})` : ''}:` +
         `${st.hookIdeas?.ok ? ` Hook×${(st.hookIdeas.hooks || []).length}` : ' Hook✗'}` +
         `${st.recompose?.ok ? ` · 变体×${(st.recompose.variants || []).length}` : ' · 合成✗'}` +
         `${st.publishCopy?.ok ? ' · 文案✓' : ' · 文案✗'}` +
@@ -265,14 +290,27 @@ export function DirectorConsole({
             </button>
           )}
           {cnt('final_video') > 0 && projectId && (
-            <button
-              onClick={doWorkshop}
-              disabled={workshopBusy}
-              className="cinema-chip cinema-chip-amber hover:brightness-110 disabled:opacity-50 cursor-pointer"
-              title="一键后期:Hook 弹药 → A/B 变体 + 双卡 → 发布文案 → 发布包"
-            >
-              🎁 {workshopBusy ? '包装中…' : '广告包装车间'}
-            </button>
+            <>
+              <select
+                value={workshopAspect}
+                onChange={(e) => setWorkshopAspect(e.target.value as VideoAspect | '')}
+                disabled={workshopBusy}
+                aria-label="广告包装出片画幅"
+                data-testid="workshop-aspect"
+                className="cinema-mono text-[11px] bg-[var(--cinema-surface-2)] border border-[var(--cinema-border)] rounded px-1.5 py-1 disabled:opacity-50"
+              >
+                <option value="">跟随项目{projectTier ? `(${projectTier})` : ''}</option>
+                {PROJECT_ASPECTS.map((a) => <option key={a} value={a}>{ASPECT_LABEL[a]}</option>)}
+              </select>
+              <button
+                onClick={doWorkshop}
+                disabled={workshopBusy}
+                className="cinema-chip cinema-chip-amber hover:brightness-110 disabled:opacity-50 cursor-pointer"
+                title={`一键后期:Hook 弹药 → A/B 变体 + 双卡 → 发布文案 → 发布包。出片画幅:${workshopAspect ? ASPECT_LABEL[workshopAspect] : '跟随项目'}`}
+              >
+                🎁 {workshopBusy ? '包装中…' : '广告包装车间'}
+              </button>
+            </>
           )}
           <span className={`cinema-chip shrink-0 ${nextStage ? 'cinema-chip-amber' : 'cinema-chip-green'}`}>
             {nextStage ? <Lightning className="w-3 h-3" weight="fill" /> : <CheckCircle2 className="w-3 h-3" weight="fill" />}
@@ -348,6 +386,11 @@ export function DirectorConsole({
         </div>
       )}
 
+      {workshopNote && !workshopBusy && cnt('final_video') > 0 && projectId && (
+        <div role="note" data-testid="workshop-aspect-note" className="mb-3 text-xs px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-200">
+          ⚠ {workshopNote}
+        </div>
+      )}
       {workshopMsg && (
         <div className="mb-3 text-xs cinema-subhead px-3 py-2 rounded-lg bg-white/5 border border-white/10">{workshopMsg}</div>
       )}
