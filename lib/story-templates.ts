@@ -1,5 +1,6 @@
 // v12.31.0(P3):宣传片/预告片促销模板(在文件末尾 spread 进 storyTemplates;promo-template 只 import 本文件的类型,无运行时环依赖)。
 import { PROMO_TEMPLATES } from './promo-template';
+import type { VideoAspect } from './video-aspect';
 
 export interface StoryTemplate {
   id: string;
@@ -21,7 +22,7 @@ export interface StoryTemplate {
   /** 推荐单镜时长 (秒) — 给 create 页 duration 选择器自动填 */
   recommendedDuration?: 5 | 6 | 10 | 15;
   /** 推荐画幅 — 给 create 页 aspect 自动填 */
-  recommendedAspect?: '16:9' | '9:16' | '1:1' | '2.35:1';
+  recommendedAspect?: VideoAspect; // v12.468:只取 PROJECT_ASPECTS 三种(2.35:1 视频引擎出不了,已下线)
   /** 推荐 cameraDefault id (CAMERA_LANGUAGE_PRESETS 之一) — 一键带运镜 */
   recommendedCamera?: 'push-in' | 'pull-out' | 'orbit' | 'dolly-zoom' | 'whip-pan'
     | 'crash-zoom' | 'handheld' | 'locked-tripod' | 'crane-up' | 'tilt-down' | 'tracking' | 'arc';
@@ -225,7 +226,7 @@ export const storyTemplates: StoryTemplate[] = [
     colorPalette: 'deep space indigo, nebula magenta, sterile white interiors, holographic cyan',
     tags: ['科幻', '宏大叙事', '团队戏', '硬科幻'],
     recommendedDuration: 10,
-    recommendedAspect: '2.35:1',
+    recommendedAspect: '16:9', // v12.468:原 2.35:1,视频引擎出不了
     recommendedCamera: 'crane-up',
   },
   {
@@ -263,7 +264,7 @@ export const storyTemplates: StoryTemplate[] = [
     colorPalette: 'aged ink, sepia gold, banner red, weathered earth tones',
     tags: ['历史', '严肃', '战争戏', '人物弧光'],
     recommendedDuration: 10,
-    recommendedAspect: '2.35:1',
+    recommendedAspect: '16:9', // v12.468:原 2.35:1,视频引擎出不了
     recommendedCamera: 'tracking',
   },
   {

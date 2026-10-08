@@ -29,3 +29,30 @@ export function veoSizeFromAspect(a?: string | null): string {
 export function isVerticalAspect(a?: string | null): boolean {
   return normalizeVideoAspect(a) === '9:16';
 }
+
+/**
+ * v12.468:项目画幅能选的只有视频引擎真出得了的这三种。创建页、故事模板、分镜整张重生 / 九宫格候选
+ * 两个弹窗的画幅选项都从这里取,不再各写一份。修前它们各自多给了一个 2.35:1:编排器 `setAspect`
+ * 只认整数比,把它拒掉、按默认 16:9 出(漫剧题材还会再被翻成 9:16),项目行却记着 2.35:1。
+ */
+export const PROJECT_ASPECTS: readonly VideoAspect[] = ['9:16', '16:9', '1:1'];
+
+export function isProjectAspect(a: unknown): a is VideoAspect {
+  return typeof a === 'string' && (PROJECT_ASPECTS as readonly string[]).includes(a);
+}
+
+/**
+ * v12.468:请求里带来的画幅 → 实际出片画幅。没给 / 不是 `W:H` 形式 → null(调用方按「没指定」处理)。
+ * 给了引擎出不了的比例(2.35:1、21:9、4:3…)→ 按横竖就近归到三种之一,**仍算用户指定**:
+ * 要宽银幕的人拿到 16:9,比被题材默认翻成 9:16 更接近本意。
+ */
+export function parseRequestedAspect(a: unknown): VideoAspect | null {
+  if (typeof a !== 'string') return null;
+  const m = /^\s*(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)\s*$/.exec(a);
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!(w > 0 && h > 0)) return null;
+  if (w === h) return '1:1';
+  return w > h ? '16:9' : '9:16';
+}

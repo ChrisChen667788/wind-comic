@@ -69,7 +69,8 @@ import {
 } from '@/lib/writer-enhance';
 // v12.12.0(Phase 2):@元素注册表 + 跨引擎多参适配 + 同场景续接守卫
 import { buildElementsRegistry, mountForShot, scenesLikelySame, subjectReferencesFromMount, type ElementsRegistry, type ShotMount } from '@/lib/elements-registry';
-import { normalizeVideoAspect } from '@/lib/video-aspect'; // v12.14.0 横竖屏:把项目比例传给视频引擎
+import { normalizeVideoAspect, parseRequestedAspect } from '@/lib/video-aspect'; // v12.14.0 横竖屏:把项目比例传给视频引擎
+import { shouldDefaultToVertical } from '@/lib/drama-tropes';
 import { StoryTemplate } from '@/lib/story-templates';
 import { createError, normalizeError, PipelineError } from '@/lib/pipeline-error';
 import { execFile } from 'child_process';
@@ -382,9 +383,9 @@ export class HybridOrchestrator {
   // 失败时空字符串 (degraded: 老路径仍走 styleKeywords 文本不会 crash).
   private styleAnchorImageUrl: string = '';
 
-  // v2.20: project 级宽高比 — 16:9 横屏 / 9:16 漫剧竖屏 / 1:1 / 2.35:1. create-stream
-  // 入口透下来 (默认 16:9). Style Bible / Character / Scene / Storyboard 都吃这个.
+  // v2.20: project 级宽高比(lib/video-aspect 的 PROJECT_ASPECTS 三种之一,默认 16:9). Style Bible / Character / Scene / Storyboard 都吃这个.
   private aspect: string = '16:9';
+  private aspectExplicit = false; // v12.468:setAspect 指定过 → 不再按题材自动翻竖屏(修前显式选的 16:9 也会被翻)
 
   // v2.20 P0.2: 原始 idea 文本 — 让 Writer 知道用户的初始意图 (用于检测短剧 trope).
   // runDirector 调用时缓存, 后续 runWriter 用来注入 drama-tropes block.
@@ -502,19 +503,19 @@ export class HybridOrchestrator {
   }
 
   /**
-   * v2.20: 设置项目级宽高比. 默认 16:9, 漫剧场景应该传 '9:16'.
-   * 影响 Style Bible / 角色三视图 / 场景图 / 分镜图 的渲染参数, 以及视频生成的尺寸.
+   * v2.20: 设置项目级宽高比. 影响 Style Bible / 角色三视图 / 场景图 / 分镜图, 以及视频生成的尺寸.
+   * v12.468:引擎出不了的比例(2.35:1 等)按横竖就近归,不再整个拒掉后悄悄用默认值;设过即算用户指定。
    */
   setAspect(aspect: string) {
-    if (!aspect || typeof aspect !== 'string') return;
-    const a = aspect.trim();
-    if (!/^\d+:\d+$/.test(a)) {
-      console.warn(`[setAspect] Rejected non-ratio: ${aspect}`);
-      return;
-    }
+    const a = parseRequestedAspect(aspect);
+    if (!a) { console.warn(`[setAspect] Rejected non-ratio: ${aspect}`); return; }
+    if (a !== aspect.trim()) console.warn(`[setAspect] 视频引擎出不了 ${aspect},按 ${a} 出`);
     this.aspect = a;
+    this.aspectExplicit = true;
     console.log(`[Hybrid] aspect ratio set to ${a}`);
   }
+  /** v12.468:实际出片画幅(含题材自动翻竖屏之后)—— create-pipeline 用它回写 projects.aspect。 */
+  getAspect(): string { return this.aspect; }
 
   /** v12.14.0 横竖屏:项目比例 → 视频引擎支持的 '16:9'|'9:16'|'1:1'(其它就近归 16:9)。所有视频引擎调用都带它。 */
   private videoAspect(): '16:9' | '9:16' | '1:1' {
@@ -1761,15 +1762,12 @@ export class HybridOrchestrator {
       return '';
     }
 
-    // v2.20 P0.2: 漫剧/短剧自动默认 9:16 竖屏 (用户没显式 setAspect 时)
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { shouldDefaultToVertical } = require('@/lib/drama-tropes');
-      if (this.aspect === '16:9' && shouldDefaultToVertical(this.genre, this.originalIdea)) {
-        console.log('[StyleBible] drama genre detected, defaulting aspect 16:9 → 9:16');
-        this.aspect = '9:16';
-      }
-    } catch { /* drama-tropes 加载失败不阻塞 */ }
+    // v2.20 P0.2: 漫剧/短剧自动默认 9:16 竖屏 (用户没显式 setAspect 时;v12.468 前只看 aspect==='16:9',显式选的也被翻)
+    // v12.468:改静态 import —— 原来的 require('@/...') 在 vitest 里解析失败、被 catch 吞掉,测试里这段从没执行过
+    if (!this.aspectExplicit && this.aspect === '16:9' && shouldDefaultToVertical(this.genre, this.originalIdea)) {
+      console.log('[StyleBible] drama genre detected, defaulting aspect 16:9 → 9:16');
+      this.aspect = '9:16';
+    }
 
     this.update(AgentRole.DIRECTOR, { currentTask: '渲染 Style Bible 帧 — 锁定全片视觉锚点', progress: 95 });
     this.emit('agentTalk', {

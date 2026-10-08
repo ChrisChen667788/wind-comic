@@ -250,10 +250,14 @@ describe('v12.467 · 出片入口都按项目画幅', () => {
 });
 
 describe('v12.467 · 项目上下文解析', () => {
-  it('只认 数字:数字(与 setAspect 同一判据);2.35:1、空串、非字符串都不贯通', async () => {
+  // v12.468:判据改为复用 parseRequestedAspect(与 setAspect 同一个函数)。旧库里的 2.35:1 不再被当成「没设」,
+  // 而是按引擎实际出的 16:9 贯通;空串、非字符串照旧不贯通。
+  it('与 setAspect 同一判据:2.35:1 / 21:9 → 16:9、3:4 → 9:16;空串、非字符串都不贯通', async () => {
     const { parseProjectContext, parseProjectAspect } = await import('@/lib/orchestrator-project-context');
     expect(parseProjectContext({ aspect: ' 9:16 ' }).aspect).toBe('9:16');
-    expect(parseProjectContext({ aspect: '2.35:1' }).aspect).toBeUndefined();
+    expect(parseProjectContext({ aspect: '2.35:1' }).aspect).toBe('16:9');
+    expect(parseProjectAspect('21:9')).toBe('16:9');
+    expect(parseProjectAspect('3:4')).toBe('9:16');
     expect(parseProjectContext({ aspect: '' }).aspect).toBeUndefined();
     expect(parseProjectContext({ aspect: null }).aspect).toBeUndefined();
     expect(parseProjectAspect(916)).toBeUndefined();

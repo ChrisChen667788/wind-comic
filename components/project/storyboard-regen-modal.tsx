@@ -17,6 +17,7 @@
 import { useState } from 'react';
 import { X, CircleNotch as Loader2, ArrowsClockwise as RefreshCw, Sparkle as Sparkles, ImageBroken as ImageOff, Upload, Image as ImagePlus } from '@phosphor-icons/react';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
+import { PROJECT_ASPECTS, normalizeVideoAspect } from '@/lib/video-aspect';
 
 export interface StoryboardRegenModalProps {
   projectId: string;
@@ -35,7 +36,8 @@ export function StoryboardRegenModal({
   const [prompt, setPrompt] = useState(currentPrompt || '');
   const [useStyleBible, setUseStyleBible] = useState(true);
   const [useCref, setUseCref] = useState(true);
-  const [aspectRatio, setAspectRatio] = useState(defaultAspectRatio || '16:9');
+  // v12.468:默认取项目画幅(修前没有调用方传它,9:16 项目重生也默认 16:9);只给引擎出得了的三种
+  const [aspectRatio, setAspectRatio] = useState<string>(normalizeVideoAspect(defaultAspectRatio));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -366,7 +368,7 @@ export function StoryboardRegenModal({
             </label>
             <div className="flex items-center gap-2 pt-1">
               <span className="cinema-mono text-[11px] opacity-60">画幅:</span>
-              {(['16:9', '9:16', '1:1', '2.35:1'] as const).map((a) => (
+              {PROJECT_ASPECTS.map((a) => (
                 <button
                   key={a}
                   onClick={() => setAspectRatio(a)}

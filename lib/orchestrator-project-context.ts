@@ -10,6 +10,8 @@
  * 单镜重生 / 自愈补拍 / 片段重拍的编排器停在默认 16:9 —— 9:16 项目重生出来是横屏片。
  */
 
+import { parseRequestedAspect } from './video-aspect';
+
 export interface ProjectContextRow {
   style_id?: string | null;
   primary_character_ref?: string | null;
@@ -28,13 +30,13 @@ export interface ProjectContext {
 export const PROJECT_CONTEXT_COLUMNS = 'style_id, primary_character_ref, locked_characters, aspect';
 
 /**
- * 项目画幅 → 只认 `数字:数字`(与 orchestrator.setAspect 同一判据),其余返回 undefined。
- * 不在这里归一成视频三档:出图要原比例,视频侧由编排器 videoAspect() 再归一。
+ * 项目画幅 → 出片画幅。v12.468 起直接复用 `parseRequestedAspect`(与 orchestrator.setAspect 同一个函数,
+ * 全仓只此一份判据):引擎出不了的比例(旧库里的 2.35:1 等)按横竖就近归到 16:9 / 9:16 / 1:1,
+ * 不是 `W:H` 形式的(空串、非字符串)返回 undefined、不贯通。
+ * 修前这里只认 `数字:数字`,2.35:1 项目会被当成「没设」,和 setAspect 各说各的。
  */
 export function parseProjectAspect(raw: unknown): string | undefined {
-  if (typeof raw !== 'string') return undefined;
-  const a = raw.trim();
-  return /^\d+:\d+$/.test(a) ? a : undefined;
+  return parseRequestedAspect(raw) ?? undefined;
 }
 
 /** 纯函数:projects 行 → 上下文;locked_characters 容错解析(非法 JSON → 空数组)。 */

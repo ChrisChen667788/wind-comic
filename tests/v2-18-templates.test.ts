@@ -55,9 +55,10 @@ describe('storyTemplates v2.18 expansion', () => {
     expect(t.recommendedDuration).toBeLessThanOrEqual(6);
   });
 
-  it('sci-fi-space + historical-biopic use 2.35:1 cinemascope (matches genre)', () => {
-    expect(getTemplateById('sci-fi-space')!.recommendedAspect).toBe('2.35:1');
-    expect(getTemplateById('historical-biopic')!.recommendedAspect).toBe('2.35:1');
+  // v12.468:原为 2.35:1 宽银幕,但视频引擎只出 16:9 / 9:16 / 1:1,选了也按 16:9 出 —— 改为如实推荐 16:9
+  it('sci-fi-space + historical-biopic recommend 16:9 (2.35:1 was never rendered as such)', () => {
+    expect(getTemplateById('sci-fi-space')!.recommendedAspect).toBe('16:9');
+    expect(getTemplateById('historical-biopic')!.recommendedAspect).toBe('16:9');
   });
 
   it('all recommendedCamera values match the 12 valid presets', () => {

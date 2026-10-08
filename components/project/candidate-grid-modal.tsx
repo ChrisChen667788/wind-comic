@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { X, CircleNotch as Loader2, SquaresFour as Grid, Check, ImageBroken as ImageOff, Sparkle as Sparkles } from '@phosphor-icons/react';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
+import { PROJECT_ASPECTS, normalizeVideoAspect } from '@/lib/video-aspect';
 import { getToken } from '@/lib/auth';
 import { gridDimensions, type CandidateCount } from '@/lib/candidate-grid';
 
@@ -28,7 +29,8 @@ interface Cell { id: string; index: number; variantLabel: string; imageUrl?: str
 
 export function CandidateGridModal({ projectId, shotNumber, basePrompt, defaultAspectRatio, onPick, onCancel }: CandidateGridModalProps) {
   const [count, setCount] = useState<CandidateCount>(9);
-  const [aspectRatio, setAspectRatio] = useState(defaultAspectRatio || '16:9');
+  // v12.468:默认取项目画幅(修前没有调用方传它,9:16 项目也默认 16:9);只给引擎出得了的三种
+  const [aspectRatio, setAspectRatio] = useState<string>(normalizeVideoAspect(defaultAspectRatio));
   const [cells, setCells] = useState<Cell[]>([]);
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function CandidateGridModal({ projectId, shotNumber, basePrompt, defaultA
 
   const { cols } = gridDimensions(count);
   // v12.36.0(视觉 QA 修复):候选格宽高比跟随所选画幅,避免 9:16 竖屏候选被 16:9 格裁掉。
-  const ASPECT_CLASS: Record<string, string> = { '16:9': 'aspect-video', '9:16': 'aspect-[9/16]', '1:1': 'aspect-square', '2.35:1': 'aspect-[2.35/1]' };
+  const ASPECT_CLASS: Record<string, string> = { '16:9': 'aspect-video', '9:16': 'aspect-[9/16]', '1:1': 'aspect-square' };
   const aspectClass = ASPECT_CLASS[aspectRatio] || 'aspect-video';
   // 竖屏候选格更高,3 列会顶到很长 → 竖屏时收成 2 列,网格更紧凑(body 仍可滚)。
   const effectiveCols = aspectRatio === '9:16' ? Math.min(cols, 2) : cols;
@@ -139,7 +141,7 @@ export function CandidateGridModal({ projectId, shotNumber, basePrompt, defaultA
           </div>
           <div className="flex items-center gap-1.5">
             <span className="cinema-mono text-[11px] opacity-60">画幅:</span>
-            {(['16:9', '9:16', '1:1', '2.35:1'] as const).map((a) => (
+            {PROJECT_ASPECTS.map((a) => (
               <button key={a} onClick={() => setAspectRatio(a)} disabled={busy}
                 className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${aspectRatio === a ? 'bg-[var(--cinema-amber)]/20 border-[var(--cinema-amber)] text-[var(--cinema-amber)]' : 'border-[var(--cinema-border)] opacity-60 hover:opacity-100'} disabled:opacity-30`}>{a}</button>
             ))}

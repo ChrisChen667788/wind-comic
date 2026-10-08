@@ -25,6 +25,7 @@ import { enrichScenesFromWriterScript } from '@/lib/scene-enrich';
 import { bindElements } from '@/lib/reference-elements';
 import { loadCheckpoints, emptyCheckpoints, checkpointSummary, type PipelineCheckpoints } from '@/lib/pipeline-checkpoints';
 import { StageTimer, summarizeTiming } from '@/lib/stage-timing'; // v12.32.0 阶段耗时归因
+import { parseRequestedAspect, isProjectAspect } from '@/lib/video-aspect';
 import { judgePipelineOutcome } from './pipeline-outcome';
 
 // 活跃编排器注册表 — gate 路由 / rerun / regenerate 据此找到运行中的编排器
@@ -233,9 +234,11 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
     }
 
     // v2.20 P0.1: 项目级宽高比 — 漫剧场景应 '9:16', 横屏剧用 '16:9'
-    if (aspect && typeof aspect === 'string') {
-      orchestrator.setAspect(aspect);
-    }
+    // v12.468:先归一到引擎出得了的三种(2.35:1 → 16:9),编排器和项目行用同一个值。
+    // 没指定(null)时编排器可能按题材翻竖屏,Style Bible 之后按实际值回写项目行。
+    const requestedAspect = parseRequestedAspect(aspect);
+    if (requestedAspect) orchestrator.setAspect(requestedAspect);
+    let recordedAspect: string | null = null; // 项目行此刻记着的画幅
 
     // v2.19 P0.2: 试拍图复用 — 用户在 create 页 "试拍 1 镜" 接受了某张图,
     // 直接当第 1 镜的 storyboard 渲染结果, 跳一次 MJ 调用 + 把整片画风锚定到那张图。
@@ -347,18 +350,22 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
         await insertProjectFull({
           id: projectId, userId, title: idea.slice(0, 30), description: idea,
           coverUrls: [], status: 'active',
-          aspect: aspect || '16:9', // v10.6.0 项目级画幅(注:题材触发的 orchestrator 内部自动竖屏翻转不回写,以用户显式选择为准)
+          aspect: orchestrator.getAspect(), // v10.6.0 项目级画幅;v12.468 起与编排器实际所用一致(没指定时题材翻转在 Style Bible 后回写)
           styleId: style || null, primaryCharacterRef: effectiveCameoRef || null,
           lockedCharacters: sanitizedLocked,
         });
+        recordedAspect = orchestrator.getAspect();
         console.log(`[DB] Project created: ${projectId}${style ? ` (style=${style})` : ''}${sanitizedLocked.length ? ` lockedChars=${sanitizedLocked.length}` : ''}`);
       } else {
         // 已存在就 UPDATE —— 用户可能在同一个 projectId 下换了风格重跑
         // v9.0.2: 走 project-repo; style_id COALESCE 语义保留 (仅传了 style 才覆盖)
+        // v12.468:续跑 / 重跑没带画幅 → 沿用项目行(上一轮实际出片的画幅),否则续跑段会退回 16:9、与已出的镜头不一致
+        if (!requestedAspect && isProjectAspect(existing.aspect)) orchestrator.setAspect(existing.aspect);
+        recordedAspect = requestedAspect ?? existing.aspect ?? null;
         try {
           await updateProjectById(projectId, {
             ...(style ? { style_id: style } : {}),
-            ...(aspect ? { aspect } : {}), // v10.6.0 换画幅重跑时同步
+            ...(requestedAspect ? { aspect: requestedAspect } : {}), // v10.6.0 换画幅重跑时同步
             locked_characters: lockedJson,
             ...(effectiveCameoRef ? { primary_character_ref: effectiveCameoRef } : {}),
           });
@@ -461,6 +468,17 @@ export async function runCreatePipeline(input: CreatePipelineInput, emit: Pipeli
       }
     } catch (e) {
       console.warn('[Stream] Style Bible 渲染失败, 继续走老路径:', e);
+    }
+
+    // v12.468:没指定画幅时,编排器在 Style Bible 这一步可能按题材把 16:9 翻成 9:16 —— 之后所有镜头都按翻后的出。
+    // 修前这次翻转不回写,项目行记 16:9、成片是 9:16;项目页、分发、单镜重生读的都是项目行。
+    const actualAspect = orchestrator.getAspect();
+    if (actualAspect !== recordedAspect) {
+      try {
+        await updateProjectById(projectId, { aspect: actualAspect });
+        recordedAspect = actualAspect;
+        send('status', { message: `项目画幅按实际出片记为 ${actualAspect}` });
+      } catch (e) { console.warn('[DB] aspect 回写失败:', e instanceof Error ? e.message : e); }
     }
 
     // ── 2. Writer ──

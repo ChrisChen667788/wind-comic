@@ -43,6 +43,7 @@ import { getSystemLanguage } from '@/lib/system-language';
 import { CostChip } from '@/components/ui/cost-chip';
 import { previewCost, confirmSpendText } from '@/lib/action-cost';
 import { ideaReady } from '@/lib/idea-gate';
+import { PROJECT_ASPECTS, isProjectAspect } from '@/lib/video-aspect';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -74,7 +75,8 @@ function useStylePreviews() {
 }
 const durationOptions = ['3s', '5s', '8s']; // 调整为适配当前API能力的时长选项
 // v10.6.0 竖屏优先:9:16 置首 = 新项目默认竖屏(2026 短剧主战场);横屏仍一键可选
-const aspectOptions = ['9:16', '16:9', '1:1', '2.35:1'];
+// v12.468:只给视频引擎出得了的三种。修前多一个 2.35:1,选了被编排器拒掉、按 16:9 或题材翻成 9:16 出片,项目行却记 2.35:1
+const aspectOptions = PROJECT_ASPECTS;
 
 // v12.5.0(#4):SSE 里程碑事件 → 全局指示条阶段中文名
 const SSE_PHASE: Record<string, string> = {
@@ -139,7 +141,7 @@ export default function DashboardCreatePage() {
     } catch { /* ignore */ }
   }, [searchParams]);
   const [duration, setDuration] = useState(durationOptions[1]); // 默认5秒
-  const [aspect, setAspect] = useState(aspectOptions[0]);
+  const [aspect, setAspect] = useState<string>(aspectOptions[0]);
   // v2.12 Phase 1: 多角色锁脸 (1-3 人,前置在创作管线里)
   const [lockedCharacters, setLockedCharacters] = useState<LockedCharacter[]>([]);
   const [references, setReferences] = useState<ReferenceAsset[]>([]); // v9.5.6: 多参元素(对标可灵 Elements)
@@ -157,7 +159,7 @@ export default function DashboardCreatePage() {
     const p = loadCreatePrefs();
     if (!p) { const sys = getSystemLanguage(); if (sys !== 'auto') setScriptLanguage(sys); return; } // v12.165
     if (p.style) setStyle(p.style);
-    if (p.aspect) setAspect(p.aspect);
+    if (isProjectAspect(p.aspect)) setAspect(p.aspect); // v12.468:上次存的若是已下线的 2.35:1 就不恢复
     if (p.cameraDefault !== undefined) setCameraDefault(p.cameraDefault);
     if (typeof p.editStyle === 'string') setEditStyle(p.editStyle);
     if (p.scriptLanguage) setScriptLanguage(p.scriptLanguage);
@@ -204,8 +206,8 @@ export default function DashboardCreatePage() {
       if (template.recommendedDuration && durationOptions.includes(`${template.recommendedDuration}s` as any)) {
         setDuration(`${template.recommendedDuration}s` as any);
       }
-      if (template.recommendedAspect && aspectOptions.includes(template.recommendedAspect as any)) {
-        setAspect(template.recommendedAspect as any);
+      if (isProjectAspect(template.recommendedAspect)) {
+        setAspect(template.recommendedAspect);
       }
       if (template.recommendedCamera) {
         setCameraDefault(template.recommendedCamera);

@@ -19,6 +19,7 @@ import { getUserFromRequest } from '../../../../auth/lib';
 import { buildPullSheetFromScript, type PullSheet } from '@/lib/pull-sheet';
 import { applyReplacements, buildReplicaScript, collectRefImages, type ReplaceRule } from '@/lib/pull-sheet-replace';
 import { compareReplicaFidelity } from '@/lib/replica-fidelity';
+import { parseRequestedAspect } from '@/lib/video-aspect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -113,7 +114,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const replicaScript = buildReplicaScript(title, replicaShots, { editedPrompts });
   const fidelity = compareReplicaFidelity(sheet, replicaScript);
   const refImages = collectRefImages(replicaShots);
-  const aspect = typeof body?.aspect === 'string' ? body.aspect : '9:16';
+  // v12.468:先归一到引擎出得了的三种 —— 修前原样落库,传 2.35:1 就记 2.35:1、出片却是 16:9
+  const aspect = parseRequestedAspect(body?.aspect) ?? '9:16';
 
   // 建新项目
   const newProjectId = nanoid();

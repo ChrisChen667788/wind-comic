@@ -33,6 +33,7 @@ vi.mock('@/services/hybrid-orchestrator', () => {
           if (prop === 'then') return undefined;
           if (prop.startsWith('set')) return () => {};
           if (prop === 'getAllAgents') return () => [];
+          if (prop === 'getAspect') return () => '16:9'; // v12.468:管线用它把实际画幅写进项目行(同步读值,不是阶段)
           if (prop === 'runDirector') return async () => h.plan;
           if (prop === 'runStyleBibleArtist') return async () => null;
           if (prop === 'runWriter') return async () => { h.calls.push('runWriter'); return JSON.parse(JSON.stringify(h.script)); };

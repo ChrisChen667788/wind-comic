@@ -22,7 +22,7 @@
  *     colorPalette: string,
  *     tags?: string[],
  *     recommendedDuration?: 5|6|10|15,
- *     recommendedAspect?: '16:9'|'9:16'|'1:1'|'2.35:1',
+ *     recommendedAspect?: '16:9'|'9:16'|'1:1',   // v12.468 起 2.35:1 下线;旧的用户模板里若还有,创建页套用时忽略
  *     recommendedCamera?: string,
  *   }
  */
