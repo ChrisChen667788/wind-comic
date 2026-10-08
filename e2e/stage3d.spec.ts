@@ -121,8 +121,12 @@ test.describe('导演台 3D 视口(真 WebGL)', () => {
       await page.getByRole('tab', { name: '3D 自由视角' }).click();
       await expect(page.locator('[data-stage3d-view="orbit"] canvas')).toBeVisible({ timeout: 30_000 });
       await expectLabelOnCanvas(page, '角色 A');
-      const orbitBox = await page.locator('[data-stage3d-label]').first().boundingBox();
-      expect(Math.hypot(orbitBox!.x - lensBox!.x, orbitBox!.y - lensBox!.y), '换了视角标签却没动').toBeGreaterThan(5);
+      // 轮询而不是取一次:画布可见时新相机的第一帧未必画完(CI 软件渲染要几百毫秒),那时标签还停在旧位置。
+      // 投影本身每帧都跑(上面「人挪了标签跟着走」那步同样是轮询)——真坏了的话 15 秒内也不会动,照样红
+      await expect.poll(async () => {
+        const orbitBox = await page.locator('[data-stage3d-label]').first().boundingBox();
+        return Math.hypot(orbitBox!.x - lensBox!.x, orbitBox!.y - lensBox!.y);
+      }, { timeout: 15_000, message: '换了视角标签却没动' }).toBeGreaterThan(5);
       await expect(page.getByText('这台设备建不起 3D 画布')).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath('02-after-toggle.png') });
       // 关掉导演台 —— 另一条卸载路径(整个弹窗连同画布一起走)
