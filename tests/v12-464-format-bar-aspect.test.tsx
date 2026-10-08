@@ -163,28 +163,37 @@ describe('v12.464 · 项目页把详情接口的画幅递给格式条', () => {
 });
 
 describe('v12.464 · 第二份画幅不复活', () => {
-  /** 源码目录下所有 .ts/.tsx 里,作为标识符 / 属性名出现的 `name`(注释与字符串里的不算) */
+  /**
+   * 源码目录下所有 .ts/.tsx 里,作为标识符 / 属性名出现的 `name`(注释与字符串里的不算)。
+   * 只解析一遍、建索引:修前每查一个名字就把几百个源文件重新解析一遍(查 4 个 = 4 遍),
+   * CI 的 Node 20 上要 11 秒,撞上 vitest 默认 5 秒超时(v12.465 推送时红过一次)。
+   */
+  let index: Map<string, string[]> | null = null;
   function identifierHits(name: string): string[] {
-    const hits: string[] = [];
-    for (const dir of ['app', 'components', 'lib', 'services']) {
-      for (const rel of fs.readdirSync(dir, { recursive: true }) as string[]) {
-        if (!/\.tsx?$/.test(rel)) continue;
-        const file = path.join(dir, rel);
-        const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf-8'), ts.ScriptTarget.Latest, true,
-          file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-        const walk = (n: ts.Node) => {
-          if ((ts.isIdentifier(n) || ts.isPrivateIdentifier(n)) && n.text === name) {
-            hits.push(`${file}:${sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1}`);
-          }
-          ts.forEachChild(n, walk);
-        };
-        walk(sf);
+    if (!index) {
+      index = new Map();
+      for (const dir of ['app', 'components', 'lib', 'services']) {
+        for (const rel of fs.readdirSync(dir, { recursive: true }) as string[]) {
+          if (!/\.tsx?$/.test(rel)) continue;
+          const file = path.join(dir, rel);
+          const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf-8'), ts.ScriptTarget.Latest, true,
+            file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+          const walk = (n: ts.Node) => {
+            if (ts.isIdentifier(n) || ts.isPrivateIdentifier(n)) {
+              const at = `${file}:${sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1}`;
+              index!.set(n.text, [...(index!.get(n.text) ?? []), at]);
+            }
+            ts.forEachChild(n, walk);
+          };
+          walk(sf);
+        }
       }
     }
-    return hits;
+    return index.get(name) ?? [];
   }
 
-  it('aspectId / aspectRatioOf / FORMAT_PRESETS 在源码里一处都没有', () => {
+  // 全仓扫描,给足时间(只解析一遍后本机约 1–2 秒;CI 机器慢得多)
+  it('aspectId / aspectRatioOf / FORMAT_PRESETS 在源码里一处都没有', { timeout: 60_000 }, () => {
     // 扫描器自证:同一个格式资产里活着的字段确实扫得到
     expect(identifierHits('colorSpaceId').length).toBeGreaterThan(0);
     for (const dead of ['aspectId', 'aspectRatioOf', 'FORMAT_PRESETS']) {
