@@ -130,7 +130,8 @@ describe('v12.464 · /format 接口不再回吐、不再落库 aspectId', () => 
   it('GET:没有格式资产 → 默认值里也没有画幅', async () => {
     const { GET } = await import('@/app/api/projects/[id]/format/route');
     const body = await (await GET(new Request('http://t/api/projects/p1/format') as never, params)).json();
-    expect(body.format).toEqual({ colorSpaceId: 'aces', fps: 24, safeArea: true });
+    // v12.466:默认值改为「不指定 / 关」(色彩、安全框有了读者之后,默认不能悄悄改出图与预览)
+    expect(body.format).toEqual({ colorSpaceId: 'none', fps: 24, safeArea: false });
   });
 
   it('POST:请求体带 aspectId(旧前端 / 参数联动 JSON)→ 落库的只有三项', async () => {

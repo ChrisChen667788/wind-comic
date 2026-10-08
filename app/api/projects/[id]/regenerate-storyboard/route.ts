@@ -187,7 +187,9 @@ export async function POST(
         // 草图锁的提示也是「重生该镜分镜图时开启草图锁即用它」。站位句要在 optimize 之前加:
         // 它会在末尾追加 `--no text …` 参数,站位句落在参数后面会被当成参数的一部分。
         const { withStageDirective } = await import('@/lib/stage-scene-store');
-        const finalPrompt = optimizeMidjourneyPrompt(await withStageDirective(projectId, shotNumber, customPrompt.trim()));
+        // v12.466:项目色彩空间同样在 optimize 之前写;用户这句常是上次落库的成品,旧色彩段会被换掉而不是叠加。
+        const { withColorSpace } = await import('@/lib/project-format-store');
+        const finalPrompt = optimizeMidjourneyPrompt(await withColorSpace(projectId, await withStageDirective(projectId, shotNumber, customPrompt.trim())));
 
         // v2.24 B: 引用图优先级 — 用户上传的 referenceImage > Style Bible
         // sref 通道: 用户上传 > styleAnchor; cref 不变 (主角脸独立通道)

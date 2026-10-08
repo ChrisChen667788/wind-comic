@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
 import { updateAsset } from '@/lib/repos/asset-repo';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { withColorSpace } from '@/lib/project-format-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -159,7 +160,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const result = await orchestrator.cameoRetrySingleShot({
         shotNumber,
         originalImageUrl,
-        originalPrompt: boardData.description || `Shot ${shotNumber}`,
+        // v12.466:重出的那张要和整片同一色彩空间(编排器在这句上追加锁脸描述)
+        originalPrompt: await withColorSpace(projectId, boardData.description || `Shot ${shotNumber}`),
         crefUrl: firstCharacterRef,
         sameCharacterRecentShots: recentReferences,
         originalCw: 100,

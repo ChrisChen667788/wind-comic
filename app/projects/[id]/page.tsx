@@ -41,6 +41,7 @@ import { ShotCinematographyModal } from '@/components/project/shot-cinematograph
 import { DirectorStageModal } from '@/components/project/director-stage-modal';
 import { FrameInspectModal } from '@/components/project/frame-inspect-modal';
 import { stagedShotsFromAssets, type StageScene, type StageSketchInfo } from '@/lib/stage-blocking';
+import { normalizeProjectFormat, withFormatAsset, type ProjectFormat } from '@/lib/project-format';
 import { seedSpecFromCameraAngle, normalizeShotSpec, describeShotSpec, type ShotSpec } from '@/lib/cinematography';
 import { ContinuityConsole } from '@/components/project/continuity-console';
 import { HealShotsButton } from '@/components/project/heal-shots-button';
@@ -79,7 +80,8 @@ export default function ProjectDetailPage() {
   const { showToast } = useToast();   // v12.300:失败要让用户看见,不能只进 console
   const [project, setProject] = useState<any>(null);
   // v10.6.0 竖屏优先:项目级画幅驱动预览框(旧项目无列值 → 16:9 零回归);字幕安全区可开关
-  const [showSafeArea, setShowSafeArea] = useState(false);
+  // v12.466:null = 这次还没点过,按库里保存的格式走(见下方 showSafeArea)
+  const [safeAreaPref, setSafeAreaPref] = useState<boolean | null>(null);
   const isVertical = project?.aspect === '9:16';
   const frameClass = isVertical ? 'aspect-[9/16]' : 'aspect-video';
   const mainFrameClass = isVertical ? 'aspect-[9/16] max-w-[320px] mx-auto' : 'aspect-video';
@@ -353,6 +355,14 @@ export default function ProjectDetailPage() {
     prompt: s.prompt || (s.data && typeof s.data === 'object' ? s.data.prompt : '') || '',
   }));
   const videos = assets.filter((a: any) => a.type === 'video').sort((a: any, b: any) => (a.shotNumber || 0) - (b.shotNumber || 0));
+  // v12.466:安全区叠层 = 格式条的「安全框」。修前格式条那个开关存进库却没人读,叠层只认一个只在视频页能点的临时开关
+  // (分镜页也按它显示,却看不到开关)。现在:没点过就按保存的格式(默认关);格式条与视频页按钮改的是同一个值,
+  // 在格式条「保存格式」后记住。
+  const projectFormatData = assets.find((a: any) => a.type === 'project-format')?.data;
+  const showSafeArea = safeAreaPref ?? normalizeProjectFormat(projectFormatData).safeArea;
+  // 格式条、参数联动两处保存后都更新页面里这份格式 —— 否则另一处会拿加载时的旧格式整份写回(见 withFormatAsset)
+  const applySavedFormat = (format: ProjectFormat) =>
+    setProject((prev: any) => (prev ? { ...prev, assets: withFormatAsset(prev.assets || [], format) } : prev));
   // v12.1.0 片段预览叠播配音:镜号 → shot-audio(TTS 配音)URL
   const shotAudioByShot: Record<number, string> = {};
   // v12.462:「已摆位」以库里的舞台为准 —— 修前只认本次会话里点过保存的镜,刷新后全部变回「导演台 · 摆位」
@@ -777,7 +787,8 @@ export default function ProjectDetailPage() {
           {activeTab === 'storyboard' && (
             <div>
               {/* v7.4 项目级格式条 (画幅/色彩/帧率/安全框);v12.464 画幅改为只读显示 projects.aspect */}
-              <ProjectFormatBar projectId={id} aspect={project?.aspect} initialFormat={assets.find((a: any) => a.type === 'project-format')?.data} />
+              <ProjectFormatBar projectId={id} aspect={project?.aspect} initialFormat={projectFormatData}
+                safeArea={showSafeArea} onSafeAreaChange={setSafeAreaPref} onSaved={applySavedFormat} />
               {/* Sprint A.4 · 顶部 Cameo 一致性汇总条 + 批量重生按钮 */}
               <CameoSummary
                 storyboards={storyboards}
@@ -920,8 +931,9 @@ export default function ProjectDetailPage() {
             {isVertical && (
               <div className="flex justify-end mb-3">
                 <button
-                  onClick={() => setShowSafeArea((v) => !v)}
+                  onClick={() => setSafeAreaPref(!showSafeArea)}
                   aria-pressed={showSafeArea}
+                  title="与「分镜」页格式条的「安全框」是同一个开关,在那里保存格式后记住"
                   className={`cinema-btn-ghost !text-[11px] !py-1 ${showSafeArea ? '!text-[var(--cinema-amber)] !border-[var(--cinema-amber-deep)]' : ''}`}
                 >
                   字幕安全区 {showSafeArea ? 'ON' : 'OFF'}
@@ -1080,12 +1092,15 @@ export default function ProjectDetailPage() {
               projectId={id}
               shots={storyboards.map((sb: any) => ({ shotNumber: sb.shotNumber, cameraSpec: sb.data?.cameraSpec }))}
               continuity={assets.find((a: any) => a.type === 'continuity')?.data}
-              format={assets.find((a: any) => a.type === 'project-format')?.data}
-              onSynced={(doc) => setSpecOverrides((m) => {
-                const next = { ...m };
-                for (const s of doc.shots) next[s.shotNumber] = s.spec;
-                return next;
-              })}
+              format={projectFormatData}
+              onSynced={(doc) => {
+                applySavedFormat(doc.format);
+                setSpecOverrides((m) => {
+                  const next = { ...m };
+                  for (const s of doc.shots) next[s.shotNumber] = s.spec;
+                  return next;
+                });
+              }}
             />
           )}
 

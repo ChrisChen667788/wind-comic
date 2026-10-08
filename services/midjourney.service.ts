@@ -18,6 +18,7 @@ type MJProgressCallback = (progress: string, status: string) => void;
 
 // v2.17 P0.2: API 用量追踪
 import { buildMjParams } from '@/lib/midjourney-params';
+import { lockBeforeParams } from '@/lib/image-router';
 import { recordApiCall as _trackApiCall } from '@/lib/api-usage-tracker';
 function _trackMjError(error: unknown, method: string): void {
   const msg = error instanceof Error ? error.message : String(error);
@@ -86,6 +87,7 @@ export class MidjourneyService {
     upscaleIndex?: 1 | 2 | 3 | 4;
     skipUpscale?: boolean;
   }): Promise<string> {
+    prompt = lockBeforeParams(prompt);   // v12.466:草图锁若追加在 --no 之后会被 MJ 当成负面词
     const imgs = (options?.imagePrompts || []).slice(0, 4);
     // 内联图只认完整 data URL(代理按 RFC 2397 解析,裸 base64 会被拒);公网图写在提示词最前(MJ 图像提示语法)
     const base64Array = imgs.filter((u) => /^data:image\/[a-z0-9.+-]+;base64,/i.test(u));

@@ -2602,7 +2602,7 @@ ${shots.map((s, i) => {
         } catch { /* 加载失败不阻塞 */ }
       }
 
-      renderPrompt = optimizeMidjourneyPrompt(renderPrompt);
+      renderPrompt = optimizeMidjourneyPrompt(await (await import('@/lib/project-format-store')).withColorSpace(this.projectId, renderPrompt)); // v12.466 项目色彩空间(下面三种重出在这句上追加,一并带上)
 
       // P4: 渐进式一致性链（并发安全 — 读取当前已完成的分镜图）
       // v2.20 P0.1: Style Bible 永远作首位 sref — 锁全片画风, 不被后续镜头覆盖.
@@ -4189,7 +4189,7 @@ ${characterBibleBlock}${producerContext}
       const shot = script.shots?.find(s => s.shotNumber === item.shotNumber);
       if (shot) {
         try {
-          const prompt = getStoryboardVisualPrompt(`${shot.sceneDescription}, ${item.suggestion}`, this.styleKeywords);
+          const prompt = await (await import('@/lib/project-format-store')).withColorSpace(this.projectId, getStoryboardVisualPrompt(`${shot.sceneDescription}, ${item.suggestion}`, this.styleKeywords)); // v12.466
           const imageUrl = await this.generateImage(prompt, { aspectRatio: this.aspect || '16:9', label: `Shot ${item.shotNumber} v2` });
           const idx = updated.storyboards.findIndex(s => s.shotNumber === item.shotNumber);
           if (idx >= 0) updated.storyboards[idx] = { ...updated.storyboards[idx], imageUrl, prompt };

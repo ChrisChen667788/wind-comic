@@ -211,7 +211,27 @@ export const INLINE_REF_ENGINES: ReadonlySet<ImageEngine> = new Set<ImageEngine>
  * 去掉草图锁那句(`storyboard-sketch.buildSketchDirective` 追加的单行 ` [STORYBOARD LOCK] …`)——
  * 给没拿到草图的引擎:提示词说「按提供的草图」而图根本没给,只会让模型去猜(v12.465)。
  */
-export const stripSketchLock = (prompt: string): string => prompt.replace(/ \[STORYBOARD LOCK\][^\n]*/, '');
+export const stripSketchLock = (prompt: string): string => prompt.replace(SKETCH_LOCK_RE, '');
+
+/**
+ * 草图锁那一句:从「 [STORYBOARD LOCK]」到它自己的句尾(`buildSketchDirective` 固定以「spatial arrangement.」收尾),
+ * 认不出句尾才退到行尾。v12.466 前按「到行尾」删 —— 锁被挪到 `--参数` 之前后,会把后面的参数一起删掉。
+ */
+const SKETCH_LOCK_RE = /\s\[STORYBOARD LOCK\][^\n]*?(?:spatial arrangement\.|$)/m;
+
+/**
+ * 把草图锁那句挪到第一个 ` --参数` 之前(v12.466)。草图锁是在编排器里**追加在提示词末尾**的,
+ * 而出图提示词这时多半已经带着 `optimizeMidjourneyPrompt` 加的 `--no text …` —— MJ 把 `--no` 之后的文字都当负面词,
+ * 「Strictly follow the composition … of the provided sketch」就成了「不要按草图构图」。锁已经在参数前或没有参数:原样。
+ */
+export function lockBeforeParams(prompt: string): string {
+  const m = SKETCH_LOCK_RE.exec(prompt);
+  if (!m) return prompt;
+  const rest = prompt.slice(0, m.index) + prompt.slice(m.index + m[0].length);
+  const at = rest.search(/\s--[a-z]/i);
+  if (at < 0 || at >= m.index) return prompt;
+  return rest.slice(0, at) + m[0] + rest.slice(at);
+}
 
 export function sketchEnginesFor(sketch: string, env: NodeJS.ProcessEnv = process.env): ImageEngine[] {
   const out: ImageEngine[] = ['falflux'];

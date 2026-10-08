@@ -11,7 +11,7 @@ import {
 } from '@/lib/cinematography';
 import {
   COLOR_SPACES, FRAME_RATES, DEFAULT_PROJECT_FORMAT,
-  normalizeProjectFormat, compileFormatPrompt, describeFormat,
+  normalizeProjectFormat, withColorSpaceClause, describeFormat,
 } from '@/lib/project-format';
 
 describe('v7.4 光影/摄影机 预设', () => {
@@ -94,21 +94,23 @@ describe('lib/project-format', () => {
     expect(FRAME_RATES).toContain(24);
     expect(FRAME_RATES).toContain(120);
   });
-  it('默认: ACES + 24fps + 安全框', () => {
-    expect(DEFAULT_PROJECT_FORMAT).toEqual({ colorSpaceId: 'aces', fps: 24, safeArea: true });
+  // v12.466:色彩接进出图、安全框接上叠层之后,默认值改为「不指定 / 关」—— 没保存过格式的项目出图与预览不变
+  it('默认: 不指定色彩 + 24fps + 安全框关', () => {
+    expect(DEFAULT_PROJECT_FORMAT).toEqual({ colorSpaceId: 'none', fps: 24, safeArea: false });
   });
   it('normalize 非法回落 / 合法保留', () => {
     expect(normalizeProjectFormat(null)).toEqual(DEFAULT_PROJECT_FORMAT);
     const out = normalizeProjectFormat({ colorSpaceId: 'NOPE', fps: 999, safeArea: false });
-    expect(out.colorSpaceId).toBe('aces'); // 回落
+    expect(out.colorSpaceId).toBe('none'); // 回落
     expect(out.fps).toBe(24);
     expect(out.safeArea).toBe(false);
   });
-  it('compileFormatPrompt + describeFormat', () => {
+  // v12.466:compileFormatPrompt(全仓零调用,且往静帧里写帧率)换成只管色彩的 withColorSpaceClause
+  it('withColorSpaceClause + describeFormat', () => {
     const f = { colorSpaceId: 'aces', fps: 120, safeArea: true };
-    const p = compileFormatPrompt(f);
+    const p = withColorSpaceClause('a hero', f.colorSpaceId);
     expect(p).toContain('ACES');
-    expect(p).toContain('120fps high frame rate');
+    expect(p).not.toContain('fps');
     expect(describeFormat(f)).toContain('ACES 1.3');
     expect(describeFormat(f)).toContain('120fps');
   });

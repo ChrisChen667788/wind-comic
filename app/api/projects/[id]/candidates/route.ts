@@ -93,6 +93,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         if (useCref !== false && ctx.primaryCharacterRef) orchestrator.setPrimaryCharacterRef(ctx.primaryCharacterRef);
         if (aspectRatio) orchestrator.setAspect(aspectRatio);
         const { optimizeMidjourneyPrompt } = await import('@/lib/prompt-filter');
+        const { withColorSpace } = await import('@/lib/project-format-store'); // v12.466 项目色彩空间
 
         const refImages: string[] = [];
         if (useStyleBible !== false && ctx.styleAnchorUrl) refImages.push(ctx.styleAnchorUrl);
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           while (next < candidates.length) {
             const cand = candidates[next++];
             try {
-              const finalPrompt = optimizeMidjourneyPrompt(cand.prompt);
+              const finalPrompt = optimizeMidjourneyPrompt(await withColorSpace(projectId, cand.prompt));
               const imageUrl = await (orchestrator as unknown as {
                 generateImage: (p: string, o: Record<string, unknown>) => Promise<string>;
               }).generateImage(finalPrompt, {
