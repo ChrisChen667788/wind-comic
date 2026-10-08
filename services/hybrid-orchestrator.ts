@@ -37,7 +37,7 @@ import {
   getDirectorScriptContext, getWriterScriptContext,
   type ParsedScript,
 } from '@/lib/script-parser';
-import { optimizeMidjourneyPrompt } from '@/lib/prompt-filter';
+import { optimizeMidjourneyPrompt, toPlainPrompt } from '@/lib/prompt-filter';
 import {
   enhanceCharacterPromptSeedance, enhanceScenePromptSeedance,
   buildProgressiveRefs, styleAnchorBlock,
@@ -1362,10 +1362,10 @@ export class HybridOrchestrator {
     };
 
     const engineChain: ImageEngine[] = [route.primary, ...route.fallbacks];
-    let lastErr: unknown = null; const lockedPrompt = prompt; // v12.465:没拿到草图的引擎不带草图锁那句(Seedream 额度耗尽退到 MiniMax 时,提示词还在说「按草图」)
+    let lastErr: unknown = null; const mjLocked = prompt, lockedPrompt = toPlainPrompt(prompt); // v12.465:没拿到草图的引擎不带草图锁那句(Seedream 额度耗尽退到 MiniMax 时,提示词还在说「按草图」);v12.471:MJ 语法只给 MJ(出口再挪到末尾、去重),其余引擎与下面的兜底档收纯文本
     for (const eng of engineChain) {
       try {
-        prompt = !opts?.layoutEngines || opts.layoutEngines.includes(eng) ? lockedPrompt : stripSketchLock(lockedPrompt);
+        const base = eng === 'mj' ? mjLocked : lockedPrompt; prompt = !opts?.layoutEngines || opts.layoutEngines.includes(eng) ? base : stripSketchLock(base);
         return await tryEngine(eng);
       } catch (e) {
         lastErr = e;

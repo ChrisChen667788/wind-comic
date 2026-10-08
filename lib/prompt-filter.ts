@@ -74,6 +74,12 @@ export function hasSensitiveWords(prompt: string): boolean {
  * - 过滤敏感词
  * - 添加安全的风格描述
  */
+/**
+ * v12.471:非 MJ 引擎出口用的「去 MJ 语法」—— 实现在 lib/midjourney-params.ts(MJ 参数语法只有一个出处),
+ * 这里转出,给已经引用本模块做提示词清洗的调用方(编排器)用。
+ */
+export { toPlainPrompt } from './midjourney-params';
+
 export function optimizeMidjourneyPrompt(prompt: string): string {
   // 1. 过滤敏感词
   let optimized = filterSensitiveWords(prompt);

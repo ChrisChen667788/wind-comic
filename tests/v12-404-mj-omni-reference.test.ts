@@ -91,7 +91,8 @@ describe('v12.404 · MJ Omni Reference', () => {
   it('service 不得再自己拼参数 —— 版本与参数的对应关系只能有一个出处', () => {
     const src = stripComments(fs.readFileSync('services/midjourney.service.ts', 'utf-8'));
     // 窗口自证:确认读到的是接了模块之后的版本
-    expect(src).toContain('buildMjParams(');
+    // v12.471:出口改为 assembleMjPrompt(内部仍由 buildMjParams 生成请求参数)
+    expect(src).toContain('assembleMjPrompt(');
     expect(src.includes('--cref'), 'service 里又自己拼 --cref 了').toBe(false);
     expect(src.includes('--oref'), 'service 里又自己拼 --oref 了').toBe(false);
   });

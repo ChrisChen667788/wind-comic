@@ -84,7 +84,8 @@ describe('v2.19 P0.1 · prompt slim — character image prompt budget', () => {
       getCharacterVisualPrompt('Hero', 'brave', 'tall', 'cinematic'),
       'Hero',
     );
-    expect(enhanced).toContain('--ar');
+    expect(enhanced).not.toMatch(/--ar\s/); // v12.471:画幅归请求参数,模板不写
+    expect(enhanced).toContain('--s 250');
     expect(enhanced).toContain('turnaround');
     // negative prompts must survive slimming for modern setting
     expect(enhanced).toContain('Character ID lock');
@@ -117,7 +118,7 @@ describe('v2.19 P0.1 · prompt slim — scene image prompt budget', () => {
     );
     expect(enhanced).toContain('--no people');
     expect(enhanced).toContain('--no person');
-    expect(enhanced).toContain('--ar');
+    expect(enhanced).not.toMatch(/--ar\s/); // v12.471:画幅归请求参数,模板不写
     expect(enhanced).toContain('unpopulated');
   });
 });

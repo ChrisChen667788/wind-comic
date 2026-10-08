@@ -657,7 +657,10 @@ export function getCharacterVisualPrompt(name: string, description: string, appe
   // Removed: 'highly detailed character design', 'ALL characters must share the
   // same era and art style' (redundant with eraConstraint), 'sharp focus',
   // 'professional illustration', 'artstation trending', 'concept art quality'.
-  return `character concept art turnaround sheet, front three-quarter and back views, ${eraConstraint}${visualDesc}, full body standing pose, ${styleKeywords}, neutral studio lighting, clean background --ar 16:9 --s 250${negativePrompt}`;
+  // v12.471:画幅不写在模板里,只由请求参数决定(MJ 由 buildMjParams 发 `--ar`,其余引擎走各自的尺寸字段)。
+  // 原来写死 `--ar 16:9`:竖屏项目发给 MJ 的提示词里同时有 `--ar 16:9` 和 `--ar 9:16`,
+  // 非 MJ 引擎还会读到一句和请求画幅相反的 `--ar 16:9`。下面几个模板同理。
+  return `character concept art turnaround sheet, front three-quarter and back views, ${eraConstraint}${visualDesc}, full body standing pose, ${styleKeywords}, neutral studio lighting, clean background --s 250${negativePrompt}`;
 }
 
 // ═══════════════════════════════════════════
@@ -711,14 +714,14 @@ export function getSceneVisualPrompt(description: string, location: string, styl
   // v2.19 P0.1: trim from ~480 chars to ~220. The 7 phrases saying
   // "no people / no figures / no humans / no silhouettes / no faces / no bodies"
   // were redundant — the --no flags below carry the same signal at 1/3 the chars.
-  return `environment concept art, ${sceneBody}, ${styleKeywords}, unpopulated empty scene, cinematic composition, volumetric lighting, atmospheric perspective, matte painting quality --no people --no person --no character --no figure --no human --ar 16:9 --s 250`;
+  return `environment concept art, ${sceneBody}, ${styleKeywords}, unpopulated empty scene, cinematic composition, volumetric lighting, atmospheric perspective, matte painting quality --no people --no person --no character --no figure --no human --s 250`;
 }
 
 // ═══════════════════════════════════════════
 // 分镜视觉提示词
 // ═══════════════════════════════════════════
 export function getStoryboardVisualPrompt(visualPrompt: string, styleKeywords: string): string {
-  return `${visualPrompt}, ${styleKeywords}, cinematic film still, dramatic composition, high detail, professional cinematography --ar 16:9 --s 250`;
+  return `${visualPrompt}, ${styleKeywords}, cinematic film still, dramatic composition, high detail, professional cinematography --s 250`;
 }
 
 // 分镜草图（手绘风格）
@@ -728,7 +731,7 @@ export function getStoryboardSketchPrompt(visualPrompt: string): string {
     .replace(/武器|枪|刀|剑/g, 'equipment')
     .replace(/血|暴力|死亡/g, 'dramatic scene');
 
-  return `storyboard sketch, pencil drawing, rough sketch, ${safePrompt}, black and white, hand-drawn style, concept art, simple lines, professional storyboard --ar 16:9`;
+  return `storyboard sketch, pencil drawing, rough sketch, ${safePrompt}, black and white, hand-drawn style, concept art, simple lines, professional storyboard`;
 }
 
 // ═══════════════════════════════════════════
@@ -901,12 +904,9 @@ export function getUnifiedStoryboardRenderPrompt(
     prompt += `, scene palette: ${sceneColorPalette}`;
   }
 
-  prompt += `, ${styleKeywords}, consistent character design throughout, same art style, high detail, professional cinematography --ar 16:9 --s 250`;
-
-  // Add character consistency weight
-  if (characterNames.length > 0) {
-    prompt += ` --cw 90`;
-  }
+  prompt += `, ${styleKeywords}, consistent character design throughout, same art style, high detail, professional cinematography --s 250`;
+  // v12.471:这里原来还有 `--cw 90` —— 角色权重同样归请求(一致性策略按锁脸/主角/配角给 cw,
+  // buildMjParams 按版本发 --cw 或 --ow),模板再写一个就是第二份、而且是写死的那份。
 
   return prompt;
 }

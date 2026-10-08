@@ -17,7 +17,7 @@ function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 30_000): P
 type MJProgressCallback = (progress: string, status: string) => void;
 
 // v2.17 P0.2: API 用量追踪
-import { buildMjParams } from '@/lib/midjourney-params';
+import { assembleMjPrompt } from '@/lib/midjourney-params';
 import { lockBeforeParams } from '@/lib/image-router';
 import { recordApiCall as _trackApiCall } from '@/lib/api-usage-tracker';
 function _trackMjError(error: unknown, method: string): void {
@@ -98,7 +98,9 @@ export class MidjourneyService {
     // 此前这里写死 `--cref/--cw` 而全仓从不指定版本 —— 若网关默认是 V7,
     // 这个参数就是无效的,而 MJ 不会因此报错:它照样出图,只是角色不锁了。
     // 「失败长得像成功」正是最难发现的那一类。详见 lib/midjourney-params.ts。
-    fullPrompt += buildMjParams({
+    // v12.471:不再只是「追加」—— 正文里已有的参数(模板写的、库里旧提示词带的、用户手改的)
+    // 一并挪到末尾、同名只留一个,请求给了的以请求为准。详见 lib/midjourney-params.ts。
+    fullPrompt = assembleMjPrompt(fullPrompt, {
       cref: options?.cref,
       sref: options?.sref,
       aspectRatio: options?.aspectRatio,

@@ -263,10 +263,11 @@ describe('McKee Skill', () => {
     expect(prompt).toContain('colorPalette');
   });
 
-  it('character visual prompt should include --ar', async () => {
+  // v12.471:画幅改由请求参数决定 —— 模板里写死的 `--ar 16:9` 会和竖屏项目的 `--ar 9:16` 撞在一起
+  it('character visual prompt should not hard-code --ar', async () => {
     const { getCharacterVisualPrompt } = await import('@/lib/mckee-skill');
     const prompt = getCharacterVisualPrompt('Hero', 'brave warrior', 'tall man', 'cinematic');
-    expect(prompt).toContain('--ar');
+    expect(prompt).not.toMatch(/--(ar|aspect)\s/);
     expect(prompt).toContain('turnaround sheet');
   });
 

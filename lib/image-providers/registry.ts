@@ -14,6 +14,7 @@
 
 import type { ImageProvider, SelectInput, ImageGenerateInput, ImageGenerateResult } from './types';
 import { isProviderHealthy, markProviderDownIfFatal } from '../provider-health-cache';
+import { toPlainPrompt } from '../midjourney-params';
 
 const providers = new Map<string, ImageProvider>();
 
@@ -84,9 +85,13 @@ export async function dispatchImageGenerate(
 ): Promise<{ result: ImageGenerateResult | null; tried: Array<{ id: string; error: string }> }> {
   const chain = selectProviders(selection);
   const tried: Array<{ id: string; error: string }> = [];
+  // v12.471:MJ 参数语法只发给声明认它的 provider;其余转纯文本(画幅以 aspectRatio 字段为准)。
+  // 放在派发这一处,而不是每个 provider 各自记得剥 —— 新接的 provider 天然不会漏。
+  const forProvider = (p: ImageProvider, i: ImageGenerateInput): ImageGenerateInput =>
+    (p.acceptsMjParams ? i : { ...i, prompt: toPlainPrompt(i.prompt) });
   for (const p of chain) {
     try {
-      const r = await p.generate(input);
+      const r = await p.generate(forProvider(p, input));
       if (r && r.imageUrl && (r.imageUrl.startsWith('http') || r.imageUrl.startsWith('data:'))) {
         return { result: r, tried };
       }
@@ -120,7 +125,7 @@ export async function dispatchImageGenerate(
     );
     for (const p of noRefChain) {
       try {
-        const r = await p.generate({ ...input, referenceImages: [], cref: undefined, sref: undefined });
+        const r = await p.generate(forProvider(p, { ...input, referenceImages: [], cref: undefined, sref: undefined }));
         if (r && r.imageUrl && (r.imageUrl.startsWith('http') || r.imageUrl.startsWith('data:'))) {
           console.warn(`[ImageProviders] 主轮全失败,已用 ${p.id} 无参考图出图 —— 这张没有风格锚`);
           return { result: { ...r, refsIgnored: true }, tried };

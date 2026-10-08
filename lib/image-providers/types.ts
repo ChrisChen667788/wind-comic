@@ -101,6 +101,12 @@ export interface ImageProvider {
    */
   minRefImages?: number;
   /**
+   * v12.471:是否认 Midjourney 参数语法(`--ar` / `--no` / `--s` …)。只有 MJ 认 ——
+   * 其余引擎的官方接口只有纯文本 prompt + 独立的尺寸 / 画幅字段,收到的 `--ar 16:9` 只是几个字,
+   * 而且可能和请求画幅相反。不认的,注册表派发前把提示词转成纯文本(toPlainPrompt)。默认 false。
+   */
+  acceptsMjParams?: boolean;
+  /**
    * 优先级 — 数字越小越优先. 内置默认 100. 自定义 provider 想抢首位就设 50.
    * 在 ref 数量适配的前提下, 注册表按 priority 排序.
    */
