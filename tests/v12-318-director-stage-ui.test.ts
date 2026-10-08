@@ -167,7 +167,9 @@ describe('v12.318 · 组件真的能渲染(源码断言证明不了这件事)', 
     );
     expect(document.body.textContent).toContain('沈青梧');
     expect(document.body.textContent, '85mm 该被选中并显示其视角').toMatch(/24° 视角/);
-    expect(document.body.textContent, '0.5m 机位应判为仰拍').toMatch(/仰拍/);
+    // v12.465:没设俯仰 = 镜头水平。修前只看机高就说「仰拍」,而预览与草图里画面是平的
+    expect(document.body.textContent, '0.5m、没设俯仰的机位是低机位平视').toMatch(/低机位平视/);
+    expect(document.body.textContent).not.toMatch(/仰拍/);
     unmount(); cleanup();
   });
 

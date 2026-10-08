@@ -1127,7 +1127,7 @@ export class HybridOrchestrator {
     aspectRatio?: string; label?: string;
     cref?: string; sref?: string; cw?: number;
     referenceImages?: string[];
-    sketchUrl?: string; sketchLock?: boolean; sketchMeta?: { shotSize?: string; angle?: string; movement?: string }; // v12.135 镜头语言草图锁
+    sketchUrl?: string; sketchLock?: boolean; sketchMeta?: { shotSize?: string; angle?: string; movement?: string }; layoutRef?: string; layoutEngines?: ImageEngine[]; // v12.135 草图锁;layout*:v12.465 草图(引擎可取的形式)+ 能按它构图的引擎
     /** v12.416:这一镜要在**画面里**渲染的确切文字(片头字卡/对白框/招牌)。
      *  没有确切文字就无从验证画对没有,那会退化成「让模型自由发挥写点像字的东西」。 */
     onScreenText?: string;
@@ -1136,17 +1136,17 @@ export class HybridOrchestrator {
     // 把草图作首要构图参考并入 refs + 追加「锁定构图/机位」提示,让出图遵循草图空间布局。
     // 复用 v12.133 修好的真图输入通道(参考图软构图约束);ComfyUI ControlNet 硬锁为后续。
     if (opts?.sketchUrl) {
-      const { shouldSketchLock, buildSketchDirective, mergeSketchIntoRefs, sketchDeliverable } = await import('@/lib/storyboard-sketch');
+      const { shouldSketchLock, buildSketchDirective, mergeSketchIntoRefs, sketchTargets } = await import('@/lib/storyboard-sketch');
       if (shouldSketchLock(process.env, opts.sketchLock)) {
-        // v12.317:草图也要过 toEngineImage。原先两种来源(AI 生成 / 用户上传)恰好都是 http,
-        // 所以一直没暴露;而本地存储给的是 `/api/serve-file?key=…` —— 引擎够不着,
-        // 草图锁会**静默失效**(提示词照样加了 [STORYBOARD LOCK],图却没送到)。
+        // v12.317:草图也要过 toEngineImage —— 本地存储给的是 `/api/serve-file?key=…`,引擎够不着,草图锁会**静默失效**
+        // (提示词照样加了 [STORYBOARD LOCK],图却没送到;原先 AI 生成 / 用户上传恰好都是 http,所以一直没暴露)。
         // 补在草图进引擎的唯一入口,所有来源一并受益。
         const { toEngineImage } = await import('@/lib/first-frame');
         const engSketch = toEngineImage(opts.sketchUrl) || opts.sketchUrl;
-        opts = { ...opts, referenceImages: mergeSketchIntoRefs(engSketch, opts.referenceImages) };
-        prompt = `${prompt}${sketchDeliverable(engSketch, { falAvailable: !!this.falFluxService, minimaxAvailable: !!this.minimaxService?.isImageAvailable() }) ? buildSketchDirective(opts.sketchMeta) : ''}`; // v12.463:送不到不谎称
-        console.log(`[SketchLock] v12.135 草图构图约束启用: ${opts.label || 'image'}`);
+        const sketchTo = sketchTargets(engSketch, { falflux: !!this.falFluxService, seedream: !!API_CONFIG.qingyuntop.apiKey && !(await import('@/lib/gateway-budget')).isGatewayOutOfCredits(API_CONFIG.qingyuntop.baseURL), mj: !!this.mjService, kontext: !!(API_CONFIG.openai.apiKey || API_CONFIG.qingyuntop.apiKey) });
+        if (sketchTo.length) opts = { ...opts, referenceImages: mergeSketchIntoRefs(engSketch, opts.referenceImages), layoutRef: engSketch, layoutEngines: sketchTo };
+        prompt = `${prompt}${sketchTo.length ? buildSketchDirective(opts.sketchMeta) : ''}`; // v12.463 送不到不谎称;v12.465 只算真会按草图构图的引擎(MiniMax 只当人像参考)
+        console.log(`[SketchLock] ${sketchTo.length ? `草图交给 ${sketchTo.join(' / ')}` : '草图没有引擎能用,不锁'}: ${opts.label || 'image'}`);
       }
     }
     const hasRefImages = !!(opts?.cref || opts?.sref || opts?.referenceImages?.length);
@@ -1255,7 +1255,7 @@ export class HybridOrchestrator {
     // ═══ v2.20 P0.3: 智能路由 — 按 refs 数量分流 ═══
     // 关键改进: refs ≥ 3 时优先走 Minimax multi-ref (能用全部 4 张), 而不是 MJ 退化成 2 张.
     // 这样 Style Bible + 主角 + 配角 + 场景 可以同时锁住, 不再每镜舍弃一半参考.
-    const { decideImageRoute, collectValidRefs, appendSeedreamTier, preferFalFluxForRefs, preferInlineRefEngines, refsForEngine, isInlineImage } = await import('@/lib/image-router');
+    const { decideImageRoute, collectValidRefs, appendSeedreamTier, preferFalFluxForRefs, preferInlineRefEngines, refsForEngine, isInlineImage, stripSketchLock } = await import('@/lib/image-router');
     const validRefs = collectValidRefs({
       cref: opts?.cref,
       sref: opts?.sref,
@@ -1268,7 +1268,7 @@ export class HybridOrchestrator {
       mjAvailable: !!this.mjService,
       minimaxAvailable: !!this.minimaxService?.isImageAvailable(),
       kontextAvailable: !!veKey || !!qytKey,
-    }), validRefs.length, !!this.falFluxService)), validRefs.some(isInlineImage)); // v12.463:本地草图 → 认得内联图的引擎在前
+    }), validRefs.length, !!this.falFluxService)), validRefs.some(isInlineImage), opts?.layoutEngines); // v12.463 内联图 → 认得的引擎在前;v12.465 有草图 → 能按草图构图的在前
     // v12.416:这一镜要不要在**画面里**写汉字。
     // libass 字幕是后期叠加的一层字;片头字卡 / 对白框 / 招牌上的字得长在画面里、
     // 跟着透视和光线走 —— 叠一层替代不了。而通用图像模型画汉字基本是乱码,
@@ -1301,14 +1301,14 @@ export class HybridOrchestrator {
           this.mjService.onProgress = (progress, status) => { this.emit('mjProgress', { progress, status, label }); };
           if (hasRefImages) {
             return await this.mjService.generateImage(prompt, {
-              aspectRatio: opts?.aspectRatio, cref: opts?.cref, sref: opts?.sref, cw: opts?.cw ?? 100,
+              aspectRatio: opts?.aspectRatio, cref: opts?.cref, sref: opts?.sref, cw: opts?.cw ?? 100, imagePrompts: opts?.layoutEngines?.includes('mj') ? [opts.layoutRef!] : undefined,
             });
           }
           return await this.mjService.generateImage(prompt, { aspectRatio: opts?.aspectRatio });
         }
         case 'minimax-multi': {
           if (!this.minimaxService) throw new Error('minimax not available');
-          return await this.minimaxService.generateImageWithRefs(prompt, validRefs, {
+          return await this.minimaxService.generateImageWithRefs(prompt, validRefs.filter((u) => u !== opts?.layoutRef), { // v12.465:草图不当人像参考
             aspectRatio: opts?.aspectRatio || '16:9',
           });
         }
@@ -1316,7 +1316,7 @@ export class HybridOrchestrator {
           if (!this.minimaxService) throw new Error('minimax not available');
           // v12.133(issue #2 Fix C):有参考图时走 generateImageWithRefs(此前 minimax-single 静默丢 refs)
           if (hasRefImages && validRefs.length > 0) {
-            return await this.minimaxService.generateImageWithRefs(prompt, validRefs, { aspectRatio: opts?.aspectRatio || '16:9' });
+            return await this.minimaxService.generateImageWithRefs(prompt, validRefs.filter((u) => u !== opts?.layoutRef), { aspectRatio: opts?.aspectRatio || '16:9' }); // v12.465:草图不当人像参考
           }
           return await this.minimaxService.generateImage(prompt, { aspectRatio: opts?.aspectRatio || '16:9' });
         }
@@ -1361,16 +1361,16 @@ export class HybridOrchestrator {
     };
 
     const engineChain: ImageEngine[] = [route.primary, ...route.fallbacks];
-    let lastErr: unknown = null;
+    let lastErr: unknown = null; const lockedPrompt = prompt; // v12.465:没拿到草图的引擎不带草图锁那句(Seedream 额度耗尽退到 MiniMax 时,提示词还在说「按草图」)
     for (const eng of engineChain) {
       try {
+        prompt = !opts?.layoutEngines || opts.layoutEngines.includes(eng) ? lockedPrompt : stripSketchLock(lockedPrompt);
         return await tryEngine(eng);
       } catch (e) {
         lastErr = e;
         console.warn(`[ImageRouter] ${eng} failed for ${label}:`, e instanceof Error ? e.message : e);
       }
-    }
-    // engineChain 全炸了, 落到下面的 falFlux 兜底
+    } // engineChain 全炸了, 落到下面的 falFlux 兜底
 
     // 5️⃣ fal.ai / ComfyUI（本地）
     if (this.falFluxService) {
@@ -1378,7 +1378,7 @@ export class HybridOrchestrator {
         const refImages: string[] = [...(opts?.referenceImages || [])];
         if (opts?.cref) refImages.push(opts.cref);
         if (opts?.sref) refImages.push(opts.sref);
-        return await this.falFluxService.generateImage(prompt, {
+        return await this.falFluxService.generateImage(lockedPrompt, { // fal 拿得到草图(参考图里第一张),带锁
           referenceImages: refImages.slice(0, 4),
           aspectRatio: (opts?.aspectRatio as '16:9' | '9:16' | '1:1' | '4:3' | '3:4') || '16:9',
         });
@@ -1390,7 +1390,7 @@ export class HybridOrchestrator {
     if (this.comfyuiService && (hasRefImages || wantControlNet)) {
       if (wantControlNet) {
         try {
-          return await this.comfyuiService.generateWithControlNet(prompt, {
+          return await this.comfyuiService.generateWithControlNet(lockedPrompt, { // ControlNet 拿着草图(硬锁),带锁
             controlImageUrl: opts!.sketchUrl!,
             characterRefImage: opts?.cref, sceneRefImage: opts?.sref,
             width: 1344, height: 768,
@@ -1399,7 +1399,7 @@ export class HybridOrchestrator {
       }
       if (hasRefImages) {
         try {
-          return await this.comfyuiService.generateWithIPAdapter(prompt, {
+          return await this.comfyuiService.generateWithIPAdapter(stripSketchLock(lockedPrompt), { // 没拿到草图,不带锁
             characterRefImage: opts?.cref, sceneRefImage: opts?.sref,
             consistencyMode: opts?.cref ? 'full_character' : 'style_transfer',
             width: 1344, height: 768,
@@ -1412,7 +1412,7 @@ export class HybridOrchestrator {
     // MJ parameter error 整组翻车时不再直接掉占位图;OPENROUTER_API_KEY 未配自动跳过。
     try {
       const { generateOpenRouterImage } = await import('@/lib/image-providers/openrouter-image');
-      const orImg = await generateOpenRouterImage(prompt, { aspectRatio: opts?.aspectRatio });
+      const orImg = await generateOpenRouterImage(stripSketchLock(lockedPrompt), { aspectRatio: opts?.aspectRatio }); // 没拿到草图,不带锁
       if (orImg) {
         console.log(`[ImageRouter] ✅ openrouter-image for: ${label}`);
         return orImg;

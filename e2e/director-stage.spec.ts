@@ -1,13 +1,13 @@
-import { test, expect, type Page } from '@playwright/test';
-import Database from 'better-sqlite3';
+import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import jwt from 'jsonwebtoken';
 import sharp from 'sharp';
 import fs from 'node:fs';
 import path from 'node:path';
+import { openDemoDb } from './helpers/demo-db';
 
 /**
  * 导演台(摆位弹窗)在真浏览器里走一遍用户会做的每一步:
- *   剧本角色建人 → 俯视图键盘/拖动摆位、转朝向 → 焦距/机高/机位朝向 → 姿态 → 照片识别姿态 →
+ *   剧本角色建人 → 俯视图键盘/拖动摆位、转朝向 → 焦距/机高/机位朝向/俯仰(对准人物)→ 姿态 → 照片识别姿态 →
  *   2D/3D 预览同步 → 构图体检 → 保存 → 关掉重开还原 → 刷新后分镜卡仍标「已摆位」→ 渲布局草图(竖屏出竖图)。
  * 每一步都回到**用户看得到的东西**(提示词原文、告警、图片尺寸)或**库里的数据**核对。
  *
@@ -31,10 +31,9 @@ async function posePhotos(outDir: string): Promise<{ full: string; half: string 
   return { full, half: path.resolve('public/styles/portrait-natural.jpg') };
 }
 
-function seed() {
+async function seed(request: APIRequestContext) {
   const pid = `e2e-dstage-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-  const db = new Database('data/qfmj.db');
-  const u = db.prepare("SELECT id, role FROM users WHERE email='demo@qfmanju.ai'").get() as { id: string; role: string };
+  const { db, user: u } = await openDemoDb(request);
   const token = jwt.sign({ sub: u.id, role: u.role }, SECRET, { expiresIn: '1h' });
   const ts = new Date().toISOString();
   db.prepare(`INSERT INTO projects (id, user_id, title, status, aspect, created_at, updated_at) VALUES (?, ?, ?, 'completed', '9:16', ?, ?)`)
@@ -80,8 +79,8 @@ test.describe('导演台走查(真浏览器)', () => {
   test.setTimeout(600_000);
   test.beforeEach(({}, testInfo) => { test.skip(testInfo.project.name !== 'desktop', '桌面验收'); });
 
-  test('完整用户路径', async ({ page }, testInfo) => {
-    const { pid, token, stageRow, cleanup } = seed();
+  test('完整用户路径', async ({ page, request }, testInfo) => {
+    const { pid, token, stageRow, cleanup } = await seed(request);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     // MediaPipe 的 wasm 把 INFO / 警告日志写到 console.error(「Created TensorFlow Lite XNNPACK delegate」等)—— 第三方库的普通日志,不是页面报错
@@ -133,7 +132,31 @@ test.describe('导演台走查(真浏览器)', () => {
       await sliders.nth(0).fill('10');
       const d3 = await directive(page);
       log(`85mm+机高2.4+朝向10°: ${d3}`);
-      expect.soft(d3, '高机位应进提示词').toMatch(/high-angle/i);
+      // v12.465:没设俯仰 = 镜头水平 —— 照实说「抬高的平视」,不再写成俯拍(修前提示词说俯拍、预览和草图却是平的)
+      expect.soft(d3, '抬高但镜头水平').toMatch(/raised above eye level, lens kept level/i);
+      expect.soft(d3).not.toMatch(/high-angle/i);
+      // ④b 俯仰:「对准人物」压下镜头 → 提示词写俯拍、2D 预览地平线上移、3D 机位视角跟着低头
+      // 地平线画在「平面」预览里;有 WebGL2 时默认打开的是 3D 视口,先切过去。读属性给超时 —— 线出了画面就不存在,别一直等
+      const flatTab = dlg.getByRole('tab', { name: '平面' });
+      if (await flatTab.count()) await flatTab.click();
+      const horizonY = async () => Number(await dlg.locator('line[data-horizon]').first().getAttribute('y1', { timeout: 5000 }).catch(() => 'NaN'));
+      const h0 = await horizonY();
+      expect.soft(Number.isNaN(h0), '平视时地平线在画面里').toBe(false);
+      await dlg.getByRole('button', { name: '对准人物' }).click();
+      const pitch = Number(await dlg.getByLabel('俯仰', { exact: true }).inputValue());
+      const d3b = await directive(page);
+      log(`对准人物 → 俯仰 ${pitch}°: ${d3b} | 视角说法: ${await dlg.locator('[data-camera-view]').textContent()} | 地平线 y ${h0} → ${await horizonY()}`);
+      expect.soft(pitch, '机位高于人 → 往下压').toBeLessThan(-8);
+      expect.soft(d3b, '真低头了才写俯拍').toMatch(/high-angle camera looking down/i);
+      expect.soft(await dlg.locator('[data-camera-view]').textContent()).toBe('高角度俯拍机位');
+      const h1 = await horizonY();
+      expect.soft(Number.isNaN(h1) || h1 < h0, '低头 → 地平线上移(或移出画面)').toBe(true);
+      const lensTab = dlg.getByRole('tab', { name: '3D 机位视角' });
+      if (await lensTab.count()) {
+        await lensTab.click(); await page.waitForTimeout(1500);
+        await page.screenshot({ path: testInfo.outputPath('01b-俯仰-3D机位视角.png') });
+        await dlg.getByRole('tab', { name: '平面' }).click();
+      }
 
       // ⑤a 人物管理(v12.462):加一个 → 改名 → 提示词跟着变 → 删掉
       await dlg.getByRole('button', { name: /添加人物/ }).click();
@@ -162,6 +185,10 @@ test.describe('导演台走查(真浏览器)', () => {
         const row = dlg.locator('[data-pose-row]').nth(1);
         await expect.poll(async () => (await row.textContent()) ?? '', { timeout: 90_000 }).toMatch(/已识别|不太确定|没认出|判不准|跑不了|没带/);
         log(`照片识别(全身正面): ${(await row.textContent())?.replace(/\s+/g, ' ')}`);
+        // 上面的等待把「跑不了 / 没带模型」也算作有结果(否则会干等满 90 秒);但这一步要验的是**真推理** ——
+        // CI 里 MediaPipe 没跑起来就该红,而不是被当成「识别完了」放过去
+        expect.soft((await row.textContent()) ?? '', '姿态识别应真的跑了推理(不是「跑不了」或「没带模型」)').not.toMatch(/跑不了|没带/);
+        expect.soft((await row.textContent()) ?? '', '窗口自证:这一行确实给出了识别结果').toMatch(/已识别|不太确定|没认出|判不准/);
         log(`陆沉姿态下拉: ${await dlg.getByLabel('陆沉 的姿态', { exact: true }).inputValue()}`);
         await input.setInputFiles(photos.half);
         await page.waitForTimeout(8000);
@@ -192,6 +219,7 @@ test.describe('导演台走查(真浏览器)', () => {
       const saved = JSON.parse(stageRow()?.data || '{}');
       log(`库里: camera=${JSON.stringify(saved.camera)} actors=${JSON.stringify(saved.actors)}`);
       expect.soft(saved.camera?.lens).toBe('85');
+      expect.soft(saved.camera?.pitchDeg, '俯仰存进库').toBeLessThan(-8);
       expect.soft(saved.actors?.find((a: any) => a.name === '林晚')?.posePreset).toBe('sitting');
 
       // ⑨ 关掉重开 → 还原
@@ -206,8 +234,9 @@ test.describe('导演台走查(真浏览器)', () => {
       expect.soft(await stageDialog(page).getByLabel('林晚 的姿态', { exact: true }).inputValue()).toBe('sitting');
 
       log(`到此为止的页面报错: ${errors.length ? errors.join(' || ').slice(0, 1500) : '无'}`);
-      // ⑩ 渲布局草图(竖屏项目 → 竖图)。先把机位放回平视 35mm,草图里才看得到人
+      // ⑩ 渲布局草图(竖屏项目 → 竖图)。先把机位放回 1.6 米、俯仰归零、35mm,草图里才看得到人
       await stageDialog(page).locator('input[type="range"]').nth(1).fill('1.6');
+      await stageDialog(page).getByLabel('俯仰', { exact: true }).fill('0');
       await stageDialog(page).getByRole('button', { name: '35mm', exact: true }).click();
       await stageDialog(page).getByRole('button', { name: /渲布局草图/ }).click();
       const img = stageDialog(page).getByAltText('第 1 镜布局草图');

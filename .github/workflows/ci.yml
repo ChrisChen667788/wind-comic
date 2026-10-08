@@ -162,6 +162,48 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # v12.465:导演台两条真浏览器走查进 CI。此前只在本机跑 —— 它们要真 WebGL(3D 视口)和真 MediaPipe 推理(照片识别姿态),
+  # 当时以为 CI 给不了。实际:WebGL 用 Chrome 自带的软件渲染(SwiftShader,E2E_SOFTWARE_GL=1 打开,见 playwright.config.ts);
+  # MediaPipe 的 wasm 由 `predev` 从 node_modules 拷、姿态模型随仓库提交,都不联网。
+  # 与 smoke 分开一个 job:这两条要编译项目页 + 跑推理,十分钟级,别拖慢 smoke 的反馈。
+  e2e-director-stage:
+    name: E2E director stage (WebGL + MediaPipe)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browser (chrome channel)
+        run: npx playwright install --with-deps chrome
+
+      - name: E2E director stage + 3D viewport
+        run: npx playwright test e2e/director-stage.spec.ts e2e/stage3d.spec.ts --project=desktop --workers=1 --reporter=line
+        env:
+          # 不设 NODE_ENV=test:那样 lib/db 每进程用一个随机库,走查直连的 data/qfmj.db 就不是服务器那份(见 e2e/helpers/demo-db.ts)
+          MOCK_ENGINES: '1'
+          JWT_SECRET: e2e-ci-fixture-secret-not-for-prod
+          E2E_SOFTWARE_GL: '1'
+          OPENAI_API_KEY: dummy
+
+      - name: Upload walkthrough screenshots + report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: director-stage-e2e
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   build:
     name: Build (Next.js)
     runs-on: ubuntu-24.04

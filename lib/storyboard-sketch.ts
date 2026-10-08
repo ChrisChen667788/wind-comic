@@ -11,7 +11,7 @@
  * 纯逻辑,可单测。
  */
 
-import { isInlineImage } from './image-router';
+import { isInlineImage, sketchEnginesFor, type ImageEngine } from './image-router';
 
 export const SKETCH_LOCK_ENV = 'STORYBOARD_SKETCH_LOCK';
 
@@ -68,15 +68,16 @@ export function sketchApplyMode(engine: string, comfyControlNet = false): Sketch
 }
 
 /**
- * v12.463:这张草图到底送不送得到出图引擎。送不到就**不追加**草图锁的提示 ——
+ * 这张草图能交给哪些**当前可用**、且真会按草图构图的引擎(v12.465;v12.463 的 sketchDeliverable 只问「送不送得到」,
+ * 把只当人物参考用的 MiniMax 也算了进去)。空数组 = 没人能用 → 调用方**不追加**草图锁提示、也不把草图混进参考图 ——
  * 「Strictly follow … the provided reference storyboard sketch」而图根本没给,只会让模型去猜一张不存在的图。
- *  - http:照旧(能取图的引擎自己取);
- *  - 内联图(本地存储):只有 MiniMax / fal 认得,两家都不可用就送不到;
- *  - 其它(没转成功的站内相对地址等):送不到。
+ *  - 既非 http 也非内联图(没转成功的站内相对地址等):谁都取不到。
  */
-export function sketchDeliverable(engSketch: string, avail: { falAvailable: boolean; minimaxAvailable: boolean }): boolean {
-  if (engSketch.startsWith('http')) return true;
-  if (isInlineImage(engSketch) && (avail.falAvailable || avail.minimaxAvailable)) return true;
-  console.warn(`[SketchLock] 草图送不到出图引擎(${isInlineImage(engSketch) ? '本地草图只有 MiniMax / fal 收得了,两家都没配' : '地址引擎取不到'})—— 这次不加草图锁提示,按普通重生出图`);
-  return false;
+export function sketchTargets(engSketch: string, available: Partial<Record<ImageEngine, boolean>>, env: NodeJS.ProcessEnv = process.env): ImageEngine[] {
+  const form = engSketch.startsWith('http') || isInlineImage(engSketch);
+  const targets = form ? sketchEnginesFor(engSketch, env).filter((e) => available[e]) : [];
+  if (!targets.length) {
+    console.warn(`[SketchLock] 草图没有引擎能用(${form ? '能按草图构图的 fal / Seedream 都没配' : '地址引擎取不到'})—— 这次不加草图锁提示,按普通重生出图`);
+  }
+  return targets;
 }

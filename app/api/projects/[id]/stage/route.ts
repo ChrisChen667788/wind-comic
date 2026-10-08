@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { getStageScene, saveStageScene, stageReport, stageDirectiveForShot, withProjectAspect } from '@/lib/stage-scene-store';
-import { POSE_PRESETS, validateStagePayload } from '@/lib/stage-blocking';
+import { POSE_PRESETS, validateStagePayload, type StageScene } from '@/lib/stage-blocking';
 import { getShotSketch, renderStageSketchForShot } from '@/lib/stage-sketch-store';
 
 /** 姿态预设白名单 —— 不认识的 id 直接拒,而不是落库后由几何层静默忽略(facingDeg 就栽过这个) */
@@ -77,7 +77,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const before = await getStageScene(id, shotNumber).catch(() => null);
   const beforeDirective = before ? stageDirectiveForShot(before) : '';
   await saveStageScene(id, { ...scene, shotNumber });
-  const changed = directive !== beforeDirective;
+  // v12.465:相机本身动了也算变 —— 俯仰在 ±8° 内、机高同一档、朝向微调时,提示词那句可能一字不差,
+  // 但草图的地平线 / 透视已经不同(对抗复审撞到:俯仰 0→5° 存了,导演台草图还是旧地平线)
+  const cam = (c?: StageScene['camera']) => c && [c.x, c.z, c.yawDeg, c.lens ?? '35', c.heightM ?? 1.6, c.pitchDeg ?? 0].join('|');
+  const changed = directive !== beforeDirective || (!!before && cam(before.camera) !== cam(scene.camera));
 
   // 以下是**保存之后的附带动作**:站位已经落库,它们失败只记日志、不能把这次保存报成失败 ——
   // 否则用户看到「保存失败」重试,实际上已经存上了。

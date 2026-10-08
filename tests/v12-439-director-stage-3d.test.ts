@@ -244,13 +244,14 @@ describe('v12.439 · 3D 视锥与出片相机同一张角', () => {
     }
   });
 
-  it('机位视角相机:竖向 fov 取 verticalFovDeg、绕 Y 转 −yaw(与上面对拍用的是同一组参数)', () => {
+  it('机位视角相机:竖向 fov 取 verticalFovDeg、朝向取 cameraEuler(与上面对拍用的是同一组参数)', () => {
     const src = fs.readFileSync('components/project/stage3d-viewport.tsx', 'utf-8');
     const i = src.indexOf("view === 'lens' ? (");
     expect(i).toBeGreaterThan(0);
     const block = src.slice(i, src.indexOf('/>', i));
     expect(block).toContain('fov={vfov}');
-    expect(block).toMatch(/rotation=\{\[0, \(-cam\.yawDeg \* Math\.PI\) \/ 180, 0\]\}/);
+    // v12.465 起朝向带俯仰,走 cameraEuler(YXZ);没设俯仰时仍是「只绕 Y 转 −yaw」,与修前逐值相同
+    expect(block).toContain('rotation={cameraEuler(cam)}');
     expect(src).toMatch(/const vfov = verticalFovDeg\(cam\.lens, scene\.aspect\)/);
   });
 });

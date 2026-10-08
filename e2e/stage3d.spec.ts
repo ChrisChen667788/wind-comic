@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-import Database from 'better-sqlite3';
+import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { openDemoDb } from './helpers/demo-db';
 import jwt from 'jsonwebtoken';
 import sharp from 'sharp';
 
@@ -17,10 +17,9 @@ import sharp from 'sharp';
  */
 const SECRET = process.env.JWT_SECRET || 'e2e-fixture-secret-not-for-prod';
 
-function seed() {
+async function seed(request: APIRequestContext) {
   const pid = `e2e-stage3d-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-  const db = new Database('data/qfmj.db');
-  const u = db.prepare("SELECT id, role FROM users WHERE email='demo@qfmanju.ai'").get() as { id: string; role: string };
+  const { db, user: u } = await openDemoDb(request);
   const token = jwt.sign({ sub: u.id, role: u.role }, SECRET, { expiresIn: '1h' });
   const ts = new Date().toISOString();
   db.prepare(`INSERT INTO projects (id, user_id, title, status, created_at, updated_at) VALUES (?, ?, ?, 'completed', ?, ?)`)
@@ -82,8 +81,8 @@ test.describe('导演台 3D 视口(真 WebGL)', () => {
   test.setTimeout(240_000);
   test.beforeEach(({}, testInfo) => { test.skip(testInfo.project.name !== 'desktop', '桌面验收'); });
 
-  test('成功路:画布真的出图;3D ↔ 2D 反复切换(卸载/重建渲染器)不报错', async ({ page }, testInfo) => {
-    const { pid, token, cleanup } = seed();
+  test('成功路:画布真的出图;3D ↔ 2D 反复切换(卸载/重建渲染器)不报错', async ({ page, request }, testInfo) => {
+    const { pid, token, cleanup } = await seed(request);
     const errors = watchErrors(page);
     try {
       await openStage(page, pid, token);
@@ -137,8 +136,8 @@ test.describe('导演台 3D 视口(真 WebGL)', () => {
     }
   });
 
-  test('失败路:WebGL 渲染器建不起来 → 退回 2D 并说明原因,不留黑框、不出未处理拒绝', async ({ page }, testInfo) => {
-    const { pid, token, cleanup } = seed();
+  test('失败路:WebGL 渲染器建不起来 → 退回 2D 并说明原因,不留黑框、不出未处理拒绝', async ({ page, request }, testInfo) => {
+    const { pid, token, cleanup } = await seed(request);
     // 只让**挂进文档的**画布拿不到 WebGL:导演台的探测用离屏画布(isConnected=false)照常通过,
     // 于是走到真正的渲染器工厂里才失败 —— 正是「探测说行、真建时不行」那条路
     await page.addInitScript(() => {

@@ -804,7 +804,7 @@ export class MinimaxService {
    * 字段, 一次塞 ≤ 4 张图作锚点, 让模型同时锁住"角色长相 + 场景气氛 + 全片画风".
    *
    * 与普通 generateImage 的区别:
-   *   - body 多一个 subject_reference: [{ type: 'character', image_file: [url] }, ...]
+   *   - body 多一个 subject_reference: [{ type: 'character', image_file: url }, ...](image_file 是字符串)
    *   - refs 数组中第 1 张通常是 Style Bible 帧 (锁画风), 之后是 cref / sref
    *
    * 失败处理:
@@ -842,7 +842,9 @@ export class MinimaxService {
     }
 
     try {
-      const subjectArr = validRefs.map((url) => ({ type: 'character', image_file: [url] }));
+      // v12.465:image_file 是**字符串**(官方示例 `"image_file": "https://…"`)。v2.20 起这里一直传数组 →
+      // 每次都是 2013「传入参数异常」,带参考图的 MiniMax 出图从没成功过、静默退到下一个引擎(真调撞到)
+      const subjectArr = validRefs.map((url) => ({ type: 'character', image_file: url }));
       const body: Record<string, any> = {
         model: 'image-01',
         prompt: effectivePrompt,

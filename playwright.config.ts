@@ -18,6 +18,11 @@ export default defineConfig({
     channel: 'chrome',
     headless: true,
     trace: 'off',
+    // v12.465:CI 机器没有 GPU。Chrome 新版默认不再自动退到软件渲染(SwiftShader),导演台 3D 视口会因 WebGL2 不可用
+    // 整块退回 2D —— 走查就测不到 3D 了。E2E_SOFTWARE_GL=1 时显式要软件 WebGL(本机有 GPU,默认不加)。
+    ...(process.env.E2E_SOFTWARE_GL === '1'
+      ? { launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] } }
+      : {}),
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], channel: 'chrome', viewport: { width: 1440, height: 900 } } },

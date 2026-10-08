@@ -6,15 +6,19 @@
  * 而提示词照样追加「Strictly follow … the provided reference storyboard sketch」—— 图没给,让模型去猜。
  * 导演台渲的布局草图天生是本地文件;v12.347 起 AI 画的、上传的草图也落到本地 —— 本地部署下草图锁从没真正生效。
  *
- * 只对**官方文档写明**收 base64 的引擎放行(MiniMax、fal;见 lib/image-router INLINE_REF_ENGINES 的出处),
- * MJ / 网关 kontext / 网关 seedream 维持只收 http。草图送不到时不再追加草图锁提示。
+ * 只对**官方文档写明**收 base64 的引擎放行(MiniMax、fal;v12.465 加 Seedream,见 lib/image-router INLINE_REF_ENGINES 的出处),
+ * MJ / 网关 kontext 维持只收 http。草图送不到时不再追加草图锁提示。
+ *
+ * v12.465 改:**草图不再送 MiniMax**。真调发现 MiniMax 收图只当人像参考 —— 同一张草图送过去,出图两人并排站在画面正中,
+ * 构图没跟;而且本仓给 MiniMax 的 image_file 一直是数组(官方是字符串),每次都被 2013 拒,v12.463 的「送到了」只在模拟请求里成立。
+ * 「谁能按草图构图」的新口径与测试见 v12-465-sketch-engine-routing。
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   isInlineImage, refsForEngine, collectValidRefs, preferInlineRefEngines, INLINE_REF_ENGINES, INLINE_IMAGE_MAX_CHARS,
   type ImageRouteDecision,
 } from '@/lib/image-router';
-import { mergeSketchIntoRefs, sketchDeliverable } from '@/lib/storyboard-sketch';
+import { mergeSketchIntoRefs } from '@/lib/storyboard-sketch';
 
 const PNG = `data:image/png;base64,${Buffer.from('fake-png-bytes').toString('base64')}`;
 
@@ -37,9 +41,10 @@ describe('v12.463 · 哪些引擎认内联图', () => {
   });
 
   it('**只有官方文档写明支持 base64 的引擎拿得到内联图**;http 谁都给', () => {
-    expect([...INLINE_REF_ENGINES].sort()).toEqual(['falflux', 'minimax-multi', 'minimax-single']);
-    for (const e of ['falflux', 'minimax-multi', 'minimax-single'] as const) expect(refsForEngine([PNG, HTTP], e)).toEqual([PNG, HTTP]);
-    for (const e of ['mj', 'kontext', 'seedream'] as const) expect(refsForEngine([PNG, HTTP], e), e).toEqual([HTTP]);
+    // v12.465 加 seedream(火山方舟官方:image 支持 URL 或 Base64 编码)
+    expect([...INLINE_REF_ENGINES].sort()).toEqual(['falflux', 'minimax-multi', 'minimax-single', 'seedream']);
+    for (const e of ['falflux', 'minimax-multi', 'minimax-single', 'seedream'] as const) expect(refsForEngine([PNG, HTTP], e)).toEqual([PNG, HTTP]);
+    for (const e of ['mj', 'kontext'] as const) expect(refsForEngine([PNG, HTTP], e), e).toEqual([HTTP]);
   });
 
   it('超过 MiniMax 官方 10MB 上限的内联图不给(省得白发一个必然被拒的请求)', () => {
@@ -74,20 +79,11 @@ describe('v12.463 · 有本地草图时认得它的引擎排前面', () => {
   });
 });
 
-describe('v12.463 · 草图并入参考图 / 送不送得到', () => {
+describe('v12.463 · 草图并入参考图', () => {
   it('**mergeSketchIntoRefs 保留内联草图且放最前**;引擎取不到的站内相对地址仍丢', () => {
     expect(mergeSketchIntoRefs(PNG, [HTTP, '/api/serve-file?key=x'])).toEqual([PNG, HTTP]);
   });
-
-  it('sketchDeliverable:http 照旧;内联图要 MiniMax 或 fal 至少一家可用;其它一律送不到', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(sketchDeliverable(HTTP, { falAvailable: false, minimaxAvailable: false })).toBe(true);
-    expect(sketchDeliverable(PNG, { falAvailable: false, minimaxAvailable: true })).toBe(true);
-    expect(sketchDeliverable(PNG, { falAvailable: true, minimaxAvailable: false })).toBe(true);
-    expect(sketchDeliverable(PNG, { falAvailable: false, minimaxAvailable: false })).toBe(false);
-    expect(sketchDeliverable('/api/serve-file?key=x', { falAvailable: true, minimaxAvailable: true })).toBe(false);
-    expect(warn, '送不到要说出来,不能静默').toHaveBeenCalledTimes(2);
-  });
+  // 「送不送得到」(sketchDeliverable)v12.465 换成「谁能按草图构图」(sketchTargets),见 v12-465-sketch-engine-routing
 });
 
 describe('v12.463 · 落盘扩展名:修前 `<key>png` 没有扩展名,本地图认不出 MIME', () => {
@@ -113,7 +109,7 @@ describe('v12.463 · 落盘扩展名:修前 `<key>png` 没有扩展名,本地图
 });
 
 describe('v12.463 · MiniMax 真把内联草图放进请求体', () => {
-  it('subject_reference[].image_file 里就是 data URI(官方:支持公网 URL 或 Base64 Data URL)', async () => {
+  it('subject_reference[].image_file 里就是 data URI(官方:支持公网 URL 或 Base64 Data URL;v12.465 起是字符串)', async () => {
     const bodies: any[] = [];
     vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
       bodies.push(JSON.parse(String(init.body)));
@@ -126,11 +122,11 @@ describe('v12.463 · MiniMax 真把内联草图放进请求体', () => {
     const url = await svc.generateImageWithRefs('two people facing off', [PNG, HTTP], { aspectRatio: '9:16' });
     expect(url).toBe('https://minimax.out/img.png');
     expect(bodies).toHaveLength(1);
-    expect(bodies[0].subject_reference.map((s: any) => s.image_file[0])).toEqual([PNG, HTTP]);
+    expect(bodies[0].subject_reference.map((s: any) => s.image_file)).toEqual([PNG, HTTP]);
   });
 });
 
-describe('v12.463 · 编排器:本地草图 + 草图锁 → 送到 MiniMax,且提示词带锁;送不到就不带锁', () => {
+describe('v12.463 · 编排器:本地草图 + 草图锁(v12.465 改:MiniMax 不再收草图)', () => {
   async function run(avail: { minimax: boolean }) {
     const { storagePut } = await import('@/lib/storage');
     const put = await storagePut(Buffer.from('\x89PNG\r\n\x1a\nstage-sketch'), 'image/png', 'png');
@@ -150,11 +146,12 @@ describe('v12.463 · 编排器:本地草图 + 草图锁 → 送到 MiniMax,且�
     return { out, calls };
   }
 
-  it('**MiniMax 可用:草图以内联图送到 MiniMax(而不是先撞 MJ 被丢掉),提示词带 [STORYBOARD LOCK]**', async () => {
+  it('**只有 MiniMax / MJ 可用:没人能按草图构图 → 不加锁,MiniMax 也拿不到草图**(v12.465 改;修前草图被当人像参考送进去)', async () => {
     const { out, calls } = await run({ minimax: true });
-    expect(out).toBe('https://minimax.out/x.png');
-    expect(calls[0].refs.some(isInlineImage), '草图得真的在给 MiniMax 的参考图里').toBe(true);
-    expect(calls[0].prompt).toContain('[STORYBOARD LOCK]');
+    expect(out, '0 张参考图老规矩先给 MJ').toBe('https://mj.out/x.png');
+    expect(calls.every((c) => !c.refs.some(isInlineImage)), '谁都不该拿到草图').toBe(true);
+    expect(calls[0].prompt).not.toContain('[STORYBOARD LOCK]');
+    expect(calls[0].prompt, '窗口自证:是这次出图的提示词').toContain('a rainy street at night');
   });
 
   it('**MiniMax / fal 都不可用:送不到 → 不追加草图锁提示**(修前照样写「按提供的草图」,图却没给)', async () => {

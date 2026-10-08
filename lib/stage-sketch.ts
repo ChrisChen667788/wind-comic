@@ -23,7 +23,7 @@
  */
 import zlib from 'node:zlib';
 import type { StageScene } from './stage-blocking';
-import { projectScene, inferCameraAngle } from './stage-blocking';
+import { projectScene, cameraViewOf, horizonScreenY } from './stage-blocking';
 import { poseSkeletonOf } from './pose-skeleton';
 
 // ── 最小 PNG 编码 ──────────────────────────────────────────────────
@@ -153,8 +153,9 @@ export function renderStageSketch(scene: StageScene, opts: StageSketchOptions = 
     cv.hline(Math.round((2 * H) / 3), GUIDE);
   }
 
-  // 地平线 = 机位高度所在的视线水平 → 归一化纵向 0
-  cv.hline(Math.round(H / 2), HORIZON);
+  // 地平线 = 机位高度所在的视线水平。平视时在正中;v12.465 起有俯仰:低头时地平线上移、抬头时下移,出了画面就不画
+  const hy = horizonScreenY(scene);
+  if (hy >= -1 && hy <= 1) cv.hline(Math.round(((1 - hy) / 2) * H), HORIZON);
 
   const projected = projectScene(scene)
     .filter((p) => p.inFrame)
@@ -231,6 +232,6 @@ export function sketchMetaFromScene(scene: StageScene) {
   const nearest = projected.slice().sort((a, b) => a.distanceM - b.distanceM)[0];
   return {
     shotSize: nearest?.shotSize,
-    angle: inferCameraAngle(scene.camera.heightM ?? 1.6),
+    angle: cameraViewOf(scene.camera).angle,   // v12.465:按实际朝向(俯仰),与提示词同一判据
   };
 }

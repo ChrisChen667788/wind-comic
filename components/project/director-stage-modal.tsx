@@ -25,6 +25,7 @@ import { FloppyDisk as Save, CircleNotch as Loader2, Image as ImageIcon, Warning
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   projectScene, auditStaging, describeStaging, horizontalFovDeg, stageDirectiveForShot, frameSize, facingFromPoint, normalizeFacingDeg,
+  horizonScreenY, aimPitchDeg, cameraViewOf,
   POSE_PRESETS, STAGE_MAX_ACTORS, STAGE_NAME_MAX,
   type StageScene, type StageActor, type PosePresetId, type StageSketchInfo,
 } from '@/lib/stage-blocking';
@@ -312,6 +313,8 @@ export function DirectorStageModal({
   }
 
   const fov = horizontalFovDeg(framed.camera.lens, framed.aspect);
+  const horizonY = horizonScreenY(framed);
+  const pitch = framed.camera.pitchDeg ?? 0;
   const camPx = wx2px(scene.camera.x), camPy = wz2py(scene.camera.z);
   // v12.440:扇形边线先在**世界坐标**里算再映射。俯视图横向 28.3px/m、纵向 21.4px/m,
   // 修前直接在像素里按角度画,扇形张角与真实视角不符 —— 站在扇形边上的人,颜色(几何判定)和位置(扇形)对不上。
@@ -328,7 +331,10 @@ export function DirectorStageModal({
       style={{ aspectRatio: `${frame.width} / ${frame.height}`, maxHeight: 420, maxWidth: `${(420 * frame.width) / frame.height}px` }}>
       <line x1={frame.width / 3} y1={0} x2={frame.width / 3} y2={frame.height} stroke="#ddd" />
       <line x1={(2 * frame.width) / 3} y1={0} x2={(2 * frame.width) / 3} y2={frame.height} stroke="#ddd" />
-      <line x1={0} y1={frame.height / 2} x2={frame.width} y2={frame.height / 2} stroke="#ccc" />
+      {/* 地平线:平视在正中;v12.465 有俯仰后跟着上下移,出了画面不画(与服务端草图同一个 horizonScreenY) */}
+      {Math.abs(horizonY) <= 1 && (
+        <line data-horizon x1={0} y1={((1 - horizonY) / 2) * frame.height} x2={frame.width} y2={((1 - horizonY) / 2) * frame.height} stroke="#ccc" />
+      )}
       {projected.filter((p) => p.inFrame).sort((a, b) => b.distanceM - a.distanceM).map((p) => {
         const yTop = ((1 - p.screenTop) / 2) * frame.height;
         const yBot = ((1 - p.screenBottom) / 2) * frame.height;
@@ -445,6 +451,21 @@ export function DirectorStageModal({
                   onChange={(e) => patchCamera({ heightM: Number(e.target.value) })} className="flex-1" />
                 <span className="cinema-mono w-11 text-right">{(scene.camera.heightM ?? 1.6).toFixed(1)}m</span>
               </label>
+              {/* v12.465:俯仰。修前相机只能平视 ——「高机位」只是把相机抬高,提示词却写俯拍,预览与草图都是平的 */}
+              <label className="flex items-center gap-1">俯仰
+                <input type="range" aria-label="俯仰" min={-80} max={60} step={1} value={pitch}
+                  onChange={(e) => patchCamera({ pitchDeg: Number(e.target.value) })} className="flex-1" />
+                <span className="cinema-mono w-9 text-right">{pitch}°</span>
+              </label>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => patchCamera({ pitchDeg: aimPitchDeg(framed) })}
+                  disabled={!scene.actors.length}
+                  title="让镜头上下对准人物身体中段(抬高或压低机位后用)"
+                  className="px-1.5 py-0.5 rounded border border-[var(--cinema-border)] text-[10px] disabled:opacity-40">
+                  对准人物
+                </button>
+                <span data-camera-view className="opacity-70 truncate">{cameraViewOf(framed.camera).cn}</span>
+              </div>
               {/* v12.462:不能包在 <label> 里 —— label 会把整行文字当成第一个按钮(18mm)的名字,
                   点「焦距」二字或右边的视角读数都会触发 18mm,焦距被悄悄改掉(真浏览器走查撞到) */}
               <div role="group" aria-label="焦距" className="col-span-2 flex items-center gap-1">

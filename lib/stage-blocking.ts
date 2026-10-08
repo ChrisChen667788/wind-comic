@@ -93,6 +93,12 @@ export interface StageCamera {
   heightM?: number;
   /** 水平朝向(度) */
   yawDeg: number;
+  /**
+   * 俯仰(度,v12.465);正 = 抬头,负 = 低头。**缺省 = 0(平视)**,旧舞台的几何与提示词逐字不变。
+   * 修前舞台相机只能平视:「高机位」只是把相机抬高,提示词却写成俯拍,3D 预览与草图看到的是平视画面。
+   * 旋转顺序与 three.js 的 YXZ 相同:先按 yawDeg 转朝向,再绕相机自身横轴转俯仰。
+   */
+  pitchDeg?: number;
   /** 焦距档位;复用既有 LensId 词表 */
   lens?: LensId;
 }
@@ -217,6 +223,10 @@ export function validateStagePayload(body: unknown, isPose: (v: unknown) => bool
   if (camera.lens === null || camera.lens === '') delete camera.lens;
   else if (camera.lens !== undefined && !(typeof camera.lens === 'string' && Object.prototype.hasOwnProperty.call(LENS_MM, camera.lens))) {
     return { ok: false, error: `焦距不在档位里:${JSON.stringify(camera.lens).slice(0, 20)}(可选 ${Object.keys(LENS_MM).join(' / ')})` };
+  }
+  if (camera.pitchDeg === null) delete camera.pitchDeg;
+  else if (camera.pitchDeg !== undefined && (!Number.isFinite(camera.pitchDeg) || Math.abs(camera.pitchDeg) > 89)) {
+    return { ok: false, error: `机位俯仰必须在 −89°–89° 之间,收到 ${JSON.stringify(camera.pitchDeg).slice(0, 20)}` };
   }
   if (camera.heightM === null) delete camera.heightM;
   else if (camera.heightM !== undefined) {
@@ -417,6 +427,13 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
   const tanHalfH = Math.tan((half * Math.PI) / 180);
   const tanHalfV = Math.tan((verticalFovDeg(cam.lens, aspect) * Math.PI) / 360);
 
+  // v12.465:俯仰。先按朝向转、再绕相机横轴转(three.js 的 YXZ 顺序)。对一个高 y 的点(u = y − 机高,f = 水平前向距离):
+  //   沿光轴的深度 f' = f·cosP + u·sinP,上下 u' = u·cosP − f·sinP(P > 0 抬头)。
+  // P = 0 时 f' = f、u' = u,下面每个量都与修前逐项相同 —— 旧舞台的投影一个数字都不变。
+  const pitch = ((Number.isFinite(cam.pitchDeg) ? (cam.pitchDeg as number) : 0) * Math.PI) / 180;
+  const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+  const camH = cam.heightM ?? 1.6;
+
   const raw = (scene.actors || []).map((a) => {
     const dx = a.x - cam.x;
     const dz = a.z - cam.z;
@@ -424,25 +441,31 @@ export function projectScene(scene: StageScene): ProjectedActor[] {
     // 相对机位朝向的水平偏角
     const bearing = (Math.atan2(dx, dz) * 180) / Math.PI;
     const rel = norm180(bearing - cam.yawDeg);
-    // 主体在机位背后 → 一定不在画面里
-    const behind = Math.abs(rel) >= 90;
     const relRad = (rel * Math.PI) / 180;
-    // v12.439:**直线透视**。修前是 rel / half(按角度线性),真实镜头与 three.js 都是 tan(rel)/tan(half),
-    // 两者只在画面正中与边缘重合,中间错开 —— 18mm 下错 4.3% 画幅,35mm 1.5%。
-    // 没有 3D 画面对照时看不出来;一加 3D 视口,人物位置就和提示词、体检、草图对不上。
-    const screenX = behind ? (rel > 0 ? 2 : -2) : Math.tan(relRad) / tanHalfH;
-    // 纵向:直线透视下的成像高度由**沿光轴的深度**决定,不是水平距离。
-    // 修前用水平距离 —— 人物偏离画面中心 20° 时纵向位置差约 6%(已对照 three.js 验证)。
-    const depth = Math.max(distanceM * Math.cos(relRad), 1e-6);
+    const right = distanceM * Math.sin(relRad);
+    const fwd = distanceM * Math.cos(relRad);
     // v12.443:姿态改变头顶高度 —— 坐着的人头顶只到站立的 0.72,画面里更矮。
     // v12.445 修正:**景别不跟着姿态变**。景别说的是「这个人在画面里占多大」,
     // 由他的身量与距离决定;躺下的人没有变远变小,把他判成「大远景」是错的(浏览器实测撞到)。
     // 所以:轮廓(screenTop/Bottom)用姿态压过的高度,景别用站立身量。
     const standH = a.heightM ?? 1.7;
     const h = standH * poseHeightFactor(a.posePreset);
-    const camH = cam.heightM ?? 1.6;
-    const screenBottom = (0 - camH) / (depth * tanHalfV);
-    const screenTop = (h - camH) / (depth * tanHalfV);
+    const along = (y: number) => fwd * cosP + (y - camH) * sinP;
+    const upOf = (y: number) => (y - camH) * cosP - fwd * sinP;
+    // 左右位置与景别按**身体中段**算(有俯仰时头脚的左右会因透视略有不同)
+    const midAlong = along(h / 2);
+    // 主体在像平面背后 → 一定不在画面里(P = 0 时等价于修前的 |rel| ≥ 90°)
+    const behind = midAlong <= 1e-6;
+    // v12.439:**直线透视**。修前是 rel / half(按角度线性),真实镜头与 three.js 都是 tan(rel)/tan(half),
+    // 两者只在画面正中与边缘重合,中间错开 —— 18mm 下错 4.3% 画幅,35mm 1.5%。
+    // 没有 3D 画面对照时看不出来;一加 3D 视口,人物位置就和提示词、体检、草图对不上。
+    const screenX = behind ? (rel > 0 ? 2 : -2) : right / (midAlong * tanHalfH);
+    // 纵向:直线透视下的成像高度由**沿光轴的深度**决定,不是水平距离。
+    // 修前用水平距离 —— 人物偏离画面中心 20° 时纵向位置差约 6%(已对照 three.js 验证)。
+    const depth = Math.max(midAlong, 1e-6);
+    const screenY = (y: number) => upOf(y) / (Math.max(along(y), 1e-6) * tanHalfV);
+    const screenBottom = screenY(0);
+    const screenTop = screenY(h);
     // v12.462:竖直方向也得有一部分落在画框里。修前只看左右 —— 舞台相机没有俯仰,机高拉到 3 米配长焦,
     // 人整个落在画框下方之外(3D 机位视角里只看得见地面、布局草图一片空白),
     // 体检却说「在画内」,提示词照样描述他站在画面哪边(真浏览器走查撞到)。
@@ -517,7 +540,7 @@ export function auditStaging(scene: StageScene): StagingIssue[] {
       issues.push({
         kind: 'off-frame', actorId: p.id,
         message: vertical
-          ? `${p.name || p.id} 整个在画面${p.screenTop < -1 ? '下方' : '上方'}之外(机位是平视的,不会低头/抬头)——${p.screenTop < -1 ? '降低机高' : '抬高机位'}或换更广的镜头`
+          ? `${p.name || p.id} 整个在画面${p.screenTop < -1 ? '下方' : '上方'}之外 —— 把俯仰${p.screenTop < -1 ? '往下压' : '往上抬'}(或点「对准人物」)、${p.screenTop < -1 ? '降低机高' : '抬高机位'},或换更广的镜头`
           : `${p.name || p.id} 不在画面内(偏离画面中心 ${Math.abs(p.screenX).toFixed(2)},>1 即出画)——请转机位或换更广的镜头`,
       });
     } else if (p.occludedBy.length > 0) {
@@ -616,11 +639,9 @@ export function describeStaging(scene: StageScene): string {
   const SIZE_CN: Record<ShotSize, string> = {
     ECU: '大特写', CU: '特写', MS: '中景', LS: '全景', WS: '远景', ELS: '大远景',
   };
-  const ANGLE_CN: Record<CameraAngle, string> = {
-    eye: '平视', low: '低角度仰拍', high: '高角度俯拍', dutch: '荷兰角', overhead: '顶视',
-  };
-
-  const angle = inferCameraAngle(cam.heightM ?? 1.6);
+  // v12.465:机位角按相机**实际朝向**说(俯仰 + 高度),与提示词、3D 预览、草图同一个判据
+  const view = cameraViewOf(cam);
+  const tilt = Math.abs(view.tiltDeg) >= 1 ? `(${view.tiltDeg < 0 ? '下压' : '上抬'} ${Math.abs(Math.round(view.tiltDeg))}°)` : '';
   const ids = new Set(inFrame.map((p) => p.id));
   const poseById = poseMap(scene);
   const parts = inFrame
@@ -635,7 +656,7 @@ export function describeStaging(scene: StageScene): string {
       return `${who}位于${THIRDS_CN[p.thirds]}(${SIZE_CN[p.shotSize]},距机位约 ${p.distanceM.toFixed(1)} 米${face}${act}${occ})`;
     });
 
-  return `${ANGLE_CN[angle]}机位,${horizontalFovDeg(cam.lens, scene.aspect).toFixed(0)}° 水平视角;${parts.join(';')}。`;
+  return `${view.cn}${tilt},${horizontalFovDeg(cam.lens, scene.aspect).toFixed(0)}° 水平视角;${parts.join(';')}。`;
 }
 
 /**
@@ -670,16 +691,68 @@ export function stageDirectiveForShot(scene: StageScene | null | undefined): str
       const act = pose ? `, ${pose.en}` : '';
       return `${p.name || p.id} ${POS[p.thirds]} in ${SIZE[p.shotSize]}${face}${act}${occ}`;
     });
-  // v12.462:机位角也进提示词。修前界面上的中文描述写着「高角度俯拍机位」,进提示词的这句却只字不提 ——
-  // 机高滑杆拉到 3 米,出片照样平视(真浏览器走查撞到)。平视不写:旧舞台(默认 1.6 米)的这句话逐字不变。
+  // v12.462 起机位角进提示词;v12.465 起按相机**实际朝向**说(cameraViewOf)—— 修前只看机高,
+  // 「抬高但平视」也写成 looking down,与 3D 预览、草图对不上。正常高度平视不写:旧舞台这句话逐字不变。
   // 「. Staging:」标记保持原样,withStageDirective 靠它判断「已经带过站位句」。
-  const angle = ANGLE_EN[inferCameraAngle(scene.camera.heightM ?? 1.6)];
+  const angle = cameraViewOf(scene.camera).en;
   return `. Staging: ${angle ? `${angle}; ` : ''}${parts.join('; ')}`;
 }
 
-/** 机位角的英文说法;平视不写(不改变旧数据的提示词) */
-const ANGLE_EN: Partial<Record<CameraAngle, string>> = {
-  high: 'high-angle camera looking down',
-  low: 'low-angle camera looking up',
-  overhead: 'overhead top-down camera',
-};
+export interface CameraView {
+  /** 归到既有 CameraAngle 词表(草图元数据、镜头规格用) */
+  angle: CameraAngle;
+  /** 俯仰(度),负 = 低头 */
+  tiltDeg: number;
+  /** 进提示词的英文;正常高度平视为空串(不改变旧数据) */
+  en: string;
+  /** 界面中文(完整说法,如「平视机位」「高机位平视」) */
+  cn: string;
+}
+
+/** 低于这个俯仰角算平视 —— 几度的微调不该把镜头说成俯拍/仰拍 */
+export const LEVEL_TILT_DEG = 8;
+
+/**
+ * 机位角(v12.465):先看相机**往哪看**(俯仰),平视时再看相机**在哪**(高度)。
+ * 修前只按高度判:相机抬高 1 米、镜头仍水平,就被说成「高角度俯拍 / looking down」——
+ * 而 3D 预览与草图里画面是平的,人还落到画框下方。「抬高的平视」就照实说。
+ */
+export function cameraViewOf(camera: Pick<StageCamera, 'heightM' | 'pitchDeg'>, subjectHeightM = 1.7): CameraView {
+  const tilt = Number.isFinite(camera.pitchDeg) ? (camera.pitchDeg as number) : 0;
+  if (tilt <= -60) return { angle: 'overhead', tiltDeg: tilt, en: 'overhead top-down camera', cn: '顶视机位' };
+  if (tilt <= -LEVEL_TILT_DEG) return { angle: 'high', tiltDeg: tilt, en: 'high-angle camera looking down', cn: '高角度俯拍机位' };
+  if (tilt >= LEVEL_TILT_DEG) return { angle: 'low', tiltDeg: tilt, en: 'low-angle camera looking up', cn: '低角度仰拍机位' };
+  const d = (camera.heightM ?? 1.6) - subjectHeightM * 0.94;   // 与 inferCameraAngle 同一个眼高
+  if (d > 0.35) return { angle: 'eye', tiltDeg: tilt, en: 'camera raised above eye level, lens kept level', cn: '高机位平视' };
+  if (d < -0.35) return { angle: 'eye', tiltDeg: tilt, en: 'camera below eye level, lens kept level', cn: '低机位平视' };
+  return { angle: 'eye', tiltDeg: tilt, en: '', cn: '平视机位' };
+}
+
+/** 地平线在画面上的纵向位置(+1 顶 / −1 底);P = 0 时在正中。超出 ±1 即不在画面里 */
+export function horizonScreenY(scene: StageScene): number {
+  const tilt = ((Number.isFinite(scene.camera.pitchDeg) ? (scene.camera.pitchDeg as number) : 0) * Math.PI) / 180;
+  const tanHalfV = Math.tan((verticalFovDeg(scene.camera.lens, scene.aspect) * Math.PI) / 360);
+  return -Math.tan(tilt) / tanHalfV;
+}
+
+/**
+ * 「对准人物」(v12.465):让镜头上下对准人物身体中段 —— 抬高机位后一键压下镜头,不用自己试角度。
+ * 取左右方向在画内的人(都不在就取机位前方所有人),按身体中段的仰角取平均;没人就保持平视。
+ */
+export function aimPitchDeg(scene: StageScene): number {
+  const cam = scene.camera;
+  const camH = cam.heightM ?? 1.6;
+  const tanHalfH = Math.tan((horizontalFovDeg(cam.lens, scene.aspect) * Math.PI) / 360);
+  const items = (scene.actors || []).map((a) => {
+    const d = Math.hypot(a.x - cam.x, a.z - cam.z);
+    const rel = ((norm180((Math.atan2(a.x - cam.x, a.z - cam.z) * 180) / Math.PI - cam.yawDeg)) * Math.PI) / 180;
+    const fwd = d * Math.cos(rel);
+    const h = (a.heightM ?? 1.7) * poseHeightFactor(a.posePreset);
+    return { fwd, side: fwd > 1e-6 ? Math.abs(d * Math.sin(rel)) / (fwd * tanHalfH) : Infinity, up: h / 2 - camH };
+  }).filter((q) => q.fwd > 1e-6);
+  const pick = items.filter((q) => q.side <= 1);
+  const use = pick.length ? pick : items;
+  if (!use.length) return 0;
+  const deg = use.reduce((sum, q) => sum + (Math.atan2(q.up, q.fwd) * 180) / Math.PI, 0) / use.length;
+  return Math.max(-80, Math.min(60, Math.round(deg)));
+}

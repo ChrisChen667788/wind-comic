@@ -186,13 +186,40 @@ export const INLINE_IMAGE_MAX_CHARS = Math.floor((10 * 1024 * 1024 * 4) / 3);
 /**
  * 认得内联图的引擎 —— **只收官方文档写明支持的**(2026-10-01 逐家核对原页面):
  *  - MiniMax image-01 `subject_reference[].image_file`:「支持公网 URL 或 Base64 编码的 Data URL」,< 10MB
- *    https://platform.minimax.cn/docs/api-reference/image-generation-i2i
+ *    https://platform.minimax.cn/docs/api-reference/image-generation-i2i (v12.465 真调:修好字段格式后出图成功)
  *  - fal.ai:「You can pass a Base64 data URI as a file input. The API will handle the file decoding for you.」
  *    https://fal.ai/models/fal-ai/flux-pro/kontext/api
- * 不在表里的:MJ(只认 cref/sref 公网图)、网关 kontext(参考图只作提示词文本 —— 内联图塞进去会把提示词撑爆)、
- * 网关 seedream(上游文档支持 base64,但经网关转发未核实;本仓吃过「网关静默忽略字段」的亏,不冒险)。
+ *  - Seedream(v12.465 加):火山方舟「image … 支持 URL 或 Base64 编码 … data:image/<图片格式>;base64,<Base64 编码>」,单张 ≤ 30MB
+ *    https://docs.volcengine.com/docs/ark/image-generation-api 。经网关转发 `image` 字段已由 v12.148 实测(输出跟随参考图尺寸);
+ *    网关收不收 base64 **没真调验证**(v12.465 撞上网关额度耗尽)—— 网关拒了由 seedream 档自己退回纯文生图。
+ * 不在表里的:MJ(cref/sref 只认公网图;草图另走垫图,见 sketchEnginesFor)、网关 kontext(参考图只作提示词文本 ——
+ * 内联图塞进去会把提示词撑爆;网关文档查不到,真调撞上上游负载饱和)。
  */
-export const INLINE_REF_ENGINES: ReadonlySet<ImageEngine> = new Set<ImageEngine>(['minimax-multi', 'minimax-single', 'falflux']);
+export const INLINE_REF_ENGINES: ReadonlySet<ImageEngine> = new Set<ImageEngine>(['minimax-multi', 'minimax-single', 'falflux', 'seedream']);
+
+/**
+ * v12.465:能把**草图当构图参考**用的引擎 —— 与「收不收内联图」是两回事。
+ *  - **MiniMax 不在内**:它收图只当人物参考(官方:「主体类型,当前仅支持 character(人像)」)。
+ *    真调:同一张草图(左下近处大人、右上远处小人)送 MiniMax,出图是两人并排站在画面正中 —— 构图没跟。
+ *    v12.463 把草图优先送 MiniMax 是错的(当时请求格式还有错,每次 2013 被拒,所以没暴露)。
+ *  - fal Kontext:编辑输入图本身,结构跟得最紧;Seedream:参考图生图。
+ *  - MJ:草图作垫图(图像提示,构图与色调一起参考,灰块草图可能把画面带灰)—— 未真调验证(网关当时无 MJ 渠道),
+ *    默认关,`MJ_SKETCH_IMAGE_PROMPT=1` 开;
+ *  - 网关 kontext:沿用 `KONTEXT_GATEWAY_IMAGE_INPUT=1`,且只收公网图。
+ */
+/**
+ * 去掉草图锁那句(`storyboard-sketch.buildSketchDirective` 追加的单行 ` [STORYBOARD LOCK] …`)——
+ * 给没拿到草图的引擎:提示词说「按提供的草图」而图根本没给,只会让模型去猜(v12.465)。
+ */
+export const stripSketchLock = (prompt: string): string => prompt.replace(/ \[STORYBOARD LOCK\][^\n]*/, '');
+
+export function sketchEnginesFor(sketch: string, env: NodeJS.ProcessEnv = process.env): ImageEngine[] {
+  const out: ImageEngine[] = ['falflux'];
+  if (env.SEEDREAM_I2I_DISABLE !== '1' && env.IMAGE_SEEDREAM_DISABLE !== '1') out.push('seedream');
+  if (env.MJ_SKETCH_IMAGE_PROMPT === '1') out.push('mj');
+  if (sketch.startsWith('http') && env.KONTEXT_GATEWAY_IMAGE_INPUT === '1') out.push('kontext');
+  return out;
+}
 
 /** 给某个引擎的参考图:http 照给;内联图只给认得它的引擎,且不超上限 */
 export function refsForEngine(refs: ReadonlyArray<string | null | undefined> | undefined, engine: ImageEngine): string[] {
@@ -202,15 +229,19 @@ export function refsForEngine(refs: ReadonlyArray<string | null | undefined> | u
 }
 
 /**
- * 参考图里有内联图(实际上就是开了草图锁、而草图在本地)时,把认得内联图的引擎排到最前。
- * 否则按参考图数量的老规矩,1–2 张会先给 MJ —— MJ 只看 cref/sref,草图被静默丢掉,出图「成功」而构图没锁住。
- * 链里没有这类引擎就原样返回(由调用方决定是否还追加草图锁的提示,见 storyboard-sketch.sketchDeliverable)。
+ * 把「收得到这批参考图」的引擎排到最前。否则按参考图数量的老规矩,1–2 张会先给 MJ ——
+ * MJ 只看 cref/sref,草图被静默丢掉,出图「成功」而构图没锁住。
+ *  - 有草图(sketchEngines 非空,即 storyboard-sketch.sketchTargets 的结果):能按草图构图的引擎在前(v12.465);
+ *  - 否则参考图里有内联图:认得内联图的引擎在前(v12.463)。
+ * 链里没有这类引擎就原样返回。
  */
-export function preferInlineRefEngines(route: ImageRouteDecision, hasInline: boolean): ImageRouteDecision {
-  if (!hasInline) return route;
+export function preferInlineRefEngines(route: ImageRouteDecision, hasInline: boolean, sketchEngines?: readonly ImageEngine[]): ImageRouteDecision {
+  const want: ReadonlySet<ImageEngine> | null = sketchEngines?.length ? new Set(sketchEngines) : hasInline ? INLINE_REF_ENGINES : null;
+  if (!want) return route;
   const chain = [route.primary, ...route.fallbacks];
-  const capable = chain.filter((e) => INLINE_REF_ENGINES.has(e));
+  const capable = chain.filter((e) => want.has(e));
   if (capable.length === 0 || capable[0] === chain[0]) return route;
-  const ordered = [...capable, ...chain.filter((e) => !INLINE_REF_ENGINES.has(e))];
-  return { primary: ordered[0], fallbacks: ordered.slice(1), reason: `${route.reason}; local sketch → ${ordered[0]} first (only it can receive an inline image)` };
+  const ordered = [...capable, ...chain.filter((e) => !want.has(e))];
+  const why = sketchEngines?.length ? 'storyboard sketch' : 'inline image';
+  return { primary: ordered[0], fallbacks: ordered.slice(1), reason: `${route.reason}; ${why} → ${ordered[0]} first (it can use it)` };
 }

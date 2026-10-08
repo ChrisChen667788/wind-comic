@@ -44,6 +44,14 @@ const GROUND = new Plane(new Vector3(0, 1, 0), 0);
 
 const toThree = (x: number, z: number, y = 0): [number, number, number] => [x, y, -z];
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+/** 俯仰(弧度,正 = 抬头);没设 = 平视 */
+const camPitchRad = (cam: StageScene['camera']) => ((Number.isFinite(cam.pitchDeg) ? (cam.pitchDeg as number) : 0) * Math.PI) / 180;
+/**
+ * 相机朝向(v12.465 起带俯仰)。必须 YXZ:先在相机自身坐标里低头/抬头,再整体转向 ——
+ * three 默认 XYZ 会先转向再绕**世界** X 轴倾,yaw 不为 0 时镜头就歪成荷兰角。
+ */
+export const cameraEuler = (cam: StageScene['camera']): [number, number, number, 'YXZ'] =>
+  [camPitchRad(cam), (-cam.yawDeg * Math.PI) / 180, 0, 'YXZ'];
 
 /**
  * 机位视锥线段(three 坐标,成对端点)。导出给测试:视锥的张角必须与 `projectScene` 的画幅一致,
@@ -54,10 +62,13 @@ export function frustumSegments(scene: StageScene, lengthM = 4): [number, number
   const tanH = Math.tan((horizontalFovDeg(cam.lens, scene.aspect) * Math.PI) / 360);
   const tanV = Math.tan((verticalFovDeg(cam.lens, scene.aspect) * Math.PI) / 360);
   const yaw = (cam.yawDeg * Math.PI) / 180;
+  const pitch = camPitchRad(cam);
   const h = cam.heightM ?? DEFAULT_CAM_H;
   const apex = toThree(cam.x, cam.z, h);
-  // 相机局部坐标:右 = +x,上 = +y,前 = −z;再绕 Y 转 −yaw
-  const world = (lx: number, ly: number, lz: number): [number, number, number] => {
+  // 相机局部坐标:右 = +x,上 = +y,前 = −z;先绕 X 转俯仰(v12.465),再绕 Y 转 −yaw —— 与相机的 YXZ 欧拉角同一顺序
+  const world = (lx: number, ly0: number, lz0: number): [number, number, number] => {
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const ly = ly0 * cp - lz0 * sp, lz = ly0 * sp + lz0 * cp;
     const c = Math.cos(-yaw), s = Math.sin(-yaw);
     return [apex[0] + lx * c + lz * s, apex[1] + ly, apex[2] - lx * s + lz * c];
   };
@@ -229,7 +240,7 @@ function StageContents({
         <PerspectiveCamera
           makeDefault fov={vfov} near={0.05} far={200}
           position={toThree(cam.x, cam.z, camH)}
-          rotation={[0, (-cam.yawDeg * Math.PI) / 180, 0]}
+          rotation={cameraEuler(cam)}
         />
       ) : (
         <>
@@ -264,7 +275,7 @@ function StageContents({
 
       {view === 'orbit' && (
         <group onPointerMove={move}>
-          <mesh position={toThree(cam.x, cam.z, camH)} rotation={[0, (-cam.yawDeg * Math.PI) / 180, 0]}
+          <mesh position={toThree(cam.x, cam.z, camH)} rotation={cameraEuler(cam)}
             onPointerDown={canDrag ? start({ kind: 'camera' }) : undefined}>
             <boxGeometry args={[0.3, 0.22, 0.4]} />
             <meshStandardMaterial color={CAMERA} />

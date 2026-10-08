@@ -14,7 +14,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import {
-  validateStagePayload, projectScene, stageDirectiveForShot, stagedShotsFromAssets, STAGE_MAX_ACTORS,
+  validateStagePayload, projectScene, stageDirectiveForShot, describeStaging, stagedShotsFromAssets, STAGE_MAX_ACTORS,
   POSE_PRESETS, type StageScene,
 } from '@/lib/stage-blocking';
 import {
@@ -122,13 +122,22 @@ describe('v12.462 · 机位角进提示词(修前只进了界面上的中文描�
     expect(stageDirectiveForShot(scene(1.6))).toBe('. Staging: 林晚 at frame center in full shot');
   });
 
-  it('高机位 / 低机位 / 顶视各有说法,且与中文描述同一判据', () => {
-    // 判据与中文描述同一个 inferCameraAngle:眼高约 1.6 米,高出 0.35 米算俯拍,≥ 身高 1.8 倍(约 3.06 米)算顶视
-    expect(stageDirectiveForShot(scene(2.6))).toBe('. Staging: high-angle camera looking down; 林晚 at frame center in full shot');
-    expect(stageDirectiveForShot(scene(0.6))).toContain('low-angle camera looking up; ');
-    // 顶视高度下人要站得远一点才还在画框里(舞台相机平视,5 米处的人已整个在画面下方之外,见下一组)
-    const far: StageScene = { aspect: '16:9', camera: { ...CAM, heightM: 3.9 }, actors: [A('a', '林晚', 0, 10)] };
-    expect(stageDirectiveForShot(far)).toContain('overhead top-down camera; ');
+  it('机高不同、镜头水平:照实说「高 / 低机位平视」,不说俯拍仰拍(v12.465 改)', () => {
+    // v12.462 只按机高判,抬高 1 米就写 high-angle looking down —— 而 3D 预览与草图里画面是平的
+    expect(stageDirectiveForShot(scene(2.6))).toBe('. Staging: camera raised above eye level, lens kept level; 林晚 at frame center in full shot');
+    expect(stageDirectiveForShot(scene(0.6))).toContain('camera below eye level, lens kept level; ');
+    expect(stageDirectiveForShot(scene(2.6))).not.toContain('looking down');
+  });
+
+  it('**俯拍 / 仰拍 / 顶视由俯仰决定**,中文描述同一判据并带出角度', () => {
+    const tilt = (heightM: number, pitchDeg: number, z = 5): StageScene => ({ aspect: '16:9', camera: { ...CAM, heightM, pitchDeg }, actors: [A('a', '林晚', 0, z)] });
+    expect(stageDirectiveForShot(tilt(2.6, -12))).toBe('. Staging: high-angle camera looking down; 林晚 at frame center in full shot');
+    expect(describeStaging(tilt(2.6, -12)).startsWith('高角度俯拍机位(下压 12°),')).toBe(true);
+    expect(stageDirectiveForShot(tilt(0.6, 15))).toContain('low-angle camera looking up; ');
+    expect(describeStaging(tilt(0.6, 15)).startsWith('低角度仰拍机位(上抬 15°),')).toBe(true);
+    expect(stageDirectiveForShot(tilt(4, -70, 1.5))).toContain('overhead top-down camera; ');
+    // 几度的微调不改说法
+    expect(stageDirectiveForShot(tilt(1.6, -5))).toBe('. Staging: 林晚 at frame center in full shot');
   });
 
   it('「. Staging:」标记不变 —— withStageDirective 靠它判断已带过站位句,不重复追加', () => {

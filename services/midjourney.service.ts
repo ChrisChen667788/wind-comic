@@ -57,6 +57,12 @@ export class MidjourneyService {
     cref?: string;
     sref?: string;  // --sref 风格一致性参考图URL
     cw?: number;    // --cw 角色权重 0-100
+    /**
+     * v12.465:垫图(图像提示,构图 + 色调一起参考)。内联图(完整 data URL)走 midjourney-proxy 协议的 `base64Array` ——
+     * 代理把图传到 Discord 后把地址拼到提示词最前(出处:novicezk/midjourney-proxy SubmitImagineDTO.base64Array、
+     * ConvertUtils 按 RFC 2397 data URL 解析、TaskServiceImpl 拼到 prompt 前);公网图直接按 MJ 语法写在提示词最前。
+     */
+    imagePrompts?: string[];
     upscaleIndex?: 1 | 2 | 3 | 4; // 选择四宫格中的哪一张（默认 U1）
     skipUpscale?: boolean; // 跳过 upscale（仅在不需要单图时使用）
   }): Promise<string> {
@@ -76,10 +82,15 @@ export class MidjourneyService {
     cw?: number;
     /** v12.404: V7 Omni Reference 权重 1–1000(默认 100) */
     ow?: number;
+    imagePrompts?: string[];
     upscaleIndex?: 1 | 2 | 3 | 4;
     skipUpscale?: boolean;
   }): Promise<string> {
-    let fullPrompt = prompt;
+    const imgs = (options?.imagePrompts || []).slice(0, 4);
+    // 内联图只认完整 data URL(代理按 RFC 2397 解析,裸 base64 会被拒);公网图写在提示词最前(MJ 图像提示语法)
+    const base64Array = imgs.filter((u) => /^data:image\/[a-z0-9.+-]+;base64,/i.test(u));
+    const urlPrompts = imgs.filter((u) => /^https?:\/\//.test(u));
+    let fullPrompt = urlPrompts.length ? `${urlPrompts.join(' ')} ${prompt}` : prompt;
 
     // v12.404:参数按版本切,且**版本显式声明**。
     // 此前这里写死 `--cref/--cw` 而全仓从不指定版本 —— 若网关默认是 V7,
@@ -94,7 +105,7 @@ export class MidjourneyService {
       ow: options?.ow,
     });
 
-    console.log(`[MJ] Submit imagine: ${fullPrompt.slice(0, 120)}...`);
+    console.log(`[MJ] Submit imagine${base64Array.length ? ` (+${base64Array.length} 张垫图)` : ''}: ${fullPrompt.slice(0, 120)}...`);
 
     // ── Step 1: 提交 imagine 任务 → 获取四宫格 ──
     const response = await fetchWithTimeout(`${MJ_BASE_URL}/mj/submit/imagine`, {
@@ -103,7 +114,7 @@ export class MidjourneyService {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ prompt: fullPrompt }),
+      body: JSON.stringify({ prompt: fullPrompt, ...(base64Array.length ? { base64Array } : {}) }),
     }, 30_000);
 
     const data = await response.json();
