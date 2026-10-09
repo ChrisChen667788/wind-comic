@@ -12,6 +12,7 @@ import type {
   VideoSelectInput,
 } from './types';
 import { isProviderHealthy, markProviderDownIfFatal } from '../provider-health-cache';
+import { toPlainPrompt } from '../midjourney-params';
 
 const providers = new Map<string, VideoProvider>();
 
@@ -212,13 +213,17 @@ export async function dispatchVideoGenerate(
     return { result: null, tried };
   }
 
+  // v12.472:视频提示词常常就是分镜出图提示词(带 `--ar 16:9 --s 250 --no text …`),
+  // 而视频引擎的画幅走 aspectRatio 字段 —— 竖屏项目发出去的正文却写着 16:9。
+  // 与图像注册表同一处收口:只有声明认 MJ 语法的 provider 收原文,其余转纯文本。
+  const plain = { ...input, prompt: toPlainPrompt(input.prompt) };
   for (const p of chain) {
     // v12.63.0:瞬时错误(引擎偶发生成失败/超时/网络/5xx)同 provider 重试 1 次(3s 后)——
     // 此前一败即跳下家甚至掉光,Minimax video-01 error 这类偶发把 10 分镜拖成 3 成片。
     // 非瞬时(鉴权/额度/限流/参数/审核)不重试,交给熔断 + 下家。
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const r = await p.generate(input);
+        const r = await p.generate(p.acceptsMjParams ? input : plain);
         if (!r || !r.videoUrl) {
           tried.push({ id: p.id, error: 'empty result' });
           break; // 空结果非瞬时语义,跳下家

@@ -111,6 +111,12 @@ export interface VideoProvider {
    * true → native 模式下该 provider 出的镜可跳 TTS,composer 取成片真音轨. 可选,默认 falsy.
    */
   supportsNativeAudio?: boolean;
+  /**
+   * v12.472:是否认 Midjourney 参数语法(`--ar` / `--no` / `--s` …)。与图像侧同名字段同义:
+   * 内置视频引擎的官方接口都只有纯文本 prompt + 独立的画幅 / 时长字段,一个都不认 ——
+   * 不认的,注册表派发前把提示词转成纯文本(toPlainPrompt)。默认 false。
+   */
+  acceptsMjParams?: boolean;
 
   /**
    * 同步检查: provider 当前是否能跑 (env 配齐 / SDK 可加载等).

@@ -14,6 +14,7 @@ import { MinimaxService } from './minimax.service';
 import { ViduService } from './vidu.service';
 import { KlingService } from './kling.service';
 import { VeoService, hasVeo } from './veo.service';
+import { toPlainPrompt } from '@/lib/midjourney-params';
 
 export class AgentOrchestrator {
   private agents: Map<AgentRole, Agent>;
@@ -372,29 +373,31 @@ export class AgentOrchestrator {
         videoAgent.progress = Math.round(((i + 1) / storyboards.length) * 100);
 
         let videoUrl: string;
+        // v12.472:分镜提示词可能是给 MJ 出图写的(`--ar` / `--no` …),视频引擎只收纯文本
+        const videoPrompt = toPlainPrompt(board.prompt);
 
         // 根据用户选择的视频生成引擎
         switch (videoProvider) {
           case 'veo':
           case 'veo3.1':
             if (!this.veoService) throw new Error('VEO_API_KEY is not configured');
-            videoUrl = await this.veoService.generateVideo(board.imageUrl, board.prompt, { duration: 8 });
+            videoUrl = await this.veoService.generateVideo(board.imageUrl, videoPrompt, { duration: 8 });
             break;
           case 'minimax':
-            videoUrl = await this.minimaxService.generateVideo(board.imageUrl, board.prompt);
+            videoUrl = await this.minimaxService.generateVideo(board.imageUrl, videoPrompt);
             break;
           case 'vidu':
-            videoUrl = await this.viduService.generateVideo(board.imageUrl, board.prompt);
+            videoUrl = await this.viduService.generateVideo(board.imageUrl, videoPrompt);
             break;
           case 'keling':
-            videoUrl = await this.kelingService.generateVideo(board.imageUrl, board.prompt);
+            videoUrl = await this.kelingService.generateVideo(board.imageUrl, videoPrompt);
             break;
           default:
             // Default to veo if available, else minimax
             if (this.veoService) {
-              videoUrl = await this.veoService.generateVideo(board.imageUrl, board.prompt, { duration: 8 });
+              videoUrl = await this.veoService.generateVideo(board.imageUrl, videoPrompt, { duration: 8 });
             } else {
-              videoUrl = await this.minimaxService.generateVideo(board.imageUrl, board.prompt);
+              videoUrl = await this.minimaxService.generateVideo(board.imageUrl, videoPrompt);
             }
         }
 
@@ -430,7 +433,7 @@ export class AgentOrchestrator {
     }
 
     try {
-      const prompt = options?.description || storyboard.prompt;
+      const prompt = toPlainPrompt(options?.description || storyboard.prompt); // v12.472:同上
       let videoUrl: string;
 
       switch (videoProvider) {

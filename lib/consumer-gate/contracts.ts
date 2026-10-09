@@ -73,6 +73,11 @@ export const RUNTIME_ONLY_GAPS: Array<{ gap: string; incident: string; guardedBy
     incident: 'v12.239 两个 provider 返 data: URI,而记账正则只匹配 http(s)|/api/serve-file → 完全不记账',
     guardedBy: 'tests/v12-239-recheck5 的记账条件断言 + 本文件 cost-log-shape 契约(只能查形态,查不了「有没有真记」)',
   },
+  {
+    gap: '分镜提示词先赋给变量、再作为视频提示词传给引擎(video-prompt-must-be-plain 只认直接传参)',
+    incident: 'v12.472 单镜重生经 withStageDirective → videoPrompt、主管线兜底经 sceneDescription → enhancedPrompt,都绕过了直接传参的写法',
+    guardedBy: 'tests/v12-472-video-plain-prompt.test.ts(真跑编排器,断言每个引擎**收到**的提示词没有 MJ 语法、正文都在)',
+  },
 ];
 
 export const CONTRACTS: GateContract[] = [
@@ -250,6 +255,20 @@ export const CONTRACTS: GateContract[] = [
     // 这条不做正则拦截(写法太多),仅登记;实际检查在下面的 envSwitchAudit
     forbid: /(?!)/, // 永不匹配 —— 见 auditEnvSwitches
     scope: [],
+    allow: [],
+  },
+  {
+    id: 'video-prompt-must-be-plain',
+    rule: '分镜提示词交给视频引擎前必须过 toPlainPrompt,禁止把 board.prompt / storyboard.prompt 直接当视频提示词参数',
+    incident:
+      'v12.472:分镜提示词是给 MJ 出图写的(画幅参数写死 16:9、风格化、角色权重、`--no` 负面词),审片重生、agent-orchestrator ' +
+      '的六个引擎分支把它原样发给 Veo / MiniMax / Vidu / 可灵,单镜重生与主管线兜底经变量中转也一样。' +
+      '这几家画幅都走独立字段、没有一家定义 `--` 语法 —— 竖屏项目的请求里画幅字段写 9:16,正文里的画幅参数却是 16:9。',
+    entry: 'toPlainPrompt(prompt) from lib/midjourney-params(lib/prompt-filter 再导出);插件链由视频注册表派发处统一转',
+    // 只拦「提示词参数位直接是 X.prompt」这个具体写法(HappyHorse 提示词在第 0 位、首尾帧在第 2 位,故 0–2 个前置参数)。
+    // 先赋给变量再传的中转写法静态查不到,登记在 RUNTIME_ONLY_GAPS,由 tests/v12-472 真跑编排器守。
+    forbid: /\.(?:generateVideo\w*|generateFirstLastFrame|regenerateShotAt4K)\s*\((?:[^,()]*,){0,2}\s*(?:board|storyboard|sb)\.prompt\s*[,)]/,
+    scope: ['app/', 'lib/', 'services/'],
     allow: [],
   },
 ];

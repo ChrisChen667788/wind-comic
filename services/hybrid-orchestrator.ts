@@ -3135,7 +3135,7 @@ ${shots.map((s, i) => {
       const scriptAction = shot?.action || '';
       const scriptEmotion = shot?.emotion || '';
       const scriptDialogue = shot?.dialogue || '';
-      const sceneDescription = shot?.sceneDescription || board.prompt;
+      const sceneDescription = shot?.sceneDescription || toPlainPrompt(board.prompt); // v12.472:兜底到的是分镜出图提示词,其中的 MJ 参数视频引擎不认(画幅走 videoAspect)
 
       // 3. 构建结构化 prompt（按重要性排序）
       let enhancedPrompt = '';
@@ -4227,7 +4227,7 @@ ${characterBibleBlock}${producerContext}
           // v12.422:第三处写死的 8 秒。v12.409 修了主 switch 那处、本版修了 plugin-chain 那处,
           // 这条**再生成**路径又是一处 —— 同一个错在这个函数里并排躺着三份。
           // 这次由 tests/v12-422 逐处扫,而不是靠人记得都改到。
-          videoUrl = await this.veoService.generateVideo(board.imageUrl, board.prompt, {
+          videoUrl = await this.veoService.generateVideo(board.imageUrl, toPlainPrompt(board.prompt), { // v12.472:分镜提示词转纯文本再给视频引擎
             duration: Math.max(1, Math.round(Number(script?.shots?.find((x: any) => x.shotNumber === shotNumber)?.duration) || 8)),
             aspectRatio: this.videoAspect(),
           });
@@ -4235,7 +4235,7 @@ ${characterBibleBlock}${producerContext}
           // v2.14 P0.1: 把所有 lockedCharacters 转成 S2V multi-subject, 不再只用 primaryCharacterRef 单图
           const subjectRefs = this.getLockedSubjectReferences();
           const ref = await refVideoOptsForShot(this.projectId, shotNumber, (e) => this.onRefVideo(e), () => this.reportRefUsage('minimax', subjectRefs, shotNumber)); // v12.447/448:重生也报
-          videoUrl = await this.minimaxService.generateVideo(board.imageUrl, board.prompt, { ...ref,
+          videoUrl = await this.minimaxService.generateVideo(board.imageUrl, toPlainPrompt(board.prompt), { ...ref, // v12.472:同上
             aspectRatio: this.videoAspect(), // v12.14.0 横竖屏
             subjectReferenceUrl: this.primaryCharacterRef || undefined,
             subjectReferences: subjectRefs.length > 0 ? subjectRefs : undefined,
@@ -4268,7 +4268,7 @@ ${characterBibleBlock}${producerContext}
     // v12.440:单镜重生也带导演台站位。修前这里直接用 storyboard.prompt,导演台摆的位与朝向对重生完全无效。
     // projectId 走参数显式传入(路由不调 setProjectId —— 那会连带改变评分回写等其它行为)。
     const { withStageDirective } = await import('@/lib/stage-scene-store');
-    const videoPrompt = await withStageDirective(options?.projectId || this.projectId, shotNumber, storyboard.prompt);
+    const videoPrompt = await withStageDirective(options?.projectId || this.projectId, shotNumber, toPlainPrompt(storyboard.prompt)); // v12.472:分镜提示词是给 MJ 出图的(v12.471 前的竖屏分镜也写着 --ar 16:9),四个视频引擎都只收纯文本
 
     // v2.14 P0.1: 单镜重生也吃 lockedCharacters → S2V multi-subject
     const subjectRefs = this.getLockedSubjectReferences();
