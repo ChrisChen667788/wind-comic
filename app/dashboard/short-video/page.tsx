@@ -6,7 +6,8 @@
  * 短视频"驾驶舱": 一个创意 → 三幕(HOOK/BODY/CLIMAX)结构化分镜计划。
  *   - 左:15s 运镜词库 (开场钩子 / 叙事推进 / 结尾爆发) — 可点选替换某镜运镜
  *   - 中:三幕色彩时间轴 + 分镜表 (时间码/景别/运镜/画面/AI prompt)
- *   - 右:短视频参数面板 (运动控制 / 视觉增强 / 输出设置) + 一键生成
+ *   - 右:短视频参数面板 (运镜速度 / 画幅) + 一键生成
+ *     v12.473:删掉没有读者的 分辨率 / 帧率 / 超分 / 插帧 / 运动强度;画幅只给引擎出得了的三种并交给创建页。
  *   - 底:总时长 + 节奏分布环 + 导出
  *
  * 结构/时长/运镜由 lib/short-video 确定性逻辑掌控 (可单测); LLM 只产画面内容 + AI prompt。
@@ -19,15 +20,15 @@ import { useRouter } from 'next/navigation';
 import { Lightning as Zap, FilmStrip as Film, FilmSlate as Clapperboard, Flame, Sparkle as Sparkles, Copy, Check, Download, CircleNotch as Loader2, WarningCircle as AlertCircle, MagicWand as Wand2, Eye, Gauge, Image as ImageUp, ShareNetwork as Share2, ArrowRight } from '@phosphor-icons/react';
 import {
   RHYTHM_TEMPLATES, SHORT_DURATIONS, CAMERA_MOVE_VOCAB, ACT_LABEL_ZH,
-  SHOT_SIZE_LABEL_ZH, cameraMovesByPhase, getCameraMove, getRhythmTemplate,
-  compileShotToVideoPrompt,
+  SHOT_SIZE_LABEL_ZH, PHASE_TAG, cameraMovesByPhase, getRhythmTemplate,
+  applyShotPatch, applyParamsPatch, buildCreateHandoff, buildStoryboardMarkdown,
   type ShortVideoPlan, type ShortVideoShot, type ShortVideoParams,
-  type ActPhase, type ShotSize, type CameraSpeed, type UpscaleFactor,
+  type ActPhase, type ShotSize, type CameraSpeed,
 } from '@/lib/short-video';
+import { PROJECT_ASPECTS } from '@/lib/video-aspect';
 
 // v12.x 重设计:三幕节奏色从金橙黄(廉价/AI味)改为克制的 蓝 / 中灰 / 暗红(参考 Frame.io/Runway)。
 const PHASE_COLOR: Record<ActPhase, string> = { hook: '#3B82F6', body: '#52525B', climax: '#B91C1C' };
-const PHASE_TAG: Record<ActPhase, string> = { hook: 'HOOK', body: 'BODY', climax: 'CLIMAX' };
 const SHOT_SIZES: ShotSize[] = ['ELS', 'WS', 'LS', 'MS', 'CU'];
 
 export default function ShortVideoStudioPage() {
@@ -64,32 +65,12 @@ export default function ShortVideoStudioPage() {
 
   // 改某镜的运镜 / 景别 → 即时重编译该镜 AI prompt
   function patchShot(index: number, patch: Partial<Pick<ShortVideoShot, 'cameraMoveId' | 'shotSize'>>) {
-    setPlan((prev) => {
-      if (!prev) return prev;
-      const shots = prev.shots.map((s) => {
-        if (s.index !== index) return s;
-        const next = { ...s, ...patch };
-        const move = getCameraMove(next.cameraMoveId);
-        return {
-          ...next,
-          cameraMoveLabel: move?.labelZh ?? next.cameraMoveLabel,
-          cameraType: move?.cameraType ?? next.cameraType,
-          motion: move?.motion ?? next.motion,
-          aiPrompt: compileShotToVideoPrompt({
-            frameContent: s.frameContent,
-            shotSize: next.shotSize,
-            cameraMove: move,
-            style: prev.style,
-            cameraSpeed: prev.params.cameraSpeed,
-          }),
-        };
-      });
-      return { ...prev, shots };
-    });
+    setPlan((prev) => (prev ? applyShotPatch(prev, index, patch) : prev));
   }
 
+  // v12.473:改运镜速度会重编三镜 prompt(见 applyParamsPatch)
   function patchParams(patch: Partial<ShortVideoParams>) {
-    setPlan((prev) => (prev ? { ...prev, params: { ...prev.params, ...patch } } : prev));
+    setPlan((prev) => (prev ? applyParamsPatch(prev, patch) : prev));
   }
 
   function copyPrompt(shot: ShortVideoShot) {
@@ -120,15 +101,7 @@ export default function ShortVideoStudioPage() {
 
   function exportMarkdown() {
     if (!plan) return;
-    const md = [
-      `# ${plan.title}`,
-      `> 创意:${plan.idea} · 时长:${plan.durationS}s · 节奏:${getRhythmTemplate(plan.rhythmTemplateId).label}`,
-      '',
-      ...plan.shots.map((s) =>
-        `## ${PHASE_TAG[s.phase]} ${String(s.index).padStart(2, '0')} (${s.timeStartS}s–${s.timeEndS}s)\n` +
-        `- 景别:${SHOT_SIZE_LABEL_ZH[s.shotSize]} · 运镜:${s.cameraMoveLabel} (Motion ${s.motion})\n` +
-        `- 画面:${s.frameContent}\n- AI Prompt:\n\n\`\`\`\n${s.aiPrompt}\n\`\`\`\n`),
-    ].join('\n');
+    const md = buildStoryboardMarkdown(plan);
     const blob = new Blob([md], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -138,9 +111,13 @@ export default function ShortVideoStudioPage() {
 
   function sendToCreate() {
     if (!plan) return;
-    const seed = `${plan.idea}\n\n[15s 三幕分镜]\n` +
-      plan.shots.map((s) => `${PHASE_TAG[s.phase]} ${s.frameContent}（${s.cameraMoveLabel}）`).join('\n');
-    try { sessionStorage.setItem('qfmj-create-seed', seed); } catch { /* ignore */ }
+    // v12.473:画幅一起带过去(创建页只在 isProjectAspect 时采用);修前只带文字,画幅回到创建页默认 / 上次偏好
+    const { seed, aspect } = buildCreateHandoff(plan);
+    try {
+      sessionStorage.setItem('qfmj-create-seed', seed);
+      if (aspect) sessionStorage.setItem('qfmj-create-aspect', aspect);
+      else sessionStorage.removeItem('qfmj-create-aspect');
+    } catch { /* ignore */ }
     router.push('/dashboard/create');
   }
 
@@ -353,15 +330,12 @@ export default function ShortVideoStudioPage() {
           {!plan && <div className="cinema-mono text-[11px] opacity-50">生成后可调参</div>}
           {plan && (
             <div className="flex flex-col gap-4">
-              {/* 运动控制 */}
+              {/* 运镜速度 —— 编进每镜 AI Prompt,改了即重编三镜 */}
               <div>
-                <div className="text-[11px] font-medium mb-1.5">运动控制</div>
-                <label className="cinema-mono text-[10px] opacity-60 flex justify-between">Motion Intensity <span className="text-blue-400">{plan.params.motionIntensity}%</span></label>
-                <input type="range" min={0} max={100} value={plan.params.motionIntensity}
-                  onChange={(e) => patchParams({ motionIntensity: Number(e.target.value) })} className="w-full accent-blue-500" />
-                <div className="flex gap-1 mt-1.5">
+                <div className="text-[11px] font-medium mb-1.5">运镜速度</div>
+                <div className="flex gap-1">
                   {(['slow', 'normal', 'fast'] as CameraSpeed[]).map((sp) => (
-                    <button key={sp} onClick={() => patchParams({ cameraSpeed: sp })}
+                    <button key={sp} onClick={() => patchParams({ cameraSpeed: sp })} data-testid={`sv-speed-${sp}`}
                       className={`flex-1 text-[10px] py-1 rounded border transition ${plan.params.cameraSpeed === sp ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>
                       {sp === 'slow' ? '慢' : sp === 'normal' ? '正常' : '快'}
                     </button>
@@ -369,41 +343,20 @@ export default function ShortVideoStudioPage() {
                 </div>
               </div>
 
-              {/* 视觉增强 */}
+              {/* 输出设置 —— v12.473:只剩画幅(引擎出得了的三种,试拍预览 + 交给创建页);分辨率 / 帧率 / 超分 / 插帧没有读者,已删 */}
               <div>
-                <div className="text-[11px] font-medium mb-1.5">视觉增强</div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="cinema-mono text-[10px] opacity-60">插帧 Interpolation</span>
-                  <button onClick={() => patchParams({ interpolation: !plan.params.interpolation })}
-                    className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${plan.params.interpolation ? 'border-[var(--cinema-green)] text-[var(--cinema-green)]' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>
-                    {plan.params.interpolation ? 'ON' : 'OFF'}
-                  </button>
+                <div className="text-[11px] font-medium mb-1.5">画幅</div>
+                <div className="flex gap-1" data-testid="sv-aspect">
+                  {PROJECT_ASPECTS.map((a) => (
+                    <button key={a} onClick={() => patchParams({ aspectRatio: a })}
+                      className={`flex-1 cinema-mono text-[10px] py-1 rounded border transition ${plan.params.aspectRatio === a ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>
+                      {a}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="cinema-mono text-[10px] opacity-60">放大 Upscale</span>
-                  <div className="flex gap-1">
-                    {([1, 2, 4] as UpscaleFactor[]).map((u) => (
-                      <button key={u} onClick={() => patchParams({ upscale: u })}
-                        className={`cinema-mono text-[10px] px-2 py-0.5 rounded border ${plan.params.upscale === u ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-[var(--cinema-border)] text-[var(--cinema-text-3)]'}`}>{u}x</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* 输出设置 */}
-              <div>
-                <div className="text-[11px] font-medium mb-1.5">输出设置</div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <select value={plan.params.resolution} onChange={(e) => patchParams({ resolution: e.target.value })} className="cinema-input !py-1 !text-[11px]">
-                    {['1080P', '4K', '8K'].map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  <select value={plan.params.aspectRatio} onChange={(e) => patchParams({ aspectRatio: e.target.value as any })} className="cinema-input !py-1 !text-[11px]">
-                    {['9:16', '16:9', '1:1', '2.39:1'].map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  <select value={plan.params.fps} onChange={(e) => patchParams({ fps: Number(e.target.value) })} className="cinema-input !py-1 !text-[11px] col-span-2">
-                    {[24, 30, 60].map((f) => <option key={f} value={f}>{f} fps</option>)}
-                  </select>
-                </div>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--cinema-text-3)]" data-testid="sv-output-note">
+                  画幅会带到创建页。分辨率、帧率不在这里设:出片按视频引擎原生规格,帧率在项目页格式条,单镜 4K 在「镜头工坊」重渲。
+                </p>
               </div>
 
               {/* 节奏分布 — 细条 + 数值行(替掉环形图,更专业) */}
@@ -443,7 +396,7 @@ export default function ShortVideoStudioPage() {
         <div className="cinema-statusbar mt-4 flex-wrap">
           <span className="cinema-statusbar-item"><span className="cinema-statusbar-dot" /> 总时长 {plan.durationS}.0s</span>
           <span className="cinema-statusbar-item">{plan.shots.length} 镜</span>
-          <span className="cinema-statusbar-item">{plan.params.resolution} · {plan.params.aspectRatio} · {plan.params.fps}fps</span>
+          <span className="cinema-statusbar-item">{plan.params.aspectRatio}</span>
           <span className="cinema-statusbar-item">节奏 {getRhythmTemplate(plan.rhythmTemplateId).label}</span>
           <span className="cinema-statusbar-item ml-auto cinema-mono opacity-60">CineSpark v7.6</span>
         </div>

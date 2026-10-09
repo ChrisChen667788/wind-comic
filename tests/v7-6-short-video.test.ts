@@ -73,10 +73,9 @@ describe('节奏模板 + 运镜词库', () => {
     expect(getCameraMove('nope')).toBeUndefined();
   });
 
-  it('defaultParams 跟随节奏模板 (运动强度/速度)', () => {
+  it('defaultParams 跟随节奏模板 (运镜速度)', () => {
     const p = defaultParams(getRhythmTemplate('blockbuster'));
-    expect(p.motionIntensity).toBe(75);
-    expect(p.cameraSpeed).toBe('fast');
+    expect(p.cameraSpeed).toBe('fast'); // v12.473:运动强度没有读者,已删(见 v12-473-short-video-output)
     expect(p.aspectRatio).toBe('9:16'); // 竖屏默认
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CreationWorkspace } from '@/components/creation-workspace';
@@ -103,6 +103,9 @@ export default function DashboardCreatePage() {
   const [selectedTemplate, setSelectedTemplate] = useState<StoryTemplate | null>(null);
   // v2.18 P1: 模板展开 / 详情逻辑 已迁移到 <TemplateLibraryPicker> 内, 老 expandedTemplate 状态废弃
 
+  // v12.473:本次挂载由上游页面(极速分镜台)带来了画幅 → 下面恢复偏好的 effect 不再盖掉它
+  const seededAspectRef = useRef(false);
+
   // Vidu-style: pre-fill idea from URL query param (from cases page "用这个创作")
   useEffect(() => {
     const ideaParam = searchParams.get('idea');
@@ -113,9 +116,13 @@ export default function DashboardCreatePage() {
     // v6.2.1: 长篇拆解的某一集经 sessionStorage 传入 (长文本避免超 URL 长度上限)
     try {
       const seed = sessionStorage.getItem('qfmj-create-seed');
+      // v12.473:极速分镜台连画幅一起交过来。只认跟着 seed 一起来的,且必须是出得了的三种之一
+      const seedAspect = sessionStorage.getItem('qfmj-create-aspect');
+      sessionStorage.removeItem('qfmj-create-aspect');
       if (seed) {
         setIdea(seed);
         sessionStorage.removeItem('qfmj-create-seed');
+        if (isProjectAspect(seedAspect)) { setAspect(seedAspect); seededAspectRef.current = true; }
       }
     } catch { /* ignore */ }
     // v6.3: 风格画廊「套用此风格」经 sessionStorage 传入风格名
@@ -159,7 +166,7 @@ export default function DashboardCreatePage() {
     const p = loadCreatePrefs();
     if (!p) { const sys = getSystemLanguage(); if (sys !== 'auto') setScriptLanguage(sys); return; } // v12.165
     if (p.style) setStyle(p.style);
-    if (isProjectAspect(p.aspect)) setAspect(p.aspect); // v12.468:上次存的若是已下线的 2.35:1 就不恢复
+    if (isProjectAspect(p.aspect) && !seededAspectRef.current) setAspect(p.aspect); // v12.468:上次存的若是已下线的 2.35:1 就不恢复;v12.473:上游带了画幅以上游为准
     if (p.cameraDefault !== undefined) setCameraDefault(p.cameraDefault);
     if (typeof p.editStyle === 'string') setEditStyle(p.editStyle);
     if (p.scriptLanguage) setScriptLanguage(p.scriptLanguage);

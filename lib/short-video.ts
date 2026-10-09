@@ -10,13 +10,17 @@
  *
  * 设计取舍: 默认每幕一镜 = 3 镜, 与 CineSpark 形态一致; 时间轴由 duration + 节奏模板算出,
  * LLM 只负责"画面内容 + AI prompt 文案", 结构/时长/运镜由确定性逻辑掌控 (稳定、可单测)。
+ *
+ * v12.473:参数只留有读者的两个 —— 画幅(试拍预览 + 交给创建页)、运镜速度(编进每镜 AI prompt)。
+ * 修前还有 分辨率 1080P/4K/8K(默认 8K)、帧率 24/30/60、超分 1/2/4x(默认 4x)、插帧、运动强度,
+ * 全仓除了这一页自己回显之外没有任何代码读;画幅还多给了视频引擎出不了的 2.39:1。
  */
+
+import { isProjectAspect, type VideoAspect } from './video-aspect';
 
 export type ActPhase = 'hook' | 'body' | 'climax';
 export type ShotSize = 'ELS' | 'WS' | 'LS' | 'MS' | 'CU';
 export type CameraSpeed = 'slow' | 'normal' | 'fast';
-export type AspectRatio = '9:16' | '16:9' | '1:1' | '2.39:1';
-export type UpscaleFactor = 1 | 2 | 4;
 
 export const SHORT_DURATIONS = [15, 30, 60] as const;
 export type ShortDuration = (typeof SHORT_DURATIONS)[number];
@@ -26,6 +30,8 @@ export const ACT_LABEL_ZH: Record<ActPhase, string> = {
   body: '核心叙事',
   climax: '高潮爆发',
 };
+
+export const PHASE_TAG: Record<ActPhase, string> = { hook: 'HOOK', body: 'BODY', climax: 'CLIMAX' };
 
 export const SHOT_SIZE_LABEL_ZH: Record<ShotSize, string> = {
   ELS: '超远景',
@@ -45,14 +51,13 @@ export interface RhythmTemplate {
   desc: string;    // 前慢后快
   /** hook / body / climax 配比, 内部会归一化 */
   ratios: [number, number, number];
-  motionIntensity: number; // 0-100 默认
   cameraSpeed: CameraSpeed;
 }
 
 export const RHYTHM_TEMPLATES: RhythmTemplate[] = [
-  { id: 'suspense',    label: '悬疑反转', en: 'Suspense Twist',      desc: '前慢后快', ratios: [0.2, 0.6, 0.2],  motionIntensity: 45, cameraSpeed: 'slow' },
-  { id: 'blockbuster', label: '视觉大片', en: 'Visual Blockbuster',  desc: '快切高频', ratios: [0.2, 0.55, 0.25], motionIntensity: 75, cameraSpeed: 'fast' },
-  { id: 'emotion',     label: '情绪氛围', en: 'Emotional Mood',      desc: '长镜慢推', ratios: [0.25, 0.6, 0.15], motionIntensity: 30, cameraSpeed: 'slow' },
+  { id: 'suspense',    label: '悬疑反转', en: 'Suspense Twist',      desc: '前慢后快', ratios: [0.2, 0.6, 0.2],  cameraSpeed: 'slow' },
+  { id: 'blockbuster', label: '视觉大片', en: 'Visual Blockbuster',  desc: '快切高频', ratios: [0.2, 0.55, 0.25], cameraSpeed: 'fast' },
+  { id: 'emotion',     label: '情绪氛围', en: 'Emotional Mood',      desc: '长镜慢推', ratios: [0.25, 0.6, 0.15], cameraSpeed: 'slow' },
 ];
 
 export function getRhythmTemplate(id: string | undefined | null): RhythmTemplate {
@@ -132,25 +137,22 @@ export function computeActLayout(
 // ─────────────────────────────────────────────────────────────
 // 短视频参数 + 计划
 // ─────────────────────────────────────────────────────────────
+/**
+ * v12.473:只留有读者的参数。
+ *   - `cameraSpeed`:编进每镜 AI prompt(compileShotToVideoPrompt);改了即重编三镜(applyParamsPatch)。
+ *   - `aspectRatio`:试拍预览发给 /api/preview-shot;「用此方案去创作」交给创建页(buildCreateHandoff)。
+ *     只取 PROJECT_ASPECTS 三种 —— 视频引擎只出得了这三种。
+ * 分辨率 / 帧率不在这里设:出片按视频引擎原生规格,帧率在项目页格式条,单镜 4K 在镜头工坊重渲。
+ */
 export interface ShortVideoParams {
-  motionIntensity: number; // 0-100
   cameraSpeed: CameraSpeed;
-  interpolation: boolean;
-  upscale: UpscaleFactor;
-  resolution: string;      // '4K' | '8K'
-  aspectRatio: AspectRatio;
-  fps: number;
+  aspectRatio: VideoAspect;
 }
 
 export function defaultParams(rhythm?: RhythmTemplate): ShortVideoParams {
   return {
-    motionIntensity: rhythm?.motionIntensity ?? 60,
     cameraSpeed: rhythm?.cameraSpeed ?? 'normal',
-    interpolation: true,
-    upscale: 4,
-    resolution: '8K',
     aspectRatio: '9:16',
-    fps: 24,
   };
 }
 
@@ -165,6 +167,11 @@ export interface ShortVideoShot {
   cameraType: string;       // Camera: Flyover
   motion: number;           // 0-100
   frameContent: string;     // 画面内容 (中文)
+  /**
+   * v12.473:LLM 给的英文画面描述(不含风格 / 景别 / 运镜 / 速度)。改运镜、景别、速度时从它重编 aiPrompt;
+   * 修前重编拿的是中文 frameContent,一改运镜 LLM 那段英文描述就没了。
+   */
+  aiPromptCore: string;
   aiPrompt: string;         // SSS+ english prompt
 }
 
@@ -276,6 +283,7 @@ export function parseShortVideoPlan(
       cameraType: move.cameraType,
       motion: move.motion,
       frameContent,
+      aiPromptCore,
       aiPrompt: compileShotToVideoPrompt({
         frameContent: aiPromptCore,
         shotSize,
@@ -296,4 +304,77 @@ export function parseShortVideoPlan(
     shots,
     params,
   };
+}
+
+// ─────────────────────────────────────────────────────────────
+// v12.473:改镜 / 改参(纯函数,页面只负责 setPlan)
+// ─────────────────────────────────────────────────────────────
+/** 按镜当前的景别 / 运镜 + 计划的风格 / 运镜速度重编该镜 AI prompt(运镜标签、Camera、Motion 一并跟上) */
+function recompileShot(shot: ShortVideoShot, plan: Pick<ShortVideoPlan, 'style' | 'params'>): ShortVideoShot {
+  const move = getCameraMove(shot.cameraMoveId);
+  return {
+    ...shot,
+    cameraMoveLabel: move?.labelZh ?? shot.cameraMoveLabel,
+    cameraType: move?.cameraType ?? shot.cameraType,
+    motion: move?.motion ?? shot.motion,
+    aiPrompt: compileShotToVideoPrompt({
+      frameContent: shot.aiPromptCore || shot.frameContent,
+      shotSize: shot.shotSize,
+      cameraMove: move,
+      style: plan.style,
+      cameraSpeed: plan.params.cameraSpeed,
+    }),
+  };
+}
+
+/** 改某镜的运镜 / 景别 → 即时重编该镜 AI prompt */
+export function applyShotPatch(
+  plan: ShortVideoPlan,
+  index: number,
+  patch: Partial<Pick<ShortVideoShot, 'cameraMoveId' | 'shotSize'>>,
+): ShortVideoPlan {
+  return {
+    ...plan,
+    shots: plan.shots.map((s) => (s.index === index ? recompileShot({ ...s, ...patch }, plan) : s)),
+  };
+}
+
+/**
+ * 改参数。运镜速度写在每镜 prompt 里,改了就重编三镜 ——
+ * 修前只改 params,已出的三镜 prompt 不变,要等之后改某镜运镜 / 景别才体现,复制 / 预览 / 导出拿到的都是旧速度。
+ */
+export function applyParamsPatch(plan: ShortVideoPlan, patch: Partial<ShortVideoParams>): ShortVideoPlan {
+  const next: ShortVideoPlan = { ...plan, params: { ...plan.params, ...patch } };
+  if (next.params.cameraSpeed === plan.params.cameraSpeed) return next;
+  return { ...next, shots: next.shots.map((s) => recompileShot(s, next)) };
+}
+
+// ─────────────────────────────────────────────────────────────
+// v12.473:交给创建页 / 导出分镜表
+// ─────────────────────────────────────────────────────────────
+const CAMERA_SPEED_LABEL_ZH: Record<CameraSpeed, string> = { slow: '慢', normal: '正常', fast: '快' };
+
+/**
+ * 「用此方案去创作」交给创建页的东西:创意 + 三幕分镜文字(sessionStorage `qfmj-create-seed`),
+ * 以及画幅(`qfmj-create-aspect`)。修前只带了文字,画幅在创建页回到默认 / 上次的偏好。
+ * 画幅不在 PROJECT_ASPECTS 里 → null(不带,创建页照旧)。
+ */
+export function buildCreateHandoff(plan: ShortVideoPlan): { seed: string; aspect: VideoAspect | null } {
+  const seed = `${plan.idea}\n\n[${plan.durationS}s 三幕分镜]\n` +
+    plan.shots.map((s) => `${PHASE_TAG[s.phase]} ${s.frameContent}（${s.cameraMoveLabel}）`).join('\n');
+  return { seed, aspect: isProjectAspect(plan.params.aspectRatio) ? plan.params.aspectRatio : null };
+}
+
+/** 导出的分镜表(Markdown)。v12.473 起带上画幅与运镜速度 —— 修前文档里没有任何输出参数。 */
+export function buildStoryboardMarkdown(plan: ShortVideoPlan): string {
+  return [
+    `# ${plan.title}`,
+    `> 创意:${plan.idea} · 时长:${plan.durationS}s · 节奏:${getRhythmTemplate(plan.rhythmTemplateId).label}`,
+    `> 画幅:${plan.params.aspectRatio} · 运镜速度:${CAMERA_SPEED_LABEL_ZH[plan.params.cameraSpeed]}`,
+    '',
+    ...plan.shots.map((s) =>
+      `## ${PHASE_TAG[s.phase]} ${String(s.index).padStart(2, '0')} (${s.timeStartS}s–${s.timeEndS}s)\n` +
+      `- 景别:${SHOT_SIZE_LABEL_ZH[s.shotSize]} · 运镜:${s.cameraMoveLabel} (Motion ${s.motion})\n` +
+      `- 画面:${s.frameContent}\n- AI Prompt:\n\n\`\`\`\n${s.aiPrompt}\n\`\`\`\n`),
+  ].join('\n');
 }
