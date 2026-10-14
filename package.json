@@ -73,7 +73,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-avatar": "^1.2.7",
     "@radix-ui/react-dialog": "^1.1.21",
-    "@radix-ui/react-popover": "^1.1.21",
+    "@radix-ui/react-popover": "^1.2.0",
     "@radix-ui/react-progress": "^1.1.17",
     "@radix-ui/react-select": "^2.3.8",
     "@radix-ui/react-slot": "^1.4.0",
