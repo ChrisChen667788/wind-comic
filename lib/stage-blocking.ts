@@ -535,7 +535,7 @@ export function auditStaging(scene: StageScene): StagingIssue[] {
 
   for (const p of projected) {
     if (!p.inFrame) {
-      // v12.462:左右出画与上下出画是两回事,办法也不同 —— 上下出画多半是机位太高/太低(舞台相机没有俯仰)
+      // v12.462:左右出画与上下出画是两回事,办法也不同 —— 上下出画多半是机高或俯仰(v12.465 起有)不对
       const vertical = Math.abs(p.screenX) <= 1 && (p.screenTop < -1 || p.screenBottom > 1);
       issues.push({
         kind: 'off-frame', actorId: p.id,

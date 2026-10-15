@@ -238,9 +238,10 @@ describe('v12.234 门面数字一致性(诚实性锁的补强)', () => {
     const head = src.slice(0, 1200);
     // 只取**声称「这是当前版本」**的两处;「v12.218 起进入加固路线图」这类历史指代是合法的,
     // 不该被当成矛盾(第一版不变量就是这么误报的 —— 口径太宽的锁会逼人去改本来正确的文案)。
+    // v13.0:主版本号不能写死 12 —— 升到 13 后两条都匹配不上,断言就停在「读不到声明」,修版本号的人得先猜是哪条正则
     const claims = [
-      head.match(/到当前 \(\*\*v(12\.\d+)\*\*\)/)?.[1],
-      head.match(/截至 \*\*v(12\.\d+)\*\*/)?.[1],
+      head.match(/到当前 \(\*\*v(\d{1,3}\.\d+)\*\*\)/)?.[1],
+      head.match(/截至 \*\*v(\d{1,3}\.\d+)\*\*/)?.[1],
     ].filter(Boolean) as string[];
     expect(claims.length, 'VERSIONS 头部读不到「当前版本」声明').toBeGreaterThan(0);
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'));

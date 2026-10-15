@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v12.473</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.0</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -79,6 +79,33 @@
 
 ---
 
+## 🆕 v13.0 新增 —— 设了什么画幅,出来就是什么画幅
+
+v13.0 汇总 **v12.461 – v12.473**(13 个版本,2026-09-30 → 10-09)。这一轮反复撞到同一类病:**看起来能用、实际没有任何代码读的设置**,以及**看起来成功、实际发错了东西的引擎请求**。
+
+**画幅贯通全链** *(v12.464、467、468、470 – 473)* —— v12.467 之前只有整片生成读项目画幅。单镜重生、自愈补拍、片段重拍、4K 重渲、对话式编辑后的重合成、场景图重生、广告包装车间各自默认 16:9 或 9:16,9:16 的项目可能拿回一段横屏片。现在全部经**同一个解析函数**读 `projects.aspect`。出图模板不再写死 `--ar 16:9`(竖屏项目曾同时给 Midjourney 发 `--ar 16:9` 和 `--ar 9:16`);Midjourney 参数统一挪到末尾、每个只出现一次,非 Midjourney 的出图引擎和视频引擎收纯文本。创建页去掉了 2.35:1(我们接入的视频引擎都出不了);广告包装车间的画幅改为可选,默认跟随项目。
+
+**设置终于有读者** *(v12.464、466、469、473)* —— 格式条的**色彩空间**进分镜出图提示词,**安全框**开关驱动 9:16 安全区叠层,画幅改为只读显示项目真实画幅(不再是第二份、没人读的画幅)。极速分镜台删掉了没人读的分辨率 / 帧率 / 超分 / 插帧 / 运动强度(默认写着 8K、4 倍超分、插帧开,全都不生效),选的画幅现在会带到创建页。
+
+**导演台补全** *(v12.462、463、465)* —— 能加人、删人、改名;相机能**俯仰**,「对准人物」一键把抬高的机位压向人物;站位变了布局草图跟着重渲,按旧站位出的分镜标为待重渲。草图只交给真会按它构图的引擎(fal Kontext、Seedream;Midjourney 可选开启),不再送 MiniMax —— 它的参考图只认人像。导演台全流程走查(真 WebGL,CI 里用软件渲染;真 MediaPipe 姿态识别)进了 CI。
+
+<table>
+<tr>
+<td width="50%"><img src="assets/v13/01-director-stage-3d-tilt.jpg" alt="导演台:机高抬到 2.6 米、点「对准人物」后相机下压 19°,3D 机位视角俯看三名角色" width="100%" /></td>
+<td width="50%"><img src="assets/v13/02-director-stage-flat.jpg" alt="同一台相机的平面预览:镜头下压,地平线随之上移" width="100%" /></td>
+</tr>
+<tr>
+<td><sub>机高抬到 2.6 米,再点<b>对准人物</b>:相机下压 19°,导演台把它叫作高角度俯拍。3D 预览、平面预览、提示词里那句话和布局草图用的是同一台相机。</sub></td>
+<td><sub>同一台相机的平面预览:镜头朝下,地平线就落在画面上部。v12.465 之前抬高的相机看出去仍是平视,提示词却已经写成俯拍。</sub></td>
+</tr>
+</table>
+
+**一直悄悄发错的引擎请求** *(v12.461、465、471、472)* —— MiniMax 的 `subject_reference[].image_file` 自 v2.20 起一直传数组,官方要求字符串:**带参考图的 MiniMax 出图每次都被拒(2013),静默退到别的引擎**,是一次真调撞出来的。Vidu 主机默认值有两份、一对一错;发给 Midjourney 的提示词参数重复、落在正文中间;视频引擎收到的提示词里带着 Midjourney 语法。
+
+> **还没真调验证的**:草图送 Seedream / kontext / Midjourney 按各家文档的请求格式实现,但没能真出图确认(10-01、10-06、10-08 三次分别撞上网关额度耗尽 / 没有 Midjourney 渠道 / 上游饱和);`npx tsx scripts/probe-sketch-engines.ts --yes <引擎>` 可重跑,每家扣一张图。fal 未验证(没配 key)。
+
+---
+
 ## 🆕 v12.315 – v12.330 新增 —— 要的是「导」,不是反复抽卡
 
 谁都能生成一个片段。这三项让你能**导**它,而且它们本就是一条链:*检视 → 定位 → 只重拍坏的那一段*。
@@ -152,6 +179,7 @@
 | **v9 · Postgres 平台 + 变现** | SQLite↔Postgres **双驱动**全量切换(17 核心表/簇迁 async repo,PG 端到端验证 + 事务提交/回滚原子性;默认仍 SQLite,`DB_DRIVER=pg` 可选)· 多平台**分发包**生成 · **真二进制 AAF 导出**(MS-CFB)+ EDL/FCP7 XML(Premiere、达芬奇可导入)· 质量与一致性深化(发布门禁 / 重生回环 / 一致性报告)+ 可灵式**多参 + 一键成片**融合。 |
 | **v10 · 配音口型 · 模板市场 · 成本** *(阶段十六)* | **配音口型全链**(角色多音色 + viseme 轨 + 实测嘴-声对齐 + 漂移自校 + 可插拔引擎渲染 + 零配置内置 2D 引擎(开箱即用)写回时间线 + 一键全片 + Vision 质检自愈)· **模板市场**(存→评分/收藏→一键起片连音色,预览片 + 质量分)· **成本可观测 + 预算护栏**,四维发布门禁(画面 · 一致性 · 口型 · 实测对齐)。**2135 单测**双驱动全绿。 |
 | **v7.0 · DeepSeek + 全局兜底** | 编剧/导演跑 DeepSeek 最强 **`deepseek-v4-pro`**;每次 LLM 调用在异常/欠费/超时自动**兜底到 MiniMax**;健康看板拆 3 条 LLM 线。 |
+| **v13 · 设置有读者、画幅对得上** *(v12.461–v12.473)* | **画幅贯通全链** —— 单镜重生、自愈补拍、片段重拍、4K 重渲、对话编辑重合成、场景图重生、广告包装车间都经同一个解析函数读 `projects.aspect`;出图模板不再写死 `--ar 16:9`,Midjourney 参数挪到末尾且只出现一次,其它引擎收纯文本 · **设置终于有读者** —— 格式条色彩空间进分镜出图、安全框驱动 9:16 叠层,极速分镜台删掉没人读的参数 · **导演台补全** —— 人物管理、相机俯仰 + 对准人物、草图跟站位重渲并标待重渲、草图只交给真会按它构图的引擎、全流程走查进 CI · **MiniMax 参考图修好**(`image_file` 自 v2.20 一直传数组,带参考图的调用每次都被拒) |
 
 ### 📂 更多模块 —— 部分已刷新到 v10
 
@@ -242,16 +270,16 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **6539 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **6546 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
 
 ## 🥊 跟竞品比
 
-> 阵容核验 **2026-09-22**(Artificial Analysis 盲投竞技场,两名独立核对者分别抓取、逐名次一致;18 条旧断言逐条重验 + 35 个硬指标独立复核。台账见 [`docs/competitive/claims.json`](docs/competitive/claims.json),完整分析见 [`docs/COMPETITIVE-GAP-2026-09.md`](docs/COMPETITIVE-GAP-2026-09.md)):**榜首又回到 Google,而无音频两张榜仍是国产领跑** —— T2V **带**音频:Gemini Omni Flash **1233** > Wan 3.0 1229 > MiniMax H3 Max 1227 > MiniMax H3 1220 > Seedance 2.0 720p 1210;T2V **不带**音频:**Wan 3.0 1336** > Gemini 1330 > MiniMax H3 1302;图生视频带音频:**MiniMax H3 Max 1195** > MiniMax H3 1181 > Gemini 1177,不带音频:Gemini 1369 > Wan 3.0 1361 > Bach 1.0 Pro 1359 > MiniMax H3 1354。新进入者 **xAI Grok Imagine Video 1.5**(6-16):**7 路视觉参考同帧锚定**(角色+场景+道具+风格)+ 原生音频 + 语音克隆,$0.08(480p)/$0.14(720p)/$0.25/s(1080p)——**参考路数超过我们现有的 cref+sref 两路**。**Kling 3.0** 仍是短剧综合首选(原生 4K / 60fps / 15s / **6 连贯镜头** / 自带多语对白+口型,$0.084–0.112/s);**Veo 3.1**(2025-10-15 首发,2026-01-13 加 4K 与竖屏)的 **Scene Extension 可把成片接到 60s+ —— 但那是拼接,单次生成上限仍是 8–10s**;内置自研音视频联合生成(**Lyria 3 是 Google 另一个独立音乐模型,不是 Veo 的音频组件**),$0.40/s 起。注:Veo 3.1 自身 T2V+音频 Elo 约 1091,榜上的 1237 是 Gemini Omni Flash —— 那是另一个产品,别混为一谈。**✅ Sora 2 API 停服(2026-09-24)已由 OpenAI 官方确认,本项目 v12.173/207 起已有防护**:退役日前每次告警、退役日后自动从模型链剔除走 fallback,链空才抛(`tests/v12-173-sora-sunset.test.ts` 守着)——**这条不是待办**。
-> **🔴 上一轮说过头了 —— 本轮把四条「独有」逐一收回(核验 2026-09-03)**。这不是被竞品追上,是**当初就说过头了**:① 「EDL/AAF 导出竞品独有」—— **Descript 早有** Timeline Export(Premiere XML · FCPXML · Reaper EDL · **Pro Tools/Logic AAF**);② 「唯一 MIT 开源可自托管的端到端短剧平台」—— **不成立**,`EvoLinkAI/ai-short-drama`(MIT + Docker + 小说→成片全链)同样满足,另有 LocalMiniDrama / Toonflow / huobao-drama 等多个活跃项目;③ 「BYO 多 provider 注册表独有」—— **PopShort.AI 已公开集成**跨厂商模型(Veo 3.1 / Kling / Seedance / Nano Banana Pro);④ 「节奏/反转审计竞品无对应项」—— **火山剧创**公开声称「多 Agent 校验 + 200+ 爆款镜头策略,智能优化冲突/反转/高潮」。**收窄之后仍然站得住的那条**:火山剧创是**生成内联优化**、Descript 有导出但无节奏审计也不开源 —— 截至 2026-09-03,**仍无一家同时具备「节奏审计固化为可拦截的独立工程门禁 + EDL/AAF 导出 + 开源自托管商用」**。请注意这比上一轮**窄**:上一轮写「节奏审计」,这一轮必须写「**独立可拦截门禁**」才成立。**⚠️ 2026-09-25 自查更正:这一条在 v12.455 之前与代码不符** —— 节奏审计当时只提示、不拦截(`writer-agent` 里的注释原话就是「非阻塞」)。v12.455 补上了真拦截:`PACING_GATE=block` 时,剧本不达标就在角色设计之前停下,不会因超时自动放行,续跑也绕不过去;请求里的 `pacingGate` 只能收紧、放松不了,要明确放行得带 `pacingOverride: true`(会在剧本资产里留痕);默认档仍是只提示(`warn`)。另外,三件套里「EDL 导出」一项在开源侧已不稀缺:[openframe](https://github.com/murongg/openframe)(AGPL)已能导出 FCPXML/EDL,[ArcReel](https://github.com/ArcReel/ArcReel)(AGPL,约 5.2k★)已定案做剪辑时间线模型。开源阵营规模:OpenMontage **54.7k★**(AGPL)、ViMax **12.2k★**(MIT)、DramaClaw 4.8k★(Elastic 2.0,非 FOSS)、BigBanana 1.8k★(禁商用)、Novella AI 89★(MIT)。完整分析见 [`docs/COMPETITIVE-GAP-2026-09.md`](docs/COMPETITIVE-GAP-2026-09.md)。
-> **🇨🇳 国产阵营:时长与参考路数双双突破,而我们在用的两个引擎都该升版了** —— **Seedance 2.5**(7-31)与 **Wan 3.0**(8-24 正式上线)双双做到**原生 30s 单镜头**;Seedance 支持 **50 个参考素材**、按 token 计费(¥42–70/百万 tokens);Wan 3.0 720P 折后 **¥0.42/s**,还能**文档直转视频**(PPT/Word/PDF→30s)。**Vidu Q3** 是国产里唯一明确打「短剧/漫剧工业化」的(7 参考图多主体锁定 + 6 类电影特效 + 口型驱动,Turbo 1080p ≈¥0.41/s);**PixVerse C1**(4-08)短剧垂直定位最明确(分镜宫格直出 + 多人对白口型)。**⚠️ 一条自查结论**:① 上一轮那两条自查**都已修掉** —— 默认视频模型在 v12.402 改成了 H3,两条不一致的 Vidu 调用路径在 v12.403 收成了一条。取而代之的是一道计费墙:**H3 只能按量付费,MiniMax 官方定价页明写 Token Plan 不覆盖它**(2026-09-22 复核,768P $0.08/秒、2K $0.13/秒)。Token Plan 的 key 每次调 H3 都被拒,出片因此回落 Hailuo-2.3(v12.446 才让这条回落真正走通 —— 此前它只认英文报文,空转了 16 天),而**参考视频动作迁移(v12.448)整项用不了**。健康页现在会直说这件事,不再靠一个语音合成探针把 MiniMax 显示成一片绿(v12.452);② **Sora 2 API 于 2026-09-24 退役**(2026-09-22 在 OpenAI 弃用页复核,无延期)。护栏从 v12.173/207 就在 —— 到期前告警、到期后从模型链剔除、剔完链空才抛 —— 但在 v12.452 之前,「锁住」它的两条测试只是在源码里搜字符串,**这个分支从来没被执行过**。现在用假时钟 + 模拟上游真跑了一遍,顺带暴露出一个缺口:**上游若早于我们的 UTC 零点闸门停服**,Sora 的报错原来会让整条链中止,而不是退到 veo/kling。
+> 阵容核验 **2026-10-15**(调研 agent + 独立核对者,之后我本人又实时读了 Artificial Analysis 两张榜、开源星数全部走 GitHub API 取。台账见 [`docs/competitive/claims.json`](docs/competitive/claims.json),完整分析见 [`docs/COMPETITIVE-GAP-2026-09.md`](docs/COMPETITIVE-GAP-2026-09.md))。**⚠️ 三周内两张榜都换了版本 —— 文生视频先到 v2.0 又到 v2.1(Kling 3.0 1080p Pro 固定为 1000),图生视频从 v1.0 到 v1.1 —— 本 README 旧版本里 8、9 月的分数与下面这些不可直接比较。** T2V **带**音频(v2.1):**Wan 3.0 1173** > Utopai X 1166(新进,无 API)> Seedance 2.5 1159 > MiniMax H3 768p 1158 > MiniMax H3 Max 1156 > FLUX 3 1145;Gemini Omni Flash 1.1 第 8(1132),Veo 3.1 第 19(968)。T2V **不带**音频:**Wan 3.0 1134** > MiniMax H3 768p 1121 > MiniMax H3 Max 1117。图生视频带音频(v1.1):**MiniMax H3 768p 1141** > Seedance 2.5 1139 > Gemini Omni Flash 1.1 1134 > Wan 3.0 1127 > MiniMax H3 Max 1124;不带音频:Gemini Omni Flash 1368 > Bach 1.0 Pro 1362 = Wan 3.0 1362 > MiniMax H3 1356。**Vidu Q4 Preview**(10-07 发布)10-09 在旧 v1.0 榜上是带音频第 3(1179),换到 v1.1 后榜上没有它(连研究预览一起显示也没有)。**Kling 4.0** 已官宣(最长 30s / 4K / 15 路参考)但还调不到:完整版定在 10 月、Flash 版 9-28 起小范围内测、API 价格未公布 —— 所以下表那一列仍是现在真能调的 **Kling 3.0**(原生 4K / 60fps / 15s / **6 连贯镜头** / 自带多语对白+口型,$0.084–0.112/s,价格为 09-22 那轮核验)。**xAI Grok Imagine Video 1.5**(6-16)仍是 **7 路视觉参考同帧锚定**(角色+场景+道具+风格)+ 原生音频 + 语音克隆,$0.08(480p)/$0.14(720p)/$0.25/s(1080p)——**参考路数超过我们现有的 cref+sref 两路**。**Veo 3.1**(2025-10-15 首发,2026-01-13 加 4K 与竖屏)的 **Scene Extension 可把成片接到 60s+ —— 但那是拼接,单次生成上限仍是 8–10s**;内置自研音视频联合生成(**Lyria 3 是 Google 另一个独立音乐模型,不是 Veo 的音频组件**),$0.40/s 起。**✅ Sora 2 API 已于 2026-09-24 按期停服(无延期),本项目 v12.173/207 起已有防护**:退役日前每次告警、退役日后自动从模型链剔除走 fallback,链空才抛(`tests/v12-173-sora-sunset.test.ts` 守着)——**这条不是待办**。
+> **🔴 上一轮说过头了 —— 本轮把四条「独有」逐一收回(核验 2026-09-03)**。这不是被竞品追上,是**当初就说过头了**:① 「EDL/AAF 导出竞品独有」—— **Descript 早有** Timeline Export(Premiere XML · FCPXML · Reaper EDL · **Pro Tools/Logic AAF**);② 「唯一 MIT 开源可自托管的端到端短剧平台」—— **不成立**,`EvoLinkAI/ai-short-drama`(MIT + Docker + 小说→成片全链)同样满足,另有 LocalMiniDrama / Toonflow / huobao-drama 等多个活跃项目;③ 「BYO 多 provider 注册表独有」—— **PopShort.AI 已公开集成**跨厂商模型(Veo 3.1 / Kling / Seedance / Nano Banana Pro);④ 「节奏/反转审计竞品无对应项」—— **火山剧创**公开声称「多 Agent 校验 + 200+ 爆款镜头策略,智能优化冲突/反转/高潮」。**收窄之后仍然站得住的那条**:火山剧创是**生成内联优化**、Descript 有导出但无节奏审计也不开源 —— 截至 2026-09-03,**仍无一家同时具备「节奏审计固化为可拦截的独立工程门禁 + EDL/AAF 导出 + 开源自托管商用」**。请注意这比上一轮**窄**:上一轮写「节奏审计」,这一轮必须写「**独立可拦截门禁**」才成立。**⚠️ 2026-09-25 自查更正:这一条在 v12.455 之前与代码不符** —— 节奏审计当时只提示、不拦截(`writer-agent` 里的注释原话就是「非阻塞」)。v12.455 补上了真拦截:`PACING_GATE=block` 时,剧本不达标就在角色设计之前停下,不会因超时自动放行,续跑也绕不过去;请求里的 `pacingGate` 只能收紧、放松不了,要明确放行得带 `pacingOverride: true`(会在剧本资产里留痕);默认档仍是只提示(`warn`)。另外,三件套里「EDL 导出」一项在开源侧已不稀缺:[openframe](https://github.com/murongg/openframe)(AGPL)已能导出 FCPXML/EDL,[ArcReel](https://github.com/ArcReel/ArcReel)(AGPL,5.5k★)已定案做剪辑时间线模型。开源阵营规模(GitHub API,2026-10-15):OpenMontage **68.3k★**(AGPL)、ViMax **12.7k★**(MIT)、DramaClaw 6.3k★(Elastic 2.0,非 FOSS)、ArcReel 5.5k★(AGPL)、BigBanana 2.3k★(禁商用)、Novella AI 125★(MIT)。最该盯的仍是 OpenMontage,它仍没有时间线文件导出(EDL/FCPXML/AAF)—— 它说的「edit decision list」只是交给 Remotion 渲染前的内部步骤。完整分析见 [`docs/COMPETITIVE-GAP-2026-09.md`](docs/COMPETITIVE-GAP-2026-09.md)。
+> **🇨🇳 国产阵营:时长与参考路数双双突破,而我们在用的两个引擎都该升版了** —— **Seedance 2.5**(7-31)与 **Wan 3.0**(8-24 正式上线)双双做到**原生 30s 单镜头**;Seedance 支持 **50 个参考素材**、按 token 计费(¥42–70/百万 tokens);Wan 3.0 720P 折后 **¥0.42/s**,还能**文档直转视频**(PPT/Word/PDF→30s)。**Vidu Q4 Preview**(10-07)接替 Q3 成为生数的旗舰(旧版图生视频榜上短暂排第 3,换到 v1.1 后未上榜):最多 15 张参考图 + 3 段参考音频、2K/4K 10-bit 输出、1–16s,面向独立创作者、小工作室与制作团队。**⚠️ 我们自己的 Vidu 接入仍钉在 `viduq3` 系列**(`services/vidu.service.ts`)—— Q4 还没接;**PixVerse C1**(4-08)短剧垂直定位最明确(分镜宫格直出 + 多人对白口型)。**⚠️ 一条自查结论**:① 上一轮那两条自查**都已修掉** —— 默认视频模型在 v12.402 改成了 H3,两条不一致的 Vidu 调用路径在 v12.403 收成了一条。取而代之的是一道计费墙:**H3 只能按量付费,MiniMax 官方定价页明写 Token Plan 不覆盖它**(2026-09-22 复核,768P $0.08/秒、2K $0.13/秒)。Token Plan 的 key 每次调 H3 都被拒,出片因此回落 Hailuo-2.3(v12.446 才让这条回落真正走通 —— 此前它只认英文报文,空转了 16 天),而**参考视频动作迁移(v12.448)整项用不了**。健康页现在会直说这件事,不再靠一个语音合成探针把 MiniMax 显示成一片绿(v12.452);② **Sora 2 API 于 2026-09-24 退役**(2026-09-22 在 OpenAI 弃用页复核,无延期)。护栏从 v12.173/207 就在 —— 到期前告警、到期后从模型链剔除、剔完链空才抛 —— 但在 v12.452 之前,「锁住」它的两条测试只是在源码里搜字符串,**这个分支从来没被执行过**。现在用假时钟 + 模拟上游真跑了一遍,顺带暴露出一个缺口:**上游若早于我们的 UTC 零点闸门停服**,Sora 的报错原来会让整条链中止,而不是退到 veo/kling。
 > **⭐ BYO 架构再次接住这波**:榜上模型基本都开放 API,填 key 即为本管线可调度引擎 —— 竞品越强,本管线越强。
 > **⚠️ 也要说清劣势**:生成质量不由我们决定(不训模型,上限即所接引擎上限);**零门槛比不过** Coze 3.0 这类零代码平台(市场 YoY +214%,差距会被放大);**当前无作曲能力**(MiniMax Music 已对新用户停服,只剩自备 BGM 通道);而且**已接入的特色能力普遍没用满** —— Veo 的 Scene Extension、Kling 的多镜连贯与自带口型、Kontext 的局部重绘都还没调用,这是当下性价比最高的一块。
 > 结论不变:**生成层已是红海(且国内模型在领跑),Wind Comic 护城河在「制作/平台层」**——节奏审计、EDL/AAF、实时协作、发布预检、自托管、开源、BYO。
@@ -282,7 +310,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 | 全站 i18n(中/英/日/韩/俄,全部 UI) | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ❌(是模型不是 app) | ❌ | **✅ 5-language core UI, ~400 keys (component-level string cleanup ongoing)** |
 
 > **关于这张表**:本轮把它与英文 README 的对照表**合并到同一套列与行** —— 此前两份 README 各维护一张,中文那张还停在 `Seedance 2.0`、且把 Runway 的原生音频标成受限,而英文那张早已是 `Seedance 2.5` + `MiniMax H3`。**同一个事实两处各写各的,迟早对不上**,现已统一,并由 `tests/v12-401-competitive-cadence.test.ts` 锁住:两表行数或列头不一致即红。
-> 原中文表独有的 **Runway Gen-4.5 / Grok Imagine 1.5 / HappyHorse-1.1** 三列未并入(新表多出 8 行,我没有逐项核实过的值可填)——它们连同本轮新入场的 **Wan 3.0**(T2V+音频 Elo 榜首 1242 · 原生 30s)、**Vidu Q3**(国产唯一短剧工业化定位)、**PixVerse C1**,统一在 [`docs/COMPETITIVE-GAP-2026-08.md`](docs/COMPETITIVE-GAP-2026-08.md) 的三列表里对比(**竞品单点最强 / 我们接了没有 / 我们用了多少**)。**编出来的对照表比没有对照表更糟**,所以宁可不填。
+> 原中文表独有的 **Runway Gen-4.5 / Grok Imagine 1.5 / HappyHorse-1.1** 三列未并入(新表多出 8 行,我没有逐项核实过的值可填)——它们连同 2026-08 那一轮新入场的 **Wan 3.0**(T2V+音频 Elo 榜首 1242,8 月 v1.0 标尺、与上方数字不可比 · 原生 30s)、**Vidu Q3**(国产唯一短剧工业化定位)、**PixVerse C1**,统一在 [`docs/COMPETITIVE-GAP-2026-08.md`](docs/COMPETITIVE-GAP-2026-08.md) 的三列表里对比(**竞品单点最强 / 我们接了没有 / 我们用了多少**)。**编出来的对照表比没有对照表更糟**,所以宁可不填。
 
 > ⚠️ 表示该 provider 有这能力但形态受限 (例如"只能在付费 Pro 档通过 UI 面板用").
 
@@ -446,7 +474,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 6539/6539 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 6546/6546 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

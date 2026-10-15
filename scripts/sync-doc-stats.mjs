@@ -129,7 +129,8 @@ function syncLine(line) {
     [/\b\d{3,5}\s*测试全过/g, `${T} 测试全过`],
     [/### 10\. \*\*\d{3,5} tests/g, `### 10. **${T} tests`],
     // 版本号(仅「vX.Y」形态的自述位置,避免动到历史版本表)—— 见 syncVersionRefs
-    [/\bv12(?:\.\d+)+\s*·\s*\d{3,5}\s*单测/g, `${vShort} · ${T} 单测`],
+    // v13.0:主版本号不再写死 v12 —— 升到 v13 后旧写法匹配不上,自述位置会永远停在 v12.x
+    [/\bv\d{1,3}(?:\.\d+)+\s*·\s*\d{3,5}\s*单测/g, `${vShort} · ${T} 单测`],
   ];
   for (const [re, rep] of rules) s = s.replace(re, rep);
   return syncVersionRefs(s);
@@ -143,7 +144,8 @@ function syncLine(line) {
  * 纯函数、不碰测试数,单测可以直接导入。
  */
 export function syncVersionRefs(line, v = vShort) {
-  return line.replace(/v2\.0 → v12(?:\.\d+)+/g, `v2.0 → ${v}`);
+  // v13.0:主版本号不写死(v12 → v13 跨大版本时旧正则匹配不上,自述位置会停在 v12.x)
+  return line.replace(/v2\.0 → v\d{1,3}(?:\.\d+)+/g, `v2.0 → ${v}`);
 }
 
 /** 逐行处理,表格行原样透传。 */

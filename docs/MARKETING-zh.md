@@ -51,7 +51,7 @@
 
 最大尊重: **接你自己的 LLM**. 改 3 行 `.env` 就能从 gpt-4o 换 DeepSeek-r1 / Claude (via OpenRouter) / 通义 / Kimi / 本地 Ollama. 不绑定 provider, 不薅你羊毛.
 
-6539 个单测全过 / TypeScript 严格模式 / MIT 开源.
+6546 个单测全过 / TypeScript 严格模式 / MIT 开源.
 
 GitHub: https://github.com/ChrisChen667788/wind-comic
 
@@ -65,17 +65,17 @@ GitHub: https://github.com/ChrisChen667788/wind-comic
 
 今年初, 短剧 / 漫剧赛道大爆发. 抖音/快手日均上线 300+ 部, 单集 30 秒, 90% 是 AI 半成品 + 人工补救. 现存工具的问题非常痛:
 
-> 阵容核验 **2026-08-07**(Artificial Analysis 盲投竞技场,数值经独立二次检索复核):**两周内又出两个重量级新品** —— **MiniMax H3(Hailuo 3.0)** 7-31 发布、**8-03 开放权重**(排除美/欧/英/韩授权),33B 全模态、2K/24fps、原生立体声,空降 **T2V 带音频榜次席(Elo 1238)**、I2V 第三(1190),并拿下**视频编辑(带音频)榜首**;**字节 Seedance 2.5** 7-31 公开发布,**单次原生 30 秒**(当前最长)、原生 4K 10bit、最多 **50 个参考输入**、支持区域编辑。当前 T2V 带音频:Gemini Omni Flash(1244)→ MiniMax H3(1238)→ Seedance 2.0 720p(1224)→ Wan 2.7(1161)→ HappyHorse-1.1(1148);I2V 带音频:Seedance 2.0 720p(1198)→ Gemini Omni Flash(1191)→ MiniMax H3(1190)。**Kling 3.0** 是短剧综合首选(**原生 4K / 最高 60fps / 最长 15s / 最多 6 连贯镜头 / 自带多语对白+口型**,$0.084–0.112/s);**Veo 3.1** 企业安全牌(2025-10-15 预览,2026-01-13 加 4K 与竖版;4K $0.60/s);**Wan 2.7** 最便宜带音频 API($0.10/s)。**⚠️ Sora 2 API 距停服仅约 6 周(2026-09-24),须立即迁移。**
-> **🔴 首个同构开源竞品出现**:港大 **ViMax**(MIT,5.6k★,12 Agent 剧本→分镜→角色→视频)、**OpenMontage**(24k★,无独立 UI)。**「开源」本身不再是差异点** —— 但经逐项核对,ViMax 无配音/TTS、无节奏审计、无 EDL/AAF、无协作。**截至 2026-08,全部已查竞品中无一同时具备「节奏审计 + EDL/AAF 剪辑线导出 + 开源自托管」** —— 这是当下真实的护城河边界。
+> 阵容核验 **2026-10-15**(Artificial Analysis 两张榜实时读取、开源星数全部走 GitHub API;这一轮推翻了调研 agent 报的三个星数):**两张榜都换了版本**(文生视频 v2.1,Kling 3.0 1080p Pro = 1000;图生视频 v1.1)—— **Wan 3.0 两张 T2V 榜都第一**(带音频 1173、不带 1134);新进的 **Utopai X** 带音频第 2,但没有 API;**Seedance 2.5** 第 3,**单次原生 30 秒**、最多 50 个参考输入;**Gemini Omni Flash 1.1** 带音频第 8。图生视频带音频:**MiniMax H3 768p** 第一(1141),Seedance 2.5 紧随(1139);**Vidu Q4 Preview**(10-07)是生数新旗舰,但现版榜上没有它 —— 我们的 Vidu 接入还停在 Q3。**Kling 4.0** 已官宣(30s / 4K / 15 路参考)但完整版还没上线,所以真能调的短剧综合首选仍是 **Kling 3.0**(原生 4K / 最高 60fps / 最长 15s / 6 连贯镜头 / 自带多语对白+口型)。**Sora 2 API 已于 2026-09-24 按期停服**,本项目会自动把它从模型链剔除。
+> **「开源」本身已不是差异点**:OpenMontage(68.3k★,AGPL)、ViMax(12.7k★,MIT)、ArcReel(5.5k★,AGPL)都覆盖剧本→成片。收窄之后仍然站得住的那条:**全部已查竞品中,无一同时具备「可作为独立门禁拦截的节奏审计 + EDL/AAF 剪辑线导出 + 开源自托管商用」**(我们的拦截档要 `PACING_GATE=block` 才开,默认只提示)。
 > **⭐ BYO 架构再次接住这波**:榜上模型基本都开放 API,填 key 即为本管线可调度引擎 —— 竞品越强,本管线越强。
-- **Gemini Omni Flash(谷歌)** 双榜登顶:统一多模态一次出音画、对话式迭代改片;**Seedance 2.0(字节)** 音画联合、API 已商用(百炼/fal,配 FAL_KEY 可 BYO);**Kling 3.0(快手)** 性价比冠军、原生故事板多镜 + 跨镜音画同步.
+- **Wan 3.0(阿里)** 两张 T2V 榜第一、原生 30s,但闭源只走 API;**Seedance 2.5(字节)** 30s 单镜 + 50 路参考,API 走火山方舟;**Kling 3.0(快手)** 性价比冠军、原生故事板多镜 + 跨镜音画同步;**Gemini Omni Flash(谷歌)** 统一多模态一次出音画、对话式迭代改片,图生视频不带音频仍居榜首.
 - **Veo 3.1** 仍是画质/物理一致性 + 4K + 原生对白音轨的企业安全牌;**Runway Gen-4.5** 工业级控制面(运动笔刷 + GWM-1 世界模型)—— 但它们**都不烧中文字幕、不开源、不能自托管、没多人协作时间线**,单段/单流程为主.
 - (Sora 2 已停服:App 2026-04-26 / API 2026-09-24,移出对比;HappyHorse-1.0 阿里 4 月匿名登顶后退居前列.)**结论不变:生成层是红海,Wind Comic 护城河在「制作/平台层」—— 节奏审计、智能剪辑、字幕烧入、协作、自托管、开源、BYO 当下最强引擎.**
 - 共同缺口 (= Wind Comic 的护城河): 真·中文字幕烧入 · 竖屏短剧套路 · 自托管 · 自带 LLM · 开源 · 实时协作 · 节奏审计 · 智能剪辑.
 
 我想要的: **开源 + 多 Agent 协同 + 中文优先 + 自带 LLM + 实时多人协作**. 都没有. 自己造一个.
 
-8 个月, v2.0 → v12.473, 6539 个单测, MIT 开源. 这就是 **Wind Comic**.
+8 个月, v2.0 → v13.0, 6546 个单测, MIT 开源. 这就是 **Wind Comic**.
 
 ## 核心架构
 
@@ -154,8 +154,8 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 ## 数据
 
 - 8 个月 21 个 sprint
-- v2.0 → v12.473
-- **6539 个单测全过**
+- v2.0 → v13.0
+- **6546 个单测全过**
 - **TypeScript 严格模式, 0 错误**
 - **MIT 开源**
 - **0 强制依赖外部 API key** (没配 Minimax 也能跑, 自动 fallback)
@@ -189,7 +189,7 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 > · Style Bible 锁画风 / DNA 锁脸 / ffmpeg 烧中文字幕
 > · Logic Pro 风时间线 + 实时多人协作 (Yjs)
 > · 接你自己的 LLM (12+ provider, 0 改代码)
-> · 6539 测试全过 / MIT 开源
+> · 6546 测试全过 / MIT 开源
 >
 > github.com/ChrisChen667788/wind-comic
 
@@ -204,7 +204,7 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 > 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 / 锁画风 / 中文字幕真烧入 / 实时多人协作 / 接你自己的 LLM. MIT 开源.
 >
 > GitHub: github.com/ChrisChen667788/wind-comic
-> v12.473 · 6539 单测全过 · 0 API key 强制依赖.
+> v13.0 · 6546 单测全过 · 0 API key 强制依赖.
 
 详细全文 → 看 [`docs/modelscope-profile.md`](modelscope-profile.md).
 
@@ -233,7 +233,7 @@ Reasoning 模型 (DeepSeek-r1, MiniMax-M2, o1/o3 系列) 也无缝支持 — `ca
 
 ## 🔥 GitHub 简介 (about)
 
-> One sentence → finished short drama. Multi-agent AI pipeline · cinematic storyboards · real-time collab timeline · BYO LLM · open source · 6539 tests passing.
+> One sentence → finished short drama. Multi-agent AI pipeline · cinematic storyboards · real-time collab timeline · BYO LLM · open source · 6546 tests passing.
 
 ---
 

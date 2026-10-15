@@ -11,7 +11,7 @@
     "scripts/competitive-scan.mjs 读它:超过 14 天就报警,并据此生成本轮任务书。",
     "每轮分析完必须更新 lastReviewedOn,否则下一轮的到期检查就是假的。"
   ],
-  "lastReviewedOn": "2026-09-22",
+  "lastReviewedOn": "2026-10-15",
   "reviewIntervalDays": 14,
   "methodology": {
     "sources": "必须联网核实;每个数值给来源 URL + 检索日期;查不到写「未核实」,不猜",
@@ -27,14 +27,15 @@
       "assertedOn": "2026-08-31",
       "evidence": "逐项核对 OpenMontage(54.7k★/AGPL:有 TTS+多语+预算审批,但节奏审计是 anti-slideshow 画面检测、无 EDL/AAF、协作只是状态看板)、ViMax(12.2k★/MIT:无 TTS/节奏审计/EDL-AAF/协作)、DramaClaw(4.8k★/Elastic 2.0 非 FOSS)、BigBanana(1.8k★/CC BY-NC-SA 禁商用)、Novella AI(89★/MIT 全本地但早期)",
       "falsifyBy": "任一 FOSS 许可项目同时具备这三项;或 OpenMontage 补上 EDL/AAF 与情绪节奏审计(它最接近,重点盯它)",
-      "trend": "边界在收窄 —— OpenMontage 半年内 24k→54.7k★ 且补上了 TTS 与多语",
+      "trend": "边界在收窄 —— OpenMontage 半年内 24k→54.7k★ 且补上了 TTS 与多语(GitHub API:10-14 68.2k★、10-15 68.3k★,增速未减)",
       "lastVerdict": "holds",
-      "lastVerdictOn": "2026-09-25",
-      "lastVerdictNote": "仍成立,但要带两条限定:① 我方「节奏审计独立门禁」在 v12.455 之前只提示不拦(与本台账口径不符),v12.455 起 PACING_GATE=block 才真拦,默认档仍只提示;② openframe(AGPL)已有 FCPXML/EDL 导出,ArcReel 已定案做时间线 ——三件套里「EDL 导出」一项开源侧已不稀缺,护城河实际只剩「三项同时具备」这个组合。",
+      "lastVerdictOn": "2026-10-15",
+      "lastVerdictNote": "2026-10-09 / 10-14 复核:仍成立,两条限定照旧(我方拦截档要 PACING_GATE=block 才开;「EDL 导出」一项开源侧已不稀缺)。OpenMontage 68.2k★(GitHub API,10-14)—— README 与代码搜索都没有时间线文件导出,它说的 edit decision list 是交给 Remotion 渲染前的内部步骤;ArcReel 5.5k★,#2671 调研已关,但仓库里还搜不到 FCPXML/OTIO 代码或 PR;DramaClaw 6.3k★ 许可非 FOSS;BigBanana 2.3k★ 禁商用;没找到三项同时具备的新项目。",
       "lastVerdictSources": [
+        "https://github.com/calesthio/OpenMontage",
+        "https://github.com/ArcReel/ArcReel/issues/2671",
         "https://github.com/murongg/openframe",
-        "https://github.com/ArcReel/ArcReel",
-        "https://github.com/calesthio/OpenMontage"
+        "https://github.com/dramaclaw/dramaclaw"
       ]
     },
     {
@@ -42,14 +43,16 @@
       "statement": "生成层已红海:竞品在出片质量/多镜连贯/原生音频上都是第一梯队,Wind Comic 不在生成层竞争",
       "kind": "战场判断",
       "assertedOn": "2026-08-31",
-      "evidence": "T2V 带音频(2026-09-22,两名独立核对者逐名次一致):Gemini Omni Flash 1233 > Wan 3.0 1229 > MiniMax H3 Max 1227 > MiniMax H3 1220 > Seedance 2.0 720p 1210 > MAGI-2 Preview 1156 > Wan2.7 1149 > HappyHorse-1.1 1147;T2V 不带音频:Wan 3.0 1336 > Gemini 1330 > MiniMax H3 1302 > HappyHorse-1.0 1287 > HappyHorse-1.1 1272;I2V 带音频:MiniMax H3 Max 1195 > MiniMax H3 1181 > Gemini 1177 > HiDream-O1-Video 1176 > Seedance 2.0 720p 1174 > Wan 3.0 1164;I2V 不带音频(本轮新识别的榜):Gemini 1369 > Wan 3.0 1361 > Bach 1.0 Pro 1359 > MiniMax H3 1354 > PixVerse V6 1337。来源 artificialanalysis.ai/video/leaderboard 的 text-to-video 与 image-to-video 两页(含 audio-output=false 变体)。两张不带音频的榜第 6–8 名因页面动态渲染未能抓取,未补数。",
+      "evidence": "T2V 带音频(AA-Video-T2V v2.1,2026-10-14 实时读取,10-15 再读分数不变):Wan 3.0 1173 > Utopai X 1166(无 API)> Seedance 2.5 1159 > MiniMax H3 768p 1158 > MiniMax H3 Max 1156 > FLUX 3 1145 > Seedance 2.0 1138 > Gemini Omni Flash 1.1 1132;Kling 3.0 1080p Pro 1000(锚点);Veo 3.1 968(10-14 第 20;10-15 SkyReels V4 下榜后第 19)。T2V 不带音频(v2.1):Wan 3.0 1134 > MiniMax H3 768p 1121 > MiniMax H3 Max 1117 > Seedance 2.5 1105 > FLUX 3 1095。I2V 带音频(AA-Video-I2V v1.1):MiniMax H3 768p 1141 > Seedance 2.5 1139 > Gemini Omni Flash 1.1 1134 > Wan 3.0 1127 > MiniMax H3 Max 1124 > Seedance 2.0 1121(Vidu Q4 Preview 不在榜上,连研究预览一起显示也没有)。I2V 不带音频:Gemini Omni Flash 1368 > Bach 1.0 Pro 1362 = Wan 3.0 1362 > MiniMax H3 1356 > Vimoo 1.0 1348。",
       "falsifyBy": "出现开源可自托管且质量进入第一梯队的生成模型,使「自己跑模型」重新成为差异点",
       "lastVerdict": "holds",
-      "lastVerdictOn": "2026-09-22",
-      "lastVerdictNote": "2026-09-22 复核:与 9-19 相比四张榜**逐名次无变化**(两名核对者独立抓取后一致),9-19 记录的数字仍然有效;另新识别出「I2V 不带音频」一张榜。9-19 的判决(开源一梯队地位未动摇、上轮「已推翻」仍成立)维持。README 的 Elo 已按本轮数据更新。",
+      "lastVerdictOn": "2026-10-15",
+      "lastVerdictNote": "2026-10-14 复核:方向不变。10-09 到 10-14 两张榜又各换了一次版本(文生视频 v2.0→v2.1、图生视频 v1.0→v1.1),10-09 那批数字作废,本轮全部按 10-14 榜面重读。文生视频前六名次序不变、分数整体上移约 15–17;图生视频带音频洗牌最大:MiniMax H3 768p 升到第一、Seedance 2.5 第二,10-09 还在第 3 的 Vidu Q4 Preview 从榜上消失。AA 页面写着 I2V v2.1 即将上线,下一轮多半还要再换。 10-15(实际发版日)再读一次:四个分类的分数全部不变,只是 SkyReels V4 从文生视频带音频榜上消失,其后名次各上移一位。",
       "lastVerdictSources": [
         "https://artificialanalysis.ai/video/leaderboard/text-to-video",
-        "https://artificialanalysis.ai/video/leaderboard/image-to-video"
+        "https://artificialanalysis.ai/video/leaderboard/text-to-video?audio-output=false",
+        "https://artificialanalysis.ai/video/leaderboard/image-to-video",
+        "https://artificialanalysis.ai/video/leaderboard/image-to-video?audio-output=false"
       ]
     },
     {
@@ -75,12 +78,11 @@
       "evidence": "OpenAI deprecations 页确认(复核 accurate=true);veo.service.ts 退役日前告警/日后剔除/链空才抛;tests/v12-173-sora-sunset.test.ts",
       "falsifyBy": "2026-09-24 之后实测一次:配 Sora 模型链时是否真的自动剔除并走通 fallback",
       "lastVerdict": "holds",
-      "lastVerdictOn": "2026-09-19",
-      "lastVerdictNote": "2026-09-24 停服日期已被多个独立来源确认(OpenAI deprecations 页、OpenAI Help Center、社区公告),今日(2026-09-19)距停服仅剩 5 天,无延期信号。Sora 2 API 停服后每次调用将返回 410 Gone;Sora App 已于 2026-04-26 提前停用。代码侧:veo.service.ts 退役前告警、退役后剔除逻辑确认存在(v12.173/207 已有保护)。falsifyBy 条件「2026-09-24 之后实测 fallback」尚不可验——需在 09-24 后补做一次实测再关闭本条。",
+      "lastVerdictOn": "2026-10-09",
+      "lastVerdictNote": "2026-10-09 复核:已按期于 2026-09-24 停服,无延期(多个独立来源确认,所有 sora-2 / sora-2-pro 别名下线)。代码侧防护照旧:到期后自动从模型链剔除、链空才抛。「停服后真机验证 fallback」仍归 C24 跟踪。",
       "lastVerdictSources": [
-        "https://developers.openai.com/api/docs/deprecations",
-        "https://help.openai.com/en/articles/20001152-what-to-know-about-the-sora-discontinuation",
-        "https://help.apiyi.com/en/sora-2-api-shutdown-alternatives-2026-en.html"
+        "https://techjacksolutions.com/ai-brief/openai-videos-api-sora-2-deprecated-september-2026/",
+        "https://blog.laozhang.ai/en/posts/sora-2-api-discontinued.md"
       ]
     },
     {
@@ -187,12 +189,12 @@
       "trend": "单镜时长这条轴国产已领先海外闭源;我们的「镜头太碎」痛点有了拼接之外的第二条解法",
       "actionVersion": "v12.407",
       "lastVerdict": "holds",
-      "lastVerdictOn": "2026-09-19",
-      "lastVerdictNote": "Seedance 2.5(2026-07-31)与 Wan 3.0(2026-08-24,公测起)30s 原生单次 API 调用地位再次确认,两者均维持 API-only、无可自托管权重。Seedance 2.5:单次推理 4–30s,支持 50 路参考素材,同步音频,1080p;Wan 3.0:30fps 原生单镜 30s,720P 折后 ¥0.42/s(上轮数据),T2V 无音频 Elo 1336 榜首。自托管天花板仍是 LTX-2.5 Fast 的 20s(Pro 只有 10s)。原断言完整成立,无变化。",
+      "lastVerdictOn": "2026-10-14",
+      "lastVerdictNote": "2026-10-09 / 10-14 复核:仍成立(10-14 再查:Kling 4.0 仍未开放 API,Kling 开发者价目表仍只有 3.0 系列)。Seedance 2.5 仍是最新版(没有 3.0),Wan 3.0 仍闭源只走 API。新出现的两家都没改变结论:Kling 4.0 官宣单次最长 30s,但完整版定在 10 月、Flash 版 9-28 起小范围内测(最长 20s、720p),API 未开;Vidu Q4 Preview(10-07)单次 1–16s。",
       "lastVerdictSources": [
-        "https://dev.to/sinpo_wang_259d6993245baa/seedance-25-what-developers-need-to-know-about-bytedances-30-second-video-generation-api-4b0k",
-        "https://morphic.com/resources/models/wan-3-0",
-        "https://docs.ltx.io/models/ltx-2-5"
+        "https://fal.ai/learn/tools/what-is-kling-4-0",
+        "https://www.unite.ai/vidu-releases-q4-preview-of-next-generation-flagship-ai-video-model/",
+        "https://wavespeed.ai/blog/video-model-access/is-wan-3-0-open-source/"
       ]
     },
     {
@@ -317,16 +319,14 @@
       "id": "C19-openmontage-convergence-pace",
       "statement": "截至 2026-09-19，OpenMontage 正在以约 2–3k★/月的速度增长（54.7k→60k，约 15 天），但在本轮复核时间窗口内未补上 EDL/AAF 导出或独立节奏审计门禁",
       "kind": "护城河边界节奏",
-      "evidence": "GitHub 页面：54.7k★（2026-09-03）→ ~60k★（2026-09-19）；功能列表 12 pipelines/100+ tools/700+ skills，无 EDL/AAF 或 pacing gate 字样",
+      "evidence": "GitHub 页面：54.7k★（2026-09-03）→ ~60k★（2026-09-19）→ 65.6k★（2026-10-09，GitHub API）→ 68.2k★（2026-10-14，GitHub API）→ 68.3k★（2026-10-15）；功能列表 12 pipelines/100+ tools/700+ skills，无 EDL/AAF 或 pacing gate 字样",
       "falsifyBy": "OpenMontage release notes 或 README 出现 EDL/AAF 导出功能或节奏/冲突审计门禁；或其他 FOSS 项目补上三条之一",
       "assertedOn": "2026-09-19",
       "lastVerdict": "falsified",
-      "lastVerdictOn": "2026-09-25",
-      "lastVerdictNote": "按本条自己的推翻条件「其他 FOSS 项目补上三条之一」:murongg/openframe(AGPL,117★)已有 FCPXML/EDL 导出(代码 apps/web/src/platform/runtime_timeline.ts、apps/desktop/electron/handlers/media.ts)。C1 三件套仍无一家同时具备:openframe 无节奏审计门禁、无 Docker;ArcReel(AGPL,5,170★)有费用追踪与剪映草稿,2026-09-24 以 issue #2671 定案做剪辑时间线模型(FCPXML/OTIO 为可选导出),截至 2026-09-25 代码中尚无。",
+      "lastVerdictOn": "2026-10-14",
+      "lastVerdictNote": "维持 falsified(推翻依据见上轮:openframe 已有 FCPXML/EDL)。星数(GitHub API):10-09 65,622★,10-14 68,167★,5 天涨约 2.5k。10-12 那批提交(节拍蒙太奇、ElevenLabs 逐词时间戳、混音修复等)里仍没有时间线文件导出,也没有可拦截的节奏门禁。",
       "lastVerdictSources": [
-        "https://github.com/murongg/openframe",
-        "https://github.com/ArcReel/ArcReel",
-        "https://github.com/ArcReel/ArcReel/issues/2671"
+        "https://github.com/calesthio/OpenMontage"
       ]
     },
     {
@@ -369,8 +369,11 @@
       "falsifyBy": "2026-09-24 后实测一次:配 Sora 为首选引擎,触发剔除流程并确认 fallback 引擎出片成功",
       "assertedOn": "2026-09-19",
       "lastVerdict": "weakened",
-      "lastVerdictOn": "2026-09-22",
-      "lastVerdictNote": "v12.452 已用假时钟 + 模拟网络真跑闸门翻转前后(tests/v12-452-sora-sunset-runtime.test.ts,5 个注入点全抓红),并补上「上游若早于闸门停服,Sora 的非 transient 报错会让整条链中止」的缺口。仍缺的只剩停服后的真机验证 —— 本仓 owner 的配置不走 Sora(veo_3_1_vip → veo_3_1_fast_vip → Seedance),真机验证要等有 Sora 配置的部署反馈。"
+      "lastVerdictOn": "2026-10-09",
+      "lastVerdictNote": "2026-10-09:停服已发生(9-24),推翻条件「停服后真机走通 fallback」从此可验,但仍没有配 Sora 模型链的部署反馈;本仓 owner 的配置不走 Sora。维持 weakened,等真机证据。",
+      "lastVerdictSources": [
+        "https://techjacksolutions.com/ai-brief/openai-videos-api-sora-2-deprecated-september-2026/"
+      ]
     },
     {
       "id": "C25-wan3-weights-closed",
@@ -458,13 +461,26 @@
       "falsifyBy": "四家任一上线 EDL/XML/OTIO/剪映草稿导出;或即梦所称「兼容 Premiere/Final Cut 的项目文件」被证实是时间线格式;或 ArcReel 发布 FCPXML/OTIO 导出(那时开源侧与我方持平)",
       "trend": "窗口在收窄 —— ArcReel 2026-09-24 定案做剪辑时间线,openframe 已有",
       "lastVerdict": "holds",
-      "lastVerdictOn": "2026-09-25",
+      "lastVerdictOn": "2026-10-09",
       "lastVerdictSources": [
-        "https://dreamina.capcut.com/ai-video/ai-video-workflow",
-        "https://filmora.wondershare.com/video-editor-review/tapnow-ai-review.html",
-        "https://www.uisdc.com/hunter/0221628140.html",
-        "https://github.com/murongg/openframe",
-        "https://github.com/ArcReel/ArcReel/issues/2671"
+        "https://github.com/ArcReel/ArcReel/issues/2671",
+        "https://www.unite.ai/vidu-releases-q4-preview-of-next-generation-flagship-ai-video-model/"
+      ],
+      "lastVerdictNote": "2026-10-09 复核:仍成立。新进的 Vidu Q4 Preview、Utopai X 也只交付视频文件;ArcReel #2671(时间线格式调研)已关,仓库里仍搜不到 FCPXML/OTIO 代码或 PR。"
+    },
+    {
+      "id": "C34-vidu-q4-not-wired",
+      "statement": "生数 Vidu Q4 Preview 于 2026-10-07 发布,是生数的新旗舰;而我们的 Vidu 接入仍钉在 viduq3 系列(vidu.service.ts 兜底 viduq3-pro,qyt-vidu.service.ts 钉 viduq3)—— Q4 还没接",
+      "kind": "自查",
+      "assertedOn": "2026-10-09",
+      "evidence": "unite.ai 发布报道:最多 15 张参考图 + 3 段参考音频、2K/4K 10-bit、1–16s。AA 图生视频榜:10-09(v1.0)带音频第 3(1179,$5.04/min@1080p);10-14 换到 v1.1 后榜上没有它(连研究预览一起显示也没有)—— 排名本身不稳,但「我们没接」与排名无关。源码里出现的 Vidu 模型 ID 只有 viduq1 / viduq2-* / viduq3*。",
+      "falsifyBy": "vidu.service 能按配置选 Q4 的模型 ID,且有一次真调出片的记录(不是模拟请求)",
+      "trend": "国产图生视频头部在换代 —— 我们接的是上一代",
+      "lastVerdict": "holds",
+      "lastVerdictOn": "2026-10-14",
+      "lastVerdictSources": [
+        "https://artificialanalysis.ai/video/leaderboard/image-to-video",
+        "https://www.unite.ai/vidu-releases-q4-preview-of-next-generation-flagship-ai-video-model/"
       ]
     }
   ],
@@ -478,13 +494,15 @@
         "Pika",
         "xAI Grok Imagine",
         "Adobe Firefly Video",
-        "Meta Movie Gen"
+        "Meta Movie Gen",
+        "Utopai X(9 月,T2V 带音频第 2,无 API)",
+        "Black Forest Labs FLUX 3 Video"
       ]
     },
     {
       "area": "国内视频模型",
       "targets": [
-        "快手可灵 Kling",
+        "快手可灵 Kling(4.0 定在 10 月全量)",
         "字节 Seedance/即梦",
         "生数 Vidu",
         "阿里通义万相 Wan",

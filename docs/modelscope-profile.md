@@ -11,7 +11,7 @@
 ## 〇. v6 产品介绍页 (ModelScope「介绍」可直接粘贴 · 图片走 GitHub raw 绝对链)
 
 > **Wind Comic 🌬️ 风之漫剧 —— 一句话进,整片短剧出。**
-> 不是再给你一个 5 秒片段,而是一条**诚实的多 Agent 流水线** + 一个**生产级创作工作室**:剧本 → 角色 → 分镜 → 配音 → 多轨时间线 → 成片 mp4,全部从同一句创意开始。MIT 开源,**6539 单测全过**,所有功能都在 `main` 里跑得起来,不是 PPT。
+> 不是再给你一个 5 秒片段,而是一条**诚实的多 Agent 流水线** + 一个**生产级创作工作室**:剧本 → 角色 → 分镜 → 配音 → 多轨时间线 → 成片 mp4,全部从同一句创意开始。MIT 开源,**6546 单测全过**,所有功能都在 `main` 里跑得起来,不是 PPT。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/assets/v6/wind-comic-v6-tour.gif" alt="Wind Comic v6 巡览" width="100%" />
@@ -70,14 +70,14 @@
 | 图像 | `flux-2-pro` | Midjourney | MiniMax image-01 |
 | 配音 | `gpt-4o-mini-tts` | — | MiniMax T2A |
 
-> 框架 Next.js 16 + React 19 + Tailwind v4 · SQLite/Postgres 双驱动 · Yjs 实时协作 · 4 语言 i18n · 内置 API 健康看板(各网关用量/余额/欠费一屏看清) · 6539 单测全过
+> 框架 Next.js 16 + React 19 + Tailwind v4 · SQLite/Postgres 双驱动 · Yjs 实时协作 · 4 语言 i18n · 内置 API 健康看板(各网关用量/余额/欠费一屏看清) · 6546 单测全过
 
 ---
 
 ### English
 
 > **Wind Comic 🌬️ — one sentence in, a finished short-form drama out.**
-> Not another 5-second clip — an **honest multi-agent pipeline** + a **production-grade studio**: script → cast → storyboards → voiceover → multi-track timeline → final mp4, all from one idea. MIT open-source, **6539 tests passing**, every feature live in `main` (no slideware).
+> Not another 5-second clip — an **honest multi-agent pipeline** + a **production-grade studio**: script → cast → storyboards → voiceover → multi-track timeline → final mp4, all from one idea. MIT open-source, **6546 tests passing**, every feature live in `main` (no slideware).
 
 **v6 turned it from a runnable demo into a usable studio —**
 
@@ -89,7 +89,7 @@
 - 🩺 **API Health Board** — see every gateway healthy / out-of-credits / misconfigured at a glance, with live balance
 - 🔌 **BYO LLM + universal fallback** — swap any OpenAI-compatible model in 3 env lines; **DeepSeek `deepseek-v4-pro`** drives Writer/Director, with **MiniMax** as the global fallback on any error/out-of-credits
 
-> Stack: Next.js 16 + React 19 + Tailwind v4 · SQLite/Postgres dual-driver · Yjs realtime collab · 4-language i18n · built-in API health board · 6539 tests passing
+> Stack: Next.js 16 + React 19 + Tailwind v4 · SQLite/Postgres dual-driver · Yjs realtime collab · 4-language i18n · built-in API health board · 6546 tests passing
 
 > 🔗 GitHub (full code + docs + screenshots): **github.com/ChrisChen667788/wind-comic** · 🪪 MIT · ⭐ Star it if it helps
 
@@ -101,7 +101,7 @@
 
 > **Wind Comic 🌬️ — 开源多 Agent AI 漫剧 / 短剧流水线作者**
 >
-> 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 + 锁画风 + 中文字幕真烧入 + Logic Pro 风时间线 + 实时多人协作 + 接你自己的 LLM. MIT 开源, 6539 单测全过.
+> 一句 idea, 8 个 agent, 一部完整短剧. 锁脸 + 锁画风 + 中文字幕真烧入 + Logic Pro 风时间线 + 实时多人协作 + 接你自己的 LLM. MIT 开源, 6546 单测全过.
 >
 > 🔗 GitHub: github.com/ChrisChen667788/wind-comic
 > 🎬 适合: 竖屏短剧创作者 · 内容营销团队 · 漫画/漫剧工作室 · 独立电影人 · AI 开源开发者
@@ -112,7 +112,7 @@
 
 > **Wind Comic 🌬️ — Author of the open-source multi-agent AI short-drama pipeline**
 >
-> One sentence in. Finished short drama out. 8-agent pipeline · character DNA lock · style bible · real CJK subtitles · Logic Pro-style timeline · real-time multiplayer · BYO LLM. MIT licensed. 6539 tests passing.
+> One sentence in. Finished short drama out. 8-agent pipeline · character DNA lock · style bible · real CJK subtitles · Logic Pro-style timeline · real-time multiplayer · BYO LLM. MIT licensed. 6546 tests passing.
 >
 > 🔗 GitHub: github.com/ChrisChen667788/wind-comic
 > 🎬 Built for: vertical-drama creators · content marketing teams · comic/manhua studios · indie filmmakers · open-source builders
@@ -163,17 +163,17 @@
 - 想用 Claude / DeepSeek / 通义 而不是 OpenAI 的开发者
 - 探索"多 Agent 协同"如何打败"超大模型"的研究者
 
-**vs 主流闭源工具** (阵容核验 2026-08-07, 数值经独立二次复核):
-- **MiniMax H3 (Hailuo 3.0)** 7-31 发布、8-03 开放权重(排除美/欧/英/韩), 33B 全模态/2K/原生立体声 — T2V 带音频榜次席(Elo 1238)、视频编辑榜首; **Seedance 2.5** 7-31 发布, 单次原生 30 秒(当前最长)、4K 10bit、最多 50 参考输入
-- **Gemini Omni Flash** 仍居 T2V 带音频榜首(1244); **Kling 3.0** 短剧综合首选(原生 4K/最高 60fps/最长 15s/多语对白+口型, $0.084–0.112/s); **Veo 3.1** 企业安全牌(4K $0.60/s); **Wan 2.7** 最便宜带音频 API($0.10/s)
-- **⚠️ Sora 2 API 2026-09-24 停服**(消费端已下线), 勿再依赖
-- **🔴 首个同构开源竞品**: 港大 ViMax(MIT, 5.6k★, 12 Agent 全链) + OpenMontage(24k★, 无独立 UI) — 「开源」本身已非差异点
+**vs 主流竞品** (阵容核验 2026-10-15, 两张榜实时读取 + 开源星数走 GitHub API):
+- 两张榜都换了版本(文生视频 v2.1、图生视频 v1.1): **Wan 3.0** 两张 T2V 榜第一(带音频 1173)、闭源只走 API; 新进的 **Utopai X** 第 2 但无 API; **Seedance 2.5** 第 3, 单次原生 30 秒、最多 50 参考输入; **Gemini Omni Flash 1.1** 第 8
+- 图生视频带音频: **MiniMax H3 768p** 第一(1141)、Seedance 2.5 第二(1139); **Vidu Q4 Preview**(10-07)是生数新旗舰, 现版榜上没有它(我们的 Vidu 接入还停在 Q3); **Kling 4.0** 已官宣未全量, 真能调的短剧首选仍是 **Kling 3.0**
+- **Sora 2 API 已于 2026-09-24 按期停服**, 本项目自动从模型链剔除
+- 「开源」本身已非差异点: OpenMontage(68.3k★, AGPL) · ViMax(12.7k★, MIT) · ArcReel(5.5k★, AGPL); 仍无一家同时具备「可拦截的独立节奏门禁 + EDL/AAF 导出 + 开源自托管商用」(我们的拦截档要 `PACING_GATE=block` 才开)
 - **我们的差异(逐项核对后)**: ViMax 无配音/TTS、无节奏审计、无 EDL/AAF、无协作; **截至 2026-08 全部已查竞品中无一同时具备「节奏审计 + EDL/AAF 剪辑线导出 + 开源自托管」** — 加中文字幕烧入、自带 LLM、实时协作时间线
 
 **为什么相信我们**:
-- 6539 个单测全过
+- 6546 个单测全过
 - TypeScript 严格模式
-- 21 个 sprint 迭代 (v2.0 → v3.1.3)
+- 21 个 sprint 迭代 (v2.0 → v13.0)
 - 完整 changelog 见 ROADMAP.md
 - 自己写了 docs/COMPETITIVE-GAP.md 客观对照差距 (我们坦白哪里还输)
 
@@ -206,9 +206,9 @@ Repo: github.com/ChrisChen667788/wind-comic
 
 **Target users**: Creators · marketing teams · AI builders · privacy-conscious deployments wanting local LLM · researchers studying multi-agent vs monolithic models
 
-**vs Competitors** (verified 2026-08-07, figures re-checked by an independent pass that overturned 4 of 8 high-risk claims): **MiniMax H3** (Jul 31; weights opened Aug 3, excl. US/EU/UK/KR) is #2 on text-to-video-with-audio (Elo 1238) and **#1 on video editing**; **Seedance 2.5** (Jul 31) does 30s in one native take at 4K 10-bit with up to 50 reference inputs; **Gemini Omni Flash** still leads T2V-with-audio (1244); **Kling 3.0** is the all-round short-drama pick (native 4K, up to 60fps, 15s, multilingual dialogue + lip-sync). **Sora 2's API shuts down 2026-09-24.** **The first structurally-comparable open-source rival has arrived** — HKU's ViMax (MIT, 5.6k★) and OpenMontage (24k★) — so open source alone is no longer the differentiator; but ViMax has no TTS, no pacing audit, no EDL/AAF export and no collaboration, and **as of 2026-08 no competitor we could find combines pacing audit + EDL/AAF export + open-source self-hosting.**
+**vs Competitors** (verified 2026-10-15: both Artificial Analysis boards read live and every open-source star count pulled from the GitHub API — the check overturned three research agents' star counts). Both arenas were re-versioned (text-to-video v2.1 with Kling 3.0 1080p Pro = 1000, image-to-video v1.1): **Wan 3.0 leads both T2V boards** (1173 with audio, 1134 without); newcomer **Utopai X** is #2 with audio but has no API; **Seedance 2.5** is #3 and does **30 seconds in one native take** with up to 50 reference inputs; **Gemini Omni Flash 1.1** sits at #8 with audio. On image-to-video with audio **MiniMax H3 768p** leads (1141) just ahead of Seedance 2.5 (1139); **Vidu Q4 Preview** (Oct 7) is ShengShu's new flagship but is not on the current board — and our own Vidu integration is still on Q3. **Kling 4.0** is announced (30s / 4K / 15 references) but the full model is not out yet, so **Kling 3.0** remains the callable short-drama pick (native 4K, up to 60fps, up to 15s, 6 coherent shots, multilingual dialogue + lip-sync). **The Sora 2 API shut down on 2026-09-24 as announced**; this project drops it from the model chain automatically. **Open source alone is no longer the differentiator**: OpenMontage (68.3k★, AGPL), ViMax (12.7k★, MIT) and ArcReel (5.5k★, AGPL) all cover script-to-video. What still holds, stated narrowly: **no product we could find combines a pacing audit that can block as an independent gate + EDL/AAF timeline export + open-source self-hosting for commercial use** (our blocking mode is opt-in via `PACING_GATE=block`; the default only warns).
 
-**Trust signals**: 6539 vitest tests · TypeScript strict · 21 sprints (v2.0 → v3.1.3) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
+**Trust signals**: 6546 vitest tests · TypeScript strict · 21 sprints (v2.0 → v13.0) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
 
 ---
 
@@ -304,11 +304,11 @@ Wind Comic 走相反路线: **流水线 + 多 Agent + 严格契约**. 每个 age
 **链接**
 
 - GitHub: https://github.com/ChrisChen667788/wind-comic
-- ROADMAP: 完整 21 个 sprint changelog (v2.0 → v3.1.3)
+- ROADMAP: 完整 21 个 sprint changelog (v2.0 → v13.0)
 - LLM 接入文档: `docs/llm-providers.md`
 - 竞品对照: `docs/COMPETITIVE-GAP-2026-05.md`
 
-⭐ MIT 开源, 6539 单测, 持续迭代中.
+⭐ MIT 开源, 6546 单测, 持续迭代中.
 
 ### English version
 
@@ -352,11 +352,11 @@ Wind Comic takes the opposite approach: **pipeline + multi-agent + strict contra
 **Links**
 
 - GitHub: https://github.com/ChrisChen667788/wind-comic
-- ROADMAP: 21 sprints documented (v2.0 → v3.1.3)
+- ROADMAP: 21 sprints documented (v2.0 → v13.0)
 - LLM swap docs: `docs/llm-providers.md`
 - Competitive self-audit: `docs/COMPETITIVE-GAP-2026-05.md`
 
-⭐ MIT licensed. 6539 tests passing. Shipping continuously.
+⭐ MIT licensed. 6546 tests passing. Shipping continuously.
 
 ---
 

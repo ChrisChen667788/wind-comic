@@ -20,11 +20,12 @@
  *    先用 `--preview-deletes` 只读地列出会删什么。
  *
  * ## 令牌
- * 从环境变量 `MODELSCOPE_API_TOKEN` 读,**不写盘、不打印**。失败输出里可能带
- * `oauth2:<令牌>@` 形式的远端地址,已做掩码。
+ * 先读环境变量 `MODELSCOPE_API_TOKEN`;没有就在终端里**隐藏输入**(v13.0:不回显、不进 shell 历史、
+ * 也不出现在命令原文里 —— 此前要用户把占位符换成令牌再跑,占位文字被原样执行过两次)。
+ * **不写盘、不打印**。失败输出里可能带 `oauth2:<令牌>@` 形式的远端地址,已做掩码。
  *
  * 用法:
- *   MODELSCOPE_API_TOKEN=... node scripts/modelscope-sync.mjs
+ *   npm run ms:sync                                       # 提示时粘贴令牌(ms- 开头,不回显)
  *   node scripts/modelscope-sync.mjs --preview-deletes    # 只读:列出 --sync 会删什么
  *   node scripts/modelscope-sync.mjs --card-only          # 只重刷模型卡
  */
@@ -85,7 +86,9 @@ export function cardLooksClobbered(markdown) {
  */
 export function tokenProblem(raw) {
   const t = String(raw ?? '').trim();
-  if (!t) return '缺 MODELSCOPE_API_TOKEN(不写盘,只从环境变量读)';
+  if (!t) return '缺 MODELSCOPE_API_TOKEN(不写盘:请在提示处粘贴,或设环境变量)';
+  // v13.0:整段「变量名=令牌」被粘进来(命令行习惯带过来的),令牌本身不含「=」前缀
+  if (/^[A-Z][A-Z0-9_]*=/.test(t)) return '看起来粘的是「变量名=令牌」,只需要粘令牌本身(ModelScope 访问令牌,ms- 开头)';
   for (let i = 0; i < t.length; i++) {
     const code = t.charCodeAt(i);
     if (code >= 0x21 && code <= 0x7e) continue;
@@ -99,6 +102,54 @@ export function tokenProblem(raw) {
   return null;
 }
 
+/**
+ * 隐藏输入的按键处理(纯函数,v13.0):剥掉 bracketed paste 的 ESC[200~ / ESC[201~,
+ * 回车结束、Ctrl-C / Ctrl-D 放弃、退格删一位。终端粘贴常一次送来整段,所以按「块」处理而不是按键。
+ * raw 模式下 Ctrl-D 不是 EOF,而是一个 0x04 字节 —— 不单独处理就会被悄悄拼进令牌。
+ */
+export function applyTokenKeystrokes(buf, chunk) {
+  let b = buf;
+  for (const ch of String(chunk).replace(/\x1b\[20[01]~/g, '')) {
+    if (ch === '\r' || ch === '\n') return { buf: b, done: true, abort: false };
+    if (ch === '\u0003' || ch === '\u0004') return { buf: '', done: false, abort: true };
+    if (ch === '\u007f' || ch === '\b') { b = b.slice(0, -1); continue; }
+    b += ch;
+  }
+  return { buf: b, done: false, abort: false };
+}
+
+/**
+ * 没有环境变量时在终端里隐藏输入令牌。非交互环境(没有 TTY)直接返回空串,交给 tokenProblem 报「缺令牌」——
+ * 不会挂在那里等一个永远来不了的输入。
+ */
+function promptHiddenToken() {
+  const { stdin, stdout } = process;
+  if (!stdin.isTTY) return Promise.resolve('');
+  return new Promise((resolve) => {
+    stdout.write('[ms-sync] 粘贴 ModelScope 访问令牌(ms- 开头)后回车,输入不回显:');
+    stdin.setRawMode(true);
+    stdin.setEncoding('utf8');
+    stdin.resume();
+    let buf = '';
+    // 等输入时被 kill / 关终端:不先退出 raw 模式,用户的终端会一直不回显
+    const onSignal = (sig) => { cleanup(); process.exit(sig === 'SIGHUP' ? 129 : 143); };
+    const cleanup = () => {
+      stdin.off('data', onData); process.off('SIGTERM', onSignal); process.off('SIGHUP', onSignal);
+      // SIGHUP 时终端可能已经关了,setRawMode 会抛 —— 抛了就走不到 process.exit
+      try { stdin.setRawMode(false); stdin.pause(); stdout.write('\n'); } catch { /* 终端已不在 */ }
+    };
+    process.once('SIGTERM', onSignal);
+    process.once('SIGHUP', onSignal);
+    function onData(chunk) {
+      const r = applyTokenKeystrokes(buf, chunk);
+      buf = r.buf;
+      if (r.abort) { cleanup(); process.exit(130); }
+      if (r.done) { cleanup(); resolve(buf); }
+    }
+    stdin.on('data', onData);
+  });
+}
+
 async function fetchCard() {
   const r = await fetch(`${RESOLVE}/README.md`, { headers: { 'User-Agent': 'wind-comic-sync' } });
   return r.ok ? await r.text() : '';
@@ -108,13 +159,18 @@ async function main() {
   const argv = process.argv.slice(2);
   const cardOnly = argv.includes('--card-only');
   const preview = argv.includes('--preview-deletes');
-  const bad = tokenProblem(process.env.MODELSCOPE_API_TOKEN);
-  if (bad) {
-    console.error(`[ms-sync] ${bad}`);
-    process.exit(2);
+  // --preview-deletes 只读公开接口,不需要令牌
+  if (!preview) {
+    let token = process.env.MODELSCOPE_API_TOKEN;
+    if (!token) token = await promptHiddenToken();
+    const bad = tokenProblem(token);
+    if (bad) {
+      console.error(`[ms-sync] ${bad}`);
+      process.exit(2);
+    }
+    // 首尾空白(粘贴常带换行)去掉;交给 modelscope CLI 只走环境变量
+    process.env.MODELSCOPE_API_TOKEN = token.trim();
   }
-  // 首尾空白(粘贴常带换行)去掉再交给 modelscope CLI
-  process.env.MODELSCOPE_API_TOKEN = process.env.MODELSCOPE_API_TOKEN.trim();
 
   if (preview) {
     const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'ms-preview-'));

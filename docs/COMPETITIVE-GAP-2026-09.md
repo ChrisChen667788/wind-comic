@@ -157,3 +157,41 @@
 覆盖:OpenMontage 增速、C8 的 Docker 缺口已关闭、「+214% 增速」这个数字**查无来源**、可灵多镜连贯仍零调用、Veo 续接触发条件过窄(只有 >8s 的镜头才走得到)、Sora 回落的真机验收、Wan 3.0 权重、MiniMax Fast 兜底仍停在 Hailuo-2.3-Fast、ElevenLabs 配乐无真机冒烟、qwen-image 是死配置、可灵日韩口型被门禁多拦一步、MJ V8 Edit Model 尚未评估。
 
 > 其中两条本轮**当场改正**:qwen-image 原判「选中会抛异常」说过头了 —— 它根本不可能被选中(图像路由的候选里没有它),真问题是死配置加误导文案;Sora 回落由 v12.452 用假时钟真跑锁住,只剩停服后的真机验收要等有 Sora 配置的部署反馈。
+
+## 9. 追加一轮:2026-10-09 复核(v13.0 大版本同步)
+
+**怎么核的**:三路调研 agent(榜单与新品 / 33 条旧断言重验 / 国产与开源)+ 一名独立核对者;之后本人在浏览器里实时读了 Artificial Analysis 两张榜的四个分类,开源星数全部走 GitHub API。
+
+**这一轮推翻了什么**(都是调研 agent 报的,没进 README):
+
+| agent 报的 | 一手来源 | 结论 |
+|---|---|---|
+| ViMax 约 2.7k★ | GitHub API 12,589★ | 推翻 |
+| ArcReel 约 1.3–2.3k★ | GitHub API 5,400★ | 推翻 |
+| DramaClaw 约 1,488★ | GitHub API 6,795★ | 推翻 |
+| Grok Imagine Video 1.5 Lite「约 10-01 发布」 | 榜面写 Aug 2026;10-14 复查时追踪站分别写 10-01、10-08 | **存疑**(来源互相矛盾,不写发布日;10-09 记为「推翻」是错的) |
+| Gemini Omni Flash 1.1 带音频 1115、Wan 3.0 1157 | 榜面 1113 / 1156 | 更正(核对者已抓到) |
+| Vidu Q4 Preview「$0.014/s 起」 | 单一报道;榜面 $5.04/min@1080p | 两个数都不进表 |
+
+**榜单**:文生视频榜升级为 AA-Video-T2V v2.0(Kling 3.0 1080p Pro 固定为 1000),旧数不可比 —— 带音频 Wan 3.0 1156 > Utopai X 1149(无 API)> Seedance 2.5 1143 > MiniMax H3 768p 1137 > MiniMax H3 Max 1130 > FLUX 3 1128;Gemini Omni Flash 1.1 第 8(1113),Veo 3.1 第 19(962)。不带音频 Wan 3.0 1127 > MiniMax H3 Max 1117 > MiniMax H3 1116。图生视频(仍 v1.0)带音频 MiniMax H3 Max 1195 > MiniMax H3 1181 > Vidu Q4 Preview 1179 > Gemini Omni Flash 1178;不带音频 Gemini 1368 > Bach 1.0 Pro 1362 = Wan 3.0 1362 > MiniMax H3 1356。
+
+**新品**:Kling 4.0 已官宣(30s / 4K / 15 路参考),完整版定在 10 月、Flash 版 9-28 起小范围内测,API 价格未公布 —— 对照表那一列仍写 Kling 3.0。Vidu Q4 Preview(10-07):15 张参考图 + 3 段参考音频、2K/4K 10-bit、1–16s。Utopai X:榜上第 2,无 API,对我们不是可接的引擎。
+
+**三列(竞品有什么 / 我们接了没有 / 我们用了多少)里新冒出的一格**:Vidu Q4 —— **我们没接**,Vidu 接入仍钉在 viduq3 系列。登记为 C34。
+
+**护城河边界(C1 / C33)**:仍成立。OpenMontage 65.6k★ 没有时间线文件导出(它说的 edit decision list 是交给 Remotion 渲染前的内部步骤);ArcReel 时间线格式调研(#2671)已关,但仓库里仍搜不到 FCPXML/OTIO 代码或 PR。
+
+**Sora 2 API**:已于 2026-09-24 按期停服。停服后的真机 fallback 验证仍缺(C24)。
+
+## 10. 追加一轮:2026-10-14 / 10-15 发版前重读
+
+10-09 那轮之后停了 5 天才发版,发版前重读了一遍,**两张榜都又换了版本**,10-09 的分数全部作废:
+
+- 文生视频 **v2.0 → v2.1**(Kling 3.0 1080p Pro 仍固定 1000):带音频 Wan 3.0 1173 > Utopai X 1166 > Seedance 2.5 1159 > MiniMax H3 768p 1158 > MiniMax H3 Max 1156 > FLUX 3 1145;Gemini Omni Flash 1.1 第 8(1132),Veo 3.1 第 20(968)。不带音频 Wan 3.0 1134 > MiniMax H3 768p 1121 > MiniMax H3 Max 1117。前六名次序没变,分数整体上移约 15–17。
+- 图生视频 **v1.0 → v1.1**:带音频 MiniMax H3 768p 1141 > Seedance 2.5 1139 > Gemini Omni Flash 1.1 1134 > Wan 3.0 1127 > MiniMax H3 Max 1124 —— 洗牌最大。**10-09 还排第 3 的 Vidu Q4 Preview 不在 v1.1 榜上**(取消「隐藏研究预览」后也没有)。不带音频这张数字与 10-09 相同。页面写着 I2V v2.1 即将上线。
+- Kling 4.0:仍没有 API,Kling 开发者价目表仍只有 3.0 系列(多为第三方来源,未找到 Kling 官方的 API 日期)。
+- 星数(GitHub API,10-14):OpenMontage 68,167(5 天 +2.5k)、ViMax 12,660、DramaClaw 6,282(比 10-09 的 6,795 少了约 500)、ArcReel 5,497、BigBanana 2,323、Novella AI 125。OpenMontage 与 ArcReel 这 5 天的提交里都没有时间线文件导出或可拦截的节奏门禁。
+
+- **10-15(实际发版日)再读**:四个分类的分数全部不变;SkyReels V4 从文生视频带音频榜上消失,其后名次各上移一位(Veo 3.1 第 20 → 19)。星数:OpenMontage 68,278、ViMax 12,659、DramaClaw 6,285、ArcReel 5,502、BigBanana 2,324、Novella AI 125。Vidu Q4 Preview 仍不在图生视频榜上。
+
+**教训**:竞品数字要在**发版当天**读,不是在写文案那天读 —— 这一轮隔了 5 天,榜单版本就变了两次。
