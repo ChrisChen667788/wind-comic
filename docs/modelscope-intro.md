@@ -4,7 +4,7 @@
   <img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v13.0</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.1</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -19,7 +19,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-6546%2F6546-2ea44f"  alt="6546 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-6552%2F6552-2ea44f"  alt="6552 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -43,21 +43,8 @@
 
 ---
 
-## 💎 Sponsors · 赞助商
-
-<table>
-  <tr>
-    <td width="190" align="center">
-      <a href="https://metaso.cn/minimax-h3/?s=wind-comic" target="_blank" rel="noopener"><img src="https://modelscope.cn/models/haozi667788/wind-comic/resolve/master/assets/sponsors/metaso.png" width="163" alt="秘塔科技 MetaSota"></a>
-    </td>
-    <td>
-      <strong>MiniMax H3 视频生成 API｜秘塔科技</strong> 秘塔科技提供高性价比的 MiniMax H3 视频生成服务：<strong>768P 仅 0.09 元/秒，2K 仅 0.15 元/秒</strong>。支持原生 2K、音画同步，API 兼容 <strong>OpenAI 协议</strong>，同时支持 <strong>ComfyUI</strong>，无需自行部署 GPU。 🎁 通过 <a href="https://metaso.cn/minimax-h3/?s=wind-comic" target="_blank" rel="noopener noreferrer">wind-comic专属链接注册</a>，即可领取赠送额度及专属优惠。<br/><br/>
-      <sub><strong>MiniMax H3 video-generation API — MetaSota (秘塔科技).</strong> ¥0.09/s at 768P, ¥0.15/s at 2K · native 2K with synced audio · <strong>OpenAI-compatible</strong> API · <strong>ComfyUI</strong> supported · no GPU to deploy. 🎁 Sign up through the <a href="https://metaso.cn/minimax-h3/?s=wind-comic" target="_blank" rel="noopener noreferrer">wind-comic link</a> for bonus credits and a partner discount.</sub>
-    </td>
-  </tr>
-</table>
-
----
+<!-- sponsor-slot:start -->
+<!-- sponsor-slot:end -->
 
 ## ✨ Why Wind Comic?
 
@@ -298,7 +285,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/docs/llm-providers.md) for the full matrix.
 
-### 10. **6546 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **6552 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -631,7 +618,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 6546/6546 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 6552/6552 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](https://github.com/ChrisChen667788/wind-comic/blob/main/CONTRIBUTING.md) for the repo's contribution guide.
 
