@@ -121,8 +121,8 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.64.0",
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
     "@types/bcryptjs": "^2.4.6",
@@ -134,9 +134,9 @@
     "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.29",
-    "puppeteer": "^25.13.0",
+    "puppeteer": "^25.14.0",
     "tsx": "^4.23.15",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "sharp": "^0.35.3",
