@@ -17,7 +17,7 @@ vi.mock('@/services/segment-retake-run', async (importOriginal) => {
   return {
     ...real,
     shotFinalDuration: vi.fn(async () => 8),
-    projectFps: vi.fn(async () => 24),
+    shotSourceFps: vi.fn(async () => 24),
     runSegmentRetake: (...a: unknown[]) => run(...a),
   };
 });

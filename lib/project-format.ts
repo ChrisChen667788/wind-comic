@@ -1,13 +1,13 @@
 /**
  * lib/project-format (v7.4) — 项目级格式 / 色彩 / 帧率预设 (对标 CineFlow Director's Suite 顶栏)
  *
- * 纯逻辑 + 预设:色彩空间(ACES/LogC/Rec709…) · 帧率(24-120fps升格) · 安全框。
+ * 纯逻辑 + 预设:色彩空间(ACES/LogC/Rec709…) · 导出帧率(EDL / AAF 时间码) · 安全框。
  *   - withColorSpaceClause(): → 把色彩片段写进出图提示词(服务端注入口见 project-format-store)
  *   - describeFormat(): → 中文一行摘要
  *   - describeProjectAspect(): → 格式条上显示的画幅(取自 projects.aspect,见下)
  *
  * v12.466:三个字段各自的读者 ——
- *   - `fps`:EDL / AAF 导出、片段重拍(v12.456 起);
+ *   - `fps`:EDL / AAF 导出的时间码帧率(v13.4 起片段重拍不再读它,见 FRAME_RATES 上方);
  *   - `colorSpaceId`:分镜出图提示词,唯一注入口 `withColorSpace()`(lib/project-format-store)。
  *     修前它只被 `compileFormatPrompt()` 编进片段,而那个函数全仓零调用;
  *   - `safeArea`:项目页分镜 / 视频预览上的竖屏安全区叠层(修前叠层只认页面里一个临时开关)。
@@ -33,7 +33,18 @@ export const COLOR_SPACES: ColorSpacePreset[] = [
   { id: 'srgb',   label: 'sRGB',       prompt: 'sRGB standard color' },
 ];
 
-export const FRAME_RATES = [24, 25, 30, 48, 60, 120] as const;
+/**
+ * 导出帧率 = EDL / AAF 时间线的时间码帧基准(剪辑软件里那条序列的帧率)。**不改变生成,也不改变成片**:
+ * 成片在 video-composer 里每镜都过 `fps=24`;48 / 60 也不会出慢动作 —— v7.4 起下拉里写着「升格」,
+ * 而全仓没有任何代码按它改变拍摄或播放速度。
+ *
+ * v13.4:
+ *   - 去掉 120:EDL 的时间码帧位是 `frames % fps`,120 时会写出 `00:00:00:119` 这种三位帧号,CMX3600 不认;
+ *     旧资产里存的 120 在 normalize 时回落 24(与成片一致)。
+ *   - 片段重拍原先按这里的帧率切点、数帧,缝合却按原片真实帧率出片 —— 选了与原片不同的帧率,
+ *     补丁先花钱生成、再以「帧数对不上」被拒。现在片段重拍全程用原片探测出的帧率,不再读这个字段。
+ */
+export const FRAME_RATES = [24, 25, 30, 48, 60] as const;
 
 export interface ProjectFormat {
   colorSpaceId: string;

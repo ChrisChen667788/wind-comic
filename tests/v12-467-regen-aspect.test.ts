@@ -113,7 +113,7 @@ vi.mock('@/services/segment-retake-run', async (importOriginal) => {
   return {
     ...m,
     shotFinalDuration: async () => 8,
-    projectFps: async () => 24,
+    shotSourceFps: async () => 24,
     tryLockShot: () => () => {},
     runSegmentRetake: async (input: { shotNumber: number; prompt?: string }, deps: { generatePatch: (a: Record<string, unknown>) => Promise<unknown> }) => {
       const patch = await deps.generatePatch({ shotNumber: input.shotNumber, durationS: 3, firstFrameUrl: 'https://cdn.example/cut.png', promptExtra: input.prompt });

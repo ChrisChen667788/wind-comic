@@ -29,7 +29,7 @@ export interface SegmentRetakePlanInput {
   fromS: number;
   /** 要重拍的片段终点(秒) */
   toS: number;
-  /** 项目帧率;切点按它吸附 */
+  /** 原片(该镜活动版视频)的真实帧率;切点按它吸附。v13.4 起不再用格式条的导出帧率 —— 缝合按原片帧率出片 */
   fps?: number;
   /** 引擎能接受的最短生成时长(秒)。不传按 3s——目前已知引擎里最宽松的下限 */
   engineMinDurationS?: number;

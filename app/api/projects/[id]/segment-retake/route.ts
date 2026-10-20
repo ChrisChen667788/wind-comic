@@ -16,7 +16,7 @@ import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { planSegmentRetake } from '@/lib/segment-retake';
 import { listSegmentTakes, adoptSegmentTake } from '@/lib/shot-segment-retake';
 import {
-  runSegmentRetake, shotFinalDuration, projectFps, tryLockShot, SegmentRetakeError,
+  runSegmentRetake, shotFinalDuration, shotSourceFps, tryLockShot, SegmentRetakeError,
   type GeneratePatch,
 } from '@/services/segment-retake-run';
 
@@ -100,8 +100,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // 先算计划:不通过就把**人话原因**直接回给用户,不去花钱调引擎。
-  // v12.459:预演与真跑用同一个项目帧率 —— 此前预演不传 fps(按 24 算),真跑若按项目帧率就可能差一帧。
-  const fps = await projectFps(id);
+  // v12.459:预演与真跑用同一个帧率 —— 此前预演不传 fps(按 24 算),真跑若按别的帧率就可能差一帧。
+  // v13.4:这个帧率是该镜原片的真实帧率(真跑缝合用的就是它),不再读格式条的「导出帧率」。
+  const fps = await shotSourceFps(id, shotNumber);
   const plan = planSegmentRetake({ shotDurationS, fromS, toS, fps });
   if (!plan.ok) return NextResponse.json({ message: plan.reason, plan }, { status: 400 });
 

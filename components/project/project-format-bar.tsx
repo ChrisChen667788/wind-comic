@@ -16,6 +16,9 @@
  *     默认「不指定」= 不加任何色彩描述;已出的图不会变。
  *   - 安全框:就是项目页分镜 / 视频预览上那层竖屏安全区。页面传 `safeArea` + `onSafeAreaChange` 时这里受控,
  *     与视频页的「字幕安全区」按钮是同一个开关;叠层只有 9:16 版本,其它画幅禁用并说明。
+ *
+ * v13.4:「帧率」改叫「导出帧率」,去掉 48 / 60 / 120 后面的「升格」。它只是 EDL / AAF 时间码的帧基准,
+ * 不会出慢动作、也不改变成片(成片固定 24fps);片段重拍也不再读它。120 一档去掉(EDL 会写出三位帧号)。
  */
 
 import { useState } from 'react';
@@ -28,6 +31,8 @@ import {
 const COLOR_HINT = '写进之后出的分镜图提示词(整片生成、整张重生、九宫格候选、Cameo 重试),已出的图不会变。'
   + '「不指定」= 不加任何色彩描述。';
 const SAFE_AREA_HINT = '在分镜 / 视频预览上叠一层竖屏安全区(顶部 UI、右侧互动列、底部字幕区),只影响预览,不进成片。';
+const FPS_HINT = '导出 EDL / AAF 时用的时间码帧率,要和剪辑软件里那条序列的帧率一致。'
+  + '不影响生成,也不改变成片(成片固定 24fps);选 48 / 60 不会出慢动作。';
 
 const ASPECT_HINT = '画幅在创建项目时确定,出片、分镜构图、导演台都按它算,这里只显示。'
   + '要另一比例的成片:「分发」页「改画幅 · 一片两投」直接重构图;要按新画幅重新出片:用新画幅重新创建。';
@@ -85,9 +90,9 @@ export function ProjectFormatBar({ projectId, aspect, initialFormat, safeArea, o
           {COLOR_SPACES.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
         </select>
       </label>
-      <label className="flex items-center gap-1.5 cinema-mono text-[10px] opacity-80">帧率
+      <label className="flex items-center gap-1.5 cinema-mono text-[10px] opacity-80" title={FPS_HINT}>导出帧率
         <select className="cinema-input !py-1 !text-[11px] !w-auto" value={f.fps} onChange={(e) => set({ fps: Number(e.target.value) })}>
-          {FRAME_RATES.map((r) => <option key={r} value={r}>{r >= 48 ? `${r}fps 升格` : `${r}fps`}</option>)}
+          {FRAME_RATES.map((r) => <option key={r} value={r}>{`${r}fps`}</option>)}
         </select>
       </label>
       <button onClick={toggleSafeArea} disabled={!safeAreaUsable} aria-pressed={safeAreaUsable && safeOn}

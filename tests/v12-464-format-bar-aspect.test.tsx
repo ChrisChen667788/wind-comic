@@ -76,7 +76,7 @@ describe('v12.464 · 格式条显示的是项目画幅', () => {
   it('画幅没有可改的控件;色彩、帧率仍是下拉框', async () => {
     const { container, field } = await renderBar('9:16');
     expect(field('色彩')?.querySelector('select')).toBeTruthy();
-    expect(field('帧率')?.querySelector('select')).toBeTruthy();
+    expect(field('导出帧率')?.querySelector('select')).toBeTruthy();
     expect(container.querySelectorAll('select').length).toBe(2);
     expect(field('画幅')?.querySelector('select') ?? null).toBeNull();
   });
@@ -114,7 +114,7 @@ describe('v12.464 · 保存只写色彩 / 帧率 / 安全框', () => {
     }));
     const { fireEvent, waitFor } = await import('@testing-library/react');
     const { container, field } = await renderBar('9:16');
-    fireEvent.change(field('帧率')!.querySelector('select')!, { target: { value: '30' } });
+    fireEvent.change(field('导出帧率')!.querySelector('select')!, { target: { value: '30' } });
     fireEvent.change(field('色彩')!.querySelector('select')!, { target: { value: 'rec709' } });
     fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent?.startsWith('安全框'))!);
     fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent?.includes('保存格式'))!);

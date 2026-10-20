@@ -89,10 +89,11 @@ describe('describeShotSpec 含光影 (非自然时)', () => {
 describe('lib/project-format', () => {
   // v12.464:画幅预设(FORMAT_PRESETS / aspectId / aspectRatioOf)已删 —— 没有任何生成代码读它,
   // 项目画幅只有 projects.aspect 一处(见 tests/v12-464-format-bar-aspect)。
-  it('预设非空 + 帧率含 24/120', () => {
+  // v13.4:去掉 120(EDL 时间码会写出三位帧号),见 tests/v13-4-export-fps
+  it('预设非空 + 帧率含 24/60', () => {
     expect(COLOR_SPACES.some((c) => c.id === 'aces')).toBe(true);
     expect(FRAME_RATES).toContain(24);
-    expect(FRAME_RATES).toContain(120);
+    expect(FRAME_RATES).toContain(60);
   });
   // v12.466:色彩接进出图、安全框接上叠层之后,默认值改为「不指定 / 关」—— 没保存过格式的项目出图与预览不变
   it('默认: 不指定色彩 + 24fps + 安全框关', () => {
@@ -107,11 +108,11 @@ describe('lib/project-format', () => {
   });
   // v12.466:compileFormatPrompt(全仓零调用,且往静帧里写帧率)换成只管色彩的 withColorSpaceClause
   it('withColorSpaceClause + describeFormat', () => {
-    const f = { colorSpaceId: 'aces', fps: 120, safeArea: true };
+    const f = { colorSpaceId: 'aces', fps: 60, safeArea: true };
     const p = withColorSpaceClause('a hero', f.colorSpaceId);
     expect(p).toContain('ACES');
     expect(p).not.toContain('fps');
     expect(describeFormat(f)).toContain('ACES 1.3');
-    expect(describeFormat(f)).toContain('120fps');
+    expect(describeFormat(f)).toContain('60fps');
   });
 });

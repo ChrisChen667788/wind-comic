@@ -145,6 +145,16 @@ async function probeSource(file: string): Promise<SourceParams> {
   };
 }
 
+/**
+ * 原片的真实帧率(数值,如 24、30、29.97)。v13.4:片段重拍的切点与数帧都按它算 ——
+ * 缝合出片用的就是原片帧率(见 buildStitchGraph),计划若按别的帧率算,帧数就对不上。
+ */
+export async function sourceFrameRate(file: string): Promise<number> {
+  const [n, d = '1'] = (await probeSource(file)).fps.split('/');
+  const fps = Number(n) / Number(d);
+  return Number.isFinite(fps) && fps > 0 ? fps : 24;
+}
+
 /** 秒 → ffmpeg 时长字面量;微秒精度,与 trim/atrim 内部口径一致 */
 const t = (s: number) => s.toFixed(6);
 

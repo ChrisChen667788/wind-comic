@@ -17,13 +17,12 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { listAssetsByType } from '@/lib/repos/asset-repo';
 import { planSegmentRetake, type SegmentRetakePlan } from '@/lib/segment-retake';
-import { normalizeProjectFormat } from '@/lib/project-format';
 import { resolveLocalMediaPath } from '@/lib/media-local-path';
 import { persistentMediaDir } from '@/lib/media-persist';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { recordSegmentTake } from '@/lib/shot-segment-retake';
 import { isPlaceholderVideo } from '@/lib/placeholder-provenance';
-import { planAndExecute } from './segment-retake.service';
+import { planAndExecute, sourceFrameRate } from './segment-retake.service';
 
 const execFileP = promisify(execFile);
 
@@ -42,11 +41,6 @@ export async function shotFinalDuration(projectId: string, shotNumber: number): 
   return Number(t?.duration) || 0;
 }
 
-/** 项目帧率(与 export-edl 同一口径:project-format 资产,缺省 24) */
-export async function projectFps(projectId: string): Promise<number> {
-  const rows = await listAssetsByType(projectId, 'project-format');
-  return normalizeProjectFormat(parseJson(rows[0]?.data) || {}).fps;
-}
 
 /** 该镜活动版视频的地址(与重新合成同一口径:persistent_url 优先)及它是不是占位片 */
 export async function activeShotVideo(projectId: string, shotNumber: number): Promise<{ url: string; isAnimatic: boolean }> {
@@ -62,6 +56,31 @@ export async function activeShotVideo(projectId: string, shotNumber: number): Pr
 
 /** 远端下载上限:一镜视频远小于它;不设就沿用 remote-media 的 2GB 兜底 */
 const MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024;
+
+/**
+ * 该镜活动版视频的真实帧率 —— 预演(dryRun)算计划用,与真跑同一来源。v13.4。
+ *
+ * 修前预演和真跑都读格式条的「帧率」(project-format 资产),缝合却按原片帧率出片:两者不同时
+ * (格式条选了 60、原片是 24),切点落在 60fps 的栅格上、数帧按 60 数,缝合出来是 24fps ——
+ * 补丁先花钱生成,再以「帧数对不上」被拒,报错还写成「补丁素材比需要的短」。那个字段只是 EDL / AAF 的时间码帧率。
+ * 读不到原片(还没出片、文件丢了)就按 24 算(成片帧率);真跑时没有原片会直接 409,不会用到这个兜底。
+ */
+export async function shotSourceFps(projectId: string, shotNumber: number): Promise<number> {
+  const { url } = await activeShotVideo(projectId, shotNumber);
+  if (!url) return 24;
+  let tempFile: string | null | undefined;
+  try {
+    const src = await resolveLocalMediaPath(url, { allowRemote: true, ext: '.mp4', maxBytes: MAX_DOWNLOAD_BYTES });
+    if (!src) return 24;
+    tempFile = src.tempFile;
+    return await sourceFrameRate(src.path);
+  } catch (e) {
+    console.warn(`[segment-retake] 读不到镜 ${shotNumber} 原片帧率,预演按 24 算:${e instanceof Error ? e.message.slice(0, 120) : e}`);
+    return 24;
+  } finally {
+    if (tempFile) { try { fs.unlinkSync(tempFile); } catch { /* 删不掉不阻塞 */ } }
+  }
+}
 
 /** 补丁生成函数:线上 = 编排器单镜重生;测试 = 本地造的补丁 */
 export type GeneratePatch = (args: {
@@ -124,10 +143,6 @@ export async function runSegmentRetake(
   if (!shotDurationS) {
     throw new SegmentRetakeError(`镜 ${shotNumber} 还没有成片时长(先出一次片再来重拍片段)`, 409);
   }
-  const fps = await projectFps(projectId);
-  const plan = planSegmentRetake({ shotDurationS, fromS, toS, fps });
-  if (!plan.ok) throw new SegmentRetakeError(plan.reason || '片段重拍计划无效', 400, { plan });
-
   const { url: sourceUrl, isAnimatic: sourceIsAnimatic } = await activeShotVideo(projectId, shotNumber);
   if (!sourceUrl) throw new SegmentRetakeError(`镜 ${shotNumber} 还没有视频活动版(先出一次片)`, 409);
 
@@ -138,6 +153,12 @@ export async function runSegmentRetake(
     const source = await resolveLocalMediaPath(sourceUrl, { allowRemote: true, ext: '.mp4', maxBytes: MAX_DOWNLOAD_BYTES });
     if (!source) throw new SegmentRetakeError(`读不到镜 ${shotNumber} 的原片文件(地址既不是站内文件也不是可下载的远端地址)`, 409);
     if (source.tempFile) temps.push(source.tempFile);
+
+    // v13.4:切点、数帧都按**原片真实帧率** —— 缝合出片用的就是它。修前读格式条的「帧率」(那只是 EDL / AAF
+    // 的时间码帧率),两者不同时补丁先花钱生成、再以「帧数对不上」被拒。所以计划要等拿到原片之后才算。
+    const fps = await sourceFrameRate(source.path);
+    const plan = planSegmentRetake({ shotDurationS, fromS, toS, fps });
+    if (!plan.ok) throw new SegmentRetakeError(plan.reason || '片段重拍计划无效', 400, { plan });
 
     // 原片在切入点的那一帧 → 补丁首帧。plan.trimFromS 恒为 0:补丁的第 0 秒正好落在 patchFromS,
     // 用这一帧起拍,接缝处画面才连得上。截不出来不致命(引擎退回用分镜图),但要留痕。
