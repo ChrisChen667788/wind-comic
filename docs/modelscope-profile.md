@@ -173,7 +173,7 @@
 **为什么相信我们**:
 - 6552 个单测全过
 - TypeScript 严格模式
-- 21 个 sprint 迭代 (v2.0 → v13.1)
+- 21 个 sprint 迭代 (v2.0 → v13.2)
 - 完整 changelog 见 ROADMAP.md
 - 自己写了 docs/COMPETITIVE-GAP.md 客观对照差距 (我们坦白哪里还输)
 
@@ -208,7 +208,7 @@ Repo: github.com/ChrisChen667788/wind-comic
 
 **vs Competitors** (verified 2026-10-15: both Artificial Analysis boards read live and every open-source star count pulled from the GitHub API — the check overturned three research agents' star counts). Both arenas were re-versioned (text-to-video v2.1 with Kling 3.0 1080p Pro = 1000, image-to-video v1.1): **Wan 3.0 leads both T2V boards** (1173 with audio, 1134 without); newcomer **Utopai X** is #2 with audio but has no API; **Seedance 2.5** is #3 and does **30 seconds in one native take** with up to 50 reference inputs; **Gemini Omni Flash 1.1** sits at #8 with audio. On image-to-video with audio **MiniMax H3 768p** leads (1141) just ahead of Seedance 2.5 (1139); **Vidu Q4 Preview** (Oct 7) is ShengShu's new flagship but is not on the current board — and our own Vidu integration is still on Q3. **Kling 4.0** is announced (30s / 4K / 15 references) but the full model is not out yet, so **Kling 3.0** remains the callable short-drama pick (native 4K, up to 60fps, up to 15s, 6 coherent shots, multilingual dialogue + lip-sync). **The Sora 2 API shut down on 2026-09-24 as announced**; this project drops it from the model chain automatically. **Open source alone is no longer the differentiator**: OpenMontage (68.3k★, AGPL), ViMax (12.7k★, MIT) and ArcReel (5.5k★, AGPL) all cover script-to-video. What still holds, stated narrowly: **no product we could find combines a pacing audit that can block as an independent gate + EDL/AAF timeline export + open-source self-hosting for commercial use** (our blocking mode is opt-in via `PACING_GATE=block`; the default only warns).
 
-**Trust signals**: 6552 vitest tests · TypeScript strict · 21 sprints (v2.0 → v13.1) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
+**Trust signals**: 6552 vitest tests · TypeScript strict · 21 sprints (v2.0 → v13.2) · Honest self-audit in `docs/COMPETITIVE-GAP-2026-05.md`.
 
 ---
 
@@ -304,7 +304,7 @@ Wind Comic 走相反路线: **流水线 + 多 Agent + 严格契约**. 每个 age
 **链接**
 
 - GitHub: https://github.com/ChrisChen667788/wind-comic
-- ROADMAP: 完整 21 个 sprint changelog (v2.0 → v13.1)
+- ROADMAP: 完整 21 个 sprint changelog (v2.0 → v13.2)
 - LLM 接入文档: `docs/llm-providers.md`
 - 竞品对照: `docs/COMPETITIVE-GAP-2026-05.md`
 
@@ -352,7 +352,7 @@ Wind Comic takes the opposite approach: **pipeline + multi-agent + strict contra
 **Links**
 
 - GitHub: https://github.com/ChrisChen667788/wind-comic
-- ROADMAP: 21 sprints documented (v2.0 → v13.1)
+- ROADMAP: 21 sprints documented (v2.0 → v13.2)
 - LLM swap docs: `docs/llm-providers.md`
 - Competitive self-audit: `docs/COMPETITIVE-GAP-2026-05.md`
 

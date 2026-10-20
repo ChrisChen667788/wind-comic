@@ -3,6 +3,11 @@
  *
  * 跑法:dev server 在 :3000(JWT_SECRET 与本脚本同)→ `node scripts/capture-v12-425.mjs`
  *
+ * 只重拍其中几张(v13.2):`node scripts/capture-v12-425.mjs --only=13-storyboard-specs[,14-videos]`
+ *   · 名字就是 assets/v12-425/ 下的文件名(不带扩展名);也可用环境变量 CAPTURE_ONLY 传同样的值
+ *   · dev server 不在 :3000 时加 `--base=http://localhost:3112`(或 CAPTURE_BASE)
+ *   · 名字拼错会直接报错退出,不会静默一张不拍
+ *
  * 鉴权:不走密码登录 —— 用 JWT_SECRET mint 会话令牌。**cookie 和 localStorage 两处都要注**:
  * 服务端是「Bearer 优先、会话 cookie 兜底」双读,而项目页那条取数 fetch 不带 Bearer 头,
  * 只注 localStorage 会得到 401 + 页面显示「项目不存在」,看着像数据没了。(v12.416 踩过)
@@ -22,7 +27,14 @@ import jwt from 'jsonwebtoken';
 import Database from 'better-sqlite3';
 import { execFileSync } from 'node:child_process';
 
-const BASE = process.env.CAPTURE_BASE || 'http://localhost:3000';
+const argOf = (k) => process.argv.slice(2).find((a) => a.startsWith(`--${k}=`))?.slice(k.length + 3);
+const BASE = argOf('base') || process.env.CAPTURE_BASE || 'http://localhost:3000';
+/**
+ * v13.2:只拍其中几张(用法见文件头)。换一张图不该把其余十几张一起重拍 ——
+ * 素材活性每周在变,全拍一遍等于把别的图也换成另一批数据。
+ */
+const onlyRaw = argOf('only') ?? process.env.CAPTURE_ONLY;
+const ONLY = onlyRaw ? new Set(onlyRaw.split(',').map((s) => s.trim()).filter(Boolean)) : null;
 const OUT = path.join(process.cwd(), 'assets', 'v12-425');
 const DB = path.join(process.cwd(), 'data', 'qfmj.db');
 /** 素材完整、四类资产俱全的演示工程;角色转身图取宿命之柱(4 张全活)。 */
@@ -56,6 +68,16 @@ function mintSession() {
 }
 
 const ok = [], skipped = [];
+
+// 名字拼错就退出:否则 shot() 全部跳过,脚本照样打印「出图 0 张」正常结束,看着像跑过了。
+if (ONLY) {
+  const known = new Set([...fs.readFileSync(new URL(import.meta.url), 'utf-8').matchAll(/await shot\('([^']+)'/g)].map((m) => m[1]));
+  const unknown = [...ONLY].filter((n) => !known.has(n));
+  if (unknown.length) {
+    console.error(`--only 里有不存在的图名:${unknown.join(', ')}\n可选:${[...known].join(', ')}`);
+    process.exit(2);
+  }
+}
 const seenHashes = new Map();
 const sameUrlShots = new Map();
 
@@ -159,7 +181,10 @@ async function main() {
       if (b.width < 200 || b.top < top) continue;
       if (b.bottom > bottom && b.bottom <= window.innerHeight) bottom = b.bottom;
     }
-    return { x: 0, y: top, width: window.innerWidth,
+    // v13.2:上面全是视口坐标,而 page.screenshot 的 clip 按**文档**坐标解释。以前项目页滚的是内层 div,
+    // 文档滚动恒为 0,两套坐标恰好重合;现在滚的是文档本身,不加 scrollY 取景框就整体上移滚动量那么多
+    // (重拍 13 号图时把顶部的角色上传位也拍进去了)。
+    return { x: window.scrollX, y: top + window.scrollY, width: window.innerWidth,
              height: Math.min(window.innerHeight - top, bottom - top + pad) };
   }, [re.source ?? re, padTop]);
 
@@ -182,13 +207,14 @@ async function main() {
     const x = Math.max(0, r.left - sd);
     const y = Math.max(0, r.top - p2);
     return {
-      x, y,
+      x: x + window.scrollX, y: y + window.scrollY,   // 视口 → 文档坐标,同 clipOf
       width: Math.min(window.innerWidth - x, r.width + sd * 2),
       height: Math.min(window.innerHeight - y, r.height + p2 * 2),
     };
   }, [needle, pad, side]);
 
   const shot = async (name, url, opts = {}) => {
+    if (ONLY && !ONLY.has(name)) return;
     try {
       if (page.url() !== url) {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
@@ -306,7 +332,14 @@ async function main() {
   });
 
   // ── 四、专业能力:分镜规格 / 拉片 / 时间线 / 节奏 / 视频 ────────
-  await shot('13-storyboard-specs', SHOW, {
+  // v13.2:改拍绿皮书之约(16:9,8 镜分镜图都在盘、无水印)。原先拍雨夜信号,画面里格式条还是 v12.464 删掉的
+  // 「Scope 2.39:1」下拉;而换成 9:16 项目也拍不出一致的画面 —— 本机在盘的分镜图全是 1344×768 横图
+  // (网关对竖屏尺寸不生效),格式条写 9:16、下面一排横图。月挂不下来的分镜带来源站水印,不对外用。
+  // ⚠ 本机库里该项目每镜还有一条早期 mock 跑留下的分镜行(media_urls 指向 localhost:3000/api/mock-assets 的 svg),
+  // 页面会把 8 镜显示成 16 张、一半破图。重拍前在**复制出的库**里删掉它们(别动主仓库那份):
+  //   sqlite3 data/qfmj.db "DELETE FROM project_assets WHERE project_id='proj-1781164723524'
+  //                         AND type='storyboard' AND media_urls LIKE '%mock-assets%';"
+  await shot('13-storyboard-specs', `${BASE}/projects/${CHARS}`, {
     steps: [{ click: /^分镜\s*\d*$/, wait: 7000 }, { anchor: /^创作\s*CREATE$/, targetY: 96, wait: 2000 }],
       clipFrom: /^创作\s*CREATE$/, clipPad: 20,
   });
