@@ -8,6 +8,7 @@ import { getUserFromRequest } from '../../../auth/lib';
 import { listSeriesEpisodes } from '@/lib/repos/series-repo';
 import { listAssetsByType, upsertAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
+import { parseProjectAspect } from '@/lib/orchestrator-project-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await import('@/lib/image-providers/builtins');
     const { dispatchImageGenerate } = await import('@/lib/image-providers/registry');
     const gen = await dispatchImageGenerate(
-      { prompt, aspectRatio: (anchor.aspect || '9:16') as any, sref: styleRef },
+      // v13.3:锚点集画幅经 parseProjectAspect 读(与各生成入口同一判据)—— 修前旧库里的 2.35:1 原样交给出图引擎,MiniMax 会出成 1:1
+      { prompt, aspectRatio: parseProjectAspect(anchor.aspect) ?? '9:16', sref: styleRef },
       { refCount: styleRef ? 1 : 0 },
     );
     if (!gen.result?.imageUrl) {

@@ -17,6 +17,7 @@ import {
   DEFAULT_MASTER_PROMPT, compileMasterPrompt, describeMasterPrompt,
   type MasterPromptSpec, type RefPreset,
 } from '@/lib/master-prompt';
+import { isProjectAspect, parseRequestedAspect } from '@/lib/video-aspect';
 
 function PresetRow({ icon: Icon, title, list, value, onPick }: {
   icon: any; title: string; list: RefPreset[]; value: string; onPick: (id: string) => void;
@@ -66,9 +67,17 @@ export default function MasterPromptPage() {
     finally { setRefining(false); }
   }
 
+  // v13.3:「用此创作」时画幅一起带过去(创建页只收 16:9 / 9:16 / 1:1,按横竖就近归)。修前只带文字,
+  // 画幅框默认的 2.39:1 到了创建页无人理会,出片按创建页默认的 9:16 或上次偏好。
+  const createAspect = parseRequestedAspect(spec.aspect);
+
   function sendToCreate() {
     const seed = (spec.coreConcept.trim() || spec.task) + '\n\n[Master Prompt]\n' + shown;
-    try { sessionStorage.setItem('qfmj-create-seed', seed); } catch { /* ignore */ }
+    try {
+      sessionStorage.setItem('qfmj-create-seed', seed);
+      if (createAspect) sessionStorage.setItem('qfmj-create-aspect', createAspect);
+      else sessionStorage.removeItem('qfmj-create-aspect');
+    } catch { /* ignore */ }
     router.push('/dashboard/create');
   }
 
@@ -102,6 +111,11 @@ export default function MasterPromptPage() {
           <div className="grid grid-cols-2 gap-2">
             <label className="cinema-eyebrow">画幅
               <input className="cinema-input w-full mt-1 !text-xs" value={spec.aspect} onChange={(e) => set({ aspect: e.target.value })} />
+              {!isProjectAspect(spec.aspect.trim()) && (
+                <span data-testid="mp-aspect-hint" className="block mt-1 normal-case tracking-normal text-[10px] text-[var(--cinema-amber)]">
+                  {createAspect ? `「用此创作」按 ${createAspect} 出(视频只出 16:9 / 9:16 / 1:1)` : '「用此创作」时用创建页的画幅设置'}
+                </span>
+              )}
             </label>
             <label className="cinema-eyebrow">额外参数
               <input className="cinema-input w-full mt-1 !text-xs" placeholder="可选" value={spec.extra} onChange={(e) => set({ extra: e.target.value })} />

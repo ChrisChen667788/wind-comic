@@ -10,7 +10,7 @@
  * 单镜重生 / 自愈补拍 / 片段重拍的编排器停在默认 16:9 —— 9:16 项目重生出来是横屏片。
  */
 
-import { parseRequestedAspect } from './video-aspect';
+import { parseRequestedAspect, type VideoAspect } from './video-aspect';
 
 export interface ProjectContextRow {
   style_id?: string | null;
@@ -35,7 +35,7 @@ export const PROJECT_CONTEXT_COLUMNS = 'style_id, primary_character_ref, locked_
  * 不是 `W:H` 形式的(空串、非字符串)返回 undefined、不贯通。
  * 修前这里只认 `数字:数字`,2.35:1 项目会被当成「没设」,和 setAspect 各说各的。
  */
-export function parseProjectAspect(raw: unknown): string | undefined {
+export function parseProjectAspect(raw: unknown): VideoAspect | undefined {
   return parseRequestedAspect(raw) ?? undefined;
 }
 

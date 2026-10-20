@@ -25,6 +25,13 @@ export async function register() {
       if (n) console.log(`[ModelRadar] ${n} model override(s) restored`);
     } catch { /* 首次建库时序 — 静默 */ }
 
+    // v13.3:旧库里画幅记成引擎出不了的值(v12.468 前创建页的 2.35:1 等)的项目 → 启动后在后台按已出素材改正一次。
+    // 放在这里而不是只给脚本:Docker 运行镜像不带 lib/ 源码,手动脚本跑不起来。LEGACY_ASPECT_REPAIR=off 关闭。
+    try {
+      const { scheduleLegacyAspectRepair } = await import('@/lib/legacy-aspect-repair');
+      scheduleLegacyAspectRepair();
+    } catch { /* 修不了也不该让服务起不来 */ }
+
     // v10.4.1: PIPELINE_QUEUE=1 时开机即启 worker —— kill -9 重启后无需等请求进来,
     // 立刻恢复孤儿任务(running → queued)续跑。
     if (process.env.PIPELINE_QUEUE === '1') {

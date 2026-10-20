@@ -17,6 +17,7 @@ import { listSeriesEpisodes } from '@/lib/repos/series-repo';
 import { listAssetsByType, upsertAsset } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { acquireLock, releaseLock, makeLockOwner } from '@/lib/repos/resource-lock-repo';
+import { normalizeVideoAspect } from '@/lib/video-aspect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -83,7 +84,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const anchor = eps[0];               // 季产物挂集号最小的锚点集(GET 也从这读,保持一致)
-  const aspect = completed[0].aspect || anchor.aspect || '16:9'; // 画幅取真实已完成集
+  // 画幅取真实已完成集。v13.3:记进资产的 aspect 与拼接画布同一个值(画布 dimsForAspect 本就归一,修前旧库的 2.35:1 会照记、画布却是 1280x720)
+  const aspect = normalizeVideoAspect(completed[0].aspect || anchor.aspect);
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'season-export-'));
   try {
     const { concatVideos } = await import('@/services/video-composer');

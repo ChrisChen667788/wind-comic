@@ -9,6 +9,10 @@
  */
 import fs from 'fs';
 import path from 'path';
+// v13.3:原来两处是函数里的 require('./…') —— vitest 里解析不了、被 catch 吞成 null,
+// 测试里 serve-file 地址从来解析不到本地文件(toEngineImage / 体检 / 画幅修复都受影响)。两者都不反向依赖本文件,没有环。
+import { resolveVerifiedServeFilePath } from './serve-file-sign';
+import { resolveByKey } from './asset-storage';
 
 const MIME: Record<string, string> = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif',
@@ -39,12 +43,10 @@ export function serveFileToLocalPath(url: string): string | null {
       // v12.237(第四轮对抗复检 · CRITICAL):?path= 此前直接 decode 返回本地路径,不验签 ——
       // toEngineImage 会把它读成 base64 喂引擎 / video-anchor 会 ffmpeg 抽帧,等于绕过 v12.236 签名读任意文件。
       // 现在强制验 HMAC 签名 + 白名单;?key= 是内容寻址(SHA-256 不可枚举/伪造),保持原样。
-      const { resolveVerifiedServeFilePath } = require('./serve-file-sign') as typeof import('./serve-file-sign');
       return resolveVerifiedServeFilePath(url);
     }
     const key = q.get('key');
     if (key) {
-      const { resolveByKey } = require('./asset-storage') as typeof import('./asset-storage');
       return resolveByKey(key)?.absPath || null;
     }
   } catch { /* fallthrough */ }

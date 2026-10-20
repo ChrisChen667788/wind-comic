@@ -186,6 +186,30 @@ docker compose -f docker-compose.pg.yml up -d
 
 **注意：** `lib/db.ts` 仍由 SQLite 驱动的部分模块直接 import（如 `app/api/projects/[id]/export/route.ts:2`），这些路径绕过了 `DbDriver` 抽象，切 PG 时需确认所有路径已迁移。
 
+### 5.1 旧项目画幅自动改正(v13.3)
+
+v12.468 之前创建页可以选 2.35:1:库里记的是 2.35:1,出片却是 16:9(漫剧 / 短剧题材还会被翻成 9:16)。
+v13.3 起,应用**启动约 15 秒后在后台跑一次**改正,SQLite 与 PostgreSQL 都适用,不需要手动操作:
+
+- 只处理 `projects.aspect` 不在 `16:9 / 9:16 / 1:1` 之内的项目(含空值),其余一概不动;
+- 新画幅按**已出的素材**量(ffprobe 量单镜视频与分镜图的宽高,多数决;量不到再看成片);
+  一件都量不到的,按 v12.468 起各生成入口实际在用的画幅(2.35:1 → 16:9);
+- 每条改动写进 `data/legacy-aspect-repaired.json`,日志里逐条打印 `[legacy-aspect] <项目> 2.35:1 → 9:16(依据)`;
+- 不改 `updated_at`,项目在列表里的顺序不变;
+- 改成 16:9 的项目,之后出片和改正前一样(v12.468 起这类旧值本来就按 16:9 读);改成 9:16 / 1:1 的项目,
+  之后的单镜重生、自愈补拍、片段重拍、重新合成、分镜 / 4K 重渲按新画幅出,和已有镜头一致 —— 改正前这些入口出的是横屏。
+
+关闭:`LEGACY_ASPECT_REPAIR=off`。从源码部署时可以手动预览 / 执行 / 撤销:
+
+```bash
+npm run repair:aspect                # 只预览
+npm run repair:aspect -- --apply     # 执行
+npm run repair:aspect -- --restore   # 按账本撤销
+```
+
+Docker 运行镜像不带 `lib/` 源码,镜像里跑不了这个脚本 —— 靠启动时的自动改正;要撤销,在源码环境里连同一个库执行 `--restore`
+(账本在挂载出来的 `data/` 里)。
+
 ## 6. Storage 适配（S3，v10.4.4）
 
 **切换方式（`lib/storage.ts:146-163`）：**
@@ -255,6 +279,7 @@ data/
 │                    # 文件名 = final-<timestamp>.mp4
 └── exports/         # 转码缓存（video-transcode.ts）
                      # 文件名 = <basename>-<resolution>.mp4
+legacy-aspect-repaired.json  # v13.3 旧项目画幅改正的账本(见 5.1;只有改过才会出现)
 ```
 
 **临时目录（不在 data/）：**
@@ -466,6 +491,7 @@ fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 | `DB_DRIVER` | 可选 | `sqlite` | 数据库驱动：`sqlite`（本地 better-sqlite3）或 `pg`/`postgres`（PostgreSQL 连接池） |
 | `DATABASE_URL` | 条件必填 | — | PostgreSQL 连接字符串（`DB_DRIVER=pg` 时必填，否则运行时硬报错） |
 | `QFMJ_DB_PATH` | 测试内部 | — | 测试/子进程复用指定 SQLite 文件路径（生产不用设置） |
+| `LEGACY_ASPECT_REPAIR` | 可选 | 开 | 设为 `off` 关闭启动时的旧项目画幅改正(见第 5.1 节) |
 
 ## 模块八：队列与事件总线
 
