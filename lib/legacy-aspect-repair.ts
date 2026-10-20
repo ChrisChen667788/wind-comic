@@ -18,6 +18,8 @@
  *      画布未必是当年引擎出的画幅。
  *   3. 一件都量不到 → `parseRequestedAspect(旧值)`(认不出按 16:9)—— 也就是 v12.468 起各生成入口实际在用的画幅,
  *      这一行记下的就是「以后出片会是什么」。
+ *   「量不到」只指素材本身读不到;**机器上找不到能跑的 ffprobe 时一行都不判、不改**(v13.3.1),下次启动再试 ——
+ *   否则所有旧行都会落到第 3 条,被永久写成 16:9。
  * 宽高 → 画幅、旧值 → 画幅,用的都是 `parseRequestedAspect`,与编排器 `setAspect` 同一个函数,不另立判据。
  *
  * ## 怎么跑
@@ -29,9 +31,10 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { getDbDriver } from './db-driver';
 import { listAssetsByType, type AssetRow } from './repos/asset-repo';
-import { probeMediaFull } from './film-health';
 import { serveFileToLocalPath } from './first-frame';
 import { isPlaceholderVideo } from './placeholder-provenance';
 import { PROJECT_ASPECTS, parseRequestedAspect, type VideoAspect } from './video-aspect';
@@ -91,10 +94,49 @@ function mediaUrlOf(row: AssetRow): string | null {
 
 export type ProbeFn = (pathOrUrl: string) => Promise<{ width: number; height: number } | null>;
 
+const execFileP = promisify(execFile);
+
+/**
+ * 找一个能跑的 ffprobe;找不到返回 null(调用方据此不改库)。v13.3.1。
+ *
+ * 不用 film-health 里写死的系统 `ffprobe`:CI(只装 npm 依赖)和没装系统 ffmpeg 的源码部署上没有它,
+ * 每件素材都会「量不到」,启动时的自动修复就把所有旧行按规则永久写成 16:9 —— 当年出竖屏的项目也被改成横屏,
+ * 改完又在三种之内,以后再也不会被修。这里与合成器同一套解析(`resolveFFprobePath`:ffprobe-static → 系统 PATH)。
+ * 懒加载合成器模块:库里没有旧行时根本走不到这里,启动不多加载任何东西。
+ */
+export async function resolveRunnableFfprobe(candidate?: string): Promise<string | null> {
+  try {
+    const bin = candidate ?? (await import('../services/video-composer')).resolveFFprobePath();
+    await execFileP(bin, ['-version'], { timeout: 15_000 });
+    return bin;
+  } catch {
+    return null;
+  }
+}
+
+/** 用指定的 ffprobe 量第一条视频流的宽高(图片在 ffprobe 里也是一条视频流)。量不到返回 null。 */
+export function ffprobeSizeProbe(bin: string): ProbeFn {
+  return async (target) => {
+    try {
+      const { stdout } = await execFileP(bin, [
+        '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', target,
+      ], { timeout: 30_000 });
+      const s = JSON.parse(stdout)?.streams?.[0];
+      const width = Number(s?.width) || 0;
+      const height = Number(s?.height) || 0;
+      return width > 0 && height > 0 ? { width, height } : null;
+    } catch {
+      return null;
+    }
+  };
+}
+
 /** 量一个项目已出的素材。每类最多量 perType 件(素材多的项目不必全量;外链过期会逐个等超时)。 */
 export async function measureProjectMedia(projectId: string, opts: { perType?: number; probe?: ProbeFn } = {}): Promise<MeasuredMedia[]> {
   const perType = opts.perType ?? 6;
-  const probe: ProbeFn = opts.probe ?? probeMediaFull;
+  const bin = opts.probe ? null : await resolveRunnableFfprobe();
+  const probe: ProbeFn | null = opts.probe ?? (bin ? ffprobeSizeProbe(bin) : null);
+  if (!probe) return [];
   const out: MeasuredMedia[] = [];
   const measure = async (source: MediaSource, rows: AssetRow[]) => {
     let n = 0;
@@ -145,12 +187,25 @@ function readLedger(ledgerPath: string): LedgerEntry[] {
   try { return fs.existsSync(ledgerPath) ? (JSON.parse(fs.readFileSync(ledgerPath, 'utf-8')) as LedgerEntry[]) : []; } catch { return []; }
 }
 
-/** 扫描 + 判定;apply 时逐行改并记账。 */
-export async function repairLegacyAspects(opts: { apply: boolean; ledgerPath?: string; probe?: ProbeFn; now?: () => string } = { apply: false }): Promise<{ scanned: number; changes: RepairChange[] }> {
+/**
+ * 一次修复的结果。`probeMissing`:有旧行,但找不到能跑的 ffprobe —— 这时一行都不判、不改(v13.3.1),
+ * 否则每件素材都「量不到」,所有旧行会被按规则写成 16:9,当年出竖屏的项目也不例外。
+ */
+export interface RepairResult { scanned: number; changes: RepairChange[]; probeMissing?: boolean }
+
+/** 扫描 + 判定;apply 时逐行改并记账。`ffprobePath` 只给测试用(指定一个不存在的路径模拟没装 ffprobe)。 */
+export async function repairLegacyAspects(opts: { apply: boolean; ledgerPath?: string; probe?: ProbeFn; ffprobePath?: string; now?: () => string } = { apply: false }): Promise<RepairResult> {
   const rows = await findLegacyAspectProjects();
+  if (!rows.length) return { scanned: 0, changes: [] };
+  let probe = opts.probe;
+  if (!probe) {
+    const bin = await resolveRunnableFfprobe(opts.ffprobePath);
+    if (!bin) return { scanned: rows.length, changes: [], probeMissing: true };
+    probe = ffprobeSizeProbe(bin);
+  }
   const changes: RepairChange[] = [];
   for (const row of rows) {
-    const media = await measureProjectMedia(row.id, { probe: opts.probe });
+    const media = await measureProjectMedia(row.id, { probe });
     const d = decideLegacyAspect(row.aspect, media);
     const applied = opts.apply ? await compareAndSetAspect(row.id, row.aspect, d.to) : false;
     changes.push({ id: row.id, from: row.aspect, to: d.to, basis: d.basis, detail: d.detail, applied });
@@ -189,7 +244,7 @@ export async function restoreLegacyAspects(opts: { ledgerPath?: string } = {}): 
 export function scheduleLegacyAspectRepair(opts: {
   env?: Record<string, string | undefined>;
   delayMs?: number;
-  run?: () => Promise<{ scanned: number; changes: RepairChange[] }>;
+  run?: () => Promise<RepairResult>;
   log?: (msg: string) => void;
 } = {}): ReturnType<typeof setTimeout> | null {
   const env = opts.env ?? process.env;
@@ -197,8 +252,12 @@ export function scheduleLegacyAspectRepair(opts: {
   const log = opts.log ?? ((m: string) => console.log(m));
   const run = opts.run ?? (() => repairLegacyAspects({ apply: true }));
   const timer = setTimeout(() => {
-    run().then(({ scanned, changes }) => {
+    run().then(({ scanned, changes, probeMissing }) => {
       if (!scanned) return;
+      if (probeMissing) {
+        log(`[legacy-aspect] 画幅不在三种之内的旧项目 ${scanned} 个,但找不到能运行的 ffprobe(ffprobe-static 或系统 ffmpeg),量不了已出的素材 —— 本次一个都没改;装好后重启会再试`);
+        return;
+      }
       const applied = changes.filter((c) => c.applied);
       for (const c of applied) log(`[legacy-aspect] ${c.id}: ${c.from ?? '空'} → ${c.to}(${c.detail})`);
       log(`[legacy-aspect] 画幅不在三种之内的旧项目 ${scanned} 个,已改正 ${applied.length} 个;账本 data/legacy-aspect-repaired.json,撤销用 npm run repair:aspect -- --restore`);

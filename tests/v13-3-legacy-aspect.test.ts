@@ -10,7 +10,9 @@
  * 2. 修复:只碰三种之外的行;预览不改库;执行带旧值守卫、不改 updated_at、记账;再跑一次没有可改的;
  * 3. 撤销:按账本还原,之后被改过画幅的不动;
  * 4. 启动调度:LEGACY_ASPECT_REPAIR=off 不跑;默认延时后跑、出错不抛;
- * 5. 手动脚本真能在 tsx 下跑起来(子进程,独占测试库)。
+ * 5. 手动脚本真能在 tsx 下跑起来(子进程,独占测试库);
+ * 6. v13.3.1:ffmpeg / ffprobe 一律走仓库自己的解析(ffmpeg-static / ffprobe-static),PATH 上没有也量得到 ——
+ *    v13.3 推上去 CI 红在这里(runner 上没有系统 ffmpeg,本机有);找不到能跑的 ffprobe 时一行都不改。
  */
 import { describe, it, expect, beforeAll, vi, afterEach } from 'vitest';
 import fs from 'node:fs';
@@ -22,9 +24,11 @@ import { db, now } from '@/lib/db';
 import { insertProjectFull, getProject } from '@/lib/repos/project-repo';
 import { createAsset } from '@/lib/repos/asset-repo';
 import { storagePut } from '@/lib/storage';
+import { resolveFFmpegPath } from '@/services/video-composer';
 import {
   decideLegacyAspect, aspectOfSize, measureProjectMedia, findLegacyAspectProjects,
   repairLegacyAspects, restoreLegacyAspects, scheduleLegacyAspectRepair, type MeasuredMedia,
+  resolveRunnableFfprobe, ffprobeSizeProbe,
 } from '@/lib/legacy-aspect-repair';
 
 // ── 1. 判定(纯函数) ─────────────────────────────────────────────────────
@@ -60,6 +64,8 @@ describe('v13.3 · 判定', () => {
 
 // ── 2/3. 真库 + 真媒体 ───────────────────────────────────────────────────
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'v13-3-media-'));
+/** 造素材用仓库自己解析的 ffmpeg(ffmpeg-static)—— CI runner 上没有系统 ffmpeg(v13.3 就红在这) */
+const FF = resolveFFmpegPath();
 const cache = new Map<string, string>();
 /** 真媒体文件 → 落盘 → 生产形态的 serve-file URL */
 async function media(kind: 'png' | 'mp4', w: number, h: number): Promise<string> {
@@ -67,7 +73,7 @@ async function media(kind: 'png' | 'mp4', w: number, h: number): Promise<string>
   if (cache.has(k)) return cache.get(k)!;
   const out = path.join(tmp, `${k}.${kind}`);
   const src = kind === 'mp4' ? `color=c=gray:s=${w}x${h}:d=0.2` : `color=c=gray:s=${w}x${h}`;
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', src,
+  execFileSync(FF, ['-v', 'error', '-y', '-f', 'lavfi', '-i', src,
     ...(kind === 'mp4' ? ['-pix_fmt', 'yuv420p', '-c:v', 'libx264'] : ['-frames:v', '1']), out]);
   const put = await storagePut(fs.readFileSync(out), kind === 'mp4' ? 'video/mp4' : 'image/png', `.${kind}`);
   expect(put.url).toMatch(/^\/api\/serve-file\?key=/); // 生产形态,不是直接给本地路径
@@ -162,12 +168,38 @@ describe('v13.3 · 真库修复', { timeout: 60_000 }, () => {
       apply: true, ledgerPath: ledger(),
       probe: async (p) => {
         db.prepare('UPDATE projects SET aspect = ? WHERE id = ?').run('1:1', id); // 量素材期间被改
-        const { probeMediaFull } = await import('@/lib/film-health');
-        return probeMediaFull(p);
+        return ffprobeSizeProbe((await resolveRunnableFfprobe())!)(p);
       },
     });
     expect(mine([id], r.changes)).toEqual([expect.objectContaining({ id, to: '9:16', applied: false })]);
     expect(await aspectOf(id)).toBe('1:1');
+  });
+
+  it('v13.3.1 · PATH 上没有 ffprobe / ffmpeg 也量得到(CI 与只装了 npm 依赖的源码部署就是这样)', async () => {
+    const v = await media('mp4', 72, 128);
+    const id = await project('2.35:1', [{ type: 'video', url: v, shot: 1 }]);
+    const savedPath = process.env.PATH;
+    process.env.PATH = '';
+    try {
+      expect(await measureProjectMedia(id)).toEqual([{ source: 'video', width: 72, height: 128 }]);
+    } finally {
+      process.env.PATH = savedPath;
+    }
+  });
+
+  it('v13.3.1 · 反面:找不到能跑的 ffprobe → 一行都不判、不改、不记账(否则竖屏项目会被按规则写成 16:9)', async () => {
+    const id = await project('2.35:1', [{ type: 'video', url: await media('mp4', 72, 128), shot: 1 }]);
+    const book = ledger();
+    const r = await repairLegacyAspects({ apply: true, ledgerPath: book, ffprobePath: path.join(tmp, 'no-such-ffprobe') });
+    expect(r.probeMissing).toBe(true);
+    expect(r.scanned).toBeGreaterThan(0);
+    expect(r.changes).toEqual([]);
+    expect(await aspectOf(id)).toBe('2.35:1');
+    expect(fs.existsSync(book)).toBe(false);
+    // 对照:同一个库、能跑的 ffprobe → 按素材改成 9:16
+    const ok = await repairLegacyAspects({ apply: true, ledgerPath: book });
+    expect(ok.probeMissing).toBeFalsy();
+    expect(await aspectOf(id)).toBe('9:16');
   });
 
   it('撤销:按账本还原;改正后又被重跑改过画幅的不动、留在账本里', async () => {
@@ -213,6 +245,16 @@ describe('v13.3 · 启动后在后台跑一次', () => {
     scheduleLegacyAspectRepair({ env: {}, run: async () => ({ scanned: 0, changes: [] }), log: (m) => quiet.push(m), delayMs: 1 });
     await vi.advanceTimersByTimeAsync(1);
     expect(quiet).toEqual([]);
+  });
+
+  it('v13.3.1 · 找不到 ffprobe → 日志说清一个都没改、下次启动再试,不打「已改正」', async () => {
+    vi.useFakeTimers();
+    const logs: string[] = [];
+    scheduleLegacyAspectRepair({ env: {}, run: async () => ({ scanned: 3, changes: [], probeMissing: true }), log: (m) => logs.push(m), delayMs: 1 });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(logs.join('\n')).toContain('找不到能运行的 ffprobe');
+    expect(logs.join('\n')).toContain('本次一个都没改');
+    expect(logs.join('\n')).not.toContain('已改正');
   });
 
   it('修复出错 → 只记日志,不抛(不该让服务起不来)', async () => {

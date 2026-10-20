@@ -23,8 +23,14 @@ async function main() {
     console.log(`已撤销 ${restored.length} 个项目${skipped.length ? `;${skipped.length} 个之后被改过画幅,未动:${skipped.join(', ')}` : ''}`);
     return;
   }
-  const { scanned, changes } = await repairLegacyAspects({ apply });
+  const { scanned, changes, probeMissing } = await repairLegacyAspects({ apply });
   if (!scanned) { console.log('没有画幅不在 16:9 / 9:16 / 1:1 之内的项目,无需修复。'); return; }
+  if (probeMissing) {
+    // v13.3.1:量不了素材就不判 —— 否则每一行都会按规则判成 16:9,当年出竖屏的项目也不例外
+    console.error(`有 ${scanned} 个画幅不在三种之内的项目,但找不到能运行的 ffprobe(先 npm install 装上 ffprobe-static,或装系统 ffmpeg),没有预览也没有改库。`);
+    process.exitCode = 1;
+    return;
+  }
   for (const c of changes) {
     const mark = apply ? (c.applied ? '✓' : '·(期间被改过,跳过)') : '→';
     console.log(`  ${mark} ${c.id}: ${c.from ?? '空'} → ${c.to}   ${c.detail}`);
