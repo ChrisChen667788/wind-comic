@@ -38,6 +38,6 @@ export async function POST(request: Request) {
     token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, avatarUrl: user.avatar_url, locale: user.locale },
   });
-  res.headers.set('Set-Cookie', sessionCookieHeader(token));
+  res.headers.set('Set-Cookie', sessionCookieHeader(token, request));
   return res;
 }

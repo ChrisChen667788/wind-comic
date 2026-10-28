@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUserFromRequest, getUserById } from '../lib';
+import { getUserFromRequest, getUserById, sessionCookieResyncHeader } from '../lib';
 
 export async function GET(request: Request) {
   const payload = getUserFromRequest(request);
@@ -12,5 +12,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'User not found' }, { status: 404 });
   }
 
-  return NextResponse.json(user);
+  const res = NextResponse.json(user);
+  // v13.5:前端加载页面都会带 Bearer 调这里 —— 顺手把缺失/过期的会话 cookie 补上(见 lib 注释)
+  const resync = sessionCookieResyncHeader(request);
+  if (resync) res.headers.set('Set-Cookie', resync);
+  return res;
 }

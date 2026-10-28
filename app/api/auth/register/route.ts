@@ -107,6 +107,6 @@ export async function POST(request: Request) {
     },
     { status: 201 },
   );
-  res.headers.set('Set-Cookie', sessionCookieHeader(token));
+  res.headers.set('Set-Cookie', sessionCookieHeader(token, request));
   return res;
 }

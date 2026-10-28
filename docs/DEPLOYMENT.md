@@ -339,6 +339,22 @@ legacy-aspect-repaired.json  # v13.3 旧项目画幅改正的账本(见 5.1;只�
 
 5. **Redis 桥懒启动**：`ensureRedisBridge()` 在首次 `busEmit` 或 `subscribe` 时触发，不是开机时主动连接。若需确保多副本事件互通在第一个请求前就绪，目前代码没有预热机制。
 
+
+## 12. 会话 Cookie 与 HTTPS
+
+登录后服务端下发 httpOnly 会话 cookie `qfmj-session`。前端的创作(`/api/create-stream`)、项目列表、用量预算等多数请求**只靠这枚 cookie 鉴权**(不带 `Authorization` 头)。浏览器在**非 HTTPS 来源**会丢弃带 `Secure` 属性的 cookie(`localhost` 例外,所以本机测试永远正常),因此 `Secure` 必须与实际访问方式一致。v13.5 起由 `COOKIE_SECURE` 控制:
+
+| 值 | 行为 | 适用 |
+|---|---|---|
+| `auto`(默认,不设即此) | 请求是 HTTPS 才加 `Secure`。判定:URL 协议、反代转发的 `X-Forwarded-Proto` / `Forwarded: proto=`、浏览器发来的 `Origin` / `Referer`,**任一**为 https 即算 | 绝大多数部署。同一实例既能 `http://局域网IP:3100` 直连,也能经 HTTPS 反代访问 |
+| `true` | 恒加 `Secure` | 只走 HTTPS 的公网部署,想把它钉死、不依赖判定 |
+| `false` | 恒不加 | 明确只在内网 HTTP 使用 |
+
+- **局域网 HTTP 直连**(NAS 常见):保持默认 `auto`,不需要反代。纯 HTTP 下会话令牌在网络上明文传输,只应在可信内网这样用;从公网访问请走 HTTPS。
+- **HTTPS 反代**:Caddy、Traefik 默认会转发 `X-Forwarded-Proto`;nginx 需要 `proxy_set_header X-Forwarded-Proto $scheme;`。漏配时,浏览器请求里的 `Origin` / `Referer` 仍会让 cookie 带上 `Secure`;要彻底不依赖判定就设 `COOKIE_SECURE=true`。
+- **能登录、但点「开机」报「创作需要登录」**:典型是设了 `COOKIE_SECURE=true` 却用 HTTP 打开,cookie 被浏览器丢弃。服务端日志会打一次 `[auth] COOKIE_SECURE=true,但收到的是 HTTP 请求`。改回 `auto`,或改用 HTTPS 访问。
+- **从 v13.5 之前的版本升级**:之前在 HTTP 下登录过的用户不必重新登录 —— 刷新页面时 `/api/auth/me` 会按当前规则补发会话 cookie(判不出协议时不补发,重新登录一次即可)。
+
 ---
 
 # 环境变量矩阵
@@ -531,6 +547,7 @@ fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 | `JWT_SECRET` | **生产必填（fail-fast）** | `qingfeng-manju-secret`（仅 dev） | JWT 签名密钥；`NODE_ENV=production` 时未设置直接抛错，源码内置兜底值是公开的（app/api/auth/lib.ts） |
 | `API_KEYS` | 可选 | — | 公开 REST API（/api/v1/*）访问密钥列表（逗号分隔）；空串等同于「禁用公开 API」，返回 503 |
 | `BETA_INVITE_REQUIRED` | 可选 | `true` | `false`/`0`/`off` 关闭 Beta 邀请码门禁（开发环境方便注册） |
+| `COOKIE_SECURE` | 可选 | `auto` | 会话 cookie 的 `Secure` 属性：`auto` 按请求是否 HTTPS 决定（局域网 `http://IP:端口` 直连可用），`true` 恒加，`false` 恒不加；见 [§12](#12-会话-cookie-与-https) |
 
 ## 模块十二：邮件
 
@@ -546,7 +563,7 @@ fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 
 | 变量名 | 必填/可选 | 默认值 | 一句话作用 |
 |---|---|---|---|
-| `NODE_ENV` | 框架注入 | `development` | Next.js 运行环境；`production` 时触发 JWT fail-fast、Secure Cookie、style 告警禁用等 |
+| `NODE_ENV` | 框架注入 | `development` | Next.js 运行环境；`production` 时触发 JWT fail-fast、style 告警禁用等（会话 cookie 的 `Secure` 不再看它，见 `COOKIE_SECURE`） |
 | `PORT` | 可选 | `3000` | 应用监听端口（mock provider 内部拼 URL 时引用） |
 | `APP_URL` | 可选 | — | 应用外部访问 URL（mock provider 回调地址，优先于 PORT 拼接） |
 | `NEXT_PUBLIC_APP_URL` | 可选 | `http://localhost:3000` | Stripe Checkout success/cancel 回调域名；前端可见 |

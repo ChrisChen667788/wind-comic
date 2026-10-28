@@ -101,13 +101,105 @@ export function verifyToken(token: string): JWTPayload {
 export const SESSION_COOKIE = 'qfmj-session';
 const SESSION_MAX_AGE = 7 * 24 * 3600; // 与 signToken 的 7d 对齐
 
-export function sessionCookieHeader(token: string): string {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+// ── v13.5: Secure 跟着「这次请求实际是不是 HTTPS」走 ──────────────────────────
+// 此前 `NODE_ENV=production` 就无条件加 Secure。自托管用户(NAS)常直接开
+// http://<局域网IP>:3100 —— 浏览器在非安全来源下**丢弃** Secure cookie(localhost 例外,
+// 所以本机怎么测都正常)。登录本身靠 localStorage 的 Bearer 照样成功,可 ~34 个只靠
+// cookie 的裸 fetch(含 /api/create-stream)全部 401:看着已登录,一点「开机」就「创作需要登录」。
+//
+// COOKIE_SECURE=auto(默认)| true | false:
+//   - true  恒加 Secure(纯 HTTPS 部署想钉死就设它)
+//   - false 恒不加(明确只走内网 HTTP)
+//   - auto  请求被判定为 HTTPS 才加,判定见 isHttpsRequest
+export type CookieSecureMode = 'auto' | 'true' | 'false';
+
+let warnedBadMode = false;
+let warnedForcedOverHttp = false;
+let warnedAutoPlainHttp = false;
+
+/** 测试辅助:复位「每进程只告警一次」的标记。 */
+export function _resetCookieSecureWarnings(): void {
+  warnedBadMode = false;
+  warnedForcedOverHttp = false;
+  warnedAutoPlainHttp = false;
+}
+
+export function cookieSecureMode(): CookieSecureMode {
+  const v = (process.env.COOKIE_SECURE || '').trim().toLowerCase();
+  if (v === 'true' || v === '1') return 'true';
+  if (v === 'false' || v === '0') return 'false';
+  if (v && v !== 'auto' && !warnedBadMode) {
+    warnedBadMode = true;
+    console.warn(`[auth] COOKIE_SECURE=${v} 无法识别,按 auto 处理(可选 auto / true / false)。`);
+  }
+  return 'auto';
+}
+
+/**
+ * 这次请求在浏览器那一侧是不是 HTTPS。任一信号说是 https 就算是:
+ *   1. URL 协议 —— Next 已按 socket TLS / X-Forwarded-Proto 推好(next-server attachRequestMeta);
+ *   2. X-Forwarded-Proto / Forwarded: proto= —— 反代转发的原始协议(不依赖 Next 内部实现);
+ *   3. Origin / Referer —— 浏览器自报的页面地址。同源 POST(登录/注册/登出)必带 Origin;
+ *      同源 GET(/api/auth/me 补发)不带 Origin,按默认 Referrer-Policy 会带 Referer。
+ *      兜住「HTTPS 反代没转发 X-Forwarded-Proto」(nginx/Apache 默认配置就不转):
+ *      此时前两条都说 http,只看它们会让公网 HTTPS 部署的 cookie 丢掉 Secure。
+ *
+ * 为什么不像 clientIp 那样要求 TRUST_PROXY_HEADERS:这些头**只能把结果推向「加 Secure」**。
+ * 伪造它们的人最多让自己的 cookie 被自己的浏览器丢掉;没法替别人把 Secure 摘掉 ——
+ * 摘掉需要所有信号都说 http,而受害者浏览器发来的请求头不由攻击者控制。
+ */
+export function isHttpsRequest(request: Request): boolean {
+  try {
+    if (new URL(request.url).protocol === 'https:') return true;
+  } catch {
+    /* 相对/畸形 URL:看下面的头 */
+  }
+  const xfp = request.headers.get('x-forwarded-proto') || '';
+  // 多级代理会拼成「https, http」—— 首段是面向浏览器的那一跳,但任何一段是 https 都偏向加 Secure
+  if (xfp.split(',').some((p) => p.trim().toLowerCase() === 'https')) return true;
+  const fwd = request.headers.get('forwarded') || '';
+  if (/(?:^|[;,\s])proto="?https"?(?:[;,\s]|$)/i.test(fwd)) return true;
+  return browserPageUrl(request).toLowerCase().startsWith('https://');
+}
+
+/** 浏览器自报的页面地址:Origin 优先,没有就用 Referer;都没有返回空串。 */
+function browserPageUrl(request: Request): string {
+  return request.headers.get('origin') || request.headers.get('referer') || '';
+}
+
+/** 本次响应下发的会话 cookie 是否带 Secure。 */
+export function shouldUseSecureCookie(request: Request): boolean {
+  const mode = cookieSecureMode();
+  const https = isHttpsRequest(request);
+  if (mode === 'true') {
+    if (!https && !warnedForcedOverHttp) {
+      warnedForcedOverHttp = true;
+      console.warn(
+        '[auth] COOKIE_SECURE=true,但收到的是 HTTP 请求 —— 浏览器会丢弃会话 cookie,' +
+          '创作/项目列表等接口将 401。用 http://局域网IP 直连请改回 COOKIE_SECURE=auto。',
+      );
+    }
+    return true;
+  }
+  if (mode === 'false') return false;
+  if (!https && process.env.NODE_ENV === 'production' && !warnedAutoPlainHttp) {
+    warnedAutoPlainHttp = true;
+    console.warn(
+      '[auth] 收到 HTTP 请求,会话 cookie 不带 Secure(局域网直连属正常)。' +
+        '若这是公网 HTTPS 部署,请让反代转发 X-Forwarded-Proto,或设 COOKIE_SECURE=true。',
+    );
+  }
+  return https;
+}
+
+export function sessionCookieHeader(token: string, request: Request): string {
+  const secure = shouldUseSecureCookie(request) ? '; Secure' : '';
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}${secure}`;
 }
 
-export function clearSessionCookieHeader(): string {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+/** 清除头的 Secure 必须与下发时同一判定:HTTP 来源下带 Secure 的 Set-Cookie 会被整条丢弃,cookie 就清不掉。 */
+export function clearSessionCookieHeader(request: Request): string {
+  const secure = shouldUseSecureCookie(request) ? '; Secure' : '';
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
 }
 
@@ -117,15 +209,41 @@ function tokenFromCookie(request: Request): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+function tokenFromBearer(request: Request): string | null {
+  const header = request.headers.get('authorization') || '';
+  return header.startsWith('Bearer ') ? header.slice(7) : null;
+}
+
+/**
+ * v13.5 会话自愈:Bearer 有效、但 cookie 缺失或与之不一致 → 返回补发的 Set-Cookie,否则 null。
+ * 由 /api/auth/me 调用(前端每次加载页面都会带 Bearer 调它)。治的是**升级前就登录**的
+ * 局域网用户:当时的 Secure cookie 被浏览器丢了,localStorage 里的 token 还在 ——
+ * 不补发的话,他们升级后看着已登录、点创作仍 401,只能自己猜到要先退出再登录。
+ * 补发不扩大暴露面:能带上 Bearer 的脚本本来就拿得到这枚 token。
+ */
+export function sessionCookieResyncHeader(request: Request): string | null {
+  const bearer = tokenFromBearer(request);
+  if (!bearer || tokenFromCookie(request) === bearer) return null;
+  // 判不出协议就不补发:HTTPS 反代没转发协议头、浏览器又没带 Origin/Referer 时,
+  // auto 会判成 http 而发出不带 Secure 的 cookie —— 宁可让这位用户重新登录一次。
+  if (cookieSecureMode() === 'auto' && !isHttpsRequest(request) && !/^http:\/\//i.test(browserPageUrl(request))) {
+    return null;
+  }
+  try {
+    verifyToken(bearer);
+  } catch {
+    return null;
+  }
+  return sessionCookieHeader(bearer, request);
+}
+
 /**
  * v10.4.3 双读:Authorization Bearer 优先,会话 cookie 兜底。
  * Bearer 在前 —— 显式随请求传的头比环境 cookie 更有「本次请求」的意图性
  * (换账号调试 / E2E mint 时旧 cookie 残留不会抢权)。
  */
 export function getUserFromRequest(request: Request): JWTPayload | null {
-  const header = request.headers.get('authorization') || '';
-  const bearer = header.startsWith('Bearer ') ? header.slice(7) : null;
-  for (const token of [bearer, tokenFromCookie(request)]) {
+  for (const token of [tokenFromBearer(request), tokenFromCookie(request)]) {
     if (!token) continue;
     try {
       return verifyToken(token);

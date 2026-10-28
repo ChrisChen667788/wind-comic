@@ -21,17 +21,17 @@ function req(headers: Record<string, string>): Request {
 
 describe('v10.4.3 · 会话 cookie 头', () => {
   it('下发头:HttpOnly + SameSite=Lax + 7d Max-Age + Path=/', () => {
-    const h = sessionCookieHeader(tokenA);
+    const h = sessionCookieHeader(tokenA, req({}));
     expect(h).toContain(`${SESSION_COOKIE}=`);
     expect(h).toContain('HttpOnly');
     expect(h).toContain('SameSite=Lax');
     expect(h).toContain(`Max-Age=${7 * 24 * 3600}`);
     expect(h).toContain('Path=/');
-    expect(h).not.toContain('Secure'); // 非生产不强制 Secure(本地 http 可用)
+    expect(h).not.toContain('Secure'); // http 请求不加 Secure(v13.5 起按请求协议判定,见 v13-5 测试)
   });
 
   it('清除头:Max-Age=0', () => {
-    const h = clearSessionCookieHeader();
+    const h = clearSessionCookieHeader(req({}));
     expect(h).toContain(`${SESSION_COOKIE}=;`);
     expect(h).toContain('Max-Age=0');
   });

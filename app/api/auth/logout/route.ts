@@ -8,8 +8,8 @@ import { clearSessionCookieHeader } from '../lib';
 
 export const runtime = 'nodejs';
 
-export async function POST() {
+export async function POST(request: Request) {
   const res = NextResponse.json({ ok: true });
-  res.headers.set('Set-Cookie', clearSessionCookieHeader());
+  res.headers.set('Set-Cookie', clearSessionCookieHeader(request));
   return res;
 }
