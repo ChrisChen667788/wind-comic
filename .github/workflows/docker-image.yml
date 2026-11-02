@@ -144,8 +144,8 @@ jobs:
               docker exec smoke fc-match --format='%{family}' 'Noto Sans CJK SC' | grep -qi noto \
                 && echo "✅ 中文字幕字体在位" \
                 || { echo "❌ 运行期解析不到 CJK 字体"; exit 1; }
-              # v13.6:合成用的 ffmpeg 是系统版(软链接),要有 drawtext
-              docker exec smoke sh -c 'node_modules/ffmpeg-static/ffmpeg -hide_banner -filters 2>/dev/null | grep -qw drawtext' \
+              # v13.6 / v13.8:合成用的是 FFMPEG_PATH 指定的系统 ffmpeg,要有 drawtext
+              docker exec smoke sh -c '"$FFMPEG_PATH" -hide_banner -filters 2>/dev/null | grep -qw drawtext' \
                 && echo "✅ 合成用的 ffmpeg 带 drawtext" \
                 || { echo "❌ 合成用的 ffmpeg 没有 drawtext"; exit 1; }
               # v13.6:首页能开 ≠ 能登录、能出片。v13.1 就是首页绿、容器 healthy,零 key 演示每次合成失败。

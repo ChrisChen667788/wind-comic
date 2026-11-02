@@ -83,7 +83,7 @@ export async function screenBrollForBakedText(link: string): Promise<'clean' | '
     const fs = await import('fs');
     const os = await import('os');
     const path = await import('path');
-    const { resolveFFmpegPath } = await import('@/services/video-composer');
+    const { resolveFFmpegPath } = await import('./ffmpeg-bin');
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'broll-screen-'));
     const frame = path.join(tmp, 'f.png');
     // ffmpeg 直读 https,抽第 1 秒一帧(限 25s,防慢源卡管线)

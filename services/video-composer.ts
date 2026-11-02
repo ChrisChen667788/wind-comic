@@ -2,15 +2,14 @@
  * Video Composer Service
  * FFmpeg-based video concatenation with crossfade transitions + music overlay
  *
- * 使用 fluent-ffmpeg + ffmpeg-static 在 Node.js 端完成：
+ * 使用 fluent-ffmpeg 在 Node.js 端完成(ffmpeg 二进制由 lib/ffmpeg-bin 解析,FFMPEG_PATH 可指定)：
  * 1. 下载远程视频片段到临时目录
  * 2. 使用 xfade 滤镜做交叉淡入淡出转场
  * 3. 叠加背景配乐（音量可调）
  * 4. 输出最终成片 mp4
  */
 
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
+import { ffmpeg, resolveFFmpegPath } from '@/lib/ffmpeg-bin';
 import path from 'path';
 import { audioBitrateForPlatform } from '@/lib/audio-encode';
 import { buildColorGradeFilter, detectGradeGenre } from '@/lib/color-grade';
@@ -62,7 +61,7 @@ import { impactSfxNode } from '@/lib/impact-sfx'; // v12.13.1 打击音效程序
 import os from 'os';
 import https from 'https';
 import http from 'http';
-import { execSync, exec as _execCb } from 'child_process';
+import { exec as _execCb } from 'child_process';
 import { promisify } from 'util';
 
 /**
@@ -83,71 +82,10 @@ async function sh$(cmd: string): Promise<void> {
   await execAsync(cmd, { maxBuffer: 32 * 1024 * 1024 });
 }
 
-// ═══ 设置 ffmpeg 可执行文件路径 ═══
-// Turbopack 在 server bundle 时会把 ffmpeg-static 的路径重写为
-// "/ROOT/node_modules/ffmpeg-static/ffmpeg"（虚拟路径），导致 ENOENT。
-// 这里通过多种策略找到真实的 ffmpeg 二进制路径。
-export function resolveFFmpegPath(): string {
-  // 1. ffmpeg-static 默认导出（非 Turbopack 时正常工作）
-  if (ffmpegPath && typeof ffmpegPath === 'string' && fs.existsSync(ffmpegPath)) {
-    return ffmpegPath;
-  }
-  // 2. 基于 process.cwd() 推断（开发环境）
-  const cwdGuess = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg');
-  if (fs.existsSync(cwdGuess)) {
-    return cwdGuess;
-  }
-  // 3. 用 require.resolve 定位 ffmpeg-static 包目录
-  try {
-    const pkgJson = require.resolve('ffmpeg-static/package.json');
-    const guess = path.join(path.dirname(pkgJson), 'ffmpeg');
-    if (fs.existsSync(guess)) return guess;
-  } catch {}
-  // 4. 系统 PATH 上的 ffmpeg
-  try {
-    const sysPath = execSync('which ffmpeg 2>/dev/null || where ffmpeg 2>nul', { encoding: 'utf-8' }).trim();
-    if (sysPath && fs.existsSync(sysPath)) return sysPath;
-  } catch {}
-  // 5. 返回原始值（可能会 ENOENT，但不会 crash）
-  console.warn('[FFmpeg] Could not resolve ffmpeg binary path, using fallback:', ffmpegPath);
-  return (ffmpegPath as string) || 'ffmpeg';
-}
-
-const resolvedFFmpegPath = resolveFFmpegPath();
-ffmpeg.setFfmpegPath(resolvedFFmpegPath);
-if (process.env.NODE_ENV !== 'test') console.log(`[FFmpeg] Using binary: ${resolvedFFmpegPath}`);
-
-// ═══ 设置 ffprobe 可执行文件路径(v12.129)═══
-// 病根:probeVideoIntegrity 走 fluent-ffmpeg 的 .ffprobe(),它需要**独立的 ffprobe 二进制**。
-// ffmpeg-static 只装 ffmpeg,不含 ffprobe。本机有系统 ffprobe(Homebrew)故一直没暴露,
-// 但 CI(ubuntu / npm-only)与无系统 ffprobe 的部署环境里 .ffprobe() 找不到二进制 → probe 全 fail。
-// → 依赖 ffprobe-static(按平台内置 ffprobe),显式 setFfprobePath;多策略兜底,最后回落系统 PATH。
-export function resolveFFprobePath(): string {
-  // 1. ffprobe-static 导出的 path(非 Turbopack 时正常)
-  try {
-    const ffprobeStatic = require('ffprobe-static');
-    const p = ffprobeStatic?.path || ffprobeStatic?.default?.path;
-    if (p && typeof p === 'string' && fs.existsSync(p)) return p;
-  } catch { /* 包缺失 → 走系统 PATH */ }
-  // 2. 用 require.resolve 定位包目录 + 按平台重建 bin 路径
-  try {
-    const pkgJson = require.resolve('ffprobe-static/package.json');
-    const bin = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
-    const guess = path.join(path.dirname(pkgJson), 'bin', process.platform, process.arch, bin);
-    if (fs.existsSync(guess)) return guess;
-  } catch { /* ignore */ }
-  // 3. 系统 PATH 上的 ffprobe(本机 Homebrew 等)
-  try {
-    const sysPath = execSync('which ffprobe 2>/dev/null || where ffprobe 2>nul', { encoding: 'utf-8' }).trim();
-    if (sysPath && fs.existsSync(sysPath)) return sysPath;
-  } catch { /* ignore */ }
-  console.warn('[FFprobe] Could not resolve ffprobe binary path, relying on PATH fallback');
-  return 'ffprobe';
-}
-
-const resolvedFFprobePath = resolveFFprobePath();
-ffmpeg.setFfprobePath(resolvedFFprobePath);
-if (process.env.NODE_ENV !== 'test') console.log(`[FFprobe] Using binary: ${resolvedFFprobePath}`);
+// ═══ ffmpeg / ffprobe 可执行文件 ═══
+// v13.8:解析收口到 lib/ffmpeg-bin(FFMPEG_PATH → LIPSYNC_FFMPEG_PATH → ffmpeg-static → PATH → 常见安装位置,
+// ffprobe 同理 FFPROBE_PATH)。这里原有的 resolveFFmpegPath / resolveFFprobePath 无条件 setFfmpegPath,
+// 把 fluent-ffmpeg 自己对 FFMPEG_PATH 的读取也盖掉了 —— 文档里「设 FFMPEG_PATH 换系统 ffmpeg」因此从没成立过。
 
 export interface ComposerClip {
   shotNumber: number;
@@ -689,7 +627,7 @@ export async function attachTextCard(
     );
   }
   const bg = opts.bg ?? 'blur';
-  const ff = resolvedFFmpegPath;
+  const ff = resolveFFmpegPath();
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'txtcard-'));
   const sh = sh$; // v12.282:async 化 —— 原为 execSync,会冻住事件循环
 
@@ -1905,7 +1843,7 @@ export function kenBurnsFilter(
  * 拿不到测量值或第二遍失败 → 保留原文件(单遍已归过一次,不倒退)。返回是否真做了二遍。
  */
 export async function applyTwoPassLoudnorm(inputPath: string): Promise<boolean> {
-  const ff = resolvedFFmpegPath;
+  const ff = resolveFFmpegPath();
   const { buildLoudnormMeasureFilter, parseLoudnormJson, buildLoudnormApplyFilter } = await import('@/lib/audio-ducking');
   // 第一遍:测量(-f null,读 stderr JSON)
   let stderr = '';

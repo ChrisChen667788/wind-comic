@@ -9,22 +9,12 @@
  *
  * 纯判定部分(audibilityLabel)可单测;ffprobe/remux 部分失败一律安全返回,不抛。
  */
-import ffmpeg from 'fluent-ffmpeg';
+import { ffmpeg } from './ffmpeg-bin';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 
-let ffReady = false;
-function ensureFF(): void {
-  if (ffReady) return;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const p = require('ffmpeg-static');
-    if (typeof p === 'string' && fs.existsSync(p)) ffmpeg.setFfmpegPath(p);
-  } catch { /* 系统 PATH 兜底 */ }
-  ffReady = true;
-}
 
 export interface AudibilityInput { hasBgm?: boolean; hasVoiceover?: boolean }
 
@@ -44,7 +34,6 @@ export function audibilityLabel(input: AudibilityInput): { audible: boolean; lab
 /** ffprobe 成片是否含音频流;失败/文件缺失 → null(未知)。 */
 export async function probeAudioStream(videoPath: string): Promise<boolean | null> {
   if (!videoPath || !fs.existsSync(videoPath)) return null;
-  ensureFF();
   return new Promise((resolve) => {
     ffmpeg.ffprobe(videoPath, (err, data) => {
       if (err || !data?.streams) return resolve(null);
@@ -60,7 +49,6 @@ export async function probeAudioStream(videoPath: string): Promise<boolean | nul
 export async function ensureAudioStream(videoPath: string): Promise<{ path: string; healed: boolean }> {
   const has = await probeAudioStream(videoPath);
   if (has !== false) return { path: videoPath, healed: false }; // 有音轨或未知 → 不动
-  ensureFF();
   const out = path.join(os.tmpdir(), `audiofix-${crypto.randomBytes(6).toString('hex')}.mp4`);
   return new Promise((resolve) => {
     ffmpeg(videoPath)

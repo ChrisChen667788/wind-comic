@@ -4,16 +4,16 @@
  * 把已有 mp4 转码到指定分辨率, 用于 /api/projects/[id]/export?resolution=...
  *
  * 设计:
- *   - 复用 services/video-composer.ts 已经初始化好的 ffmpeg 路径(同一进程不重复 setFfmpegPath)
+ *   - ffmpeg 路径用 lib/ffmpeg-bin 设好的那份(v13.8 前这里依赖「composer 先被加载过」)
  *   - lanczos 上采样 (高质量, 适合从 720p/1080p → 1080p/2160p)
  *   - 缓存到 data/exports/<basename>-<resolution>.mp4, 已存在就跳过 (省时间省磁盘)
- *   - 不引新依赖 — fluent-ffmpeg + ffmpeg-static 已经是 video-composer 的依赖
+ *   - 不引新依赖 — fluent-ffmpeg 已在依赖里
  */
 
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import ffmpeg from 'fluent-ffmpeg';
+import { ffmpeg } from './ffmpeg-bin';
 
 export type Resolution = '720p' | '1080p' | '2160p';
 

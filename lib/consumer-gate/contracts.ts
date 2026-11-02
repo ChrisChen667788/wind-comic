@@ -271,6 +271,42 @@ export const CONTRACTS: GateContract[] = [
     scope: ['app/', 'lib/', 'services/'],
     allow: [],
   },
+  {
+    id: 'ffmpeg-binary-must-use-ffmpeg-bin',
+    rule: '取 ffmpeg / ffprobe 必须经 lib/ffmpeg-bin(FFMPEG_PATH / FFPROBE_PATH 优先),禁止自己 import ffmpeg-static / ffprobe-static / fluent-ffmpeg、' +
+      '禁止 setFfmpegPath / setFfprobePath、禁止按名字或写死路径调 ffmpeg / ffprobe、禁止自己读 FFMPEG_PATH 一类变量',
+    incident:
+      'v13.8:README 许可证表、modelscope-intro、license-check 都写「改用系统 ffmpeg(设 FFMPEG_PATH)」,而代码从不读它 —— ' +
+      'composer 的 resolveFFmpegPath 无条件 setFfmpegPath(连 fluent-ffmpeg 自己对 FFMPEG_PATH 的读取也盖掉),' +
+      '本地 2D 口型只认 LIPSYNC_FFMPEG_PATH,另有 6 个模块各自 import ffmpeg-static 再 setFfmpegPath(fluent-ffmpeg 的路径是进程级全局,' +
+      '谁最后加载谁说了算),3 个模块按名字直调 ffprobe(没装系统 ffmpeg 的机器上成片体检永远「未知」)。' +
+      'Linux 上从源码装的用户因此只能用 ffmpeg-static 7.0.2:没有 drawtext、不认「变速后接 xfade」(v13.6 实测),没有任何官方途径换掉。',
+    entry: 'resolveFFmpegPath() / resolveFFprobePath() / locateFFmpeg() / { ffmpeg }(已配置的 fluent-ffmpeg) from lib/ffmpeg-bin',
+    // 五种绕过写法(在剥掉注释、保留字符串的代码上逐行匹配):
+    //   ① 引包:'ffmpeg-static' / 'ffprobe-static' / 'fluent-ffmpeg'(含 'ffmpeg-static/package.json' 这种子路径);
+    //   ② 改 fluent-ffmpeg 的全局路径:.setFfmpegPath( / .setFfprobePath(;
+    //   ③ 按名字调:恰好是 'ffmpeg' / 'ffprobe' 的字符串(execFile('ffprobe', …)、`|| 'ffmpeg'` 兜底),
+    //      或以 "ffmpeg -" 开头的 shell 命令串,或 which / where / command -v 探测;
+    //   ④ 写死路径:以 /ffmpeg、/ffprobe 结尾的字符串('/usr/bin/ffmpeg'、'node_modules/ffmpeg-static/ffmpeg');
+    //   ⑤ 自己读选择二进制的环境变量:process.env.FFMPEG_PATH / FFPROBE_PATH / LIPSYNC_FFMPEG_PATH。
+    // 报错文案里提到「FFMPEG_PATH / ffmpeg-static」不算(不是被引号单独包住的包名,也不是 process.env 读取)。
+    forbid: new RegExp([
+      String.raw`['"\x60](?:ffmpeg-static|ffprobe-static|fluent-ffmpeg)(?:/[^'"\x60]*)?['"\x60]`,
+      String.raw`\.setFf(?:mpeg|probe)Path\s*\(`,
+      String.raw`['"\x60](?:ffmpeg|ffprobe)(?:\.exe)?['"\x60]`,
+      String.raw`['"\x60]\s*(?:ffmpeg|ffprobe)(?:\.exe)?\s+-`,
+      String.raw`['"\x60][^'"\x60]*\b(?:which|where|command\s+-v)\s+ff(?:mpeg|probe)\b`,
+      String.raw`['"\x60][^'"\x60\s]*/(?:ffmpeg|ffprobe)(?:\.exe)?['"\x60]`,
+      String.raw`process\.env\.(?:FFMPEG_PATH|FFPROBE_PATH|LIPSYNC_FFMPEG_PATH)\b`,
+    ].join('|')),
+    scope: ['app/', 'lib/', 'services/', 'components/', 'hooks/', 'scripts/'],
+    allow: [
+      { file: 'lib/ffmpeg-bin.ts', why: '唯一入口本体:解析顺序、包目录拼路径、给 fluent-ffmpeg 设全局路径都只在这里' },
+      { file: 'scripts/make-v6-gif.mjs', why: '开发期 README 动图脚本,node 直接跑 .mjs、读不了 TS 入口,不在产品运行路径上;要换二进制用 ffmpeg-static 自带的 FFMPEG_BIN' },
+      { file: 'scripts/capture-gifs.mjs', why: '开发期 README 动图脚本,node 直接跑 .mjs、读不了 TS 入口,不在产品运行路径上;要换二进制用 ffmpeg-static 自带的 FFMPEG_BIN' },
+      { file: 'scripts/license-check.mjs', why: '许可证门禁的已登记 copyleft 名单以包名为键(ffmpeg-static),只读 license 字段、不调二进制' },
+    ],
+  },
 ];
 
 /**

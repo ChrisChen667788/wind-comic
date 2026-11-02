@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v13.7</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.8</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-6679%2F6679-2ea44f"  alt="6679 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-6731%2F6731-2ea44f"  alt="6731 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -283,7 +283,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **6679 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **6731 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -656,7 +656,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 6679/6679 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 6731/6731 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 
@@ -678,15 +678,18 @@ MIT. Use it, fork it, build a startup on it. We just ask: if you ship a feature 
 
 ### ⚠️ Redistribution notice — bundled binaries are not all MIT
 
-**Wind Comic's own source is MIT.** But three npm dependencies ship pre-built binaries under copyleft licenses. This does **not** affect the MIT status of this repository, and it does not affect you if you simply run or fork the source. It **does** matter the moment you redistribute a bundle that embeds those binaries (a Docker image, a desktop build, a hosted appliance you hand to a customer):
+**Wind Comic's own source is MIT.** But four npm dependencies ship pre-built binaries under copyleft licenses. This does **not** affect the MIT status of this repository, and it does not affect you if you simply run or fork the source. It **does** matter the moment you redistribute a bundle that embeds those binaries (a Docker image, a desktop build, a hosted appliance you hand to a customer):
 
 | Dependency | License | What you must do when redistributing a bundle |
 |---|---|---|
-| `ffmpeg-static` | **GPL-3.0-or-later** | **Strongest constraint.** Ship the GPL-3 text and a written offer for the corresponding FFmpeg source — or drop the dependency and point `FFMPEG_PATH` at a system ffmpeg you obtained separately. |
+| `ffmpeg-static` | **GPL-3.0-or-later** (the macOS arm64 build we checked, 6.0, is also compiled with `--enable-nonfree`, which makes it not redistributable at all) | **Strongest constraint.** Ship the GPL-3 text and a written offer for the corresponding FFmpeg source — or leave the binary out: point `FFMPEG_PATH` / `FFPROBE_PATH` at an ffmpeg you obtained separately and delete `node_modules/ffmpeg-static/ffmpeg` and `node_modules/ffprobe-static/bin` before you bundle; the app runs without them. Setting the variables alone does **not** take the files out of your bundle. (Before v13.8 the code never read `FFMPEG_PATH`, so this route did not exist.) |
+| `ffprobe-static` | package metadata says MIT; **the binaries it ships are GPL-3.0-or-later FFmpeg builds** (`--enable-gpl --enable-version3`), for macOS, Linux and Windows all in one package | Same as `ffmpeg-static`. `license-check` reads `license` fields, so it cannot see this one — it is listed here by hand. |
 | `lightningcss` (+ platform binaries) | MPL-2.0 | File-level weak copyleft. Unmodified use/redistribution carries no extra duty; only if you modify its MPL-licensed files must you publish those files. |
 | `@img/sharp-libvips-*` | LGPL-3.0-or-later | Dynamic linking does not infect your code. On redistribution you must let end users replace/relink the library and point them to its source. |
 
-CI enforces this: [`scripts/license-check.mjs`](scripts/license-check.mjs) scans the **production** dependency tree every run and **fails the build** if a copyleft dependency appears that is not registered in the table above — so a new GPL dependency can never slip in unnoticed.
+**The official Docker image** (v13.8+) ships neither bundled binary: they are deleted at build time and the build fails if they come back. It runs Alpine's `ffmpeg` package through `FFMPEG_PATH=/usr/bin/ffmpeg` / `FFPROBE_PATH=/usr/bin/ffprobe` — and that package is copyleft too (checked 2026-11-03 on a freshly built image: Alpine's ffmpeg 8.0.1 declares `GPL-2.0-or-later AND LGPL-2.1-or-later` and is built with `--enable-gpl --enable-version3`), so redistributing the image means redistributing it; its source is published in Alpine's aports. Leaving the npm binaries out avoids shipping *them*, not FFmpeg's licence.
+
+CI enforces this: [`scripts/license-check.mjs`](scripts/license-check.mjs) scans the **production** dependency tree every run and **fails the build** if a copyleft dependency appears that is not registered in the table above — so a new GPL dependency can never slip in unnoticed. It reads each package's declared licence, so a package that declares MIT but carries GPL binaries (`ffprobe-static`) passes it; such cases are listed above by hand.
 
 ---
 

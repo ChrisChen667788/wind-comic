@@ -79,13 +79,12 @@ async function probeDuration(file: string): Promise<number> {
 }
 
 /**
- * 取 fluent-ffmpeg,并确保它用的是 composer 解析出的那个 ffmpeg / ffprobe。
- * 此前只有 probeDuration 会加载 composer,而它排在所有切片之后 ——
+ * 取 fluent-ffmpeg,并确保它用的是统一解析出的那个 ffmpeg / ffprobe(lib/ffmpeg-bin 加载时设好)。
+ * v12.456 之前只有 probeDuration 会加载 composer,而它排在所有切片之后 ——
  * 前面几步用的是 PATH 上碰到的那个 ffmpeg,没装系统 ffmpeg 的机器上直接找不到。
  */
 async function loadFfmpeg() {
-  await import('@/services/video-composer');   // 模块加载时 setFfmpegPath / setFfprobePath
-  return (await import('fluent-ffmpeg')).default;
+  return (await import('@/lib/ffmpeg-bin')).ffmpeg;
 }
 
 async function ffprobeStreams(file: string): Promise<any[]> {

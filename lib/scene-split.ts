@@ -9,7 +9,7 @@
  * 纯函数部分(parseShowinfoTimes / splitToShots)零 IO 可单测;
  * ffmpeg 部分失败一律返回空/null,调用方降级。
  */
-import ffmpeg from 'fluent-ffmpeg';
+import { ffmpeg } from './ffmpeg-bin';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -22,16 +22,6 @@ export const MIN_SHOT_SEC = 1;
 /** 镜数护栏:Vision 打标按镜计费,超长片截断并如实告知 */
 export const MAX_SHOTS = 60;
 
-let ffmpegReady = false;
-function ensureFFmpeg(): void {
-  if (ffmpegReady) return;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const ffmpegPath = require('ffmpeg-static');
-    if (typeof ffmpegPath === 'string' && fs.existsSync(ffmpegPath)) ffmpeg.setFfmpegPath(ffmpegPath);
-  } catch { /* 系统 PATH 兜底 */ }
-  ffmpegReady = true;
-}
 
 /** showinfo stderr → 帧时间点(升序去重秒)。导出供单测。 */
 export function parseShowinfoTimes(stderrText: string): number[] {
@@ -102,7 +92,6 @@ function round3(v: number): number { return Math.round(v * 1000) / 1000; }
 /** 视频时长(秒);失败 null。 */
 export async function probeDurationSec(videoPath: string): Promise<number | null> {
   if (!videoPath || !fs.existsSync(videoPath)) return null;
-  ensureFFmpeg();
   return new Promise((resolve) => {
     ffmpeg.ffprobe(videoPath, (err, data) => {
       const d = data?.format?.duration;
@@ -114,7 +103,6 @@ export async function probeDurationSec(videoPath: string): Promise<number | null
 /** 场景切点检测(秒,升序)。无切点/失败 → [](单镜处理)。 */
 export async function detectSceneCuts(videoPath: string, threshold: number = SCENE_THRESHOLD): Promise<number[]> {
   if (!videoPath || !fs.existsSync(videoPath)) return [];
-  ensureFFmpeg();
   return new Promise((resolve) => {
     let stderrBuf = '';
     const cmd = ffmpeg(videoPath)
@@ -131,7 +119,6 @@ export async function detectSceneCuts(videoPath: string, threshold: number = SCE
 /** 抽取指定时刻的一帧 JPEG → 临时文件路径;失败 null。调用方负责清理。 */
 export async function extractFrameAt(videoPath: string, atSec: number): Promise<string | null> {
   if (!videoPath || !fs.existsSync(videoPath)) return null;
-  ensureFFmpeg();
   const out = path.join(os.tmpdir(), `pullframe-${crypto.randomBytes(6).toString('hex')}.jpg`);
   return new Promise((resolve) => {
     ffmpeg(videoPath)

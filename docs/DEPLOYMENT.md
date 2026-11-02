@@ -326,12 +326,14 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com  # 可选；未设则返回 endpoint/
 
 ## 7. ffmpeg 用途清单
 
-**ffmpeg 进入方式：**
-- 优先用 `ffmpeg-static`（npm 包，随项目安装，不需系统 PATH）
-- 回退顺序：`LIPSYNC_FFMPEG_PATH` env → ffmpeg-static → `/opt/homebrew/bin/ffmpeg` → `/usr/local/bin/ffmpeg` → `/usr/bin/ffmpeg`（`lib/lipsync-providers/local-2d.ts:29-43`；`LIPSYNC_FFMPEG_PATH` 只对本地 2D 口型生效，合成器 `services/video-composer.ts` 的 `resolveFFmpegPath()` 不读它）
-- `next.config.ts` 已把 `ffmpeg-static` 和 `fluent-ffmpeg` 设为 `serverExternalPackages`（不打包，保持二进制路径正确）
-- **Docker 镜像（v13.6 起）**：`apk add ffmpeg` 装系统 ffmpeg，并把 `node_modules/ffmpeg-static/ffmpeg` 换成指向 `/usr/bin/ffmpeg` 的软链接 —— 所有按「ffmpeg-static 优先」解析的调用方一起用上系统版。原因：Linux 上随包的是 johnvansickle 静态版 7.0.2，它①不认「变速 `setpts` 之后接 `xfade`」（帧率被标成 1/0，退出码 234，任何一镜被调速整片合成就失败）、②没有 `drawtext`（封面标题 / 片尾卡 / AI 角标起不来）。构建期会自证这两点，不过就拒绝构建。macOS 上的 ffmpeg-static 是 6.0，两个问题本机都复现不了。
-- 从源码装在 Linux 上（`npm install`）时用的仍是 ffmpeg-static 7.0.2：v13.6 已在合成滤镜链里给变速片段补了 `fps=24`，合成不再受影响；`drawtext` 相关功能需要自己装系统 ffmpeg 并照上面做软链接
+**ffmpeg 进入方式(v13.8 起只有一个入口:`lib/ffmpeg-bin.ts`)：**
+- 解析顺序:`FFMPEG_PATH` → `LIPSYNC_FFMPEG_PATH`(旧变量,兼容;原先只对本地 2D 口型生效,现在对所有 ffmpeg 调用生效)→ npm 随包的 `ffmpeg-static` → PATH 上的 `ffmpeg` → `/opt/homebrew/bin`、`/usr/local/bin`、`/usr/bin`。ffprobe 同理:`FFPROBE_PATH` → `ffprobe-static` → PATH → 同上几个目录。**两个变量各管各的**:只设 `FFMPEG_PATH` 不会改 ffprobe。
+- 变量的值写可执行文件路径(相对路径按启动目录解析),或 PATH 上的命令名。设了却用不了(不存在 / 是目录 / 没有执行权限)会在日志里 warn 一条、按上面的顺序继续找 —— 不会静默生效失败。
+- 实际用的是哪一个:第一次用到 ffmpeg 时日志打 `[FFmpeg] Using binary: <路径> (from <来源>)`,ffprobe 同理打 `[FFprobe] ...`。变量在进程里读,改了要重启服务。
+- 合成、转码、抽帧、成片体检、本地口型、零 key 演示的假片……全部经这个入口;`lib/consumer-gate/contracts.ts` 的 `ffmpeg-binary-must-use-ffmpeg-bin` 门禁(CI 的 Security job 跑)拦住任何自己 import `ffmpeg-static` / `fluent-ffmpeg`、调 `setFfmpegPath`、按名字调 `ffprobe` 的新代码。**v13.8 之前这里写的「设 `FFMPEG_PATH`」并不成立**:合成器只认 ffmpeg-static 且会把 fluent-ffmpeg 自己对 `FFMPEG_PATH` 的读取盖掉,本地口型只认 `LIPSYNC_FFMPEG_PATH`,成片体检 / 画幅守门 / 角色锚抽帧按名字调 `ffprobe`(只装了 npm 依赖的机器上体检永远是「未知」)。
+- `next.config.ts` 把 `ffmpeg-static`、`ffprobe-static`、`fluent-ffmpeg` 设为 `serverExternalPackages`(不打包,保持二进制路径正确)。随包的两份二进制被删掉也能跑 —— 入口会往下找。
+- **Docker 镜像**:`apk add ffmpeg` 装系统 ffmpeg,并设 `FFMPEG_PATH=/usr/bin/ffmpeg`、`FFPROBE_PATH=/usr/bin/ffprobe`;npm 随包的 `ffmpeg-static` / `ffprobe-static` 二进制在构建阶段删掉,不进镜像(省掉约 380 MB,也不再分发它们)。构建期自证:`$FFMPEG_PATH` 必须有 `drawtext`、跑得通合成器的「变速 → xfade」滤镜链,随包二进制必须不在镜像里,任一条不满足就拒绝构建。要换成自己的 ffmpeg,在 compose 的 `environment` 里覆盖这两个变量即可。(v13.6 用的是把 `ffmpeg-static` 换成软链接的办法,那时代码不读变量。)不用随包版的原因:Linux 上随包的是 johnvansickle 静态版 7.0.2,它①不认「变速 `setpts` 之后接 `xfade`」(帧率被标成 1/0,退出码 234,任何一镜被调速整片合成就失败)、②没有 `drawtext`(封面标题 / 片尾卡 / AI 角标起不来)。macOS 上的 ffmpeg-static 是 6.0,两个问题本机都复现不了。
+- **从源码装在 Linux 上**(`npm install`)时默认用的是 ffmpeg-static 7.0.2:合成不受影响(v13.6 已给变速片段补了 `fps=24`),但没有 `drawtext`。装好系统 ffmpeg 后设 `FFMPEG_PATH=/usr/bin/ffmpeg` 和 `FFPROBE_PATH=/usr/bin/ffprobe`(写进 `.env.local` 或服务的环境变量),重启即可;不需要做软链接。
 
 **ffmpeg 功能用途：**
 
@@ -345,8 +347,9 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com  # 可选；未设则返回 endpoint/
 | 静音片段生成 | `lib/audio-silence.ts` | `anullsrc` 生成零信号 MP3（TTS 前后补白） |
 | GIF 导出 | `lib/gif-pipeline.ts` + 调用方 | `palettegen` + `paletteuse` 两遍制作高质量 GIF |
 | 本地 2D 口型渲染 | `lib/lipsync-providers/local-2d.ts` | overlay 口型贴图（8 张 PNG）按 viseme 轨时间窗切换 + 混配音音频 → 示意成片 |
-| mock 视频生成 | `app/api/mock-assets/[...path]/route.ts` | `lavfi` 纯色短片 + 正弦音轨（MOCK_ENGINES=1 时 demo 用） |
+| mock 视频生成 | `lib/mock-clip.ts`(`/api/mock-assets` 路由与单镜重生共用) | `lavfi` 纯色短片 + 正弦音轨（MOCK_ENGINES=1 时 demo 用） |
 | 视频 probe | `services/video-composer.ts` | `ffprobe` 获取视频时长 |
+| 成片体检 / 画幅守门 / 角色锚抽帧 | `lib/film-health.ts`、`lib/image-aspect-guard.ts`、`lib/video-anchor.ts` | `ffprobe` 全维探测、宽高比校验后 `ffmpeg` 裁切、均匀抽关键帧(v13.8 前按名字调,只认 PATH) |
 
 ## 8. data/ 目录布局
 
@@ -570,7 +573,7 @@ fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 |---|---|---|---|
 | `LIPSYNC_API_URL` | 可选 | — | 自托管口型服务地址（wav2lip/SadTalker/MuseTalk，配了才启用） |
 | `LIPSYNC_API_KEY` | 可选 | — | 口型服务 Bearer 鉴权 key（可选） |
-| `LIPSYNC_FFMPEG_PATH` | 可选 | 系统 PATH | 指定本地 2D 口型引擎使用的 ffmpeg 可执行文件路径 |
+| `LIPSYNC_FFMPEG_PATH` | 可选(旧名) | — | 兼容旧配置:v13.8 起等同 `FFMPEG_PATH`、对所有 ffmpeg 调用生效,两个都设时 `FFMPEG_PATH` 优先(见 [§7](#7-ffmpeg-用途清单)) |
 | `LIPSYNC_LOCAL_DISABLE` | 可选 | — | 任意非空值禁用本地 2D 口型引擎 |
 | `LIPSYNC_PROVIDER` | 可选 | `auto` | 强制指定口型提供商（`wav2lip-http`/`minimax-lipsync`/`syncso`/`auto`） |
 | `LIPSYNC_DISABLED` | 可选 | — | `1` 全局禁用口型同步服务（services/lipsync.service.ts） |
@@ -659,6 +662,8 @@ fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 | `MOCK_ENGINES` | 可选 | — | `1` 全局使用 mock 引擎（不调真实 API，本地开发/CI 用）；自动隐含 `PLUGIN_CHAIN_MODE=primary` |
 | `DEMO_ADMIN` | 可选 | — | `1` 将 demo seed 用户设为 admin 角色（本地调试用） |
 | `CJK_FONT_FILE` | 可选 | 系统字体候选列表 | 字幕烧录用 CJK 字体文件绝对路径，优先于系统字体扫描 |
+| `FFMPEG_PATH` | 可选 | 随包 ffmpeg-static → 系统 ffmpeg | 指定所有合成/转码/抽帧用的 ffmpeg(路径或 PATH 上的命令名);官方镜像设为 `/usr/bin/ffmpeg`(见 [§7](#7-ffmpeg-用途清单)) |
+| `FFPROBE_PATH` | 可选 | 随包 ffprobe-static → 系统 ffprobe | 指定 ffprobe;与 `FFMPEG_PATH` 各管各的;官方镜像设为 `/usr/bin/ffprobe` |
 | `VITEST` | 测试内部 | — | vitest 注入标志，禁用限流等生产行为 |
 | `NEXT_PUBLIC_SENTRY_DSN` | 备注 | — | .env.example 中出现但代码中实际读取的是 `SENTRY_DSN`（注意前缀差异） |
 

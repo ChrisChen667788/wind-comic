@@ -32,6 +32,12 @@ ENV QFMJ_EPHEMERAL_DB=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+# v13.8:npm 随包的 ffmpeg / ffprobe 二进制不进运行时镜像。运行时用系统 ffmpeg(见 runner 阶段的
+# FFMPEG_PATH / FFPROBE_PATH),这两份既用不上,又是 GPL-3 构建(ffprobe-static 的 package.json 写 MIT,
+# 但它带的二进制是 --enable-gpl --enable-version3),还占约 380 MB —— ffprobe-static 把 darwin / win32 / linux
+# 各架构的二进制全打在包里。在这里删,下面的 COPY --from=builder 就拷不到;在 runner 里删的话,
+# 文件仍躺在 COPY 那一层里照样随镜像分发。代码对包缺二进制有兜底(lib/ffmpeg-bin.ts 会往下找)。
+RUN rm -f node_modules/ffmpeg-static/ffmpeg && rm -rf node_modules/ffprobe-static/bin
 
 # ── 3. runner ─────────────────────────────────────────────────
 FROM node:${NODE_VERSION} AS runner
@@ -39,7 +45,9 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3100 \
-    HOSTNAME=0.0.0.0
+    HOSTNAME=0.0.0.0 \
+    FFMPEG_PATH=/usr/bin/ffmpeg \
+    FFPROBE_PATH=/usr/bin/ffprobe
 
 # ffmpeg(本地合成)+ 字幕字体
 #
@@ -92,20 +100,23 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 # 本地测试照样全绿(本地 cwd 下目录一直在)。与上面 drizzle 那行是同一类「拷贝清单」问题。
 COPY --from=builder --chown=nextjs:nodejs /app/skills ./skills
 
-# v13.6:合成一律用上面 apk 装的系统 ffmpeg,不用 npm 随包的 ffmpeg-static。
+# v13.6 / v13.8:合成一律用上面 apk 装的系统 ffmpeg,不用 npm 随包的 ffmpeg-static。
 #
-# 代码里十几处都按「ffmpeg-static 优先」解析二进制(services/video-composer.ts 等),于是这个镜像
-# 明明 apk 装了 ffmpeg 8,合成用的却是 node_modules 里 johnvansickle 的静态版 7.0.2 —— 而它:
+# 随包的 Linux 版是 johnvansickle 静态版 7.0.2,它:
 #   ① 不认「变速 setpts 之后接 xfade」(帧率被标成 1/0,退出码 234):任何一镜被调速,整片合成失败,
 #      只剩全硬切 concat 兜底。零 key 演示(docker-compose.demo.yml)每次都撞,v13.1 实测;
 #   ② 没有 drawtext 滤镜:封面标题、片尾卡、AI 角标在这个镜像里全都起不来;
 #   ③ 自带一套 fontconfig,上面那道中日韩字体自证验的是系统 fc-match,管不到它。
-# 换成指向系统 ffmpeg 的软链接 —— 所有调用方不改一行就一起换过去(macOS 上的 ffmpeg-static 是 6.0,
-# 本机从来复现不了)。两边滤镜清单比过:系统版只少 rubberband/frei0r/dnn_* 等,代码一个都没用。
-# 下面同样让构建自己证明:缺 drawtext、或变速后接 xfade 起不来,就让镜像构建失败。
+# v13.6 时代码十几处各自按「ffmpeg-static 优先」解析,只能把随包二进制换成软链接;v13.8 起解析收口到
+# lib/ffmpeg-bin.ts,FFMPEG_PATH / FFPROBE_PATH(上面 ENV 设的)真的生效,随包二进制在 builder 阶段就删了。
+# 要换成自己的 ffmpeg:compose 里覆盖这两个变量。两边滤镜清单比过:系统版只少 rubberband/frei0r/dnn_* 等,代码一个都没用。
+# 下面让构建自己证明:随包二进制不在、$FFMPEG_PATH 缺 drawtext、或变速后接 xfade 起不来,都让镜像构建失败。
 RUN set -e; \
-    ln -sf /usr/bin/ffmpeg /app/node_modules/ffmpeg-static/ffmpeg; \
-    ff=/app/node_modules/ffmpeg-static/ffmpeg; \
+    for f in /app/node_modules/ffmpeg-static/ffmpeg /app/node_modules/ffprobe-static/bin; do \
+      if [ -e "$f" ]; then echo "❌ 随包二进制 $f 进了镜像 —— 不该分发它,也会让人误以为合成用的是它,拒绝构建"; exit 1; fi; \
+    done; \
+    ff="$FFMPEG_PATH"; \
+    "$FFPROBE_PATH" -version >/dev/null; \
     if ! "$ff" -hide_banner -filters 2>/dev/null | grep -qw drawtext; then \
       echo "❌ 合成用的 ffmpeg 没有 drawtext —— 封面标题/片尾卡会起不来,拒绝构建"; exit 1; \
     fi; \
@@ -114,7 +125,7 @@ RUN set -e; \
          -map "[v]" -f null -; then \
       echo "❌ 合成用的 ffmpeg 跑不通合成器的「变速 → xfade」滤镜链 —— 有调速镜头的成片会合成失败,拒绝构建"; exit 1; \
     fi; \
-    echo "✅ 合成用的 ffmpeg 自证通过:$("$ff" -version | head -1 | cut -d' ' -f1-3)"
+    echo "✅ 合成用的 ffmpeg 自证通过:$ff · $("$ff" -version | head -1 | cut -d' ' -f1-3)"
 
 # SQLite 数据目录(volume mount)
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data

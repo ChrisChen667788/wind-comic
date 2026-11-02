@@ -101,12 +101,13 @@ const execFileP = promisify(execFile);
  *
  * 不用 film-health 里写死的系统 `ffprobe`:CI(只装 npm 依赖)和没装系统 ffmpeg 的源码部署上没有它,
  * 每件素材都会「量不到」,启动时的自动修复就把所有旧行按规则永久写成 16:9 —— 当年出竖屏的项目也被改成横屏,
- * 改完又在三种之内,以后再也不会被修。这里与合成器同一套解析(`resolveFFprobePath`:ffprobe-static → 系统 PATH)。
- * 懒加载合成器模块:库里没有旧行时根本走不到这里,启动不多加载任何东西。
+ * 改完又在三种之内,以后再也不会被修。这里与合成器同一套解析(v13.8 起是唯一入口 `lib/ffmpeg-bin` 的
+ * `resolveFFprobePath`:FFPROBE_PATH → ffprobe-static → 系统 PATH)。
+ * 懒加载:库里没有旧行时根本走不到这里,启动不多加载任何东西。
  */
 export async function resolveRunnableFfprobe(candidate?: string): Promise<string | null> {
   try {
-    const bin = candidate ?? (await import('../services/video-composer')).resolveFFprobePath();
+    const bin = candidate ?? (await import('./ffmpeg-bin')).resolveFFprobePath();
     await execFileP(bin, ['-version'], { timeout: 15_000 });
     return bin;
   } catch {

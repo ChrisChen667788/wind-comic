@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { hermeticRegenAttempts } from '@/lib/regen-hermetic';
 import { resolveVerifiedServeFilePath } from '@/lib/serve-file-sign';
-import { resolveFFprobePath } from '@/services/video-composer';
+import { resolveFFprobePath } from '@/lib/ffmpeg-bin';
 
 const FP = resolveFFprobePath();
 const HAS_FFPROBE = spawnSync(FP, ['-version']).status === 0;

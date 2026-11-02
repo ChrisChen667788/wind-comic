@@ -9,7 +9,7 @@
  * 不是照片级对口型(嘴未贴到脸上的真实位置),而是**零配置的 2D 示意口型**;真引擎一旦
  * 配置(wav2lip-http,priority 50)会优先于本引擎(priority 100)。
  *
- * 依赖:ffmpeg-static(随包,生产无需 PATH 有 ffmpeg)。env `LIPSYNC_LOCAL_DISABLE=1` 可关。
+ * 依赖:ffmpeg(经 lib/ffmpeg-bin 解析:FFMPEG_PATH → 随包 ffmpeg-static → 系统)。env `LIPSYNC_LOCAL_DISABLE=1` 可关。
  */
 import fs from 'fs';
 import { safeFetch } from '../ssrf-guard';
@@ -17,7 +17,7 @@ import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import ffmpegStatic from 'ffmpeg-static';
+import { locateFFmpeg } from '../ffmpeg-bin';
 import { registerLipSyncProvider } from './registry';
 import type { LipSyncProvider, LipSyncGenerateInput, LipSyncGenerateResult } from './types';
 import { buildVisemeSegments, enableExpr, segmentsDuration, VISEME_IDS } from '../lipsync-segments';
@@ -26,22 +26,6 @@ const execFileP = promisify(execFile);
 const MOUTH_DIR = path.join(process.cwd(), 'public', 'lipsync', 'mouths');
 const RASTER = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 
-// v10.4.0: 导出给 /api/mock-assets 复用(mock 视频也走同一套 ffmpeg 解析链)
-export function ffmpegBin(): string | null {
-  // 顺序:env 显式覆盖 → ffmpeg-static(随包二进制)→ 常见系统路径。
-  // (Next 打包有时会让 ffmpeg-static 的 __dirname 失效 → 路径不存在,故补系统兜底。)
-  const candidates = [
-    process.env.LIPSYNC_FFMPEG_PATH,
-    (ffmpegStatic as unknown as string) || '',
-    '/opt/homebrew/bin/ffmpeg',
-    '/usr/local/bin/ffmpeg',
-    '/usr/bin/ffmpeg',
-  ].filter(Boolean) as string[];
-  for (const c of candidates) {
-    try { if (fs.existsSync(c)) return c; } catch { /* ignore */ }
-  }
-  return null;
-}
 function mouthsReady(): boolean {
   try {
     return VISEME_IDS.every((v) => fs.existsSync(path.join(MOUTH_DIR, `${v}.png`)));
@@ -92,8 +76,9 @@ async function fetchToFile(url: string, stem: string): Promise<{ ext: string; fi
 }
 
 async function generate(input: LipSyncGenerateInput): Promise<LipSyncGenerateResult> {
-  const bin = ffmpegBin();
-  if (!bin) throw new Error('ffmpeg 不可用(ffmpeg-static 未解析)');
+  // v13.8:原先这里有一份自己的 ffmpegBin()(只认 LIPSYNC_FFMPEG_PATH),现在统一走 lib/ffmpeg-bin
+  const bin = locateFFmpeg()?.path;
+  if (!bin) throw new Error('ffmpeg 不可用(FFMPEG_PATH / ffmpeg-static / 系统 ffmpeg 都没找到)');
   if (!mouthsReady()) throw new Error('口型贴图缺失:public/lipsync/mouths/*.png');
   if (!input.audioUrl) throw new Error('缺配音音频');
 
@@ -174,7 +159,7 @@ const localProvider: LipSyncProvider = {
   name: '本地 2D 口型示意(零配置 · ffmpeg)',
   priority: 100, // 低于 wav2lip-http(50):真引擎配置后优先,本地作零配置兜底
   supportsVideoDriver: false,
-  available: () => !process.env.LIPSYNC_LOCAL_DISABLE && !!ffmpegBin() && mouthsReady(),
+  available: () => !process.env.LIPSYNC_LOCAL_DISABLE && !!locateFFmpeg() && mouthsReady(),
   generate,
 };
 

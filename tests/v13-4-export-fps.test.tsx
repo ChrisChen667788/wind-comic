@@ -30,7 +30,7 @@ vi.mock('@/lib/auth-guard', () => ({ requireProjectAccess: vi.fn(async () => ({ 
 
 import { FRAME_RATES, normalizeProjectFormat } from '@/lib/project-format';
 import { buildEDL } from '@/lib/edl-export';
-import { resolveFFmpegPath, resolveFFprobePath } from '@/services/video-composer';
+import { resolveFFmpegPath, resolveFFprobePath } from '@/lib/ffmpeg-bin';
 import { runSegmentRetake, SEG_RETAKE_MEDIA_KIND, type GeneratePatch } from '@/services/segment-retake-run';
 import { createAsset } from '@/lib/repos/asset-repo';
 import { serveFilePathUrl, resolveVerifiedServeFilePath } from '@/lib/serve-file-sign';

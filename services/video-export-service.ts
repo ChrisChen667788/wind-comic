@@ -11,7 +11,7 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { resolveFFmpegPath } from './video-composer';
+import { resolveFFmpegPath } from '@/lib/ffmpeg-bin';
 import { buildAspectFilter, type ExportAspect, type FitMode } from '@/lib/video-export';
 import { buildSubtitlesFilter, escapeSubtitlePath, type SubtitlePlatform } from '@/lib/subtitle-burn';
 import { audioBitrateForPlatform } from '@/lib/audio-encode';

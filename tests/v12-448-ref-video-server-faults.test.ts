@@ -13,7 +13,8 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 
 const tools = vi.hoisted(() => ({ ffprobe: null as string | null, ffmpeg: null as string | null }));
-vi.mock('@/services/video-composer', async (orig) => {
+// v13.8:ffmpeg / ffprobe 的解析收口到 lib/ffmpeg-bin,「缺工具」在那里注入
+vi.mock('@/lib/ffmpeg-bin', async (orig) => {
   const a: any = await orig();
   return { ...a, resolveFFprobePath: () => tools.ffprobe ?? a.resolveFFprobePath(), resolveFFmpegPath: () => tools.ffmpeg ?? a.resolveFFmpegPath() };
 });

@@ -8,41 +8,18 @@
  *   · 静音 mp3 = 声音是"空的"但时长对得上, 成片依然能合, 用户只是听不到那一句配音。
  *   · 比"整段无声片"好: 其他镜的 TTS 都正常, 只有问题镜静默, 问题定位也容易。
  *
- * 不依赖新包 —— 复用已有的 ffmpeg-static + fluent-ffmpeg。
+ * 不依赖新包 —— 复用 lib/ffmpeg-bin 设好路径的 fluent-ffmpeg。
  *
  * 使用:
  *   const path = await createSilenceMp3(2.5);
  *   // → 返回本地文件绝对路径, 例如 /tmp/ai-comic-silence-1761234567890-abc.mp3
  */
 
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
+import { ffmpeg } from './ffmpeg-bin';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { randomBytes } from 'crypto';
-
-/** 与 video-composer 保持一致的 ffmpeg 路径解析逻辑 */
-function resolveFfmpegPath(): string | null {
-  if (ffmpegPath && typeof ffmpegPath === 'string' && fs.existsSync(ffmpegPath)) return ffmpegPath;
-  const cwdGuess = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg');
-  if (fs.existsSync(cwdGuess)) return cwdGuess;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pkgJson = require.resolve('ffmpeg-static/package.json');
-    const guess = path.join(path.dirname(pkgJson), 'ffmpeg');
-    if (fs.existsSync(guess)) return guess;
-  } catch { /* ignore */ }
-  return 'ffmpeg'; // 最后退回系统 PATH 的 ffmpeg
-}
-
-let _ffmpegReady = false;
-function ensureFfmpegConfigured() {
-  if (_ffmpegReady) return;
-  const p = resolveFfmpegPath();
-  if (p) ffmpeg.setFfmpegPath(p);
-  _ffmpegReady = true;
-}
 
 /**
  * 生成指定时长的静音 mp3, 返回本地文件绝对路径。
@@ -55,7 +32,6 @@ export async function createSilenceMp3(
   durationSec: number,
   outDir?: string,
 ): Promise<string> {
-  ensureFfmpegConfigured();
   const dur = Math.max(0.3, Math.min(120, durationSec || 1));
   const dir = outDir || os.tmpdir();
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { resolveFFmpegPath, resolveFFprobePath } from '@/services/video-composer';
+import { resolveFFmpegPath, resolveFFprobePath } from '@/lib/ffmpeg-bin';
 import { runSegmentRetake, tryLockShot, SegmentRetakeError, SEG_RETAKE_MEDIA_KIND, type GeneratePatch } from '@/services/segment-retake-run';
 import { adoptSegmentTake, listSegmentTakes } from '@/lib/shot-segment-retake';
 import { createAsset, getAsset, listAssetsByType } from '@/lib/repos/asset-repo';

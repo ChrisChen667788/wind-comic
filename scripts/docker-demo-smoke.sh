@@ -95,4 +95,15 @@ docker logs "$CONTAINER" > "$WORK/container.log" 2>&1 || true
 if grep -q '\[Composer\] FFmpeg error' "$WORK/container.log"; then
   fail "日志里有合成报错:$(grep -A1 '\[Composer\] FFmpeg' "$WORK/container.log" | head -4)"
 fi
+# v13.8:镜像设了 FFMPEG_PATH,就得证明应用真用了它 —— v13.8 之前代码根本不读这个变量,
+# 设了也白设,而从外面看不出任何区别。日志那行由 lib/ffmpeg-bin.ts 打,来源写的是解析顺序里哪一步命中的。
+echo "⑥ 合成用的是 FFMPEG_PATH 指定的那个 ffmpeg"
+WANT="$(docker exec "$CONTAINER" sh -c 'printf %s "${FFMPEG_PATH:-}"')"
+if [ -n "$WANT" ]; then
+  grep -qF "[FFmpeg] Using binary: $WANT (from FFMPEG_PATH)" "$WORK/container.log" \
+    || fail "容器设了 FFMPEG_PATH=$WANT,应用却没用它:$(grep -F '[FFmpeg] Using binary' "$WORK/container.log" | head -2)"
+  echo "   ✅ $WANT"
+else
+  echo "   (容器没设 FFMPEG_PATH,跳过)"
+fi
 echo "✅ 零 key 演示在这个镜像里出了一部完整成片"

@@ -19,9 +19,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
+import { resolveFFmpegPath } from '@/lib/ffmpeg-bin';
 import {
   composeVideo,
-  resolveFFmpegPath,
   probeVideoIntegrity,
   speedChangeFilter,
   ffmpegErrorDigest,

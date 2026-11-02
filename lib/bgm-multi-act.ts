@@ -20,7 +20,7 @@ import fs from 'fs';
 import os from 'os';
 import https from 'https';
 import http from 'http';
-import ffmpeg from 'fluent-ffmpeg';
+import { ffmpeg } from './ffmpeg-bin';
 
 export interface ActBgmInput {
   /** Minimax 音乐 URL 或本地路径 */

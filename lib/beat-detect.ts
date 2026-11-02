@@ -17,7 +17,7 @@
  *   · 不动 video 的剪辑点 (snap 镜头时长就够了, 镜头之间的 xfade 自动跟着移)
  */
 
-import ffmpeg from 'fluent-ffmpeg';
+import { ffmpeg } from './ffmpeg-bin';
 
 /** 镜头时长 ±SNAP_WINDOW_S 内才尝试对齐, 超出就保持原值不漂太远 */
 export const BEAT_SNAP_WINDOW_S = 0.15;

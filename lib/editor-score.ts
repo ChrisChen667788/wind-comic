@@ -22,8 +22,7 @@
 import OpenAI from 'openai';
 import { safeFetch } from './ssrf-guard';
 import { resolveVerifiedServeFilePath } from './serve-file-sign';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
+import { ffmpeg } from './ffmpeg-bin';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -32,13 +31,6 @@ import { API_CONFIG } from './config';
 import { persistAsset, resolveByKey } from './asset-storage';
 import type { QualityScoreDimensions, QualityScoreSuggestions } from './quality-scores';
 
-let ffmpegReady = false;
-function ensureFFmpeg() {
-  if (ffmpegReady) return;
-  const p = (typeof ffmpegPath === 'string' && fs.existsSync(ffmpegPath)) ? ffmpegPath : 'ffmpeg';
-  ffmpeg.setFfmpegPath(p);
-  ffmpegReady = true;
-}
 
 export interface EditorScoreResult extends QualityScoreDimensions {
   narrative: string;            // 一段话总结
@@ -174,7 +166,6 @@ interface SampledFrame {
  * 返回本地 tmp 文件路径数组,上游自行清理。
  */
 async function sampleFrames(videoUrl: string, n: number): Promise<SampledFrame[]> {
-  ensureFFmpeg();
 
   // 1) 源视频落本地
   const tmpIn = path.join(os.tmpdir(), `editor-src-${crypto.randomBytes(6).toString('hex')}.mp4`);

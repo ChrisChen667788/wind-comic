@@ -10,6 +10,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { aspectToRatio } from './image-aspect-guard';
+import { resolveFFprobePath } from './ffmpeg-bin';
 
 const execFileAsync = promisify(execFile);
 
@@ -26,7 +27,7 @@ export interface MediaProbe {
 /** ffprobe 全维探测;文件不存在/probe 失败 → null。 */
 export async function probeMediaFull(pathOrUrl: string): Promise<MediaProbe | null> {
   try {
-    const { stdout } = await execFileAsync('ffprobe', [
+    const { stdout } = await execFileAsync(resolveFFprobePath(), [
       '-v', 'error', '-print_format', 'json',
       '-show_format', '-show_streams', pathOrUrl,
     ], { timeout: 30_000 });

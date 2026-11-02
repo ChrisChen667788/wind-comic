@@ -1076,7 +1076,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
               finalVideoUrl = validVideoClips[0]?.videoUrl || timeline[0]?.videoUrl || '';
               audioWarnings.push(
                 `❌ 三级 FFmpeg 合成全部失败 (主链: ${errMsg.slice(0, 80)} / 简化: ${e2Msg.slice(0, 60)} / concat: ${e3Msg.slice(0, 60)}). ` +
-                `临时退化为首段视频 — 请检查服务器 ffmpeg 是否可执行 (which ffmpeg) 并查看片段编码是否一致。`
+                `临时退化为首段视频 — 请检查服务器 ffmpeg 是否可执行(启动日志 [FFmpeg] Using binary 那行是实际用的那个,可用 FFMPEG_PATH 指定)并查看片段编码是否一致。`
               );
               ctx.emit('agentTalk', {
                 role: AgentRole.EDITOR,

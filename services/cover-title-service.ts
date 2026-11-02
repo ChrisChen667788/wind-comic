@@ -9,7 +9,7 @@ import os from 'os';
 import path from 'path';
 import https from 'https';
 import http from 'http';
-import { resolveFFmpegPath } from './video-composer';
+import { resolveFFmpegPath } from '@/lib/ffmpeg-bin';
 import { buildCoverDrawtext, coverFontCandidates } from '@/lib/cover-title-burn';
 import { getTitleSafeArea } from '@/lib/cover-candidates';
 

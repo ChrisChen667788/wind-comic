@@ -13,14 +13,14 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { checkRefVideo, REF_VIDEO_LIMITS, type RefVideoProbe } from './ref-video';
+import { resolveFFmpegPath, resolveFFprobePath } from './ffmpeg-bin';
 
 const execFileAsync = promisify(execFile);
 
 export const REF_VIDEO_MIMES: Record<string, string> = { 'video/mp4': '.mp4', 'video/quicktime': '.mov' };
 
 async function binaries() {
-  const vc = await import('@/services/video-composer');
-  return { ffmpeg: vc.resolveFFmpegPath(), ffprobe: vc.resolveFFprobePath() };
+  return { ffmpeg: resolveFFmpegPath(), ffprobe: resolveFFprobePath() };
 }
 
 /**

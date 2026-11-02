@@ -15,7 +15,7 @@
  * 所以它是 `IMAGE_EMBED_MODEL` 的**降级替代**,不是等价物;配了模型仍优先用模型。
  */
 import { spawn } from 'child_process';
-import ffmpegPath from 'ffmpeg-static';
+import { resolveFFmpegPath } from './ffmpeg-bin';
 
 /** 缩略边长。8×8×3 = 192 维 —— 够表达色彩分布与大块构图,又不至于被噪点主导。 */
 export const SIGNATURE_SIDE = 8;
@@ -29,7 +29,7 @@ export const SIGNATURE_DIM = SIGNATURE_SIDE * SIGNATURE_SIDE * 3;
  */
 export function imageSignature(absPath: string): Promise<number[] | null> {
   return new Promise((resolve) => {
-    const bin = (ffmpegPath as unknown as string) || 'ffmpeg';
+    const bin = resolveFFmpegPath();
     if (!absPath) return resolve(null);
     const p = spawn(bin, [
       '-v', 'error',

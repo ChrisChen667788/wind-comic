@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import ffmpeg from 'fluent-ffmpeg';
+import { ffmpeg } from '@/lib/ffmpeg-bin';
 import { storagePut } from '@/lib/storage';
 
 export interface ExtractedFrame {

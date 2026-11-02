@@ -15,24 +15,15 @@
  * 失败不抛错 —— 衔接是锦上添花,任何一环失败都回退到普通生成。
  */
 
-import ffmpeg from 'fluent-ffmpeg';
+import { ffmpeg } from './ffmpeg-bin';
 import { safeFetch } from './ssrf-guard';
 import { resolveVerifiedServeFilePath } from './serve-file-sign';
-import ffmpegPath from 'ffmpeg-static';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 import { persistAsset } from './asset-storage';
 
-// 复用 video-composer 里的 ffmpeg 路径解析(避免循环 import,复制一份足够)
-let ffmpegReady = false;
-function ensureFFmpeg() {
-  if (ffmpegReady) return;
-  const p = (typeof ffmpegPath === 'string' && fs.existsSync(ffmpegPath)) ? ffmpegPath : 'ffmpeg';
-  ffmpeg.setFfmpegPath(p);
-  ffmpegReady = true;
-}
 
 /**
  * 从本地或远程视频 URL 抽取最后一帧,持久化到 asset storage,返回稳定 URL。
@@ -69,7 +60,6 @@ export async function extractMiddleFrame(videoUrl: string): Promise<string | nul
  */
 async function extractFrameAtRatio(videoUrl: string, position: 'end' | 'middle'): Promise<string | null> {
   if (!videoUrl) return null;
-  ensureFFmpeg();
 
   const label = position === 'middle' ? 'midframe' : 'lastframe';
   const tmpIn = path.join(os.tmpdir(), `${label}-${crypto.randomBytes(6).toString('hex')}.mp4`);

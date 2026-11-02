@@ -84,6 +84,7 @@ describe('transcodeToResolution — cache hit (no real ffmpeg)', () => {
       };
       const ffmpeg: any = (_: string) => fakeChain;
       ffmpeg.setFfmpegPath = () => {};
+      ffmpeg.setFfprobePath = () => {};
       return { default: ffmpeg };
     });
 

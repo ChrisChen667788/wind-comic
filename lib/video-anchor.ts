@@ -13,6 +13,7 @@ import path from 'path';
 import fs from 'fs';
 import { persistentMediaDir } from './media-persist';
 import { serveFileToLocalPath } from './first-frame';
+import { resolveFFmpegPath, resolveFFprobePath } from './ffmpeg-bin';
 
 const execFileAsync = promisify(execFile);
 
@@ -21,7 +22,7 @@ export async function extractAnchorFrames(videoUrlOrPath: string, n = 3): Promis
   if (!src) return [];
   try {
     // 时长探测 → 均匀取样时间点(掐头去尾 10%)
-    const { stdout } = await execFileAsync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', src], { timeout: 30_000 });
+    const { stdout } = await execFileAsync(resolveFFprobePath(), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', src], { timeout: 30_000 });
     const dur = Number(stdout.trim());
     if (!Number.isFinite(dur) || dur <= 0) return [];
     const pad = dur * 0.1;
@@ -31,7 +32,7 @@ export async function extractAnchorFrames(videoUrlOrPath: string, n = 3): Promis
     for (let i = 0; i < Math.max(1, n); i++) {
       const t = pad + (usable * (i + 0.5)) / Math.max(1, n);
       const out = path.join(outDir, `vanchor-${Date.now()}-${i}.jpg`);
-      await execFileAsync('ffmpeg', ['-y', '-ss', String(t.toFixed(2)), '-i', src, '-frames:v', '1', '-q:v', '2', out], { timeout: 60_000 });
+      await execFileAsync(resolveFFmpegPath(), ['-y', '-ss', String(t.toFixed(2)), '-i', src, '-frames:v', '1', '-q:v', '2', out], { timeout: 60_000 });
       if (fs.existsSync(out)) urls.push(`${serveFilePathUrl(out)}`);
     }
     return urls;

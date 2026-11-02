@@ -9,7 +9,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { ffmpegBin } from '@/lib/lipsync-providers/local-2d';
+import { locateFFmpeg } from '@/lib/ffmpeg-bin';
 
 const execFileP = promisify(execFile);
 
@@ -29,7 +29,7 @@ export async function ensureMockClipFile(seed: string, ar: string, dur: number):
   const file = path.join(cacheDir, `${seed}-${w}x${h}-${dur}.mp4`);
   if (fs.existsSync(file)) return file;
 
-  const bin = ffmpegBin();
+  const bin = locateFFmpeg()?.path;
   if (!bin) throw new Error('ffmpeg unavailable');
   fs.mkdirSync(cacheDir, { recursive: true });
   const color = seed.slice(0, 6);

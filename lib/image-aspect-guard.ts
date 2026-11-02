@@ -12,6 +12,7 @@ import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { promisify } from 'util';
 import path from 'path';
 import { persistentMediaDir } from './media-persist';
+import { resolveFFmpegPath, resolveFFprobePath } from './ffmpeg-bin';
 
 const execFileAsync = promisify(execFile);
 
@@ -34,7 +35,7 @@ export function aspectDrifted(width: number, height: number, targetAspect: strin
 /** ffprobe 读远端/本地图片宽高;失败 → null。 */
 async function probeImageSize(url: string): Promise<{ width: number; height: number } | null> {
   try {
-    const { stdout } = await execFileAsync('ffprobe', [
+    const { stdout } = await execFileAsync(resolveFFprobePath(), [
       '-v', 'error', '-select_streams', 'v:0',
       '-show_entries', 'stream=width,height', '-of', 'csv=s=x:p=0', url,
     ], { timeout: 20_000 });
@@ -67,7 +68,7 @@ export async function ensureImageAspect(url: string, targetAspect: string, label
     const { w, h } = targetDims(targetAspect);
     const outPath = path.join(persistentMediaDir('images'), `aspectfix-${label.replace(/[^a-zA-Z0-9_-]/g, '_')}-${Date.now()}.png`);
     // scale 到覆盖目标(增,不减)再中央裁切 —— 标准 cover 语义
-    await execFileAsync('ffmpeg', [
+    await execFileAsync(resolveFFmpegPath(), [
       '-y', '-i', local || url,
       '-vf', `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`,
       '-frames:v', '1', outPath,

@@ -24,7 +24,7 @@ import { db, now } from '@/lib/db';
 import { insertProjectFull, getProject } from '@/lib/repos/project-repo';
 import { createAsset } from '@/lib/repos/asset-repo';
 import { storagePut } from '@/lib/storage';
-import { resolveFFmpegPath } from '@/services/video-composer';
+import { resolveFFmpegPath } from '@/lib/ffmpeg-bin';
 import {
   decideLegacyAspect, aspectOfSize, measureProjectMedia, findLegacyAspectProjects,
   repairLegacyAspects, restoreLegacyAspects, scheduleLegacyAspectRepair, type MeasuredMedia,

@@ -12,6 +12,7 @@ import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
+import { resolveFFmpegPath } from '@/lib/ffmpeg-bin';
 import { getUserFromRequest } from '../../../../auth/lib';
 import { db } from '@/lib/db';
 import { canEditProject } from '@/lib/project-share';
@@ -55,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: '没有可用的成片(final_video),先合成再精选封面' }, { status: 400 });
   }
 
-  const { probeVideoIntegrity, resolveFFmpegPath } = await import('@/services/video-composer');
+  const { probeVideoIntegrity } = await import('@/services/video-composer');
   const probe = await probeVideoIntegrity(videoPath);
   if (!probe.ok || !probe.durationSec) {
     return NextResponse.json({ error: `成片不可读: ${probe.reason || 'no-duration'}` }, { status: 500 });

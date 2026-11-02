@@ -52,15 +52,14 @@ describe('v12.282 · 热路径不得再用 execSync', () => {
     expect(bad, `以下调用缺 await:\n${bad.join('\n')}`).toEqual([]);
   });
 
-  it('仅剩的 execSync 是启动期路径解析(which ffmpeg/ffprobe),不在 async 热路径', () => {
+  it('composer 里一处 execSync 都不剩(v13.8 起二进制路径由 lib/ffmpeg-bin 解析,不再起 shell 跑 which)', () => {
     const lines = SRC.split('\n')
       .map((l, i) => ({ n: i + 1, l }))
       .filter((x) => /execSync\(/.test(x.l) && !x.l.trim().startsWith('*') && !x.l.trim().startsWith('//'));
-    // 允许存在,但必须只有这两处、且都是 which 探测
-    expect(lines.length).toBeLessThanOrEqual(2);
-    for (const x of lines) {
-      expect(x.l, `第 ${x.n} 行的 execSync 不是路径探测`).toMatch(/which (ffmpeg|ffprobe)/);
-    }
+    // 自证扫的是那个文件:合成里用到 ffmpeg 的地方都从入口取路径
+    expect(SRC).toContain("from '@/lib/ffmpeg-bin'");
+    expect(SRC).toContain('const ff = resolveFFmpegPath();');
+    expect(lines.map((x) => `${x.n}: ${x.l.trim()}`)).toEqual([]);
   });
 
   it('保留实测数据说明(防后人为「省一个 await」改回同步)', () => {

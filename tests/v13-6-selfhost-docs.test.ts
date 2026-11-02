@@ -167,21 +167,33 @@ describe('v13.6 · 健康检查探的是能不能登录,不是首页', () => {
 });
 
 describe('v13.6 · 镜像里的合成用系统 ffmpeg,且构建期自证', () => {
-  it('ffmpeg-static 的二进制被换成指向 /usr/bin/ffmpeg 的软链接,在拷完 node_modules 之后', () => {
-    const copy = DOCKERFILE.indexOf('COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules');
-    const ln = DOCKERFILE.indexOf('ln -sf /usr/bin/ffmpeg /app/node_modules/ffmpeg-static/ffmpeg');
-    expect(copy, '窗口自证').toBeGreaterThan(0);
-    expect(ln, '没有换软链接').toBeGreaterThan(copy);
-    expect(DOCKERFILE.indexOf('USER nextjs'), '软链接要在切换到非 root 用户之前建').toBeGreaterThan(ln);
+  // v13.8:机制从「把 ffmpeg-static 换成软链接」改成「FFMPEG_PATH / FFPROBE_PATH 指向系统版 + 随包二进制不进镜像」
+  //(那时代码才开始读这两个变量,见 lib/ffmpeg-bin.ts 与 tests/v13-8-ffmpeg-bin.test.ts)。锁的东西没变:用的是系统版、构建期自证。
+  it('运行时镜像设 FFMPEG_PATH / FFPROBE_PATH 指向 apk 装的系统版', () => {
+    const runner = DOCKERFILE.slice(DOCKERFILE.indexOf('FROM node:${NODE_VERSION} AS runner'));
+    expect(runner.length, '窗口自证').toBeGreaterThan(200);
+    expect(runner).toMatch(/FFMPEG_PATH=\/usr\/bin\/ffmpeg/);
+    expect(runner).toMatch(/FFPROBE_PATH=\/usr\/bin\/ffprobe/);
+    expect(runner).toMatch(/apk add --no-cache ffmpeg /);
   });
 
-  it('自证两件事:有 drawtext、能跑「变速 → xfade」;不过就 exit 1', () => {
-    const start = DOCKERFILE.indexOf('ln -sf /usr/bin/ffmpeg');
+  it('随包二进制在 builder 阶段删掉(在 runner 里删,文件仍在 COPY 那一层里随镜像分发)', () => {
+    const builder = DOCKERFILE.slice(DOCKERFILE.indexOf('AS builder'), DOCKERFILE.indexOf('AS runner'));
+    expect(builder, '窗口自证').toContain('RUN npm run build');
+    expect(builder).toContain('rm -f node_modules/ffmpeg-static/ffmpeg');
+    expect(builder).toContain('rm -rf node_modules/ffprobe-static/bin');
+  });
+
+  it('自证三件事:随包二进制不在、$FFMPEG_PATH 有 drawtext、能跑「变速 → xfade」;不过就 exit 1;在切换非 root 用户之前', () => {
+    const start = DOCKERFILE.indexOf('RUN set -e; \\\n    for f in /app/node_modules/ffmpeg-static/ffmpeg');
     const block = DOCKERFILE.slice(start, DOCKERFILE.indexOf('自证通过', start));
+    expect(start, '窗口自证:找不到自证那段 RUN').toBeGreaterThan(0);
     expect(block.length, '窗口自证').toBeGreaterThan(100);
+    expect(block).toContain('ff="$FFMPEG_PATH"');
     expect(block).toContain('grep -qw drawtext');
     expect(block).toMatch(/setpts=[^,]+,fps=24\[b\];\[a\]\[b\]xfade/);
-    expect((block.match(/exit 1/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect((block.match(/exit 1/g) || []).length).toBeGreaterThanOrEqual(3);
+    expect(DOCKERFILE.indexOf('USER nextjs')).toBeGreaterThan(start);
   });
 });
 

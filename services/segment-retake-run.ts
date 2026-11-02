@@ -23,6 +23,7 @@ import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { recordSegmentTake } from '@/lib/shot-segment-retake';
 import { isPlaceholderVideo } from '@/lib/placeholder-provenance';
 import { planAndExecute, sourceFrameRate } from './segment-retake.service';
+import { resolveFFmpegPath, resolveFFprobePath } from '@/lib/ffmpeg-bin';
 
 const execFileP = promisify(execFile);
 
@@ -162,7 +163,6 @@ export async function runSegmentRetake(
 
     // 原片在切入点的那一帧 → 补丁首帧。plan.trimFromS 恒为 0:补丁的第 0 秒正好落在 patchFromS,
     // 用这一帧起拍,接缝处画面才连得上。截不出来不致命(引擎退回用分镜图),但要留痕。
-    const { resolveFFmpegPath } = await import('./video-composer');
     const mediaDir = persistentMediaDir(SEG_RETAKE_MEDIA_KIND);
     const stamp = `${shotNumber}-${Date.now()}`;
     try {
@@ -189,7 +189,6 @@ export async function runSegmentRetake(
 
     // 补丁画面必须覆盖计划要用的那一段。**必须在缝合前验**:缝合末尾的 fps 滤镜会用上一帧填满空档,
     // 输出照样是整镜帧数、容器时长也对 —— 只是画面冻住一截,从产物上根本看不出来(本版测试当场抓到)。
-    const { resolveFFprobePath } = await import('./video-composer');
     const patchVideoS = await videoStreamDuration(resolveFFprobePath(), patchFile.path);
     if (patchVideoS + 1 / fps < plan.trimToS) {
       throw new SegmentRetakeError(

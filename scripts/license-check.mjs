@@ -6,6 +6,9 @@
  * 源码分发无碍(依赖非 vendored),但**打包分发(Docker 镜像等)会连带 GPL-3 义务** —— 这是
  * 企业采购/尽调必问的一条,不能靠"没人注意"过关。
  *
+ * 盲区:只看 license 字段。`ffprobe-static` 声明 MIT,带的却是 GPL-3 构建的 ffprobe(--enable-gpl --enable-version3),
+ * 本门禁看不见它 —— README 许可证表里手工登记了这一条。
+ *
  * 本脚本做两件事:
  *   1. 扫**生产依赖树**(omit=dev)的每个包的 license 字段,挑出 copyleft(GPL/AGPL/LGPL/SSPL…);
  *   2. 对照**已登记豁免名单**(KNOWN_COPYLEFT):已知且已在 README/NOTICE 说明的放行;
@@ -32,7 +35,9 @@ const JSON_OUT = process.argv.includes('--json');
 const KNOWN_COPYLEFT = {
   'ffmpeg-static': {
     license: 'GPL-3.0-or-later',
-    why: '【最强约束】FFmpeg 预编译二进制。源码分发不受影响;**打包分发(Docker/桌面端)须随附 GPL-3 全文与对应源码获取方式**,或改用系统 ffmpeg(设 FFMPEG_PATH)规避。',
+    why: '【最强约束】FFmpeg 预编译二进制(macOS 那份还带 --enable-nonfree,不可再分发)。源码分发不受影响;**打包分发(Docker/桌面端)须随附 GPL-3 全文与对应源码获取方式**,' +
+      '或者不带它:设 FFMPEG_PATH / FFPROBE_PATH 指向另行获得的 ffmpeg(v13.8 起代码才读),并在打包前删掉 node_modules/ffmpeg-static/ffmpeg 与 node_modules/ffprobe-static/bin ——' +
+      '只设变量不会把文件从包里拿掉。官方镜像已在构建阶段删掉这两份(Dockerfile 自证)。',
   },
   'lightningcss*': {
     license: 'MPL-2.0',
