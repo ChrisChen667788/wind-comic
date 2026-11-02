@@ -15,7 +15,7 @@
  *   // → 返回本地文件绝对路径, 例如 /tmp/ai-comic-silence-1761234567890-abc.mp3
  */
 
-import { ffmpeg } from './ffmpeg-bin';
+import { runFfmpeg } from './ffmpeg-bin';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -38,19 +38,14 @@ export async function createSilenceMp3(
   const name = `ai-comic-silence-${Date.now()}-${randomBytes(3).toString('hex')}.mp3`;
   const fullPath = path.join(dir, name);
 
-  await new Promise<void>((resolve, reject) => {
-    ffmpeg()
-      // anullsrc 是 ffmpeg 自带的"无声源" (ANull source), 可以指定时长, 生成零信号
-      .input('anullsrc=channel_layout=mono:sample_rate=32000')
-      .inputFormat('lavfi')
-      .duration(dur)
-      .audioCodec('libmp3lame')
-      .audioBitrate('64k')
-      .format('mp3')
-      .on('error', (e) => reject(new Error(`silence mp3 ffmpeg error: ${e.message}`)))
-      .on('end', () => resolve())
-      .save(fullPath);
-  });
+  // anullsrc 是 ffmpeg 自带的"无声源"(ANull source),可以指定时长,生成零信号。
+  // v13.8.1:直接跑 ffmpeg,不经 fluent-ffmpeg —— 它对 `-f lavfi` 的格式校验在 ffmpeg 7+ 上必失败(见 runFfmpeg)。
+  try {
+    await runFfmpeg(['-y', '-f', 'lavfi', '-i', 'anullsrc=channel_layout=mono:sample_rate=32000',
+      '-t', String(dur), '-c:a', 'libmp3lame', '-b:a', '64k', '-f', 'mp3', fullPath]);
+  } catch (e) {
+    throw new Error(`silence mp3 ffmpeg error: ${(e as Error).message}`);
+  }
 
   return fullPath;
 }

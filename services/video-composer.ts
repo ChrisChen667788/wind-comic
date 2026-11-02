@@ -9,7 +9,7 @@
  * 4. 输出最终成片 mp4
  */
 
-import { ffmpeg, resolveFFmpegPath } from '@/lib/ffmpeg-bin';
+import { ffmpeg, resolveFFmpegPath, runFfmpeg } from '@/lib/ffmpeg-bin';
 import path from 'path';
 import { audioBitrateForPlatform } from '@/lib/audio-encode';
 import { buildColorGradeFilter, detectGradeGenre } from '@/lib/color-grade';
@@ -1940,39 +1940,31 @@ export async function stillFrameToVideo(
   // v12.62.0:画幅感知 Ken Burns(纯函数 kenBurnsFilter;dims 缺省 1280x720 = 旧行为)
   const vf = kenBurnsFilter(zoomDir, totalFrames, dims?.w ?? 1280, dims?.h ?? 720, fps);
 
-  return new Promise((resolve, reject) => {
-    ffmpeg()
-      .input(localImage)
-      .inputOptions(['-loop', '1', '-t', String(duration)])
+  // v13.8.1:直接跑 ffmpeg,不经 fluent-ffmpeg —— 静音音轨要 `-f lavfi`,而 fluent 对它的格式校验在 ffmpeg 7+ 上
+  // 必失败(见 lib/ffmpeg-bin 的 runFfmpeg):Linux 部署上视频引擎一失败,占位片也跟着出不来。
+  try {
+    await runFfmpeg([
+      '-y',
+      '-loop', '1', '-t', String(duration), '-i', localImage,
       // 同步生成静音音轨,避免下游 amix 缺失音频流
-      .input('anullsrc=r=44100:cl=stereo')
-      .inputOptions(['-f', 'lavfi', '-t', String(duration)])
-      .outputOptions([
-        '-vf', vf,
-        '-c:v', 'libx264',
-        '-preset', 'fast',
-        '-crf', crfValue(),
-        '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac',
-        '-b:a', audioBitrateForPlatform(undefined),
-        '-shortest',
-        '-movflags', '+faststart',
-      ])
-      .output(outputPath)
-      .on('end', () => {
-        if (imageUrl.startsWith('http') && localImage !== imageUrl) {
-          try { fs.unlinkSync(localImage); } catch {}
-        }
-        resolve(outputPath);
-      })
-      .on('error', (err) => {
-        if (imageUrl.startsWith('http') && localImage !== imageUrl) {
-          try { fs.unlinkSync(localImage); } catch {}
-        }
-        reject(err);
-      })
-      .run();
-  });
+      '-f', 'lavfi', '-t', String(duration), '-i', 'anullsrc=r=44100:cl=stereo',
+      '-vf', vf,
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-crf', crfValue(),
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac',
+      '-b:a', audioBitrateForPlatform(undefined),
+      '-shortest',
+      '-movflags', '+faststart',
+      outputPath,
+    ]);
+    return outputPath;
+  } finally {
+    if (imageUrl.startsWith('http') && localImage !== imageUrl) {
+      try { fs.unlinkSync(localImage); } catch {}
+    }
+  }
 }
 
 /**

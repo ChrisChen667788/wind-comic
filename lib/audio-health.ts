@@ -9,7 +9,7 @@
  *
  * 纯判定部分(audibilityLabel)可单测;ffprobe/remux 部分失败一律安全返回,不抛。
  */
-import { ffmpeg } from './ffmpeg-bin';
+import { ffmpeg, runFfmpeg } from './ffmpeg-bin';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -50,14 +50,13 @@ export async function ensureAudioStream(videoPath: string): Promise<{ path: stri
   const has = await probeAudioStream(videoPath);
   if (has !== false) return { path: videoPath, healed: false }; // 有音轨或未知 → 不动
   const out = path.join(os.tmpdir(), `audiofix-${crypto.randomBytes(6).toString('hex')}.mp4`);
-  return new Promise((resolve) => {
-    ffmpeg(videoPath)
-      .input('anullsrc=channel_layout=stereo:sample_rate=44100')
-      .inputFormat('lavfi')
-      .outputOptions(['-c:v', 'copy', '-c:a', 'aac', '-shortest', '-map', '0:v:0', '-map', '1:a:0'])
-      .output(out)
-      .on('end', () => resolve(fs.existsSync(out) ? { path: out, healed: true } : { path: videoPath, healed: false }))
-      .on('error', () => resolve({ path: videoPath, healed: false }))
-      .run();
-  });
+  // v13.8.1:直接跑 ffmpeg,不经 fluent-ffmpeg —— 它对 `-f lavfi` 的格式校验在 ffmpeg 7+ 上必失败(见 runFfmpeg),
+  // 而这里失败只会静默返回原路径:Linux 部署上「成片没音轨就补一条静音」从来没生效过。
+  try {
+    await runFfmpeg(['-y', '-i', videoPath, '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+      '-c:v', 'copy', '-c:a', 'aac', '-shortest', '-map', '0:v:0', '-map', '1:a:0', out]);
+    return fs.existsSync(out) ? { path: out, healed: true } : { path: videoPath, healed: false };
+  } catch {
+    return { path: videoPath, healed: false };
+  }
 }

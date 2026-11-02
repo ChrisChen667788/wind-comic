@@ -40,6 +40,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
+import { execFile } from 'child_process';
 import fluentFfmpeg from 'fluent-ffmpeg';
 
 export type BinarySource =
@@ -205,6 +206,28 @@ export function resolveFFprobePath(): string {
   if (hit) return hit.path;
   warnOnce('[FFprobe] 找不到 ffprobe(FFPROBE_PATH / ffprobe-static / PATH / 常见安装位置都没有),成片体检会失败');
   return 'ffprobe';
+}
+
+/**
+ * 直接跑一条 ffmpeg 命令(参数数组,不经 shell)。v13.8.1。
+ *
+ * 要用 `-f lavfi` 造输入(anullsrc 静音、color 纯色)的地方**不要走 fluent-ffmpeg**:它在执行前拿
+ * `ffmpeg -formats` 校验每个输入的 `-f`,而 ffmpeg 7+ 的输出多了一列「是否设备」(` D d lavfi`),
+ * fluent-ffmpeg 2.1.3 的正则把这行读成名叫 `d` 的格式 —— 于是报「Input format lavfi is not available」。
+ * macOS 的 ffmpeg-static 6.0 只有两列,本机永远复现不了;Linux(CI 的 ffmpeg-static 7.0.2、官方镜像的
+ * Alpine 8.0.1)上一律失败。`.inputFormat('lavfi')` 和 `.inputOptions(['-f', 'lavfi'])` 都会过这道校验。
+ * 失败时 reject 的 Error 带上 stderr 末尾几行(去掉进度行),调用方原有的降级照常生效。
+ */
+export function runFfmpeg(args: string[], opts: { timeoutMs?: number } = {}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(resolveFFmpegPath(), ['-hide_banner', '-nostdin', ...args],
+      { timeout: opts.timeoutMs ?? 600_000, maxBuffer: 16 * 1024 * 1024 },
+      (err, _stdout, stderr) => {
+        if (!err) return resolve();
+        const tail = String(stderr || '').split('\n').map((l) => l.trim()).filter((l) => l && !/^(frame|size)=/.test(l)).slice(-4).join(' | ');
+        reject(new Error(`ffmpeg 失败(${(err as NodeJS.ErrnoException).code ?? 'exit'}):${tail || err.message}`.slice(0, 800)));
+      });
+  });
 }
 
 // fluent-ffmpeg 的二进制路径是进程级全局的(模块里一个 cache 对象),在这里设一次,所有用它的模块都从这里拿。
