@@ -20,6 +20,90 @@ PIPELINE_QUEUE=1                 # 任务队列(断线续跑/kill -9 恢复)
 
 单机下:SQLite(`data/qfmj.db`,WAL)+ 本地存储(`data/storage/assets/`)+ 进程内事件总线,全部零配置。
 
+## Docker 与 NAS 自托管
+
+> v13.6 新增。适用:群晖 / 威联通 / Unraid / 任意装了 Docker 的 Linux 主机上的**单机**部署(SQLite + 本地盘)。
+> 文中命令与数字都在官方镜像里实跑过(colima arm64,模拟 NAS 的属主与内存限制);**群晖 DSM 的图形界面路径没有在真机上核对**,下文只给 SSH 命令。
+
+### 硬件要求(v13.6 镜像实测)
+
+| 项 | 要求 | 依据 |
+|---|---|---|
+| 架构 | `linux/amd64` 或 `linux/arm64`;**不支持 32 位 ARM**(armv7) | 镜像只发布这两个架构 |
+| 显卡 | 不需要 | 生成全走引擎 API;本机只有 ffmpeg 合成,用 CPU |
+| CPU | 2 核可用 | 核数只影响合成耗时:6 镜 30 秒 720p 成片 2 核约 16 秒、4 核约 10 秒;竖屏 1080×1920 约 29 / 18 秒 |
+| 内存(空闲) | 70–120 MB | Node 服务常驻 |
+| 内存(合成峰值) | 整容器:**720p ≈ 0.95 GB**(943 MiB),**竖屏 1080×1920 ≈ 1.75 GB**(1751 MiB);其中 ffmpeg 自身 858–869 MiB / 1648–1680 MiB | 6 镜 × 5 秒(其中一镜调速)、xfade 转场 + 中文字幕 + 响度归一,读 cgroup `memory.peak`,2 核与 4 核都测;v13.1 镜像里的 ffmpeg 7.0.2 同场景高 1–5% |
+| 给容器的内存 | 实测最低能过:720p 1 GB(余量仅约 80 MiB)、竖屏 2 GB;**建议 720p 至少 1.5 GB,竖屏 1080p 至少 2.5 GB** | 限 768 MB 时 720p 合成被 OOM 杀,限 1 GB 时竖屏被杀;整机建议 4 GB 起(还要留给 NAS 系统本身) |
+| 磁盘 | 镜像下载约 830 MB、解压约 3 GB;`data/` 另留 10 GB 以上 | 素材与成片都落在 `data/storage/`、`data/composed/` |
+
+### 一步一步部署
+
+```bash
+# 1. 建目录(群晖示例:/volume1/docker/wind-comic)
+mkdir -p /volume1/docker/wind-comic && cd /volume1/docker/wind-comic
+
+# 2. 取 compose 与 .env 模板(也可以从仓库 deploy/ 目录手动拷)
+curl -fsSLO https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/deploy/docker-compose.yml
+curl -fsSL  https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/deploy/.env.example -o .env
+
+# 3. 填 .env 里的两项必填
+openssl rand -hex 32          # 输出填到 JWT_SECRET=
+#    DEMO_PASSWORD=<首个账号 demo@qfmanju.ai 的密码>
+
+# 4. 数据目录交给容器用户(uid/gid 1001)—— 不做这一步,登录必 500
+mkdir -p data && sudo chown -R 1001:1001 data
+
+# 5. 起
+sudo docker compose up -d     # 旧版群晖:sudo docker-compose up -d
+
+# 6. 等健康检查变绿,再登录
+sudo docker ps                # STATUS 里出现 (healthy)
+curl http://localhost:3100/api/health
+# → {"ok":true,"checks":{"db":"ok","auth":"ok"}}
+```
+
+然后浏览器打开 `http://<NAS 局域网 IP>:3100`,用 `demo@qfmanju.ai` + `DEMO_PASSWORD` 登录。
+
+**不方便 SSH / 不想 chown**:把 `deploy/docker-compose.yml` 里的 `- ./data:/app/data` 换成 `- wind-comic-data:/app/data`,并取消文件末尾 `volumes:` 两行的注释。命名卷由 Docker 创建,属主天然正确;代价是数据不在你能直接看到的共享文件夹里(在 Docker 自己的卷目录下)。
+
+**升级**:`sudo docker compose pull && sudo docker compose up -d`。数据都在 `data/`(或命名卷)里,换镜像不丢。
+**备份**:先 `sudo docker compose stop` 再整目录拷走 `data/` —— SQLite 开着 WAL,运行中直接拷可能拷到不一致的库。
+
+### 首次登录与首次创作
+
+- **第一个账号**是 `demo@qfmanju.ai`,密码 = `DEMO_PASSWORD`。没设的话首次启动随机生成,只在 `docker logs` 里打印一次(`[seed] DEMO_PASSWORD 未设置,demo 账号使用一次性随机密码: …`);事后补设 `DEMO_PASSWORD` 再重启,密码会自动改成它。生产环境下 demo 账号一律是普通成员,不是管理员。
+- **注册默认要邀请码**。设 `BETA_INVITE_REQUIRED=false` 可开放注册 —— 只在纯内网、信任每一个能打开这个地址的人时这么做。
+- **免费档月预算 ¥5**:新账号的月度花费上限是 ¥5,而一部真引擎成片的预检估价是 ¥11.6–18.8(默认 8 镜 × 6 秒,按视频引擎单价),第一次点「开机」就会被拦:「本次预估 ¥… 将越过硬上限 ¥5」。到 `/dashboard/usage` 把「月预算 ¥」调高即可(输入框失焦即保存)。零 key 演示(`MOCK_ENGINES=1` 且没配任何真引擎)从 v13.6 起按 ¥0 估价,不会被拦。
+- **从别的设备访问**:局域网内直接 `http://<NAS 局域网 IP>:3100` 即可登录和创作(v13.5 起 `COOKIE_SECURE` 默认 `auto`,不需要反代);纯 HTTP 下令牌明文传输,只在可信内网这样用,公网访问请放到 HTTPS 后面。细节与反代配置见 [§12 会话 Cookie 与 HTTPS](#12-会话-cookie-与-https)。
+
+### 健康检查 `/api/health`(v13.6)
+
+镜像自带的 `HEALTHCHECK` 从 v13.6 起探 `/api/health`(之前探首页 —— 首页是静态壳,下面三种「登录必 500」时首页照样 200、容器照样 healthy)。它只做两件便宜的事:数据库跑一句 `SELECT 1`(SQLite 再确认数据目录和库文件可写),以及用当前 `JWT_SECRET` 签一枚不外发的令牌。不打外网,不读引擎 key。
+
+| 返回 | 含义 |
+|---|---|
+| `200 {"ok":true,"checks":{"db":"ok","auth":"ok"}}` | 能登录 |
+| `503 … "reasons":["db_unavailable"]` | 数据库打不开(SQLite 属主/挂载不对;PG 连不上)。注意:开了 `PIPELINE_QUEUE=1` 时库在开机阶段就打不开,**整站(含首页和本端点)直接 500** —— 健康检查同样判失败 |
+| `503 … "reasons":["db_not_writable"]` | 库能读但写不进去(数据目录或库文件不可写) |
+| `503 … "reasons":["jwt_secret_invalid"]` | `JWT_SECRET` 没设,或是公开占位串 |
+
+对外只给原因代码;详情(含容器 uid)只写进服务端日志,而且只在状态变化时打一次。
+
+### 首页正常、登录返回 500:三个成因
+
+先 `sudo docker logs wind-comic 2>&1 | grep -E "SQLITE|unable to open|JWT_SECRET"`,再对号入座(日志原文均为实测):
+
+| 日志 | 成因 | 特征 | 修法 |
+|---|---|---|---|
+| `SqliteError: unable to open database file`(`SQLITE_CANTOPEN`);开了 `PIPELINE_QUEUE=1` 时是 `… loading instrumentation hook: unable to open database file`,**首页也 500** | 绑定挂载的 `data/` 属于 NAS 账号(群晖默认 `1026:100`),容器以 `nextjs`(1001:1001)运行,建不了库文件 | 密码对错都 500 | `sudo chown -R 1001:1001 data`,或改用命名卷 |
+| `[auth] JWT_SECRET 未设置 —— 生产环境必须配置一个高强度随机密钥…` | 没设 `JWT_SECRET` | **密码错 401、密码对 500**(要签令牌时才炸) | `openssl rand -hex 32` 填进 `.env`,`docker compose up -d` 重建 |
+| `[auth] JWT_SECRET 是公开占位/弱默认值…` | 用了 `.env.example` 或教程里的占位串(黑名单在 `app/api/auth/lib.ts`) | 同上 | 同上 |
+
+### 在 NAS 上跑零 key 演示
+
+`MOCK_ENGINES=1` 时演示素材(分镜 SVG、假视频)的链接按 `APP_URL` 拼。默认的 `http://localhost:3100` 只在 NAS 本机浏览器里有效;从别的电脑打开要把 `APP_URL` 设成浏览器实际访问的地址(例:`http://192.168.1.10:3100`),否则分镜图显示不出来。演示产物是确定性假素材,不代表真实生成质量。
+
 ## 拓扑二:多副本(水平扩容)
 
 三个就绪件 **必须同时配齐**:
@@ -47,8 +131,8 @@ S3 mode 不能彻底去掉本地盘：写入时先落 `data/storage/assets/` 本
 **5. Redis `qfmj-bus` 单频道所有事件走同一线路**
 所有逻辑频道（notif/comment/pipeline）都序列化进同一个 Redis `qfmj-bus` 频道（`lib/event-bus-redis.ts:120`）。高并发下该频道可能成为瓶颈；Redis 不可用时降级进程内（无跨副本同步）而非报错，需监控。
 
-**6. Docker HEALTHCHECK 探测首页而非专用 /api/health**
-`Dockerfile:60` 的 `wget` 命中 `/`（首页），而非 `/api/runtime/readiness` 或 `/api/health/providers`。首页正常不等于 DB/LLM 就绪，建议生产改为探测 `/api/runtime/readiness`。start-period 仅 20 s，冷启动 + DB 首次建表可能超时。
+**6. ~~Docker HEALTHCHECK 探测首页而非专用 /api/health~~（✅ v13.6 已修）**
+v13.6 起 `HEALTHCHECK` 探 `/api/health`(数据库可读写 + JWT 密钥可用),start-period 20 s → 60 s。没有选 `/api/runtime/readiness`:它只读 env、不碰数据库,探不出「登录 500」;也没选 `/api/health/providers`:它打外网,网关抖一下不该让编排器把容器判死重启。见上文「Docker 与 NAS 自托管」。
 
 **7. `scripts/llm-call.mjs` 子进程需随镜像一起部署**
 `Dockerfile:48` 已 `COPY scripts ./scripts`，但必须确认 CI 构建时 `scripts/` 目录完整复制。子进程调用走 `process.cwd()/scripts/llm-call.mjs`（`services/hybrid-orchestrator.ts:791`），路径硬编码。
@@ -244,9 +328,10 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com  # 可选；未设则返回 endpoint/
 
 **ffmpeg 进入方式：**
 - 优先用 `ffmpeg-static`（npm 包，随项目安装，不需系统 PATH）
-- 回退顺序：`LIPSYNC_FFMPEG_PATH` env → ffmpeg-static → `/opt/homebrew/bin/ffmpeg` → `/usr/local/bin/ffmpeg` → `/usr/bin/ffmpeg`（`lib/lipsync-providers/local-2d.ts:29-43`）
+- 回退顺序：`LIPSYNC_FFMPEG_PATH` env → ffmpeg-static → `/opt/homebrew/bin/ffmpeg` → `/usr/local/bin/ffmpeg` → `/usr/bin/ffmpeg`（`lib/lipsync-providers/local-2d.ts:29-43`；`LIPSYNC_FFMPEG_PATH` 只对本地 2D 口型生效，合成器 `services/video-composer.ts` 的 `resolveFFmpegPath()` 不读它）
 - `next.config.ts` 已把 `ffmpeg-static` 和 `fluent-ffmpeg` 设为 `serverExternalPackages`（不打包，保持二进制路径正确）
-- Docker 镜像额外 `apk add ffmpeg`（系统二进制兜底）
+- **Docker 镜像（v13.6 起）**：`apk add ffmpeg` 装系统 ffmpeg，并把 `node_modules/ffmpeg-static/ffmpeg` 换成指向 `/usr/bin/ffmpeg` 的软链接 —— 所有按「ffmpeg-static 优先」解析的调用方一起用上系统版。原因：Linux 上随包的是 johnvansickle 静态版 7.0.2，它①不认「变速 `setpts` 之后接 `xfade`」（帧率被标成 1/0，退出码 234，任何一镜被调速整片合成就失败）、②没有 `drawtext`（封面标题 / 片尾卡 / AI 角标起不来）。构建期会自证这两点，不过就拒绝构建。macOS 上的 ffmpeg-static 是 6.0，两个问题本机都复现不了。
+- 从源码装在 Linux 上（`npm install`）时用的仍是 ffmpeg-static 7.0.2：v13.6 已在合成滤镜链里给变速片段补了 `fps=24`，合成不再受影响；`drawtext` 相关功能需要自己装系统 ffmpeg 并照上面做软链接
 
 **ffmpeg 功能用途：**
 
@@ -278,7 +363,9 @@ data/
 │                    # URL = /api/serve-file?key=<key>
 │                    # S3 driver 时同时存本地副本（ffmpeg 消费需要）
 ├── composed/        # video-composer.ts 合成成片落盘（持久化）
-│                    # 文件名 = final-<timestamp>.mp4
+│                    # 文件名 = final-<timestamp>.mp4（完整合成）
+│                    #        / concat-<timestamp>.mp4（完整合成失败后的全硬切兜底）
+│                    # v13.6 起合成失败不再留下 0 字节的 final-*.mp4
 └── exports/         # 转码缓存（video-transcode.ts）
                      # 文件名 = <basename>-<resolution>.mp4
 legacy-aspect-repaired.json  # v13.3 旧项目画幅改正的账本(见 5.1;只有改过才会出现)
@@ -294,7 +381,7 @@ legacy-aspect-repaired.json  # v13.3 旧项目画幅改正的账本(见 5.1;只�
 | video-composer 中间帧/concat list | `os.tmpdir()` 子目录 | `services/video-composer.ts:398-400` |
 | storage 工具用 | `os.tmpdir()/qfmj-storage-tmp/` | `lib/storage.ts:215` |
 
-**Docker `VOLUME ['/app/data']`：** 整个 `data/` 被声明为 volume（`Dockerfile:52-53`），挂载时覆盖镜像内初始 `data/`。
+**Docker `VOLUME ['/app/data']`：** 整个 `data/` 被声明为 volume，挂载时覆盖镜像内初始 `data/`。容器以 `nextjs`（uid/gid 1001）运行，**绑定挂载的宿主目录必须对 1001 可写**，否则 SQLite 建不了库、登录一律 500（见「Docker 与 NAS 自托管」）。
 
 ## 9. 端口
 
@@ -325,7 +412,8 @@ legacy-aspect-repaired.json  # v13.3 旧项目画幅改正的账本(见 5.1;只�
 |------|------|------|----------|
 | `GET /api/runtime/readiness` | GET | 媒体引擎就绪度（演示模式判断） | 读各 provider 的 `available()`（仅检查 env key，不打网络）；返回 `{ engines, demoMode, level, stages, mockEngines }`；无缓存，每次实时计算 |
 | `GET /api/health/providers` | GET | 各 LLM/TTS/网关真实连通性探测 | 打网络（10 s 超时），60 s 缓存；探测 primary-llm、creative-llm、minimax-llm-fallback、minimax-tts、qingyuntop 网关、vectorengine 网关；`?fresh=1` 强制刷新；不回传 key |
-| `GET /`（首页） | GET | Docker HEALTHCHECK 实际探测目标 | `HEALTHCHECK CMD wget -qO- http://localhost:3100/`（`Dockerfile:60`），20 s start-period，30 s 间隔，5 s 超时，3 次重试 |
+| `GET /api/health` | GET | **Docker HEALTHCHECK 探测目标（v13.6 起）** | 数据库 `SELECT 1` + SQLite 数据目录/库文件可写 + 用 `JWT_SECRET` 签一枚不外发的令牌；全过 200，否则 503 + 原因代码（`db_unavailable` / `db_not_writable` / `jwt_secret_invalid`）；不打外网、不缓存。`HEALTHCHECK CMD wget -qO- http://localhost:3100/api/health`，60 s start-period，30 s 间隔，5 s 超时，3 次重试 |
+| `GET /`（首页） | GET | v13.6 之前的 HEALTHCHECK 目标 | 静态壳，不碰数据库也不签令牌 —— 数据目录属主不对、没设 JWT_SECRET 时照样 200，所以换掉了 |
 
 **启动顺序注意事项：**
 
@@ -590,13 +678,13 @@ BETA_INVITE_REQUIRED=false
 MOCK_ENGINES=1
 ```
 
-> JWT_SECRET 不设时开发环境使用内置兜底值（公开已知），本地 dev 可接受；生产必须修改。
+> JWT_SECRET 不设时，开发环境生成**进程级随机密钥**（重启即失效，需重新登录）；生产环境不设或用占位串，登录一律 500。
 
 ## 生产必改集（部署前务必设置）
 
 | 变量名 | 原因 |
 |---|---|
-| `JWT_SECRET` | 源码内置兜底值是公开的，`NODE_ENV=production` 未设直接 fail-fast 抛错 |
+| `JWT_SECRET` | `NODE_ENV=production` 下未设或用了公开占位串，签发/校验令牌时直接抛错 → 登录 500，`/api/health` 返回 503 |
 | `DB_DRIVER=pg` + `DATABASE_URL` | 生产推荐 PostgreSQL，SQLite 不支持多实例并发写入 |
 | `OPENAI_API_KEY` | LLM 必须能调通，否则脚本/导演/质检全挂 |
 | `MINIMAX_API_KEY` | 视频生成 + TTS 主路径 + LLM 兜底，缺失则大量功能降级 |
@@ -606,8 +694,26 @@ MOCK_ENGINES=1
 | `SENTRY_DSN` | 生产错误追踪；不配则只打 console，错误无可观测性 |
 | `RESEND_API_KEY` 或 `SENDGRID_API_KEY` | 用户邀请/通知邮件必须能发出 |
 | `S3_*`（4 个）| `STORAGE_DRIVER=s3` 时必填，否则资产只存本地盘（多实例无法共享） |
-| `JWT_SECRET`（重申）| 生产环境唯一 fail-fast 变量，遗漏会导致服务启动后所有认证接口崩溃 |
+| `JWT_SECRET`（重申）| 生产环境唯一 fail-fast 变量：服务照样能起、首页照样 200，但所有认证接口 500 |
 
 ## 矩阵盘点备注
 
-1. JWT_SECRET 是全仓唯一 fail-fast 变量：app/api/auth/lib.ts 的 getJwtSecret() 在 NODE_ENV=production 且变量缺失时直接 throw，任何认证请求都会 500。源码内置兜底值 'qingfeng-manju-secret' 已公开在仓库中，任何人可用它伪造任意用户（包括 admin）的 JWT。\n\n2. .env.example 写的是 NEXT_PUBLIC_SENTRY_DSN，但 lib/telemetry.ts 实际读取的是 SENTRY_DSN（无 NEXT_PUBLIC_ 前缀）。两者均出现在代码中但作用不同，部署时应设 SENTRY_DSN（服务端）。\n\n3. DB_DRIVER 默认值在 lib/db-driver.ts 写死为 'sqlite'，但 v9.0.5 任务备注已将「推荐默认」切换为 pg；SQLite 驱动不支持跨进程并发写入，生产多实例部署必须用 pg。\n\n4. model_overrides 表（DB）的覆盖优先级高于 .env 文件：loadModelOverridesIntoEnv() 在 instrumentation.ts 启动时回写 process.env，因此即使 .env 中设了 OPENAI_MODEL，DB 表中有对应记录时也会被覆盖，调试时需注意。\n\n5. QINGYUNTOP_API_KEY 和 VEO_API_KEY 在图像路由（lib/image-providers/builtins.ts）中存在三路回退：QINGYUNTOP_API_KEY → VEO_API_KEY → OPENAI_API_KEY，意味着仅设 OPENAI_API_KEY 也会被尝试作为图像生成密钥。\n\n6. VECTORENGINE_API_KEY 和 KELING_API_KEY 互为别名（lib/tts-providers/vectorengine-tts.ts 和 lib/model-scan.ts 均做了 VECTORENGINE_API_KEY || KELING_API_KEY 回退），设任意一个都能启用 vectorengine-tts。\n\n7. ENABLE_REPLICATE / ENABLE_ELEVENLABS / ENABLE_RUNWAY 三个插件开关必须与对应密钥同时设置（代码用 && 判断），单独设开关不生效。\n\n8. PIPELINE_QUEUE=1 启用的是后台队列入队逻辑，但 queue worker 进程需要单独启动（非 Next.js 内置），生产环境需确保 worker 进程运行，否则任务入队后不会被消费。\n\n9. REDIS_URL 缺失时 event-bus 静默降级为进程内 EventEmitter，多实例部署下不同实例间的评论通知、流水线进度事件完全不互通，但应用不会报错，容易被忽视。\n\n10. APP_URL（无 NEXT_PUBLIC_ 前缀）和 NEXT_PUBLIC_APP_URL 是两个不同变量：前者用于 mock provider 内部拼 URL，后者用于 Stripe 回调，生产部署时两者通常应该设成相同的域名值。"
+1. JWT_SECRET 是全仓唯一 fail-fast 变量：app/api/auth/lib.ts 的 getJwtSecret() 在 NODE_ENV=production 且变量缺失或命中占位串黑名单时直接 throw，任何认证请求都会 500（服务本身照样能起、首页照样 200）。历史上的源码内置兜底串已在 v12.219 删除，开发环境改为进程级随机密钥。
+
+2. .env.example 写的是 NEXT_PUBLIC_SENTRY_DSN，但 lib/telemetry.ts 实际读取的是 SENTRY_DSN（无 NEXT_PUBLIC_ 前缀）。两者均出现在代码中但作用不同，部署时应设 SENTRY_DSN（服务端）。
+
+3. DB_DRIVER 默认值在 lib/db-driver.ts 写死为 'sqlite'，但 v9.0.5 任务备注已将「推荐默认」切换为 pg；SQLite 驱动不支持跨进程并发写入，生产多实例部署必须用 pg。
+
+4. model_overrides 表（DB）的覆盖优先级高于 .env 文件：loadModelOverridesIntoEnv() 在 instrumentation.ts 启动时回写 process.env，因此即使 .env 中设了 OPENAI_MODEL，DB 表中有对应记录时也会被覆盖，调试时需注意。
+
+5. QINGYUNTOP_API_KEY 和 VEO_API_KEY 在图像路由（lib/image-providers/builtins.ts）中存在三路回退：QINGYUNTOP_API_KEY → VEO_API_KEY → OPENAI_API_KEY，意味着仅设 OPENAI_API_KEY 也会被尝试作为图像生成密钥。
+
+6. VECTORENGINE_API_KEY 和 KELING_API_KEY 互为别名（lib/tts-providers/vectorengine-tts.ts 和 lib/model-scan.ts 均做了 VECTORENGINE_API_KEY || KELING_API_KEY 回退），设任意一个都能启用 vectorengine-tts。
+
+7. ENABLE_REPLICATE / ENABLE_ELEVENLABS / ENABLE_RUNWAY 三个插件开关必须与对应密钥同时设置（代码用 && 判断），单独设开关不生效。
+
+8. PIPELINE_QUEUE=1 时队列 worker **就在 Next.js 进程里**随开机启动（instrumentation.ts），不需要另起进程；未设时延迟到首个 create-stream 请求才懒启动（见第 11 节第 4 条）。单机部署建议设上，容器重启后未完成的任务会自动续跑。
+
+9. REDIS_URL 缺失时 event-bus 静默降级为进程内 EventEmitter，多实例部署下不同实例间的评论通知、流水线进度事件完全不互通，但应用不会报错，容易被忽视。
+
+10. APP_URL（无 NEXT_PUBLIC_ 前缀）和 NEXT_PUBLIC_APP_URL 是两个不同变量：前者用于 mock provider 内部拼 URL，后者用于 Stripe 回调，生产部署时两者通常应该设成相同的域名值。

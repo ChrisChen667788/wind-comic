@@ -8,7 +8,8 @@
 #    3. runner  — 最小运行时(含 ffmpeg + sqlite3,非 root 用户)
 #
 #  构建:  docker build -t ai-comic-studio .
-#  运行:  docker run -p 3100:3100 --env-file .env.local ai-comic-studio
+#  运行:  docker run -p 3100:3100 --env-file .env -v ./data:/app/data ai-comic-studio
+#         (自托管 / NAS 见 deploy/docker-compose.yml 与 docs/DEPLOYMENT.md)
 # ═══════════════════════════════════════════════════════════════
 
 ARG NODE_VERSION=20-alpine
@@ -91,6 +92,30 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 # 本地测试照样全绿(本地 cwd 下目录一直在)。与上面 drizzle 那行是同一类「拷贝清单」问题。
 COPY --from=builder --chown=nextjs:nodejs /app/skills ./skills
 
+# v13.6:合成一律用上面 apk 装的系统 ffmpeg,不用 npm 随包的 ffmpeg-static。
+#
+# 代码里十几处都按「ffmpeg-static 优先」解析二进制(services/video-composer.ts 等),于是这个镜像
+# 明明 apk 装了 ffmpeg 8,合成用的却是 node_modules 里 johnvansickle 的静态版 7.0.2 —— 而它:
+#   ① 不认「变速 setpts 之后接 xfade」(帧率被标成 1/0,退出码 234):任何一镜被调速,整片合成失败,
+#      只剩全硬切 concat 兜底。零 key 演示(docker-compose.demo.yml)每次都撞,v13.1 实测;
+#   ② 没有 drawtext 滤镜:封面标题、片尾卡、AI 角标在这个镜像里全都起不来;
+#   ③ 自带一套 fontconfig,上面那道中日韩字体自证验的是系统 fc-match,管不到它。
+# 换成指向系统 ffmpeg 的软链接 —— 所有调用方不改一行就一起换过去(macOS 上的 ffmpeg-static 是 6.0,
+# 本机从来复现不了)。两边滤镜清单比过:系统版只少 rubberband/frei0r/dnn_* 等,代码一个都没用。
+# 下面同样让构建自己证明:缺 drawtext、或变速后接 xfade 起不来,就让镜像构建失败。
+RUN set -e; \
+    ln -sf /usr/bin/ffmpeg /app/node_modules/ffmpeg-static/ffmpeg; \
+    ff=/app/node_modules/ffmpeg-static/ffmpeg; \
+    if ! "$ff" -hide_banner -filters 2>/dev/null | grep -qw drawtext; then \
+      echo "❌ 合成用的 ffmpeg 没有 drawtext —— 封面标题/片尾卡会起不来,拒绝构建"; exit 1; \
+    fi; \
+    if ! "$ff" -v error -f lavfi -i color=c=red:s=64x64:d=2:r=24 -f lavfi -i color=c=blue:s=64x64:d=2:r=24 \
+         -filter_complex "[0:v]fps=24[a];[1:v]fps=24,setpts=0.870*PTS,fps=24[b];[a][b]xfade=transition=fade:duration=0.5:offset=1.5[v]" \
+         -map "[v]" -f null -; then \
+      echo "❌ 合成用的 ffmpeg 跑不通合成器的「变速 → xfade」滤镜链 —— 有调速镜头的成片会合成失败,拒绝构建"; exit 1; \
+    fi; \
+    echo "✅ 合成用的 ffmpeg 自证通过:$("$ff" -version | head -1 | cut -d' ' -f1-3)"
+
 # SQLite 数据目录(volume mount)
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 VOLUME ["/app/data"]
@@ -98,8 +123,10 @@ VOLUME ["/app/data"]
 USER nextjs
 EXPOSE 3100
 
-# 健康检查 — 命中首页或 /api/health
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget -qO- http://localhost:3100/ >/dev/null 2>&1 || exit 1
+# 健康检查 —— v13.6 起探 /api/health(数据库可读写 + JWT 密钥可用),不再探首页。
+# 首页是静态壳:数据目录属主不对、没设 JWT_SECRET、用了占位密钥这三种「登录必 500」,
+# 首页全都照样 200、容器照样 healthy(v13.1 NAS 实测)。首次启动要建表 + 迁移,start-period 放宽到 60s。
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD wget -qO- http://localhost:3100/api/health >/dev/null 2>&1 || exit 1
 
 CMD ["npm", "run", "start"]

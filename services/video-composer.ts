@@ -14,6 +14,8 @@ import ffmpegPath from 'ffmpeg-static';
 import path from 'path';
 import { audioBitrateForPlatform } from '@/lib/audio-encode';
 import { buildColorGradeFilter, detectGradeGenre } from '@/lib/color-grade';
+// v13.6:原先是变速分支里的 require('@/lib/speed-curve') —— vitest 解析不了别名,这条分支从没在测试里跑过
+import { speedCurveToSetpts, climaxRamp } from '@/lib/speed-curve';
 // v12.205:成片质量参数(env 可调)。CRF 23→20 减双重编码损耗(暗部/边缘细节);unsharp 轻锐化补 AI 视频糊边。
 const crfValue = (): string => process.env.CRF_QUALITY || '20';
 const unsharpFilter = (): string => process.env.UNSHARP_DISABLE === '1' ? '' : 'unsharp=luma_msize_x=3:luma_msize_y=3:luma_amount=0.3';
@@ -25,6 +27,35 @@ const aiWatermarkFilter = (): string => {
   const txt = (process.env.AI_WATERMARK_TEXT || 'AI-GENERATED').replace(/[\\:'%]/g, '').slice(0, 32);
   return `drawtext=text='${txt}':fontcolor=white@0.75:fontsize=h/32:x=w-tw-14:y=14:box=1:boxcolor=black@0.35:boxborderw=6`;
 };
+/**
+ * v13.6:变速片段 —— `setpts` 之后必须把帧率重新钉成恒定值。
+ *
+ * ffmpeg 7.0.x 把 `setpts=0.870*PTS` 的输出帧率标成**未知(1/0)**,紧接着的 xfade 要求两路帧率一致,
+ * 于是整张滤镜图起不来:「second input link xfade frame rate (1/0)」→ 退出码 234,成片合成失败,
+ * 只剩全硬切的 concat 兜底(转场、字幕、配乐、响度归一全丢)。任何一镜被调速(高光慢放 / 过渡段加速)就会撞上。
+ * 6.0(macOS 上的 ffmpeg-static)和 8.x 都放行,所以本机一直绿 —— 只在 Linux 的 ffmpeg-static 7.0.2
+ *(CI、从源码装在 Linux 上的部署)里炸。慢放补帧、加速丢帧,时长不变。
+ */
+export const COMPOSE_FPS = 24;
+/** fps 必须传**这条路径画布链上用的那个帧率**:补成别的值,被调速的镜和其余镜帧率又对不上,xfade 照样拒收。 */
+export function speedChangeFilter(setptsExpr: string, fps: number): string {
+  return `,setpts=${setptsExpr},fps=${fps}`;
+}
+/** 合成失败时 ffmpeg 已经建好输出文件:不删就在 data/composed/ 留下一个 0 字节的 final-*.mp4,看上去像成片。 */
+export function removeFailedOutput(p: string): void {
+  try { fs.unlinkSync(p); } catch { /* 没建出来就算了 */ }
+}
+/** 从 ffmpeg stderr 里挑出报错行(滤镜/编码器报错),去掉进度行;取前 4 条。 */
+export function ffmpegErrorDigest(stderr: unknown): string {
+  if (typeof stderr !== 'string' || !stderr) return '';
+  return stderr
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => /error|invalid|no such filter|do not match|failed to configure|not found/i.test(l) && !/^frame=/.test(l))
+    .slice(0, 4)
+    .join(' | ')
+    .slice(0, 800);
+}
 import fs from 'fs';
 import { audioUrlLoadKind } from '@/lib/audio-url';
 import { impactSfxNode } from '@/lib/impact-sfx'; // v12.13.1 打击音效程序化合成
@@ -1198,18 +1229,17 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       const _grade1 = buildColorGradeFilter(detectGradeGenre(options.editStyle));
       const _us1 = unsharpFilter();
       const _aiwm1 = aiWatermarkFilter();
-      let videoFilter = `[0:v]trim=0:${trimTo0.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=24,setsar=1${_us1 ? ',' + _us1 : ''}${_grade1 ? ',' + _grade1 : ''}${_aiwm1 ? ',' + _aiwm1 : ''}`;
+      let videoFilter = `[0:v]trim=0:${trimTo0.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=${COMPOSE_FPS},setsar=1${_us1 ? ',' + _us1 : ''}${_grade1 ? ',' + _grade1 : ''}${_aiwm1 ? ',' + _aiwm1 : ''}`;
       if (speed !== 1.0 && speed > 0) {
         const pts = 1.0 / speed;
         {
         // v12.185:速度曲线 —— 高潮 S 形 ramp 重塑视频内部节奏(正常进→中段慢放→回速);
         // 音频/时长仍按线性 speed 口径(ramp 平均速与线性差 <8%,尾部由 trim 兜底),不动全链对齐。
-        const { speedCurveToSetpts, climaxRamp } = require('@/lib/speed-curve') as typeof import('@/lib/speed-curve');
         const _c: any = validClips[0];
         const _dur = Number(_c?.duration) || 0;
         const _curve = _c?.speedCurve || (_c?._wantClimaxRamp && _dur >= 2.4 ? climaxRamp(_dur) : null);
         const _expr = _curve ? speedCurveToSetpts(_curve, _dur) : null;
-        videoFilter += _expr ? `,setpts=${_expr}` : `,setpts=${pts.toFixed(3)}*PTS`;
+        videoFilter += speedChangeFilter(_expr || `${pts.toFixed(3)}*PTS`, COMPOSE_FPS);
       }
         durations[0] = durations[0] / speed;
         console.log(`[Composer] Single clip speed=${speed}x → duration=${durations[0].toFixed(1)}s${isHL ? ' [HIGHLIGHT]' : ''}`);
@@ -1276,7 +1306,13 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
               : [],            // v12.298 单镜也要回写终值时长
           });
         })
-        .on('error', reject)
+        .on('error', (err, _stdout, stderr) => {
+          console.error('[Composer] FFmpeg error:', err.message);
+          const cause = ffmpegErrorDigest(stderr); // v13.6:与多镜路径同样打出病因行
+          if (cause) console.error('[Composer] FFmpeg 报错原文:', cause);
+          removeFailedOutput(outputPath);
+          reject(err);
+        })
         .run();
     });
   }
@@ -1313,7 +1349,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       const trimTo = Math.min(durations[i], sourceDurations[i]);
       const _us = unsharpFilter();
       const _aiwm = aiWatermarkFilter();
-      let videoFilter = `[${i}:v]trim=0:${trimTo.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=24,setsar=1${_us ? ',' + _us : ''}${_grade ? ',' + _grade : ''}${_aiwm ? ',' + _aiwm : ''}`;
+      let videoFilter = `[${i}:v]trim=0:${trimTo.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=${COMPOSE_FPS},setsar=1${_us ? ',' + _us : ''}${_grade ? ',' + _grade : ''}${_aiwm ? ',' + _aiwm : ''}`;
 
       // 高光变速：setpts 调整视频播放速度（<1 = 加速, >1 = 减速）
       if (speed !== 1.0 && speed > 0) {
@@ -1321,12 +1357,11 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         {
         // v12.185:速度曲线 —— 高潮 S 形 ramp 重塑视频内部节奏(正常进→中段慢放→回速);
         // 音频/时长仍按线性 speed 口径(ramp 平均速与线性差 <8%,尾部由 trim 兜底),不动全链对齐。
-        const { speedCurveToSetpts, climaxRamp } = require('@/lib/speed-curve') as typeof import('@/lib/speed-curve');
         const _c: any = validClips[i];
         const _dur = Number(_c?.duration) || 0;
         const _curve = _c?.speedCurve || (_c?._wantClimaxRamp && _dur >= 2.4 ? climaxRamp(_dur) : null);
         const _expr = _curve ? speedCurveToSetpts(_curve, _dur) : null;
-        videoFilter += _expr ? `,setpts=${_expr}` : `,setpts=${pts.toFixed(3)}*PTS`;
+        videoFilter += speedChangeFilter(_expr || `${pts.toFixed(3)}*PTS`, COMPOSE_FPS);
       }
         // 调整该片段的有效时长
         durations[i] = durations[i] / speed;
@@ -1690,9 +1725,13 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
           skippedShots,        // v12.310 少了哪几镜,调用方要说出来
         }));
       })
-      .on('error', (err) => {
+      .on('error', (err, _stdout, stderr) => {
         console.error('[Composer] FFmpeg error:', err.message);
+        // v13.6:err.message 只有末尾的「Conversion failed!」,病因那行在 stderr 前面 —— 一并打出来
+        const cause = ffmpegErrorDigest(stderr);
+        if (cause) console.error('[Composer] FFmpeg 报错原文:', cause);
         // 清理
+        removeFailedOutput(outputPath);
         for (const f of localClips) {
           try { fs.unlinkSync(f); } catch {}
         }

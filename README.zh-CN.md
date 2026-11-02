@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v13.5</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.6</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -258,7 +258,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **6635 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **6675 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -403,13 +403,16 @@ KPI 卡: 平均冲突分 / 反转数 / 通过状态. 每镜柱状图 + 反转 ar
 ### 零 key 试用(一条命令,**不需要任何 API key**)
 
 ```bash
-docker run -p 3100:3100 -e MOCK_ENGINES=1 -e JWT_SECRET=demo -e NEXTAUTH_SECRET=demo \
+docker run -p 3100:3100 -v wind-comic-demo:/app/data \
+  -e MOCK_ENGINES=1 -e JWT_SECRET=demo-only-not-for-production -e DEMO_PASSWORD=wind-comic-demo \
   ghcr.io/chrischen667788/wind-comic:latest
 ```
 
-然后打开 <http://localhost:3100>。**不需要 clone、不需要 npm install、不需要本地构建。**
+然后打开 <http://localhost:3100>,用 **`demo@qfmanju.ai`** / **`wind-comic-demo`** 登录。**不需要 clone、不需要 npm install、不需要本地构建。**
+(不设 `DEMO_PASSWORD` 的话,demo 账号的密码是首启时随机生成、只在 `docker logs` 里打印**一次**;注册默认要邀请码。)
+想直接看一个现成的示例工程,在「我的项目」页点 **「导入演示工程《雨夜信号》」**。
 
-想连着 compose 一起跑(带演示工程):
+想用 compose 跑(效果一样,登录方式一样):
 
 ```bash
 docker compose -f docker-compose.demo.yml up
@@ -419,6 +422,44 @@ docker compose -f docker-compose.demo.yml up
 > 用来展示**流水线与产品形态**,**不代表真实生成质量**。产物均带 mock 标识 ——
 > 拿占位片冒充成片,正是这个项目一直在消灭的那种事。想看真实质量,配一个 key 即可切真引擎。
 
+### 自托管:NAS / 家用服务器(Docker Compose)
+
+实测可用的单机配置在 [`deploy/`](deploy/):[`docker-compose.yml`](deploy/docker-compose.yml) + [`.env.example`](deploy/.env.example)。
+完整步骤、群晖说明与排障见 [`docs/DEPLOYMENT.md` →「Docker 与 NAS 自托管」](docs/DEPLOYMENT.md#docker-与-nas-自托管)。
+
+```bash
+mkdir -p wind-comic && cd wind-comic
+curl -fsSLO https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/deploy/docker-compose.yml
+curl -fsSL  https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/deploy/.env.example -o .env
+# 编辑 .env:JWT_SECRET=$(openssl rand -hex 32) 的结果、DEMO_PASSWORD=<你的密码>
+mkdir -p data && sudo chown -R 1001:1001 data   # 容器以 uid/gid 1001 运行
+docker compose up -d
+curl http://localhost:3100/api/health           # {"ok":true,"checks":{"db":"ok","auth":"ok"}}
+```
+
+**硬件要求(v13.6 镜像实测)**
+
+| | |
+|---|---|
+| 架构 | `linux/amd64` 或 `linux/arm64` —— **不支持 32 位 ARM**。不需要显卡(生成全走 API,ffmpeg 用 CPU)。 |
+| CPU | 2 核即可;核数只影响最后合成成片的速度(6 镜 30 秒 720p:2 核约 16 秒,4 核约 10 秒)。 |
+| 内存 | 空闲 **70–120 MB**。合成 6 镜 30 秒成片(转场 + 中文字幕 + 响度归一)时整容器峰值:**720p ≈ 0.95 GB**,**竖屏 1080×1920 ≈ 1.75 GB**。低于这个合成会被 OOM 杀(实测 768 MB 杀 720p、1 GB 杀竖屏)。实测最低能过 1 GB / 2 GB —— **建议给容器 720p 至少 1.5 GB、竖屏 1080p 至少 2.5 GB**。 |
+| 磁盘 | 镜像下载约 **830 MB**、解压约 **3 GB**;另给 `data/` 留素材和成片的空间(10 GB 以上比较从容)。 |
+
+**首页能打开、登录却返回 500?** 先看 `docker logs wind-comic`,几乎都是这三种之一:
+
+| 日志 | 原因 | 修法 |
+|---|---|---|
+| `SqliteError: unable to open database file`(`SQLITE_CANTOPEN`) | `data/` 属于 NAS 上你的账号(群晖默认 `1026:100`),容器用户是 `1001:1001`,写不进去 | `sudo chown -R 1001:1001 data`,或把 `./data` 换成命名卷 |
+| `[auth] JWT_SECRET 未设置` | 没设 `JWT_SECRET` | 用 `openssl rand -hex 32` 生成后填进 `.env`,重建容器 |
+| `[auth] JWT_SECRET 是公开占位/弱默认值` | `JWT_SECRET` 用了示例里的占位串 | 同上,换成真随机串 |
+
+v13.6 起容器健康检查探 `/api/health`(数据库可读写 + JWT 密钥可用),这三种情况都会显示 **unhealthy**,不会再出现「容器绿着、谁都登不进去」。
+
+**首次登录与首次创作**:第一个账号是 `demo@qfmanju.ai`,密码就是 `DEMO_PASSWORD`(事后补设再重启,密码会自动改成它)。注册默认要邀请码,设 `BETA_INVITE_REQUIRED=false` 可关(只在你信任的内网里这么做)。新账号是免费档,**月预算 ¥5**,而一部真引擎成片的预检估价是 ¥11.6–18.8(默认 8 镜,视视频引擎而定),会被直接拦下 —— 到 `/dashboard/usage` 把「月预算 ¥」调高即可(输入框失焦即保存)。
+**局域网里的其他设备**直接打开 `http://<NAS 局域网 IP>:3100` 就能登录和创作 —— v13.5 起会话 cookie 只在请求是 HTTPS 时才加 `Secure`(`COOKIE_SECURE=auto`,默认值)。纯 HTTP 下会话令牌明文传输,只在你信任的内网这样用;**从公网访问请放到 HTTPS 后面**(Caddy / Traefik,或转发 `X-Forwarded-Proto` 的 nginx)。详见 [`docs/DEPLOYMENT.md` →「会话 Cookie 与 HTTPS」](docs/DEPLOYMENT.md#12-会话-cookie-与-https)。
+
+### 完整安装(真引擎,从源码跑)
 
 ```bash
 # 1. 拉代码 + 装依赖
@@ -462,7 +503,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 6635/6635 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 6675/6675 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

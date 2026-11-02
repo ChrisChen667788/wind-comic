@@ -35,14 +35,20 @@ services:
       APP_URL: "http://localhost:3100"
       # 演示用固定密钥(仅本地 demo;真部署必须换掉)
       JWT_SECRET: "demo-only-not-for-production"
-      NEXTAUTH_SECRET: "demo-only-not-for-production"
       PORT: "3100"
       NODE_ENV: "production"
-      # 让首跑就有东西看,而不是一个空工作台
-      SEED_DEMO_PROJECT: "1"
+      # v13.6:首个能登录的账号 = demo@qfmanju.ai,密码就是这一行。
+      # 不设的话密码是首启时随机生成、只在容器日志里打一次,而注册默认要邀请码 ——
+      # 「打开就能试」的第一步其实是去翻日志。可用 `DEMO_PASSWORD=xxx docker compose ... up` 覆盖。
+      DEMO_PASSWORD: "${DEMO_PASSWORD:-wind-comic-demo}"
+      # v13.6 删掉两行没有读者的设置:
+      #   NEXTAUTH_SECRET —— 代码里一处都不读(项目不用 NextAuth,会话密钥只有 JWT_SECRET);
+      #   SEED_DEMO_PROJECT —— 只有 scripts/seed-demo.mjs 读,而镜像启动命令是 `next start`,从不执行它。
+      #   示例工程请在「我的项目」页点「导入演示工程」(POST /api/demo-project,每人一份)。
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ >/dev/null 2>&1 || exit 1"]
+      # v13.6:探 /api/health(数据库可读写 + JWT 可用),首页 200 不代表能登录
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/api/health >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
-      start_period: 40s
+      start_period: 60s

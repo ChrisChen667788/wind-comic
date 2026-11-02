@@ -1,0 +1,41 @@
+# deploy/docker-compose.yml — Wind Comic 自托管 / NAS 单机部署(v13.6,实测通过)
+#
+# 用法(详见 docs/DEPLOYMENT.md「Docker / NAS 自托管」):
+#   1. 把本文件和同目录的 .env.example 放进一个目录,例如群晖的 /volume1/docker/wind-comic/
+#   2. cp .env.example .env,至少填好 JWT_SECRET 和 DEMO_PASSWORD
+#   3. mkdir -p data && sudo chown -R 1001:1001 data
+#        容器里的用户是 nextjs(uid 1001,gid 1001)。NAS 上新建的目录属于你的账号
+#        (群晖默认 1026:100),容器写不进去 → SQLite 打不开 → 登录一律 500。
+#        不方便 SSH 的话,把下面的 ./data 换成命名卷(见注释),Docker 会自己建好属主正确的卷。
+#   4. docker compose up -d   (旧版群晖是 docker-compose up -d)
+#   5. 等健康检查变 healthy:docker ps 里 STATUS 带 (healthy);
+#      或 curl http://localhost:3100/api/health 返回 {"ok":true,...}
+#   6. 浏览器打开 http://<NAS 局域网 IP>:3100,用 demo@qfmanju.ai + DEMO_PASSWORD 登录
+#
+# 资源(v13.6 镜像实测,arm64 / 2 核与 4 核):镜像下载约 830 MB、解压约 3 GB;空闲 70–120 MB;
+# 合成 6 镜 30 秒成片时整容器峰值 720p ≈ 0.95 GB、竖屏 1080×1920 ≈ 1.75 GB。给容器的内存低于这个会被 OOM 杀
+#(实测 768 MB 杀 720p、1 GB 杀竖屏);建议 720p 至少 1.5 GB、竖屏 1080p 至少 2.5 GB。不需要显卡。
+# 只发布 amd64 / arm64,没有 32 位 ARM。
+services:
+  wind-comic:
+    # :latest 跟随 main;要固定版本就写打过 GitHub Release 的版本号(例:13.0.0 —— 不带 v)
+    image: ghcr.io/chrischen667788/wind-comic:latest
+    container_name: wind-comic
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3100"
+    volumes:
+      # 数据库、素材、成片全在这里。不挂载 = 删容器即丢数据
+      - ./data:/app/data
+      # 命名卷写法(免 chown):把上一行换成下面这行,并取消文件末尾 volumes: 两行的注释
+      # - wind-comic-data:/app/data
+    # 想限制内存的话,720p 至少 1536m、竖屏 1080p 至少 2560m(见文件头实测数字)
+    # mem_limit: 2560m
+    # 健康检查用镜像自带的(v13.6 起探 /api/health:数据库可读写 + JWT 密钥可用)
+
+# volumes:
+#   wind-comic-data:

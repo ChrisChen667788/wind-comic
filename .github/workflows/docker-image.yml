@@ -44,6 +44,9 @@ on:
       - 'services/**'
       - 'components/**'
       - 'scripts/**'
+      # v13.6:镜像也拷了这两个目录(skills/ 是 v12.437 起运行时读的导演技能库),改了却不重建镜像
+      - 'skills/**'
+      - 'public/**'
       - '.github/workflows/docker-image.yml'
   workflow_dispatch:
 
@@ -131,7 +134,7 @@ jobs:
           docker run -d --name smoke -p 3100:3100 \
             -e MOCK_ENGINES=1 \
             -e JWT_SECRET=ci-smoke-not-for-prod \
-            -e NEXTAUTH_SECRET=ci-smoke-not-for-prod \
+            -e DEMO_PASSWORD=ci-smoke-demo-pass \
             "$IMAGE"
           for i in $(seq 1 40); do
             if curl -sf -o /dev/null http://localhost:3100/; then
@@ -141,6 +144,13 @@ jobs:
               docker exec smoke fc-match --format='%{family}' 'Noto Sans CJK SC' | grep -qi noto \
                 && echo "✅ 中文字幕字体在位" \
                 || { echo "❌ 运行期解析不到 CJK 字体"; exit 1; }
+              # v13.6:合成用的 ffmpeg 是系统版(软链接),要有 drawtext
+              docker exec smoke sh -c 'node_modules/ffmpeg-static/ffmpeg -hide_banner -filters 2>/dev/null | grep -qw drawtext' \
+                && echo "✅ 合成用的 ffmpeg 带 drawtext" \
+                || { echo "❌ 合成用的 ffmpeg 没有 drawtext"; exit 1; }
+              # v13.6:首页能开 ≠ 能登录、能出片。v13.1 就是首页绿、容器 healthy,零 key 演示每次合成失败。
+              # 这一步像新用户一样走一遍:健康检查 → 登录 → 创作 → 拿成片 → ffprobe 量。
+              DEMO_PASSWORD=ci-smoke-demo-pass bash scripts/docker-demo-smoke.sh smoke http://localhost:3100
               docker rm -f smoke >/dev/null
               exit 0
             fi

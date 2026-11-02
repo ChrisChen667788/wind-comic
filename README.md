@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v13.5</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.6</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-6635%2F6635-2ea44f"  alt="6635 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-6675%2F6675-2ea44f"  alt="6675 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -283,7 +283,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **6635 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **6675 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -553,13 +553,16 @@ Every model call is provider-pluggable (priority chain + automatic fallback). Cr
 ### Zero-key trial (one command, **no API key needed**)
 
 ```bash
-docker run -p 3100:3100 -e MOCK_ENGINES=1 -e JWT_SECRET=demo -e NEXTAUTH_SECRET=demo \
+docker run -p 3100:3100 -v wind-comic-demo:/app/data \
+  -e MOCK_ENGINES=1 -e JWT_SECRET=demo-only-not-for-production -e DEMO_PASSWORD=wind-comic-demo \
   ghcr.io/chrischen667788/wind-comic:latest
 ```
 
-Then open <http://localhost:3100>. **No clone, no npm install, no local build.**
+Then open <http://localhost:3100> and sign in as **`demo@qfmanju.ai`** / **`wind-comic-demo`**. **No clone, no npm install, no local build.**
+(Without `DEMO_PASSWORD` the demo account gets a random password that is printed **once** in `docker logs`, and sign-up needs an invite code by default.)
+For a ready-made sample project, click **「导入演示工程《雨夜信号》」** on the Projects page.
 
-Prefer compose (also seeds a demo project):
+Prefer compose (same thing, same demo login):
 
 ```bash
 docker compose -f docker-compose.demo.yml up
@@ -570,6 +573,43 @@ docker compose -f docker-compose.demo.yml up
 > **not representative of real generation quality**. Every artifact is labelled as mock — passing a
 > placeholder off as a finished film is exactly the thing this project keeps hunting down.
 > Add a single API key to switch to real engines.
+
+### Self-host on a NAS / home server (Docker Compose)
+
+A verified single-box setup lives in [`deploy/`](deploy/): [`docker-compose.yml`](deploy/docker-compose.yml) + [`.env.example`](deploy/.env.example).
+Full walkthrough, Synology notes and troubleshooting: [`docs/DEPLOYMENT.md` → Docker 与 NAS 自托管](docs/DEPLOYMENT.md#docker-与-nas-自托管).
+
+```bash
+mkdir -p wind-comic && cd wind-comic
+curl -fsSLO https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/deploy/docker-compose.yml
+curl -fsSL  https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/deploy/.env.example -o .env
+# edit .env: JWT_SECRET=$(openssl rand -hex 32), DEMO_PASSWORD=<your password>
+mkdir -p data && sudo chown -R 1001:1001 data   # the container runs as uid/gid 1001
+docker compose up -d
+curl http://localhost:3100/api/health           # {"ok":true,"checks":{"db":"ok","auth":"ok"}}
+```
+
+**Hardware (measured on the v13.6 image)**
+
+| | |
+|---|---|
+| Architecture | `linux/amd64` or `linux/arm64` — **no 32-bit ARM**. No GPU needed (all generation is via APIs; ffmpeg runs on CPU). |
+| CPU | 2 cores work; more cores only make the final compose faster (6-shot 30 s film at 720p: ~16 s on 2 cores, ~10 s on 4). |
+| Memory | Idle **70–120 MB**. Composing a 6-shot, 30 s film (xfade + CJK subtitles + loudness normalisation) peaks at **≈ 0.95 GB at 720p** and **≈ 1.75 GB at 1080×1920** for the whole container. Below that the compose is OOM-killed (768 MB killed 720p; 1 GB killed vertical 1080p). Measured floor: 1 GB / 2 GB — **give the container ≥ 1.5 GB for 720p, ≥ 2.5 GB for vertical 1080p**. |
+| Disk | Image **~830 MB** download, **~3 GB** unpacked; plus room for assets and films under `data/` (10 GB+ is comfortable). |
+
+**Login returns 500 but the home page loads?** Check `docker logs wind-comic` — it is almost always one of three things:
+
+| Log line | Cause | Fix |
+|---|---|---|
+| `SqliteError: unable to open database file` (`SQLITE_CANTOPEN`) | `data/` is owned by your NAS user (Synology: `1026:100`), the container runs as `1001:1001` | `sudo chown -R 1001:1001 data`, or use a named volume instead of `./data` |
+| `[auth] JWT_SECRET 未设置` | `JWT_SECRET` not set | set it (`openssl rand -hex 32`) and recreate the container |
+| `[auth] JWT_SECRET 是公开占位/弱默认值` | `JWT_SECRET` is a placeholder copied from an example | same — generate a real one |
+
+From v13.6 the container health check probes `/api/health` (DB read/write + JWT key), so all three show up as **unhealthy** instead of a green container that cannot log anyone in.
+
+**First login & first creation**: the first account is `demo@qfmanju.ai` with your `DEMO_PASSWORD` (set it later and restart — the password is rotated to match). Sign-up needs an invite code unless you set `BETA_INVITE_REQUIRED=false` (only on a network you trust). New accounts are on the free tier with a **¥5 monthly budget**, which blocks a full real-engine film (pre-checked at ¥11.6–18.8 for the default 8 shots, depending on the video engine) — raise **「月预算 ¥」** at `/dashboard/usage` (saved when the field loses focus).
+**Other devices on your LAN** can open plain `http://<NAS-IP>:3100` directly — since v13.5 the session cookie only carries `Secure` when the request is HTTPS (`COOKIE_SECURE=auto`, the default). Plain HTTP sends the session token unencrypted, so keep that to a network you trust; **from the Internet, put it behind HTTPS** (Caddy / Traefik / nginx with `X-Forwarded-Proto`). Details: [`docs/DEPLOYMENT.md` → 会话 Cookie 与 HTTPS](docs/DEPLOYMENT.md#12-会话-cookie-与-https).
 
 ### Full setup (real engines)
 
@@ -616,7 +656,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 6635/6635 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 6675/6675 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 

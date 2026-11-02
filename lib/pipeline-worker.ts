@@ -111,8 +111,8 @@ async function runJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
       // 批量入队反复重生可无上限烧钱)。attempt>1 续跑不重复计费,故仅首次尝试检查。
       if (job.userId && job.attempts <= 1) {
         const { assertBudget } = await import('./budget-enforce');
-        const { estimatePipelineCostCny } = await import('./budget-estimate');
-        const b = await assertBudget({ userId: job.userId, pendingCostCny: estimatePipelineCostCny({}) });
+        const { pipelineCostForBudget } = await import('./mock-cost'); // v13.6:与 create-stream 同一判据
+        const b = await assertBudget({ userId: job.userId, pendingCostCny: pipelineCostForBudget({}) });
         if (!b.allow) throw new Error(`预算超限,任务拦截:${b.guard.message}`);
       }
       // v10.4.2: attempt>1 = 续跑 —— 断点装载,已有产物阶段跳过(不重复生成/计费)

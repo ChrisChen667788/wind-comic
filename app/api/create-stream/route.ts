@@ -31,8 +31,9 @@ export async function POST(request: NextRequest) {
     }
     const { assertBudget } = await import('@/lib/budget-enforce');
     // v12.172:动态估算(镜数×引擎秒单价;创建时剧本未出按 8 镜保守)—— 固定 ¥6 对 Kling 20 镜低估 5-10 倍
-    const { estimatePipelineCostCny } = await import('@/lib/budget-estimate');
-    const b = await assertBudget({ userId: uid, pendingCostCny: estimatePipelineCostCny({ videoProvider }) });
+    // v13.6:零 key 演示(mock 在主路且没有任何可用真引擎)预估就是 0 —— 否则 ¥18.8 估价撞 ¥5 免费档,第一次创作就 402
+    const { pipelineCostForBudget } = await import('@/lib/mock-cost');
+    const b = await assertBudget({ userId: uid, pendingCostCny: pipelineCostForBudget({ videoProvider }) });
     if (!b.allow) {
       return new Response(JSON.stringify({ error: b.guard.message, code: 'budget_exceeded', guard: b.guard }), { status: 402, headers: { 'Content-Type': 'application/json' } });
     }

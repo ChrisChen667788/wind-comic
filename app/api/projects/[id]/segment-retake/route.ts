@@ -117,9 +117,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // 会真花钱:预算护栏(与 regenerate-shot 同一口径,按本次要生成的秒数估)
   const { assertBudget } = await import('@/lib/budget-enforce');
-  const { estimatePipelineCostCny } = await import('@/lib/budget-estimate');
+  const { pipelineCostForBudget } = await import('@/lib/mock-cost'); // v13.6:零 key 演示(无可用真引擎)估 0,其余照常估价
   const videoProvider = typeof body?.videoProvider === 'string' ? body.videoProvider : undefined;
-  const pending = estimatePipelineCostCny({
+  const pending = pipelineCostForBudget({
     shotCount: 1, videoShots: 1, videoProvider, secondsPerShot: plan.generateDurationS, skipImages: true,
   });
   const b = await assertBudget({ userId: g.userId, pendingCostCny: pending });

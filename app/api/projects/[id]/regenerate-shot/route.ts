@@ -67,8 +67,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const uid = getUserFromRequest(request)?.sub;
     if (uid) {
       const { assertBudget } = await import('@/lib/budget-enforce');
-      const { estimatePipelineCostCny } = await import('@/lib/budget-estimate');
-      const pending = estimatePipelineCostCny({ shotCount: 1, videoShots: 1, videoProvider, secondsPerShot: 8, skipImages: true });
+      const { pipelineCostForBudget } = await import('@/lib/mock-cost'); // v13.6:零 key 演示(无可用真引擎)估 0,其余照常估价
+      const pending = pipelineCostForBudget({ shotCount: 1, videoShots: 1, videoProvider, secondsPerShot: 8, skipImages: true });
       const b = await assertBudget({ userId: uid, pendingCostCny: pending });
       if (!b.allow) return NextResponse.json({ error: b.guard.message, code: 'budget_exceeded', guard: b.guard }, { status: 402 });
     }

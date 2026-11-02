@@ -69,10 +69,10 @@ export async function POST(request: NextRequest) {
     }
     if (dryRun !== true) {
       const { assertBudget } = await import('@/lib/budget-enforce');
-      const { estimatePipelineCostCny } = await import('@/lib/budget-estimate');
+      const { pipelineCostForBudget } = await import('@/lib/mock-cost'); // v13.6:零 key 演示(无可用真引擎)估 0,其余照常估价
       const pending = shotNumber
-        ? estimatePipelineCostCny({ shotCount: 1, videoShots: 1, videoProvider, secondsPerShot: 8, skipImages: true })
-        : estimatePipelineCostCny({ videoProvider, skipImages: stage === 'failed-videos' });
+        ? pipelineCostForBudget({ shotCount: 1, videoShots: 1, videoProvider, secondsPerShot: 8, skipImages: true })
+        : pipelineCostForBudget({ videoProvider, skipImages: stage === 'failed-videos' });
       const b = await assertBudget({ userId: g.userId, pendingCostCny: pending });
       if (!b.allow) {
         return new Response(JSON.stringify({ error: b.guard.message, code: 'budget_exceeded', guard: b.guard }), { status: 402, headers: { 'Content-Type': 'application/json' } });
