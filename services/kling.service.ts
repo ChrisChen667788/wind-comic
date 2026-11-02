@@ -4,7 +4,7 @@
  */
 import {
   planMultiShot, worthMultiShot, multiShotBody,
-  KLING_MULTISHOT_MAX_SHOTS, KLING_MULTISHOT_TOTAL_MAX_SEC,
+  KLING_MULTISHOT_MAX_SHOTS, KLING_MULTISHOT_TOTAL_MAX_SEC, KLING_PROMPT_MAX_CHARS,
   type ShotSpec, type MultiShotPlan,
 } from '@/lib/kling-multishot';
 import { fetchWithTimeout } from '@/lib/fetch-timeout';
@@ -12,6 +12,17 @@ import { classifyPollStatus, terminalPollMessage } from '@/lib/poll-policy';
 import { API_CONFIG } from '@/lib/config';
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
+/**
+ * v12.197:官方硬限 prompt ≤2500 字(1201 报错实测)——超长裁断优于整镜失败。
+ * v13.9:原来 generateVideo / 首尾帧各写一遍,4K 重渲与 Elements 多图参考没写 —— 4K 以前只发资产名(「镜头 3」)
+ * 所以没暴露,改发分镜文字(本机库最长 3748 字)后就会整镜 1201。四处共用这一个;上限沿用多镜连贯的同一常量。
+ */
+export function clampKlingPrompt(prompt: string, tag: string): string {
+  if (prompt.length <= KLING_PROMPT_MAX_CHARS) return prompt;
+  console.warn(`[${tag}] prompt 超长 ${prompt.length} → 裁至 ${KLING_PROMPT_MAX_CHARS}`);
+  return prompt.slice(0, KLING_PROMPT_MAX_CHARS);
+}
 
 /** 带超时的 fetch */
 
@@ -152,8 +163,7 @@ export class KlingService {
       const maxSec = model.startsWith('kling-v3') ? 15 : 10;
       // camera_control 硬限 5s(探测),强制;否则按模型上限
       const duration = options?.cameraControl ? '5' : (wantSec > 10 && maxSec >= 15 ? '15' : wantSec > 5 ? '10' : '5');
-      // v12.197:官方硬限 prompt ≤2500 字(1201 报错实测)——超长裁断优于整镜失败
-      if (prompt.length > 2450) { console.warn(`[Kling] prompt 超长 ${prompt.length} → 裁至 2450`); prompt = prompt.slice(0, 2450); }
+      prompt = clampKlingPrompt(prompt, 'Kling'); // v12.197 官方硬限,见 clampKlingPrompt
       // v12.213:4K 提档 —— render4K=true 且模型为 kling-v3 时走 mode:'4k'(零成本探测证实**仅 v3** 支持,
       // v2.6/v2.1 明确 1201 not supported)。4K 与 camera_control/enable_audio 互斥(API 限制),按 4K 优先。
       // 成本约 ¥6/5s,故按镜 opt-in(render4K 默认 false)。
@@ -263,7 +273,7 @@ export class KlingService {
     if (images.length === 0) throw new Error('Kling Elements: 无有效参考图');
     const body: Record<string, any> = {
       model_name: process.env.KELING_ELEMENTS_MODEL || 'kling-v1-6',
-      prompt,
+      prompt: clampKlingPrompt(prompt, 'Kling-Elements'),
       mode: options?.mode === 'professional' ? 'pro' : 'std',
       duration: (options?.duration || 5) > 5 ? '10' : '5', // v1-6 只收 5/10
       image_list: images.map((u) => ({ image: u.startsWith('data:image/') ? u.split(',')[1] : u })),
@@ -336,7 +346,7 @@ export class KlingService {
     console.log(`[Kling-FLF] Last:  ${lastFrameUrl.slice(0, 80)}`);
     console.log(`[Kling-FLF] Prompt: ${prompt.slice(0, 100)}...`);
 
-    if (prompt.length > 2450) { console.warn(`[Kling-FLF] prompt 超长 ${prompt.length} → 裁至 2450`); prompt = prompt.slice(0, 2450); }
+    prompt = clampKlingPrompt(prompt, 'Kling-FLF');
     const body: Record<string, any> = {
       model_name: process.env.KELING_VIDEO_MODEL || 'kling-v3', // v12.174 补:FLF 同主模型
       prompt,
@@ -406,7 +416,7 @@ export class KlingService {
       // v2.16: 默认 v1-6 (写死, 等 Kling 3.0 GA 时调成 'kling-v1-6-master');
       // 通过 env KELING_4K_MODEL 覆盖, 让运维能配置而不改代码
       model_name: process.env.KELING_4K_MODEL || 'kling-v1-6',
-      prompt,
+      prompt: clampKlingPrompt(prompt, 'Kling-4K'),
       mode: 'professional',  // 4K 必须 professional 档
       duration: String(Math.min(options?.duration || 5, 10)),
       image: firstFrameUrl,

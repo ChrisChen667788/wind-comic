@@ -29,6 +29,7 @@ import { updateAsset } from '@/lib/repos/asset-repo';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { withColorSpace } from '@/lib/project-format-store';
 import { parseProjectAspect } from '@/lib/orchestrator-project-context';
+import { storyboardText } from '@/lib/storyboard-text';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -165,7 +166,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         shotNumber,
         originalImageUrl,
         // v12.466:重出的那张要和整片同一色彩空间(编排器在这句上追加锁脸描述)
-        originalPrompt: await withColorSpace(projectId, boardData.description || `Shot ${shotNumber}`),
+        // v13.9:重生分镜图 / 九宫格选定的行只有 data.prompt —— 只认 description 时 MJ 收到的就是「Shot 3」
+        originalPrompt: await withColorSpace(projectId, storyboardText(boardData) || `Shot ${shotNumber}`),
         crefUrl: firstCharacterRef,
         sameCharacterRecentShots: recentReferences,
         originalCw: 100,

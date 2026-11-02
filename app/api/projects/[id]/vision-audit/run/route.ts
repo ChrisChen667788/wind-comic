@@ -16,6 +16,7 @@ import { guardPaidEndpoint } from '@/lib/paid-endpoint-guard';
 import { getUserFromRequest } from '../../../../auth/lib';
 import { db } from '@/lib/db';
 import { normalizeAssetRow } from '@/lib/asset-storage';
+import { storyboardText } from '@/lib/storyboard-text';
 import {
   auditShotVsScript,
   saveShotAudit,
@@ -76,8 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { mediaUrls, persistentUrl } = normalizeAssetRow(sb);
     const imageUrl = persistentUrl || mediaUrls?.[0];
     if (!imageUrl) continue;
-    let description = '';
-    try { description = JSON.parse(sb.data || '{}').description || ''; } catch { /* ignore */ }
+    const description = storyboardText(sb.data); // v13.9:description / prompt 两种存法(重生分镜图后只有 prompt)
     const shotNumber = sb.shot_number ?? tasks.length + 1;
     const tl = timelineByShot.get(shotNumber);
     tasks.push({

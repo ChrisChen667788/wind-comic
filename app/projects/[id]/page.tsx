@@ -20,10 +20,11 @@ import LatestPolishBanner from '@/components/polish/LatestPolishBanner';
 import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-sidebar';
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
 import { ShotInspector, type InspectShot } from '@/components/project/shot-inspector';
+import { storyboardText } from '@/lib/storyboard-text';
 import { Eyebrow, TimecodeChip, FilmStripDivider, EmptyState } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
 import { PlatformExportDropdown } from '@/components/project/platform-export-dropdown';
-import { ShotWorkshopTab } from '@/components/project/shot-workshop-tab';
+import { ShotWorkshopTab, toWorkshopStoryboards } from '@/components/project/shot-workshop-tab';
 import { CommentThread } from '@/components/collab/comment-thread';
 import { PresenceAvatars } from '@/components/collab/presence-avatars';
 import { buildTargetId } from '@/lib/comments-shared';
@@ -835,6 +836,8 @@ export default function ProjectDetailPage() {
                   const curSpec: ShotSpec = specOverrides[sb.shotNumber] || (sb.data?.cameraSpec ? normalizeShotSpec(sb.data.cameraSpec) : seedSpecFromCameraAngle(sb.data?.cameraAngle));
                   const hasSaved = !!specOverrides[sb.shotNumber] || !!sb.data?.cameraSpec;
                   const scriptShot = (script?.shots || [])[sb.shotNumber - 1];
+                  // v13.9:重生分镜图 / 九宫格选定的行只有 data.prompt,只认 description 时卡片显示「——」
+                  const sbText = storyboardText(sb.data);
                   return (
                     <div
                       key={sb.id}
@@ -846,7 +849,7 @@ export default function ProjectDetailPage() {
                       {sb.mediaUrls?.[0] ? (
                         <div
                           className="relative cursor-pointer group/insp"
-                          onClick={() => setInspectShot({ shotNumber: sb.shotNumber, imageUrl: sb.mediaUrls[0], description: sb.data?.description, dialogue: scriptShot?.dialogue, emotion: scriptShot?.emotion, duration: dur, data: sb.data || {}, specSummary: describeShotSpec(curSpec) })}
+                          onClick={() => setInspectShot({ shotNumber: sb.shotNumber, imageUrl: sb.mediaUrls[0], description: sbText || undefined, dialogue: scriptShot?.dialogue, emotion: scriptShot?.emotion, duration: dur, data: sb.data || {}, specSummary: describeShotSpec(curSpec) })}
                         >
                           <img loading="lazy" decoding="async" src={sb.mediaUrls[0]} alt={sb.name} className={`w-full ${frameClass} ${ASSET_MEDIA_FIT} ${ASSET_MATTE_CLASS}`} />
                           {isVertical && showSafeArea && <SafeAreaOverlay />}
@@ -865,11 +868,11 @@ export default function ProjectDetailPage() {
                           <TimecodeChip seconds={dur} />
                         </div>
                         <p className="cinema-subhead text-[11px] line-clamp-2 opacity-85 leading-snug">
-                          {sb.data?.description?.slice(0, 60) || '——'}
+                          {sbText.slice(0, 60) || '——'}
                         </p>
                         {/* v7.2 单镜头摄影台 — 机位摘要 chip + 入口 */}
                         <button
-                          onClick={() => setCinemaShot({ shotNumber: sb.shotNumber, title: sb.data?.description?.slice(0, 60), spec: curSpec, emotion: scriptShot?.emotion })}
+                          onClick={() => setCinemaShot({ shotNumber: sb.shotNumber, title: sbText.slice(0, 60) || undefined, spec: curSpec, emotion: scriptShot?.emotion })}
                           title="单镜头摄影台 — 景别/机位/镜头/运镜/焦点/氛围"
                           className="mt-1.5 w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-[var(--cinema-border)] hover:border-[var(--cinema-amber)] transition group/cine"
                         >
@@ -889,7 +892,7 @@ export default function ProjectDetailPage() {
                             } catch { /* 读不到就当没摆过,不拦开台 */ }
                             setStageShot({
                               shotNumber: sb.shotNumber,
-                              title: sb.data?.description?.slice(0, 60),
+                              title: sbText.slice(0, 60) || undefined,
                               scene,
                               sketch,
                               characters: scriptShot?.characters,
@@ -1015,10 +1018,7 @@ export default function ProjectDetailPage() {
                 imageUrl: v.mediaUrls?.[0],
                 meta: v.data || v.meta,
               }))}
-              storyboards={storyboards.map((s: any) => ({
-                shotNumber: s.shotNumber || s.shot_number,
-                imageUrl: s.imageUrl || s.mediaUrls?.[0],
-              }))}
+              storyboards={toWorkshopStoryboards(storyboards)} // v13.9:带上分镜文字(两个出图弹窗的预填)
             />
           )}
 

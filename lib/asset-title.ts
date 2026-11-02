@@ -14,6 +14,8 @@
  * 机器名不丢:卡片上仍以副标签形式保留「镜头 N」,镜号是用户找片时真正要的索引。
  */
 
+import { storyboardText } from './storyboard-text';
+
 const MACHINE_NAME = /^(shot\s*\d+(\s*\(re-gen\))?|镜头\s*\d+|视频\s*\d+|分镜\s*\d+|场景\s*\d+)$/i;
 
 export interface AssetLike {
@@ -28,13 +30,8 @@ export function isMachineName(name: string | null | undefined): boolean {
   return MACHINE_NAME.test(String(name ?? '').trim());
 }
 
-function descOf(data: unknown): string {
-  let o: any = data;
-  if (typeof data === 'string') {
-    try { o = JSON.parse(data); } catch { return ''; }
-  }
-  return String(o?.description || o?.prompt || '').trim();
-}
+// v13.9:「description 没有再用 prompt」与出片侧共用 storyboardText 一处判定(原来这里自己写了一份)
+const descOf = (data: unknown): string => storyboardText(data).trim();
 
 /**
  * 镜头规格前缀里才会出现的词。只用于判断「冒号前面那一段是不是镜头语言」,

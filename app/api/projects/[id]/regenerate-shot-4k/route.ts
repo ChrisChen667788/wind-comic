@@ -28,6 +28,8 @@ import { requireProjectAccess } from '@/lib/auth-guard';
 import { NextResponse } from 'next/server';
 import { normalizeVideoAspect } from '@/lib/video-aspect';
 import { parseProjectAspect } from '@/lib/orchestrator-project-context';
+import { storyboardText } from '@/lib/storyboard-text';
+import { toPlainPrompt } from '@/lib/midjourney-params';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,18 +42,21 @@ function getStoryboardForShot(
   try {
     const row = db
       .prepare(
-        `SELECT media_urls, persistent_url, name FROM project_assets
+        `SELECT media_urls, persistent_url, name, data FROM project_assets
          WHERE project_id = ? AND type = 'storyboard' AND shot_number = ?
          ORDER BY updated_at DESC LIMIT 1`,
       )
       .get(projectId, shotNumber) as
-      | { media_urls: string; persistent_url: string | null; name: string }
+      | { media_urls: string; persistent_url: string | null; name: string; data: string | null }
       | undefined;
     if (!row) return null;
     const urls: string[] = JSON.parse(row.media_urls || '[]');
     const imageUrl = row.persistent_url || urls[0] || '';
     if (!imageUrl) return null;
-    return { imageUrl, prompt: row.name || `Shot ${shotNumber}` };
+    // v13.9:原来取的是资产名(「镜头 3」)—— 4K 重渲发给可灵的运动提示词就只有这几个字,
+    // 而上面注释一直写着「不传则用现有 storyboard prompt」。分镜文字有两种存法,统一由 storyboardText 取;
+    // 资产名只在一个字都读不到时兜底。
+    return { imageUrl, prompt: storyboardText(row.data) || row.name || `Shot ${shotNumber}` };
   } catch (e) {
     console.warn('[regen-4k] DB read failed:', e);
     return null;
@@ -128,7 +133,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const k = new KlingService();
         // v12.440:4K 重渲绕开编排器直调可灵,同样要带导演台站位(与单镜重生同一注入口)
         const { withStageDirective } = await import('@/lib/stage-scene-store');
-        const videoPrompt = await withStageDirective(projectId, shotNumber, customPrompt || storyboard.prompt);
+        // v13.9:分镜文字是给 MJ 出图写的(`--ar 16:9 --no text …`),可灵只收纯文本 —— 与单镜重生同一处理
+        const videoPrompt = await withStageDirective(projectId, shotNumber, toPlainPrompt(customPrompt || storyboard.prompt));
         const videoUrl = await k.regenerateShotAt4K(
           storyboard.imageUrl,
           videoPrompt,

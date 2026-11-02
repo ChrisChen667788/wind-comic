@@ -701,7 +701,8 @@ describe('v12.440 · 所有出片路径都带导演台站位(修前只有整片�
 
     it('4K 重渲(绕开编排器直调可灵)同样走注入口', () => {
       const route4kSrc = fs.readFileSync('app/api/projects/[id]/regenerate-shot-4k/route.ts', 'utf-8');
-      expect(route4kSrc).toMatch(/const videoPrompt = await withStageDirective\(projectId, shotNumber, customPrompt \|\| storyboard\.prompt\)/);
+      // v13.9:分镜文字先转纯文本再进注入口(4K 直调可灵,编排器里的 toPlainPrompt 管不到这里)
+      expect(route4kSrc).toMatch(/const videoPrompt = await withStageDirective\(projectId, shotNumber, toPlainPrompt\(customPrompt \|\| storyboard\.prompt\)\)/);
       const i = route4kSrc.indexOf('k.regenerateShotAt4K(');
       expect(route4kSrc.slice(i, route4kSrc.indexOf(')', route4kSrc.indexOf('videoPrompt', i)) + 1)).toMatch(/storyboard\.imageUrl,\s*videoPrompt/);
     });

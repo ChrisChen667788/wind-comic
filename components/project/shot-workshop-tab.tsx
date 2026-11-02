@@ -21,6 +21,7 @@ import { ExportResolutionDropdown } from './export-resolution-dropdown';
 import { StoryboardRegenModal } from './storyboard-regen-modal';
 import { CandidateGridModal } from './candidate-grid-modal'; // v12.35.0 九宫格候选帧
 import { RefVideoModal, type ShotRefVideoView } from './ref-video-modal'; // v12.448 动作参考视频
+import { storyboardText } from '@/lib/storyboard-text';
 
 interface Video {
   shotNumber: number;
@@ -33,12 +34,28 @@ interface Video {
 export interface ShotWorkshopTabProps {
   projectId: string;
   videos: Video[];
-  storyboards: Array<{ shotNumber?: number; imageUrl?: string }>;
+  /** prompt:该镜分镜文字(storyboardText),「改 prompt 重生」与九宫格的预填 */
+  storyboards: Array<{ shotNumber?: number; imageUrl?: string; prompt?: string }>;
   /** 用户档位, 用来本地短路 4K 锁标; 真授权由路由层最终决定 */
   userTier?: 'free' | 'creator' | 'pro' | 'enterprise';
   /** v12.467:项目画幅(projects.aspect)—— 两个出图弹窗的默认画幅。不传时弹窗按 16:9 打开,9:16 项目重生出横图 */
   aspect?: string;
   onShotRegenerated?: (shotNumber: number, newVideoUrl: string) => void;
+}
+
+/**
+ * v13.9:项目详情接口的分镜资产 → 工坊的 storyboards。
+ * prompt 是「改 prompt 重生」与九宫格的预填;原来页面只传了镜号和图,预填永远是空串 ——
+ * 九宫格点「生成候选」必报「prompt 太短」,改 prompt 重生打开是一个空输入框。
+ */
+export function toWorkshopStoryboards(
+  assets: Array<{ shotNumber?: number; shot_number?: number; imageUrl?: string; mediaUrls?: string[]; data?: unknown }>,
+): ShotWorkshopTabProps['storyboards'] {
+  return assets.map((s) => ({
+    shotNumber: s.shotNumber || s.shot_number,
+    imageUrl: s.imageUrl || s.mediaUrls?.[0],
+    prompt: storyboardText(s.data),
+  }));
 }
 
 export function ShotWorkshopTab({
@@ -303,7 +320,7 @@ export function ShotWorkshopTab({
           defaultAspectRatio={aspect}
           currentPrompt={
             (videos.find((v) => v.shotNumber === regenModalShot)?.meta as any)?.prompt
-            || (storyboards.find((s) => s.shotNumber === regenModalShot) as any)?.prompt
+            || storyboards.find((s) => s.shotNumber === regenModalShot)?.prompt
             || ''
           }
           onComplete={(newUrl) => {
@@ -336,7 +353,7 @@ export function ShotWorkshopTab({
           defaultAspectRatio={aspect}
           basePrompt={
             (videos.find((v) => v.shotNumber === gridModalShot)?.meta as any)?.prompt
-            || (storyboards.find((s) => s.shotNumber === gridModalShot) as any)?.prompt
+            || storyboards.find((s) => s.shotNumber === gridModalShot)?.prompt
             || ''
           }
           onPick={(newUrl) => {

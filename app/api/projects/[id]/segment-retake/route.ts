@@ -19,15 +19,12 @@ import {
   runSegmentRetake, shotFinalDuration, shotSourceFps, tryLockShot, SegmentRetakeError,
   type GeneratePatch,
 } from '@/services/segment-retake-run';
+import { storyboardText } from '@/lib/storyboard-text';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 // 真重拍要等视频引擎出片(MiniMax 实测 30–120s)+ 一趟缝合;部署到有超时的平台时给足
 export const maxDuration = 300;
-
-const parseJson = (raw: string | null | undefined): any => {
-  try { return raw ? JSON.parse(raw) : null; } catch { return null; }
-};
 
 /**
  * 线上的补丁生成:编排器单镜重生(与 regenerate-shot 同一条引擎链、同一套项目上下文 —— 画风、
@@ -47,7 +44,7 @@ function orchestratorPatch(projectId: string, videoProvider?: string): GenerateP
     }
     const sb = (await listAssetsByType(projectId, 'storyboard')).find((r) => r.shot_number === shotNumber);
     const { pickEngineImageUrl } = await import('@/lib/first-frame');
-    const description = sb ? String(parseJson(sb.data)?.description || '') : '';
+    const description = sb ? storyboardText(sb.data) : ''; // v13.9:description / prompt 两种存法
     const storyboard = {
       shotNumber,
       imageUrl: firstFrameUrl || (sb && pickEngineImageUrl(sb)) || '',

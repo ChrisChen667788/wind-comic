@@ -59,7 +59,7 @@ export interface ShotEditMerge {
 /**
  * 把一句自然语言修改指令合并进原镜描述。
  *
- * @param original 原镜描述(storyboard 资产的 data.description)
+ * @param original 原镜描述(分镜资产的文字,由 lib/storyboard-text 的 storyboardText 取)
  * @param note     用户那句话(如「改成夜景」「让她转过身来」)
  */
 export function mergeShotEdit(original: string | null | undefined, note: string | null | undefined): ShotEditMerge {

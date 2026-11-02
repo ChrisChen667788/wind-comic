@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
+import { storyboardText } from '@/lib/storyboard-text';
 import { FilmStrip as Film, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Camera, Sun, Palette, ArrowRight as MoveRight } from '@phosphor-icons/react';
 
 // Runway-style camera icon mapping
@@ -95,7 +96,7 @@ function StoryboardNodeComponent({ data }: NodeProps) {
 
                 {/* Text description */}
                 <div className="text-[11px] text-gray-300 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">
-                  {sb.data?.description || sb.name}
+                  {storyboardText(sb.data) || sb.name /* v13.9:description / prompt 两种存法 */}
                 </div>
 
                 {/* v12.10.0(#2):逐秒 beat sheet —— 精确到第几秒是什么内容 */}

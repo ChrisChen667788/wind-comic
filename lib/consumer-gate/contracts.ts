@@ -78,6 +78,11 @@ export const RUNTIME_ONLY_GAPS: Array<{ gap: string; incident: string; guardedBy
     incident: 'v12.472 单镜重生经 withStageDirective → videoPrompt、主管线兜底经 sceneDescription → enhancedPrompt,都绕过了直接传参的写法',
     guardedBy: 'tests/v12-472-video-plain-prompt.test.ts(真跑编排器,断言每个引擎**收到**的提示词没有 MJ 语法、正文都在)',
   },
+  {
+    gap: '分镜资产先解析再取字段(JSON.parse(x.data).description、parseData(r).description、d.description)—— storyboard-text-must-use-storyboardText 只认分镜变量直接取',
+    incident: 'v13.9 续跑断点(d.description)、全局单镜重生(JSON.parse(sbAsset.data).description)、片段重拍(parseJson(sb.data)?.description)、决策日志(d.prompt)都是这种写法',
+    guardedBy: 'tests/v13-9-storyboard-text.test.ts(真库真路由,description-only 与 prompt-only 两种分镜行各跑一遍,断言引擎 / MJ / 视觉质检**收到**的文字)',
+  },
 ];
 
 export const CONTRACTS: GateContract[] = [
@@ -255,6 +260,22 @@ export const CONTRACTS: GateContract[] = [
     // 这条不做正则拦截(写法太多),仅登记;实际检查在下面的 envSwitchAudit
     forbid: /(?!)/, // 永不匹配 —— 见 auditEnvSwitches
     scope: [],
+    allow: [],
+  },
+  {
+    id: 'storyboard-text-must-use-storyboardText',
+    rule: '读分镜资产的文字必须走 lib/storyboard-text 的 storyboardText,禁止直接取 sb.data.description / boardData.description 一类字段',
+    incident:
+      'v13.9:分镜文字有两种存法 —— 创建页 / 主管线写 data.description,重生分镜图与九宫格选定**插入新行**、只写 data.prompt。' +
+      '读取方各认一种:项目页「改一镜」、续跑断点、4K 重渲、Cameo 重画、视觉质检、导演审核、项目页卡片只认 description,' +
+      '决策日志只认 prompt。本机库 243 镜里 53 镜的最新分镜行只有 prompt:续跑给视频引擎发空串、还把空串回写进这一镜所有分镜行,' +
+      'Cameo 重画让 MJ 按「Shot 3」出图,4K 重渲发的是资产名。',
+    entry: 'storyboardText(data) from lib/storyboard-text(description 优先,没有再用 prompt;交给视频引擎前仍要 toPlainPrompt)',
+    // 只拦「分镜变量直接取 description」这个最常见的写法(项目页、节点图、Cameo、导演审核当时都是这么写的)。
+    // 先解析再取(JSON.parse(x.data).description、parseData(r).description、d.description)变量名不定、
+    // 静态分不清是分镜还是角色 / 场景,登记在 RUNTIME_ONLY_GAPS,由 tests/v13-9 真跑各入口守。
+    forbid: /\b(?:sb|sbAsset|sbRow|board|boardData)\??\.(?:data\??\.)?description\b/,
+    scope: ['app/', 'lib/', 'services/', 'components/', 'hooks/', 'stores/'],
     allow: [],
   },
   {

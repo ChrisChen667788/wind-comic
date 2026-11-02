@@ -14,6 +14,7 @@ import { PipelineStatusBadge } from '@/components/pipeline-status-badge';
 import { WorkspaceHotkeys } from '@/components/workspace-hotkeys';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 import { useAuth } from '@/components/auth-provider';
+import { storyboardText } from '@/lib/storyboard-text';
 
 interface Props {
   project: Project;
@@ -50,7 +51,7 @@ export function CreationWorkspace({ project }: Props) {
       return {
         shotNumber: v.shotNumber || 0,
         videoUrl: v.mediaUrls?.[0] || '',
-        description: sb?.data?.description || v.name || `镜头 ${v.shotNumber}`,
+        description: storyboardText(sb?.data) || v.name || `镜头 ${v.shotNumber}`, // v13.9:description / prompt 两种存法
         duration: v.data?.duration || 8,
         status: v.data?.status || 'pending',
         cameraAngle: sb?.data?.planData?.cameraAngle || '',

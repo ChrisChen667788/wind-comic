@@ -3,6 +3,7 @@ import { isDemoMode } from '@/services/demo-orchestrator';
 import { AgentRole } from '@/types/agents';
 import { db } from '@/lib/db';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { storyboardText } from '@/lib/storyboard-text';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           const charsBrief = projectContext.characters
             .map((c, i) => `${i + 1}. ${c.name}: ${(c.description || c.appearance || '').slice(0, 120)}`).join('\n') || '（无角色）';
           const storyboardsBrief = projectContext.storyboards.slice(0, 20)
-            .map(sb => `镜头${sb.shotNumber}: ${(sb.description || '').slice(0, 150)}`).join('\n') || '（无分镜）';
+            .map(sb => `镜头${sb.shotNumber}: ${storyboardText(sb).slice(0, 150)}`).join('\n') || '（无分镜）'; // v13.9:description / prompt 两种存法
 
           const auditPrompt = [
             '请以导演视角审核以下项目,用 JSON 返回 { overallScore:0-100, summary, items:[{shotNumber?, targetRole, issue, suggestion, severity}] }。',

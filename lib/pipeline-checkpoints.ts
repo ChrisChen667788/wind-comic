@@ -9,7 +9,7 @@
  *   script      ← type 'script' { synopsis,title,shots,theme }
  *   characters  ← type 'character'[] { name, description, appearance } + 图
  *   scenes      ← type 'scene'[] { name, description } + 图
- *   storyboards ← type 'storyboard'[] { description→prompt, planData, duration, cameo* } + 图
+ *   storyboards ← type 'storyboard'[] { description|prompt→prompt, planData, duration, cameo* } + 图
  *                  有图 = 已渲染;无图 = 仅规划(storyboardRender 只补渲染缺图镜头)
  *   videos      ← type 'video'[] { duration,status,coverImageUrl } + 片
  *   editResult  ← type 'timeline' data + hasFinalVideo ← type 'final_video' 存在性
@@ -20,6 +20,7 @@
  */
 import { listAssetsByType, type AssetRow } from './repos/asset-repo';
 import { db } from './db';
+import { storyboardText } from './storyboard-text';
 
 export interface PipelineCheckpoints {
   plan: any | null;
@@ -109,7 +110,10 @@ export async function loadCheckpoints(projectId: string): Promise<PipelineCheckp
     const d = parseData(r);
     return {
       shotNumber: r.shot_number ?? 0,
-      prompt: d.description || '',
+      // v13.9:最新一行是重生分镜图 / 九宫格选定插入的,只有 data.prompt。只认 description 时续跑的视频
+      // 阶段拿到空串;而且分镜渲染阶段会把这个空串当 description 回写 —— upsert 按镜号命中这一镜的**所有**
+      // 分镜行,原描述和重生 prompt 一起被抹掉。
+      prompt: storyboardText(d),
       planData: d.planData,
       duration: d.duration ?? 10,
       imageUrl: assetUrl(r),

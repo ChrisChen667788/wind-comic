@@ -9,6 +9,7 @@
  */
 
 import type { CostLogRow } from './repos/cost-log-repo';
+import { storyboardText } from './storyboard-text';
 
 export interface ShotDecision {
   shotNumber: number;
@@ -67,7 +68,9 @@ export function buildDecisionLog(input: {
     if (!sn || sn <= 0) continue;
     const s = shotMap.get(sn) || { shotNumber: sn, costCny: 0, engines: [] };
     const d = parseData(a.data);
-    if (typeof d.prompt === 'string' && !s.prompt) s.prompt = (d.prompt as string).slice(0, 400);
+    // v13.9:原来只认 data.prompt —— 创建页 / 主管线写的是 data.description,这些镜在决策日志里没有提示词
+    const text = storyboardText(d);
+    if (text && !s.prompt) s.prompt = text.slice(0, 400);
     const cs = numOr(d.consistency ?? d.consistencyScore);
     if (cs != null && s.consistencyScore == null) s.consistencyScore = cs;
     if (typeof d.fromCandidate === 'string') s.pickedFromCandidate = d.fromCandidate as string;

@@ -3,6 +3,7 @@ import { HybridOrchestrator } from '@/services/hybrid-orchestrator';
 import { db, now } from '@/lib/db';
 import { updateAssetBySelector } from '@/lib/repos/asset-repo';
 import { isPlaceholderVideo } from '@/lib/placeholder-provenance';
+import { storyboardText } from '@/lib/storyboard-text';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
           const storyboard = {
             shotNumber,
             imageUrl: (sbAsset && pickEng(sbAsset)) || (sceneAsset && pickEng(sceneAsset)) || '',
-            prompt: sbAsset ? JSON.parse(sbAsset.data || '{}').description || '' : `镜头 ${shotNumber}`,
+            prompt: sbAsset ? storyboardText(sbAsset.data) : `镜头 ${shotNumber}`, // v13.9:description / prompt 两种存法
           };
           // v12.141(P0-1):每镜运镜覆盖(preset id/自由文本 → 专业运镜指令)
           {
@@ -231,7 +232,7 @@ export async function POST(request: NextRequest) {
               const storyboard = {
                 shotNumber: sn,
                 imageUrl: (sbAsset && pickEngineImageUrl(sbAsset)) || (sceneAsset && pickEngineImageUrl(sceneAsset)) || '',
-                prompt: sbAsset ? JSON.parse(sbAsset.data || '{}').description || '' : `镜头 ${sn}`,
+                prompt: sbAsset ? storyboardText(sbAsset.data) : `镜头 ${sn}`,
               };
               const result = await orchestrator.regenerateShot(sn, storyboard, {
                 duration: 8,
@@ -301,7 +302,7 @@ export async function POST(request: NextRequest) {
             const storyboards = storyboardAssets.map((a: any) => ({
               shotNumber: a.shot_number,
               imageUrl: pickUrl(a),
-              prompt: JSON.parse(a.data || '{}').description || '',
+              prompt: storyboardText(a.data),
               planData: JSON.parse(a.data || '{}').planData,
             }));
 

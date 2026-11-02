@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isDemoMode } from '@/services/demo-orchestrator';
 import { db } from '@/lib/db';
 import { requireProjectAccess } from '@/lib/auth-guard';
+import { storyboardText } from '@/lib/storyboard-text';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ function getStoryboardImageUrl(projectId: string, shotNumber: number): string {
 }
 
 /**
- * v12.337:读这一镜**原本的描述**(storyboard 资产的 data.description)。
+ * v12.337:读这一镜**原本的描述**(最新那行分镜资产的文字,v13.9 起经 storyboardText 取)。
  * 自然语言改单镜必须在它的基础上合并 —— 见 lib/shot-edit-merge 的说明。
  */
 function getStoryboardDescription(projectId: string, shotNumber: number): string {
@@ -36,9 +37,9 @@ function getStoryboardDescription(projectId: string, shotNumber: number): string
        WHERE project_id = ? AND type = 'storyboard' AND shot_number = ?
        ORDER BY updated_at DESC LIMIT 1`
     ).get(projectId, shotNumber) as { data: string } | undefined;
-    if (!row?.data) return '';
-    const d = JSON.parse(row.data);
-    return typeof d?.description === 'string' ? d.description : '';
+    // v13.9:重生分镜图 / 九宫格选定插入的新行只有 data.prompt,只认 description 时这里读到空串,
+    // 「改一镜」就退化成「只按你这句话重画」。两种存法由 storyboardText 统一判定。
+    return storyboardText(row?.data);
   } catch (e) {
     console.warn('[regenerate-shot] failed to load shot description:', e);
     return '';
@@ -126,11 +127,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           // 传 description 的路径一字未动 —— 零回归。
           // 陷阱备忘:这里的 prompt **就是整条视频提示词**,若把「改成夜景」当 description
           // 直接传进来,原镜的人物/场景/动作会被整个抹掉,而且会「成功」返回、不报任何错。
-          let baseDescription = description || '';
+          // v13.9:没传 description 时一律回库取这一镜的分镜文字。原来只有带 editNote 才回库 ——
+          // 创建页「重试镜头 N」只发 { shotNumber },于是那条重试每次都给视频引擎发空提示词。
+          let baseDescription = description || getStoryboardDescription(projectId, shotNumber);
           let mergeNote = '';
           if (typeof editNote === 'string' && editNote.trim()) {
             const { mergeShotEdit, describeMerge } = await import('@/lib/shot-edit-merge');
-            const merged = mergeShotEdit(description || getStoryboardDescription(projectId, shotNumber), editNote);
+            const merged = mergeShotEdit(baseDescription, editNote);
             baseDescription = merged.prompt;
             mergeNote = describeMerge(merged);
             send('status', { message: mergeNote });

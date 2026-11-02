@@ -30,8 +30,10 @@ export async function POST(request: NextRequest) {
   if (!hasMidjourney()) return NextResponse.json({ message: 'MJ 未配置(出图依赖)' }, { status: 422 });
 
   // 仿真人硬 prompt(禁 3D/CGI/octane)
+  // v13.9:原来写死 `vertical ${aspect}` —— 横屏 / 方形请求的提示词写着「vertical 16:9」,与画幅字段相反
+  const orientation = aspect === '16:9' ? 'horizontal' : aspect === '1:1' ? 'square' : 'vertical';
   const visualPrompt =
-    `${idea}. ${style}, vertical ${aspect}. photorealistic, shot on ARRI/RED cinema camera, ` +
+    `${idea}. ${style}, ${orientation} ${aspect}. photorealistic, shot on ARRI/RED cinema camera, ` +
     `real human skin with visible pores and fine hair, natural film grain, true-to-life lighting, ` +
     `ultra-detailed, advertising photography. NO 3d render, NO CGI, NO cartoon, NO anime, NO octane render, NO illustration.`;
   const motionPrompt =
