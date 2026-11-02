@@ -14,6 +14,7 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { sqliteParamsToPg } from './db-dialect';
+import { DbUnreachableError, pgUnreachableCode } from './server-misconfig';
 
 export type DbDialect = 'sqlite' | 'postgres';
 
@@ -110,6 +111,22 @@ class SqliteDriver implements DbDriver {
 
 // ─── PG driver (懒加载 pg, 软依赖) ──────────────────────────────────────────
 
+/**
+ * v13.11 后补:pg 的「连不上 / 进不去」换成带标记的 DbUnreachableError —— 登录/注册据此回 503 + 修法,
+ * /api/health 报 db_unreachable。此前 pg 的原始错误一路抛到路由,登录是裸 500。
+ * 只包 pg 自己的调用(pool.query / pool.connect / client.query),事务回调 fn 里别的异常原样透出;
+ * SQL 语法错、唯一冲突等不是连接问题,也原样透出(照旧 500,isUniqueViolation 照旧认 23505)。
+ */
+async function pgCall(op: Promise<any>): Promise<any> { // pool / client 本身就是 any(pg 是懒加载的软依赖)
+  try {
+    return await op;
+  } catch (e) {
+    const code = pgUnreachableCode(e);
+    if (code) throw new DbUnreachableError(code, e instanceof Error ? e.message : String(e));
+    throw e;
+  }
+}
+
 class PgDriver implements DbDriver {
   readonly dialect = 'postgres' as const;
   private poolPromise: Promise<any> | null = null;
@@ -123,7 +140,8 @@ class PgDriver implements DbDriver {
         try {
           pg = await import(/* @vite-ignore */ /* webpackIgnore: true */ pkg);
         } catch {
-          throw new Error(
+          throw new DbUnreachableError(
+            'pg_not_installed',
             "DB_DRIVER=pg 但未安装 'pg'. 运行 `npm i pg` 后重试 (见 docs/postgres-migration.md).",
           );
         }
@@ -134,8 +152,14 @@ class PgDriver implements DbDriver {
         const pgTypes = pg.types || pg.default?.types;
         pgTypes?.setTypeParser?.(20, (val: string) => (val == null ? null : Number(val)));
         const connectionString = process.env.DATABASE_URL;
-        if (!connectionString) throw new Error('DB_DRIVER=pg 需要 DATABASE_URL 环境变量');
-        return new Pool({ connectionString });
+        if (!connectionString) throw new DbUnreachableError('database_url_missing', 'DB_DRIVER=pg 需要 DATABASE_URL 环境变量');
+        const pool = new Pool({ connectionString });
+        // 池里空闲的连接被服务端断开(PG 重启、网络闪断)时 pg-pool 发 'error' —— 没人听就是未捕获异常,整个进程退出。
+        // pg-pool 自己会把这条坏连接移出池,这里只记一行;下一次查询重新建连,连不上就走上面的 503。
+        pool.on('error', (err: { code?: string; message?: string }) => {
+          console.error(`[db-driver] PostgreSQL 空闲连接断开(${err?.code ?? 'no code'}):${err?.message ?? err}`);
+        });
+        return pool;
       })();
     }
     return this.poolPromise;
@@ -143,7 +167,7 @@ class PgDriver implements DbDriver {
 
   async query<T = any>(sql: string, params: unknown[] = []): Promise<T[]> {
     const pool = await this.pool();
-    const r = await pool.query(sqliteParamsToPg(sql), params);
+    const r = await pgCall(pool.query(sqliteParamsToPg(sql), params));
     return r.rows as T[];
   }
   async get<T = any>(sql: string, params: unknown[] = []): Promise<T | null> {
@@ -152,25 +176,23 @@ class PgDriver implements DbDriver {
   }
   async run(sql: string, params: unknown[] = []): Promise<DbRunResult> {
     const pool = await this.pool();
-    const r = await pool.query(sqliteParamsToPg(sql), params);
+    const r = await pgCall(pool.query(sqliteParamsToPg(sql), params));
     return { changes: r.rowCount ?? 0 };
   }
   async transaction<T>(fn: (tx: DbExecutor) => Promise<T>): Promise<T> {
     const pool = await this.pool();
-    const client = await pool.connect();
+    const client = await pgCall(pool.connect());
     // tx 作用域 executor — 全程同一 client (池里别的连接拿不到这个事务)
+    const q = (sql: string, params: unknown[] = []) => pgCall(client.query(sqliteParamsToPg(sql), params));
     const tx: DbExecutor = {
-      query: async <U = any>(sql: string, params: unknown[] = []) =>
-        (await client.query(sqliteParamsToPg(sql), params)).rows as U[],
-      get: async <U = any>(sql: string, params: unknown[] = []) =>
-        ((await client.query(sqliteParamsToPg(sql), params)).rows[0] ?? null) as U | null,
-      run: async (sql: string, params: unknown[] = []) =>
-        ({ changes: (await client.query(sqliteParamsToPg(sql), params)).rowCount ?? 0 }),
+      query: async <U = any>(sql: string, params: unknown[] = []) => (await q(sql, params)).rows as U[],
+      get: async <U = any>(sql: string, params: unknown[] = []) => ((await q(sql, params)).rows[0] ?? null) as U | null,
+      run: async (sql: string, params: unknown[] = []) => ({ changes: (await q(sql, params)).rowCount ?? 0 }),
     };
     try {
-      await client.query('BEGIN');
+      await q('BEGIN');
       const result = await fn(tx);
-      await client.query('COMMIT');
+      await q('COMMIT');
       return result;
     } catch (e) {
       await client.query('ROLLBACK').catch(() => {});

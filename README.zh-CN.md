@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v13.11</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.12</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -258,7 +258,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **6851 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **6887 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -446,15 +446,16 @@ curl http://localhost:3100/api/health           # {"ok":true,"checks":{"db":"ok"
 | 内存 | 空闲 **70–120 MB**。合成 6 镜 30 秒成片(转场 + 中文字幕 + 响度归一)时整容器峰值:**720p ≈ 0.95 GB**,**竖屏 1080×1920 ≈ 1.75 GB**。低于这个合成会被 OOM 杀(实测 768 MB 杀 720p、1 GB 杀竖屏)。实测最低能过 1 GB / 2 GB —— **建议给容器 720p 至少 1.5 GB、竖屏 1080p 至少 2.5 GB**。 |
 | 磁盘 | 镜像下载约 **830 MB**、解压约 **3 GB**;另给 `data/` 留素材和成片的空间(10 GB 以上比较从容)。 |
 
-**首页能打开、登录不了?** v13.11 起登录页会直接说是哪一种、怎么修(接口返回 503,`reason` 见下表;之前是一个不带说明的 500)。`docker logs wind-comic` 里也有对应的一行:
+**首页能打开、登录不了?** v13.11 起登录页会直接说是哪里配错了、怎么修(接口返回 503,`reason` 见下表;之前是一个不带说明的 500)。`docker logs wind-comic` 里也有对应的一行:
 
 | 登录页提示(`reason`) | 日志 | 原因 | 修法 |
 |---|---|---|---|
 | 服务端数据库打不开(`db_unavailable`) | `[db] 数据库打不开(SQLITE_CANTOPEN: unable to open database file)` | `data/` 属于 NAS 上你的账号(群晖默认 `1026:100`),容器用户是 `1001:1001`,写不进去 | `sudo chown -R 1001:1001 data`,或把 `./data` 换成命名卷;然后重启容器 |
 | 服务端没配置 JWT_SECRET(`jwt_secret_missing`) | `[auth] JWT_SECRET 未设置` | 没设 `JWT_SECRET` | 用 `openssl rand -hex 32` 生成后填进 `.env`,重建容器 |
 | 服务端没配置 JWT_SECRET,现在是公开占位值(`jwt_secret_weak`) | `[auth] JWT_SECRET 是公开占位/弱默认值` | `JWT_SECRET` 用了示例里的占位串 | 同上,换成真随机串 |
+| 服务端连不上数据库(PostgreSQL)(`db_unreachable`,仅 `DB_DRIVER=pg`,v13.12 起) | `[db] PostgreSQL 连不上或没配好(ECONNREFUSED)`(或 `28P01` 密码错、`3D000` 库不存在、`database_url_missing` 等) | `DATABASE_URL` 写错或没设;PG 没起来或从容器里访问不到(容器里的 `localhost` 是容器自己);账号密码或库名不对 | 改对 `DATABASE_URL` 或把 PG 起来;改了环境变量要重建容器 |
 
-容器健康检查探 `/api/health`(v13.6 起;数据库可读写 + JWT 密钥可用,原因代码与上表相同),这三种情况都会显示 **unhealthy**,不会出现「容器绿着、谁都登不进去」。开了 `PIPELINE_QUEUE=1` 时库打不开也不再让整站 500(v13.11 前连首页都打不开)。
+容器健康检查探 `/api/health`(v13.6 起;数据库可读写 + JWT 密钥可用,原因代码与上表相同),这几种情况都会显示 **unhealthy**,不会出现「容器绿着、谁都登不进去」。开了 `PIPELINE_QUEUE=1` 时库打不开也不再让整站 500(v13.11 前连首页都打不开)。
 
 **首次登录与首次创作**:第一个账号是 `demo@qfmanju.ai`,密码就是 `DEMO_PASSWORD`(事后补设再重启,密码会自动改成它)。注册默认要邀请码,设 `BETA_INVITE_REQUIRED=false` 可关(只在你信任的内网里这么做)。新账号是免费档,**月预算 ¥5**,而一部真引擎成片的预检估价是 ¥11.6–18.8(默认 8 镜,视视频引擎而定),会被直接拦下 —— 到 `/dashboard/usage` 把「月预算 ¥」调高即可(输入框失焦即保存)。
 **局域网里的其他设备**直接打开 `http://<NAS 局域网 IP>:3100` 就能登录和创作 —— v13.5 起会话 cookie 只在请求是 HTTPS 时才加 `Secure`(`COOKIE_SECURE=auto`,默认值)。纯 HTTP 下会话令牌明文传输,只在你信任的内网这样用;**从公网访问请放到 HTTPS 后面**(Caddy / Traefik,或转发 `X-Forwarded-Proto` 的 nginx)。详见 [`docs/DEPLOYMENT.md` →「会话 Cookie 与 HTTPS」](docs/DEPLOYMENT.md#12-会话-cookie-与-https)。
@@ -503,7 +504,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 6851/6851 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 6887/6887 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

@@ -79,32 +79,35 @@ curl http://localhost:3100/api/health
 
 ### 健康检查 `/api/health`(v13.6)
 
-镜像自带的 `HEALTHCHECK` 从 v13.6 起探 `/api/health`(之前探首页 —— 首页是静态壳,下面三种「登录不了」时首页照样 200、容器照样 healthy)。它只做两件便宜的事:数据库跑一句 `SELECT 1`(SQLite 再确认数据目录和库文件可写),以及用当前 `JWT_SECRET` 签一枚不外发的令牌。不打外网,不读引擎 key。数据库和密钥分开查,两个问题同时存在时一次报全。
+镜像自带的 `HEALTHCHECK` 从 v13.6 起探 `/api/health`(之前探首页 —— 首页是静态壳,下面几种「登录不了」时首页照样 200、容器照样 healthy)。它只做两件便宜的事:数据库跑一句 `SELECT 1`(SQLite 再确认数据目录和库文件可写),以及用当前 `JWT_SECRET` 签一枚不外发的令牌。不打外网,不读引擎 key。数据库和密钥分开查,两个问题同时存在时一次报全。
 
 | 返回 | 含义 |
 |---|---|
 | `200 {"ok":true,"checks":{"db":"ok","auth":"ok"}}` | 能登录 |
-| `503 … "reasons":["db_unavailable"]` | 数据库打不开(SQLite 属主/挂载不对;PG 连不上) |
+| `503 … "reasons":["db_unavailable"]` | SQLite 数据库打不开(数据目录属主/挂载不对) |
+| `503 … "reasons":["db_unreachable"]` | `DB_DRIVER=pg` 时连不上 PostgreSQL:地址不对或库没起来、账号密码或库名不对、没设 `DATABASE_URL` |
 | `503 … "reasons":["db_not_writable"]` | 库能读但写不进去(数据目录或库文件不可写) |
 | `503 … "reasons":["jwt_secret_missing"]` | 没设 `JWT_SECRET` |
 | `503 … "reasons":["jwt_secret_weak"]` | `JWT_SECRET` 是公开占位串(`.env.example` / 教程里的 `change_me_…` 等) |
 
 原因代码与登录/注册返回的 503 里的 `reason` 是同一套(v13.11 起;v13.6–v13.10 两种 JWT 问题合并报 `jwt_secret_invalid`)。对外只给原因代码;详情(含容器 uid)只写进服务端日志,而且只在状态变化时打一次。
 
-### 首页正常、登录不了:三个成因
+### 首页正常、登录不了:常见成因
 
-v13.11 起,下面三种情况登录页和注册页会**直接显示原因和修法**(接口返回 `503 {"code":"server_misconfigured","reason":"…","message":"…"}`),不论密码对错;页面照常能打开。v13.11 之前三种都是一个不带说明的 **500**:库打不开时密码对错都 500,开了 `PIPELINE_QUEUE=1` 时连首页也 500;JWT 两种是「密码错 401、密码对 500」。
+v13.11 起,下面几种情况登录页和注册页会**直接显示原因和修法**(PostgreSQL 那一行从 v13.12 起)(接口返回 `503 {"code":"server_misconfigured","reason":"…","message":"…"}`),不论密码对错;页面照常能打开。此前都是一个不带说明的 **500**:库打不开时密码对错都 500,开了 `PIPELINE_QUEUE=1` 时连首页也 500;JWT 两种是「密码错 401、密码对 500」。
 
-再 `sudo docker logs wind-comic 2>&1 | grep -E "SQLITE|unable to open|JWT_SECRET"` 对号入座(日志原文均为实测):
+再 `sudo docker logs wind-comic 2>&1 | grep -E "SQLITE|unable to open|JWT_SECRET|PostgreSQL"` 对号入座(日志原文均为实测):
 
 | 登录页提示(`reason`) | 日志 | 成因 | 修法 |
 |---|---|---|---|
 | 「服务端数据库打不开……」(`db_unavailable`) | `[db] 数据库打不开(SQLITE_CANTOPEN: unable to open database file)—— 库文件 …,运行用户 uid 1001`;开了 `PIPELINE_QUEUE=1` 还会有一行 `[instrumentation] 数据库打不开 —— 本次不启动……任务队列 worker`(v13.11 前:`SqliteError: unable to open database file`,`PIPELINE_QUEUE=1` 时是 `… loading instrumentation hook: unable to open database file`) | 绑定挂载的 `data/` 属于 NAS 账号(群晖默认 `1026:100`),容器以 `nextjs`(1001:1001)运行,建不了库文件 | `sudo chown -R 1001:1001 data`,或改用命名卷;然后 `sudo docker compose restart`(库只在开机时打开一次,修好权限要重启才生效) |
 | 「服务端没配置 JWT_SECRET……」(`jwt_secret_missing`) | `[auth] JWT_SECRET 未设置 —— 生产环境必须配置一个高强度随机密钥…` | 没设 `JWT_SECRET` | `openssl rand -hex 32` 填进 `.env`,`docker compose up -d` 重建 |
 | 「服务端没配置 JWT_SECRET(现在填的是示例里的公开占位值……)」(`jwt_secret_weak`) | `[auth] JWT_SECRET 是公开占位/弱默认值…` | 用了 `.env.example` 或教程里的占位串(黑名单在 `app/api/auth/lib.ts`) | 同上 |
+| 「服务端连不上数据库(PostgreSQL)……」(`db_unreachable`,仅 `DB_DRIVER=pg`) | `[db] PostgreSQL 连不上或没配好(<原因>):…`,`<原因>` 是 `ECONNREFUSED`(端口没人听)/ `ENOTFOUND`(主机名解析不到)/ `ETIMEDOUT` / `28P01`(密码错或无此用户)/ `3D000`(库不存在)/ `57P03`(库正在启动)/ `53300`(连接数满)/ `database_url_missing` / `pg_not_installed` | `DATABASE_URL` 写错或没设;PG 没起来,或从容器里访问不到(容器里的 `localhost` 是容器自己,要写 PG 容器的服务名);账号密码或库名不对 | 改对 `DATABASE_URL` 或把 PG 起来;改了环境变量要 `docker compose up -d` 重建。库起来之后不用重启,下一次登录会重新连 |
 
 每次被拒的登录/注册还会记一行 `[auth/login] 503 server_misconfigured/<reason> —— <原文>`。对外的提示不带路径、异常原文和密钥值。
-`PG 连不上`(`DB_DRIVER=pg`)不在这三种里:`/api/health` 会报 `db_unavailable`,登录仍是 500,看日志里 `pg` 的报错。
+PostgreSQL 仍回 500 的情况(都不是 `db_unreachable` 能概括的,看日志里 `pg` 的原始报错):连上了但还没建表(`42P01 relation "users" does not exist`,先跑 `npm run pg:migrate`);`DATABASE_URL` 带 `sslmode=require` 而库没开 SSL(`The server does not support SSL connections`);端口上跑的不是 PG(`Connection terminated unexpectedly`)。PG 地址丢包不回应时,驱动没设连接超时,登录要一直等到操作系统放弃建连(`ETIMEDOUT`)才回 503。
+运行中 PG 重启或网络闪断:池里的空闲连接会断,日志记一行 `[db-driver] PostgreSQL 空闲连接断开(57P01)…`,进程不退出,下一次查询重新连(v13.12 前这一下会让整个 Node 进程因未处理的 `error` 事件退出)。
 
 ### 在 NAS 上跑零 key 演示
 
@@ -421,7 +424,7 @@ legacy-aspect-repaired.json  # v13.3 旧项目画幅改正的账本(见 5.1;只�
 |------|------|------|----------|
 | `GET /api/runtime/readiness` | GET | 媒体引擎就绪度（演示模式判断） | 读各 provider 的 `available()`（仅检查 env key，不打网络）；返回 `{ engines, demoMode, level, stages, mockEngines }`；无缓存，每次实时计算 |
 | `GET /api/health/providers` | GET | 各 LLM/TTS/网关真实连通性探测 | 打网络（10 s 超时），60 s 缓存；探测 primary-llm、creative-llm、minimax-llm-fallback、minimax-tts、qingyuntop 网关、vectorengine 网关；`?fresh=1` 强制刷新；不回传 key |
-| `GET /api/health` | GET | **Docker HEALTHCHECK 探测目标（v13.6 起）** | 数据库 `SELECT 1` + SQLite 数据目录/库文件可写 + 用 `JWT_SECRET` 签一枚不外发的令牌；全过 200，否则 503 + 原因代码（`db_unavailable` / `db_not_writable` / `jwt_secret_missing` / `jwt_secret_weak`，与登录 503 的 `reason` 同一套）；不打外网、不缓存。`HEALTHCHECK CMD wget -qO- http://localhost:3100/api/health`，60 s start-period，30 s 间隔，5 s 超时，3 次重试 |
+| `GET /api/health` | GET | **Docker HEALTHCHECK 探测目标（v13.6 起）** | 数据库 `SELECT 1` + SQLite 数据目录/库文件可写 + 用 `JWT_SECRET` 签一枚不外发的令牌；全过 200，否则 503 + 原因代码（`db_unavailable` / `db_unreachable` / `db_not_writable` / `jwt_secret_missing` / `jwt_secret_weak`，与登录 503 的 `reason` 同一套）；不打外网、不缓存。`HEALTHCHECK CMD wget -qO- http://localhost:3100/api/health`，60 s start-period，30 s 间隔，5 s 超时，3 次重试 |
 | `GET /`（首页） | GET | v13.6 之前的 HEALTHCHECK 目标 | 静态壳，不碰数据库也不签令牌 —— 数据目录属主不对、没设 JWT_SECRET 时照样 200，所以换掉了 |
 
 **启动顺序注意事项：**

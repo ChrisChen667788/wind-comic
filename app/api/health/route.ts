@@ -17,6 +17,9 @@
  * v13.11:原因代码与登录/注册的 503 用同一套(lib/server-misconfig):`jwt_secret_missing` / `jwt_secret_weak` /
  * `db_unavailable`,外加只有这里探的 `db_not_writable`。v13.6 的 `jwt_secret_invalid` 拆成了前两个。
  * 库打不开不再拖垮鉴权库的加载,所以 JWT 也照查 —— 两个问题同时存在时一次报全。
+ *
+ * v13.11 后补:`DB_DRIVER=pg` 时 PostgreSQL 连不上 / 鉴权失败 / 没设 DATABASE_URL 报 `db_unreachable`(此前笼统报
+ * `db_unavailable`,而登录是裸 500);与登录 503 同一判定(PG 驱动抛的 DbUnreachableError)。
  */
 import { NextResponse } from 'next/server';
 import fs from 'fs';
@@ -58,7 +61,7 @@ export async function GET() {
     }
     db = 'ok';
   } catch (e) {
-    if (!reasons.length) reasons.push('db_unavailable');
+    if (!reasons.length) reasons.push(misconfigReason(e) === 'db_unreachable' ? 'db_unreachable' : 'db_unavailable');
     details.push(`db: ${e instanceof Error ? e.message : String(e)}`);
   }
 
@@ -70,7 +73,7 @@ export async function GET() {
   } catch (e) {
     auth = 'fail';
     const reason = misconfigReason(e);
-    reasons.push(reason && reason !== 'db_unavailable' ? reason : 'auth_unavailable');
+    reasons.push(reason === 'jwt_secret_missing' || reason === 'jwt_secret_weak' ? reason : 'auth_unavailable');
     details.push(`auth: ${e instanceof Error ? e.message : String(e)}`);
   }
 

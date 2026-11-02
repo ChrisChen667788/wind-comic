@@ -529,7 +529,8 @@ describe('v13.11 · 文档与新行为一致', () => {
   it('/api/health 文档列的原因代码就是代码里会出现的那些', () => {
     const health = fs.readFileSync('app/api/health/route.ts', 'utf-8');
     const rows = [...docs['docs/DEPLOYMENT.md'].matchAll(/`503 … "reasons":\["(\w+)"\]`/g)].map((m) => m[1]);
-    expect(rows.sort()).toEqual(['db_not_writable', 'db_unavailable', 'jwt_secret_missing', 'jwt_secret_weak']);
-    for (const r of ['db_not_writable', 'db_unavailable']) expect(health).toContain(`'${r}'`);
+    // v13.12 加了 db_unreachable(DB_DRIVER=pg 连不上),见 tests/v13-12-login-pg-misconfig
+    expect(rows.sort()).toEqual(['db_not_writable', 'db_unavailable', 'db_unreachable', 'jwt_secret_missing', 'jwt_secret_weak']);
+    for (const r of ['db_not_writable', 'db_unavailable', 'db_unreachable']) expect(health).toContain(`'${r}'`);
   });
 });

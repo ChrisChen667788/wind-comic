@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v13.11</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.12</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-6851%2F6851-2ea44f"  alt="6851 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-6887%2F6887-2ea44f"  alt="6887 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -283,7 +283,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **6851 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **6887 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -598,15 +598,16 @@ curl http://localhost:3100/api/health           # {"ok":true,"checks":{"db":"ok"
 | Memory | Idle **70–120 MB**. Composing a 6-shot, 30 s film (xfade + CJK subtitles + loudness normalisation) peaks at **≈ 0.95 GB at 720p** and **≈ 1.75 GB at 1080×1920** for the whole container. Below that the compose is OOM-killed (768 MB killed 720p; 1 GB killed vertical 1080p). Measured floor: 1 GB / 2 GB — **give the container ≥ 1.5 GB for 720p, ≥ 2.5 GB for vertical 1080p**. |
 | Disk | Image **~830 MB** download, **~3 GB** unpacked; plus room for assets and films under `data/` (10 GB+ is comfortable). |
 
-**Home page loads but you can't log in?** From v13.11 the login page says which of the three it is and how to fix it (the API returns 503 with the `reason` below; before v13.11 it was a bare 500). `docker logs wind-comic` has the matching line:
+**Home page loads but you can't log in?** From v13.11 the login page says what is misconfigured and how to fix it (the API returns 503 with the `reason` below; before that it was a bare 500). `docker logs wind-comic` has the matching line:
 
 | Login page says (`reason`) | Log line | Cause | Fix |
 |---|---|---|---|
 | 服务端数据库打不开 — database can't be opened (`db_unavailable`) | `[db] 数据库打不开(SQLITE_CANTOPEN: unable to open database file)` | `data/` is owned by your NAS user (Synology: `1026:100`), the container runs as `1001:1001` | `sudo chown -R 1001:1001 data`, or use a named volume instead of `./data`; then restart the container |
 | 服务端没配置 JWT_SECRET — not set (`jwt_secret_missing`) | `[auth] JWT_SECRET 未设置` | `JWT_SECRET` not set | set it (`openssl rand -hex 32`) and recreate the container |
 | 服务端没配置 JWT_SECRET — public placeholder (`jwt_secret_weak`) | `[auth] JWT_SECRET 是公开占位/弱默认值` | `JWT_SECRET` is a placeholder copied from an example | same — generate a real one |
+| 服务端连不上数据库(PostgreSQL)— can't reach Postgres (`db_unreachable`, only with `DB_DRIVER=pg`, since v13.12) | `[db] PostgreSQL 连不上或没配好(ECONNREFUSED)` (or `28P01` wrong password, `3D000` no such database, `database_url_missing`, …) | `DATABASE_URL` wrong or unset, Postgres not running or not reachable from the container (`localhost` inside a container is the container itself), wrong user / password / database name | fix `DATABASE_URL` or start Postgres; recreate the container if you changed env vars |
 
-The container health check probes `/api/health` (since v13.6; DB read/write + JWT key, same reason codes as above), so all three show up as **unhealthy** instead of a green container that cannot log anyone in. With `PIPELINE_QUEUE=1` an unopenable database no longer takes the whole site down (before v13.11 even the home page returned 500).
+The container health check probes `/api/health` (since v13.6; DB read/write + JWT key, same reason codes as above), so all of these show up as **unhealthy** instead of a green container that cannot log anyone in. With `PIPELINE_QUEUE=1` an unopenable database no longer takes the whole site down (before v13.11 even the home page returned 500).
 
 **First login & first creation**: the first account is `demo@qfmanju.ai` with your `DEMO_PASSWORD` (set it later and restart — the password is rotated to match). Sign-up needs an invite code unless you set `BETA_INVITE_REQUIRED=false` (only on a network you trust). New accounts are on the free tier with a **¥5 monthly budget**, which blocks a full real-engine film (pre-checked at ¥11.6–18.8 for the default 8 shots, depending on the video engine) — raise **「月预算 ¥」** at `/dashboard/usage` (saved when the field loses focus).
 **Other devices on your LAN** can open plain `http://<NAS-IP>:3100` directly — since v13.5 the session cookie only carries `Secure` when the request is HTTPS (`COOKIE_SECURE=auto`, the default). Plain HTTP sends the session token unencrypted, so keep that to a network you trust; **from the Internet, put it behind HTTPS** (Caddy / Traefik / nginx with `X-Forwarded-Proto`). Details: [`docs/DEPLOYMENT.md` → 会话 Cookie 与 HTTPS](docs/DEPLOYMENT.md#12-会话-cookie-与-https).
@@ -656,7 +657,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 6851/6851 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 6887/6887 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 

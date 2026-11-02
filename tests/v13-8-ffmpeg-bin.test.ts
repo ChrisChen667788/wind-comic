@@ -347,7 +347,9 @@ describe('v13.8 · 静态门禁:除 lib/ffmpeg-bin 外不许自己解析二进�
     expect(selfHits.length).toBeGreaterThan(2);
     const mine = runConsumerGate(process.cwd()).filter((v) => v.contractId === contract.id);
     expect(mine.map((v) => `${v.file}:${v.line} ${v.snippet}`)).toEqual([]);
-  });
+    // v13.12:runConsumerGate 是全仓扫描(所有契约),CI 慢的那一轮单次就超过 vitest 默认 5s —— v13.11 的 CI 红在这条
+    // 「Test timed out in 5000ms」,门禁本身 0 违规、重跑即绿。与 v12-240 同理给足超时(v12.421 记过同一个坑)。
+  }, 180_000);
 });
 
 describe('v13.8 · 文档说的 = 代码做的', () => {
