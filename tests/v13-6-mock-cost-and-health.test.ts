@@ -104,13 +104,14 @@ describe('v13.6 · GET /api/health', () => {
     expect(r.body).toEqual({ ok: true, checks: { db: 'ok', auth: 'ok' } });
   });
 
-  it('生产环境没设 JWT_SECRET → 503 jwt_secret_invalid(首页照样 200 的那种)', async () => {
+  // v13.11:原因代码与登录 503 统一 —— v13.6 的 jwt_secret_invalid 拆成 jwt_secret_missing / jwt_secret_weak
+  it('生产环境没设 JWT_SECRET → 503 jwt_secret_missing(首页照样 200 的那种)', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('JWT_SECRET', '');
     const r = await hit();
     expect(r.status).toBe(503);
     expect(r.body.checks).toEqual({ db: 'ok', auth: 'fail' });
-    expect(r.body.reasons).toEqual(['jwt_secret_invalid']);
+    expect(r.body.reasons).toEqual(['jwt_secret_missing']);
   });
 
   it('生产环境用了 .env.example 的占位串 → 503', async () => {
@@ -118,14 +119,15 @@ describe('v13.6 · GET /api/health', () => {
     vi.stubEnv('JWT_SECRET', 'change_me_to_a_random_32_char_string');
     const r = await hit();
     expect(r.status).toBe(503);
-    expect(r.body.reasons).toEqual(['jwt_secret_invalid']);
+    expect(r.body.reasons).toEqual(['jwt_secret_weak']);
   });
 
-  it('数据目录不可写(NAS 上属主不是 1001)→ 503 db_not_writable,auth 记 unknown 而不是冤枉它', async () => {
+  // v13.11:库的问题不再拖垮鉴权库的加载,JWT 单独判定(这里密钥是好的 → ok)
+  it('数据目录不可写(NAS 上属主不是 1001)→ 503 db_not_writable,auth 单独判定', async () => {
     vi.spyOn(fs, 'accessSync').mockImplementation(() => { throw Object.assign(new Error('EACCES'), { code: 'EACCES' }); });
     const r = await hit();
     expect(r.status).toBe(503);
-    expect(r.body.checks).toEqual({ db: 'fail', auth: 'unknown' });
+    expect(r.body.checks).toEqual({ db: 'fail', auth: 'ok' });
     expect(r.body.reasons).toEqual(['db_not_writable']);
   });
 
@@ -157,7 +159,7 @@ describe('v13.6 · GET /api/health', () => {
     try {
       const r = await hit();
       expect(r.status).toBe(503);
-      expect(r.body.checks).toEqual({ db: 'fail', auth: 'unknown' });
+      expect(r.body.checks).toEqual({ db: 'fail', auth: 'ok' });
       expect(r.body.reasons).toEqual(['db_unavailable']);
       expect(r.text).not.toMatch(/Sqlite|qfmj\.db|\/app\/|unable to open/);
       expect(r.text).not.toContain(process.cwd());

@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getUserFromRequest, getUserById, sessionCookieResyncHeader } from '../lib';
+import { withMisconfigGuard } from '@/lib/server-misconfig';
 
-export async function GET(request: Request) {
+// v13.11:页面一加载就会带着旧令牌调这里 —— 数据库打不开时回 503 + 原因,而不是 500。
+// (JWT_SECRET 配错时 getUserFromRequest 校验不了令牌,照旧 401:前端清掉本地令牌;再登录时登录页会提示原因。)
+export const GET = withMisconfigGuard('auth/me', async (request: Request) => {
   const payload = getUserFromRequest(request);
   if (!payload) {
     return NextResponse.json({ message: 'Missing token' }, { status: 401 });
@@ -17,4 +20,4 @@ export async function GET(request: Request) {
   const resync = sessionCookieResyncHeader(request);
   if (resync) res.headers.set('Set-Cookie', resync);
   return res;
-}
+});

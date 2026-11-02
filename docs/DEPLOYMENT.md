@@ -51,7 +51,7 @@ curl -fsSL  https://raw.githubusercontent.com/ChrisChen667788/wind-comic/main/de
 openssl rand -hex 32          # 输出填到 JWT_SECRET=
 #    DEMO_PASSWORD=<首个账号 demo@qfmanju.ai 的密码>
 
-# 4. 数据目录交给容器用户(uid/gid 1001)—— 不做这一步,登录必 500
+# 4. 数据目录交给容器用户(uid/gid 1001)—— 不做这一步登录不了(登录页会提示「服务端数据库打不开」)
 mkdir -p data && sudo chown -R 1001:1001 data
 
 # 5. 起
@@ -79,26 +79,32 @@ curl http://localhost:3100/api/health
 
 ### 健康检查 `/api/health`(v13.6)
 
-镜像自带的 `HEALTHCHECK` 从 v13.6 起探 `/api/health`(之前探首页 —— 首页是静态壳,下面三种「登录必 500」时首页照样 200、容器照样 healthy)。它只做两件便宜的事:数据库跑一句 `SELECT 1`(SQLite 再确认数据目录和库文件可写),以及用当前 `JWT_SECRET` 签一枚不外发的令牌。不打外网,不读引擎 key。
+镜像自带的 `HEALTHCHECK` 从 v13.6 起探 `/api/health`(之前探首页 —— 首页是静态壳,下面三种「登录不了」时首页照样 200、容器照样 healthy)。它只做两件便宜的事:数据库跑一句 `SELECT 1`(SQLite 再确认数据目录和库文件可写),以及用当前 `JWT_SECRET` 签一枚不外发的令牌。不打外网,不读引擎 key。数据库和密钥分开查,两个问题同时存在时一次报全。
 
 | 返回 | 含义 |
 |---|---|
 | `200 {"ok":true,"checks":{"db":"ok","auth":"ok"}}` | 能登录 |
-| `503 … "reasons":["db_unavailable"]` | 数据库打不开(SQLite 属主/挂载不对;PG 连不上)。注意:开了 `PIPELINE_QUEUE=1` 时库在开机阶段就打不开,**整站(含首页和本端点)直接 500** —— 健康检查同样判失败 |
+| `503 … "reasons":["db_unavailable"]` | 数据库打不开(SQLite 属主/挂载不对;PG 连不上) |
 | `503 … "reasons":["db_not_writable"]` | 库能读但写不进去(数据目录或库文件不可写) |
-| `503 … "reasons":["jwt_secret_invalid"]` | `JWT_SECRET` 没设,或是公开占位串 |
+| `503 … "reasons":["jwt_secret_missing"]` | 没设 `JWT_SECRET` |
+| `503 … "reasons":["jwt_secret_weak"]` | `JWT_SECRET` 是公开占位串(`.env.example` / 教程里的 `change_me_…` 等) |
 
-对外只给原因代码;详情(含容器 uid)只写进服务端日志,而且只在状态变化时打一次。
+原因代码与登录/注册返回的 503 里的 `reason` 是同一套(v13.11 起;v13.6–v13.10 两种 JWT 问题合并报 `jwt_secret_invalid`)。对外只给原因代码;详情(含容器 uid)只写进服务端日志,而且只在状态变化时打一次。
 
-### 首页正常、登录返回 500:三个成因
+### 首页正常、登录不了:三个成因
 
-先 `sudo docker logs wind-comic 2>&1 | grep -E "SQLITE|unable to open|JWT_SECRET"`,再对号入座(日志原文均为实测):
+v13.11 起,下面三种情况登录页和注册页会**直接显示原因和修法**(接口返回 `503 {"code":"server_misconfigured","reason":"…","message":"…"}`),不论密码对错;页面照常能打开。v13.11 之前三种都是一个不带说明的 **500**:库打不开时密码对错都 500,开了 `PIPELINE_QUEUE=1` 时连首页也 500;JWT 两种是「密码错 401、密码对 500」。
 
-| 日志 | 成因 | 特征 | 修法 |
+再 `sudo docker logs wind-comic 2>&1 | grep -E "SQLITE|unable to open|JWT_SECRET"` 对号入座(日志原文均为实测):
+
+| 登录页提示(`reason`) | 日志 | 成因 | 修法 |
 |---|---|---|---|
-| `SqliteError: unable to open database file`(`SQLITE_CANTOPEN`);开了 `PIPELINE_QUEUE=1` 时是 `… loading instrumentation hook: unable to open database file`,**首页也 500** | 绑定挂载的 `data/` 属于 NAS 账号(群晖默认 `1026:100`),容器以 `nextjs`(1001:1001)运行,建不了库文件 | 密码对错都 500 | `sudo chown -R 1001:1001 data`,或改用命名卷 |
-| `[auth] JWT_SECRET 未设置 —— 生产环境必须配置一个高强度随机密钥…` | 没设 `JWT_SECRET` | **密码错 401、密码对 500**(要签令牌时才炸) | `openssl rand -hex 32` 填进 `.env`,`docker compose up -d` 重建 |
-| `[auth] JWT_SECRET 是公开占位/弱默认值…` | 用了 `.env.example` 或教程里的占位串(黑名单在 `app/api/auth/lib.ts`) | 同上 | 同上 |
+| 「服务端数据库打不开……」(`db_unavailable`) | `[db] 数据库打不开(SQLITE_CANTOPEN: unable to open database file)—— 库文件 …,运行用户 uid 1001`;开了 `PIPELINE_QUEUE=1` 还会有一行 `[instrumentation] 数据库打不开 —— 本次不启动……任务队列 worker`(v13.11 前:`SqliteError: unable to open database file`,`PIPELINE_QUEUE=1` 时是 `… loading instrumentation hook: unable to open database file`) | 绑定挂载的 `data/` 属于 NAS 账号(群晖默认 `1026:100`),容器以 `nextjs`(1001:1001)运行,建不了库文件 | `sudo chown -R 1001:1001 data`,或改用命名卷;然后 `sudo docker compose restart`(库只在开机时打开一次,修好权限要重启才生效) |
+| 「服务端没配置 JWT_SECRET……」(`jwt_secret_missing`) | `[auth] JWT_SECRET 未设置 —— 生产环境必须配置一个高强度随机密钥…` | 没设 `JWT_SECRET` | `openssl rand -hex 32` 填进 `.env`,`docker compose up -d` 重建 |
+| 「服务端没配置 JWT_SECRET(现在填的是示例里的公开占位值……)」(`jwt_secret_weak`) | `[auth] JWT_SECRET 是公开占位/弱默认值…` | 用了 `.env.example` 或教程里的占位串(黑名单在 `app/api/auth/lib.ts`) | 同上 |
+
+每次被拒的登录/注册还会记一行 `[auth/login] 503 server_misconfigured/<reason> —— <原文>`。对外的提示不带路径、异常原文和密钥值。
+`PG 连不上`(`DB_DRIVER=pg`)不在这三种里:`/api/health` 会报 `db_unavailable`,登录仍是 500,看日志里 `pg` 的报错。
 
 ### 在 NAS 上跑零 key 演示
 
@@ -132,7 +138,7 @@ S3 mode 不能彻底去掉本地盘：写入时先落 `data/storage/assets/` 本
 所有逻辑频道（notif/comment/pipeline）都序列化进同一个 Redis `qfmj-bus` 频道（`lib/event-bus-redis.ts:120`）。高并发下该频道可能成为瓶颈；Redis 不可用时降级进程内（无跨副本同步）而非报错，需监控。
 
 **6. ~~Docker HEALTHCHECK 探测首页而非专用 /api/health~~（✅ v13.6 已修）**
-v13.6 起 `HEALTHCHECK` 探 `/api/health`(数据库可读写 + JWT 密钥可用),start-period 20 s → 60 s。没有选 `/api/runtime/readiness`:它只读 env、不碰数据库,探不出「登录 500」;也没选 `/api/health/providers`:它打外网,网关抖一下不该让编排器把容器判死重启。见上文「Docker 与 NAS 自托管」。
+v13.6 起 `HEALTHCHECK` 探 `/api/health`(数据库可读写 + JWT 密钥可用),start-period 20 s → 60 s。没有选 `/api/runtime/readiness`:它只读 env、不碰数据库,探不出「登录不了」;也没选 `/api/health/providers`:它打外网,网关抖一下不该让编排器把容器判死重启。见上文「Docker 与 NAS 自托管」。
 
 **7. `scripts/llm-call.mjs` 子进程需随镜像一起部署**
 `Dockerfile:48` 已 `COPY scripts ./scripts`，但必须确认 CI 构建时 `scripts/` 目录完整复制。子进程调用走 `process.cwd()/scripts/llm-call.mjs`（`services/hybrid-orchestrator.ts:791`），路径硬编码。
@@ -384,7 +390,7 @@ legacy-aspect-repaired.json  # v13.3 旧项目画幅改正的账本(见 5.1;只�
 | video-composer 中间帧/concat list | `os.tmpdir()` 子目录 | `services/video-composer.ts:398-400` |
 | storage 工具用 | `os.tmpdir()/qfmj-storage-tmp/` | `lib/storage.ts:215` |
 
-**Docker `VOLUME ['/app/data']`：** 整个 `data/` 被声明为 volume，挂载时覆盖镜像内初始 `data/`。容器以 `nextjs`（uid/gid 1001）运行，**绑定挂载的宿主目录必须对 1001 可写**，否则 SQLite 建不了库、登录一律 500（见「Docker 与 NAS 自托管」）。
+**Docker `VOLUME ['/app/data']`：** 整个 `data/` 被声明为 volume，挂载时覆盖镜像内初始 `data/`。容器以 `nextjs`（uid/gid 1001）运行，**绑定挂载的宿主目录必须对 1001 可写**，否则 SQLite 建不了库、登录不了（v13.11 起登录页提示「服务端数据库打不开」并给出修法，之前是 500；见「Docker 与 NAS 自托管」）。
 
 ## 9. 端口
 
@@ -415,7 +421,7 @@ legacy-aspect-repaired.json  # v13.3 旧项目画幅改正的账本(见 5.1;只�
 |------|------|------|----------|
 | `GET /api/runtime/readiness` | GET | 媒体引擎就绪度（演示模式判断） | 读各 provider 的 `available()`（仅检查 env key，不打网络）；返回 `{ engines, demoMode, level, stages, mockEngines }`；无缓存，每次实时计算 |
 | `GET /api/health/providers` | GET | 各 LLM/TTS/网关真实连通性探测 | 打网络（10 s 超时），60 s 缓存；探测 primary-llm、creative-llm、minimax-llm-fallback、minimax-tts、qingyuntop 网关、vectorengine 网关；`?fresh=1` 强制刷新；不回传 key |
-| `GET /api/health` | GET | **Docker HEALTHCHECK 探测目标（v13.6 起）** | 数据库 `SELECT 1` + SQLite 数据目录/库文件可写 + 用 `JWT_SECRET` 签一枚不外发的令牌；全过 200，否则 503 + 原因代码（`db_unavailable` / `db_not_writable` / `jwt_secret_invalid`）；不打外网、不缓存。`HEALTHCHECK CMD wget -qO- http://localhost:3100/api/health`，60 s start-period，30 s 间隔，5 s 超时，3 次重试 |
+| `GET /api/health` | GET | **Docker HEALTHCHECK 探测目标（v13.6 起）** | 数据库 `SELECT 1` + SQLite 数据目录/库文件可写 + 用 `JWT_SECRET` 签一枚不外发的令牌；全过 200，否则 503 + 原因代码（`db_unavailable` / `db_not_writable` / `jwt_secret_missing` / `jwt_secret_weak`，与登录 503 的 `reason` 同一套）；不打外网、不缓存。`HEALTHCHECK CMD wget -qO- http://localhost:3100/api/health`，60 s start-period，30 s 间隔，5 s 超时，3 次重试 |
 | `GET /`（首页） | GET | v13.6 之前的 HEALTHCHECK 目标 | 静态壳，不碰数据库也不签令牌 —— 数据目录属主不对、没设 JWT_SECRET 时照样 200，所以换掉了 |
 
 **启动顺序注意事项：**
@@ -683,13 +689,13 @@ BETA_INVITE_REQUIRED=false
 MOCK_ENGINES=1
 ```
 
-> JWT_SECRET 不设时，开发环境生成**进程级随机密钥**（重启即失效，需重新登录）；生产环境不设或用占位串，登录一律 500。
+> JWT_SECRET 不设时，开发环境生成**进程级随机密钥**（重启即失效，需重新登录）；生产环境不设或用占位串，登录/注册返回 503 并提示「服务端没配置 JWT_SECRET」（v13.11 前是 500）。
 
 ## 生产必改集（部署前务必设置）
 
 | 变量名 | 原因 |
 |---|---|
-| `JWT_SECRET` | `NODE_ENV=production` 下未设或用了公开占位串，签发/校验令牌时直接抛错 → 登录 500，`/api/health` 返回 503 |
+| `JWT_SECRET` | `NODE_ENV=production` 下未设或用了公开占位串，签发/校验令牌时直接抛错 → 登录/注册 503「服务端没配置 JWT_SECRET」（v13.11 前是 500），`/api/health` 返回 503 |
 | `DB_DRIVER=pg` + `DATABASE_URL` | 生产推荐 PostgreSQL，SQLite 不支持多实例并发写入 |
 | `OPENAI_API_KEY` | LLM 必须能调通，否则脚本/导演/质检全挂 |
 | `MINIMAX_API_KEY` | 视频生成 + TTS 主路径 + LLM 兜底，缺失则大量功能降级 |
@@ -699,11 +705,11 @@ MOCK_ENGINES=1
 | `SENTRY_DSN` | 生产错误追踪；不配则只打 console，错误无可观测性 |
 | `RESEND_API_KEY` 或 `SENDGRID_API_KEY` | 用户邀请/通知邮件必须能发出 |
 | `S3_*`（4 个）| `STORAGE_DRIVER=s3` 时必填，否则资产只存本地盘（多实例无法共享） |
-| `JWT_SECRET`（重申）| 生产环境唯一 fail-fast 变量：服务照样能起、首页照样 200，但所有认证接口 500 |
+| `JWT_SECRET`（重申）| 生产环境唯一 fail-fast 变量：服务照样能起、首页照样 200，但登录/注册 503、其余认证接口一律 401（校验不了任何令牌） |
 
 ## 矩阵盘点备注
 
-1. JWT_SECRET 是全仓唯一 fail-fast 变量：app/api/auth/lib.ts 的 getJwtSecret() 在 NODE_ENV=production 且变量缺失或命中占位串黑名单时直接 throw，任何认证请求都会 500（服务本身照样能起、首页照样 200）。历史上的源码内置兜底串已在 v12.219 删除，开发环境改为进程级随机密钥。
+1. JWT_SECRET 是全仓唯一 fail-fast 变量：app/api/auth/lib.ts 的 getJwtSecret() 在 NODE_ENV=production 且变量缺失或命中占位串黑名单时直接 throw（v13.11 起抛带原因的 JwtSecretError），登录/注册据此返回 503 + 原因，其余认证接口校验不了令牌一律 401（服务本身照样能起、首页照样 200）。历史上的源码内置兜底串已在 v12.219 删除，开发环境改为进程级随机密钥。
 
 2. .env.example 写的是 NEXT_PUBLIC_SENTRY_DSN，但 lib/telemetry.ts 实际读取的是 SENTRY_DSN（无 NEXT_PUBLIC_ 前缀）。两者均出现在代码中但作用不同，部署时应设 SENTRY_DSN（服务端）。
 

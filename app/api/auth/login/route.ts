@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { signToken, sessionCookieHeader } from '../lib';
+import { signToken, sessionCookieHeader, assertJwtSecretUsable } from '../lib';
 import { findUserByEmail } from '@/lib/repos/user-repo';
 import { rateLimit, clientIp, isRateLimitActive } from '@/lib/rate-limit';
+import { withMisconfigGuard } from '@/lib/server-misconfig';
 
-export async function POST(request: Request) {
+// v13.11:服务端配错(JWT_SECRET 没设/是占位串、数据库打不开)→ 503 + 原因 + 修法,不再 500。见 lib/server-misconfig。
+export const POST = withMisconfigGuard('auth/login', async (request: Request) => {
   const body = await request.json().catch(() => ({}));
   const { email, password } = body;
   if (!email || !password) {
@@ -26,6 +28,9 @@ export async function POST(request: Request) {
     }
   }
 
+  // v13.11:先确认密钥可用 —— 否则密码错 401、密码对才 500,用户会以为自己记错了密码
+  assertJwtSecretUsable();
+
   // v4.2.1: 走 async user-repo (DbDriver), SQLite/PG 双驱动. 行为不变.
   const user = await findUserByEmail(email);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
@@ -40,4 +45,4 @@ export async function POST(request: Request) {
   });
   res.headers.set('Set-Cookie', sessionCookieHeader(token, request));
   return res;
-}
+});

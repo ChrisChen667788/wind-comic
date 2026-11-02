@@ -23,6 +23,9 @@ async function request(path: string, options: RequestInit = {}) {
       const sec = Number(ra);
       if (Number.isFinite(sec) && sec > 0) (err as any).retryAfterSec = Math.ceil(sec);
     }
+    // v13.11:服务端配错时(503 server_misconfigured)带上原因代码,登录页据此单独提示「不是你密码错了」
+    if (typeof (data as any).code === 'string') (err as any).code = (data as any).code;
+    if (typeof (data as any).reason === 'string') (err as any).reason = (data as any).reason;
     throw err;
   }
   return data;

@@ -5,7 +5,7 @@
 #   2. cp .env.example .env,至少填好 JWT_SECRET 和 DEMO_PASSWORD
 #   3. mkdir -p data && sudo chown -R 1001:1001 data
 #        容器里的用户是 nextjs(uid 1001,gid 1001)。NAS 上新建的目录属于你的账号
-#        (群晖默认 1026:100),容器写不进去 → SQLite 打不开 → 登录一律 500。
+#        (群晖默认 1026:100),容器写不进去 → SQLite 打不开 → 登录不了(登录页会提示「服务端数据库打不开」)。
 #        不方便 SSH 的话,把下面的 ./data 换成命名卷(见注释),Docker 会自己建好属主正确的卷。
 #   4. docker compose up -d   (旧版群晖是 docker-compose up -d)
 #   5. 等健康检查变 healthy:docker ps 里 STATUS 带 (healthy);

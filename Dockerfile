@@ -135,8 +135,8 @@ USER nextjs
 EXPOSE 3100
 
 # 健康检查 —— v13.6 起探 /api/health(数据库可读写 + JWT 密钥可用),不再探首页。
-# 首页是静态壳:数据目录属主不对、没设 JWT_SECRET、用了占位密钥这三种「登录必 500」,
-# 首页全都照样 200、容器照样 healthy(v13.1 NAS 实测)。首次启动要建表 + 迁移,start-period 放宽到 60s。
+# 首页是静态壳:数据目录属主不对、没设 JWT_SECRET、用了占位密钥这三种「登录不了」(v13.11 前是 500,
+# 之后登录页提示原因),首页全都照样 200、容器照样 healthy(v13.1 NAS 实测)。首次启动要建表 + 迁移,start-period 放宽到 60s。
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:3100/api/health >/dev/null 2>&1 || exit 1
 

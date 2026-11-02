@@ -22,6 +22,8 @@ export default function AuthPage() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // v13.11:服务端配错(没配 JWT_SECRET / 数据库打不开)—— 错误框下面多一句「不是你的问题,转给管理员」
+  const [serverMisconfigured, setServerMisconfigured] = useState(false);
   const router = useRouter();
   const { login, register } = useAuth();
   const { showToast } = useToast();
@@ -38,6 +40,7 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setServerMisconfigured(false);
     try {
       if (mode === 'login') {
         await login(email, password);
@@ -57,8 +60,17 @@ export default function AuthPage() {
           : '登录尝试过于频繁,请稍后再试(密码可能是对的 —— 锁定期内即使输对也会被拒)');
       } else if (err?.status === 401) {
         setError('邮箱或密码不正确');
+      } else if (err?.status === 503 && err?.code === 'server_misconfigured') {
+        // v13.11:原样显示服务端给的原因和修法(如「服务端没配置 JWT_SECRET……」)。
+        // 用户自己解决不了,得让他知道该转告管理员,而不是对着「登录失败」反复试密码。
+        setError(err.message);
+        setServerMisconfigured(true);
       } else {
-        setError(err.message || '操作失败');
+        // 没有 JSON 正文的 5xx(反代/网关报错页)只会带回 api-client 的英文兜底 'Request failed'
+        const action = mode === 'login' ? '登录失败' : '注册失败';
+        setError(err?.message && err.message !== 'Request failed'
+          ? err.message
+          : err?.status ? `${action}:服务端出错(HTTP ${err.status}),请联系管理员查看服务端日志` : `${action},请检查网络后重试`);
       }
     } finally {
       setLoading(false);
@@ -128,7 +140,14 @@ export default function AuthPage() {
             )}
 
             {error && (
-              <div role="alert" className="bg-[rgba(255,88,88,0.12)] border border-[rgba(255,88,88,0.4)] px-3 py-2.5 rounded-xl text-sm">{error}</div>
+              <div role="alert" className="bg-[rgba(255,88,88,0.12)] border border-[rgba(255,88,88,0.4)] px-3 py-2.5 rounded-xl text-sm">
+                {error}
+                {serverMisconfigured && (
+                  <div className="mt-1.5 text-[11px] text-[var(--soft)]">
+                    这是服务端的部署配置问题,不是你的账号或密码错了 —— 请把上面这段话转给部署这台服务的管理员。
+                  </div>
+                )}
+              </div>
             )}
 
             {/* v12.341:冷却期内禁用提交并实时倒计时。**只禁按钮、不禁输入框** ——
@@ -147,7 +166,7 @@ export default function AuthPage() {
 
           <p className="text-sm text-[var(--soft)] text-center mt-6">
             {mode === 'login' ? '还没有账户？' : '已有账户？'}
-            <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }} className="ml-1 text-[var(--primary)] hover:underline">
+            <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setServerMisconfigured(false); }} className="ml-1 text-[var(--primary)] hover:underline">
               {mode === 'login' ? '立即注册' : '立即登录'}
             </button>
           </p>

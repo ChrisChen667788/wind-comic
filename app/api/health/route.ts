@@ -13,10 +13,15 @@
  * 不打外网、不读引擎 key —— 那是 /api/health/providers 的事,网关抖一下不该让编排器把容器判死重启。
  *
  * 对外只给原因代码,不给路径和异常原文;详情只进服务端日志,且只在状态变化时打一次(每 30s 探一次,别刷屏)。
+ *
+ * v13.11:原因代码与登录/注册的 503 用同一套(lib/server-misconfig):`jwt_secret_missing` / `jwt_secret_weak` /
+ * `db_unavailable`,外加只有这里探的 `db_not_writable`。v13.6 的 `jwt_secret_invalid` 拆成了前两个。
+ * 库打不开不再拖垮鉴权库的加载,所以 JWT 也照查 —— 两个问题同时存在时一次报全。
  */
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { misconfigReason } from '@/lib/server-misconfig';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,17 +62,16 @@ export async function GET() {
     details.push(`db: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  // 鉴权库在模块顶层就 import 了数据库 —— 库打不开时这里的结果没有意义,标 unknown 而不是冤枉它
-  if (db === 'ok') {
-    try {
-      const { signToken } = await import('@/app/api/auth/lib');
-      signToken({ id: 'healthcheck', role: 'member' });
-      auth = 'ok';
-    } catch (e) {
-      auth = 'fail';
-      reasons.push('jwt_secret_invalid');
-      details.push(`auth: ${e instanceof Error ? e.message : String(e)}`);
-    }
+  // v13.11 前鉴权库随数据库一起加载失败,库打不开时这里只能标 unknown;现在 lib/db 不再在加载期抛错,照查
+  try {
+    const { signToken } = await import('@/app/api/auth/lib');
+    signToken({ id: 'healthcheck', role: 'member' });
+    auth = 'ok';
+  } catch (e) {
+    auth = 'fail';
+    const reason = misconfigReason(e);
+    reasons.push(reason && reason !== 'db_unavailable' ? reason : 'auth_unavailable');
+    details.push(`auth: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   const ok = db === 'ok' && auth === 'ok';

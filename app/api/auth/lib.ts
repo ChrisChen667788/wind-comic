@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
+import { JwtSecretError } from '@/lib/server-misconfig';
 
 // 进程级随机开发密钥(惰性生成;仓库里**没有任何可用密钥串**)。
 // 重启即失效 —— dev/test 重新登录无妨;泄露的旧硬编码值因此彻底作废。
@@ -51,13 +52,16 @@ function getJwtSecret(): string {
   const isProd = process.env.NODE_ENV === 'production';
   if (s && s.length > 0 && !isWeakSecret(s)) return s;
   if (isProd) {
+    // v13.11:抛带原因的 JwtSecretError —— 登录/注册据此回 503「服务端没配置 JWT_SECRET」,不再 500
     if (s && isWeakSecret(s)) {
-      throw new Error(
+      throw new JwtSecretError(
+        'jwt_secret_weak',
         '[auth] JWT_SECRET 是公开占位/弱默认值(如 .env.example 的 change_me_...)—— 生产环境拒启动。' +
           '请用 `openssl rand -hex 32` 生成高强度随机密钥后重设。',
       );
     }
-    throw new Error(
+    throw new JwtSecretError(
+      'jwt_secret_missing',
       '[auth] JWT_SECRET 未设置 —— 生产环境必须配置一个高强度随机密钥(否则无法签发/校验令牌)。',
     );
   }
@@ -82,6 +86,15 @@ function getJwtSecret(): string {
 export interface JWTPayload {
   sub: string;
   role: string;
+}
+
+/**
+ * v13.11:登录/注册**一开头**就确认密钥可用,不可用抛 JwtSecretError(→ 503)。
+ * 此前要等密码输对、签令牌那一刻才炸:密码错得到 401、密码对反而 500,用户只会以为自己记错了密码;
+ * 注册更糟 —— 用户行已经写进库才炸,再注册就是「该邮箱已被注册」。
+ */
+export function assertJwtSecretUsable(): void {
+  getJwtSecret();
 }
 
 export function signToken(user: { id: string; role: string }): string {

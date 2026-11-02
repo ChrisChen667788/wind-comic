@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { nanoid } from 'nanoid';
 import { now } from '@/lib/db';
 import { getDbDriver } from '@/lib/db-driver';
-import { signToken, sessionCookieHeader } from '../lib';
+import { signToken, sessionCookieHeader, assertJwtSecretUsable } from '../lib';
 import {
   consumeInviteCodeTx,
   isInviteRequired,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/repos/invite-repo'; // v9.0.3: invite-repo (async, 双驱动)
 import { findUserByEmail } from '@/lib/repos/user-repo';
 import { rateLimit, clientIp, isRateLimitActive } from '@/lib/rate-limit';
+import { withMisconfigGuard, misconfigReason } from '@/lib/server-misconfig';
 
 const DEFAULT_AVATAR = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" rx="40" fill="#2d1b69"/><circle cx="40" cy="30" r="14" fill="rgba(255,255,255,0.3)"/><ellipse cx="40" cy="68" rx="22" ry="18" fill="rgba(255,255,255,0.2)"/></svg>`)}`;
 
@@ -22,7 +23,8 @@ const INVITE_ERROR_MESSAGES: Record<InviteCodeError, string> = {
   INVALID: '邀请码格式无效',
 };
 
-export async function POST(request: Request) {
+// v13.11:服务端配错 → 503 + 原因 + 修法,不再 500(与登录同一份判定,见 lib/server-misconfig)。
+export const POST = withMisconfigGuard('auth/register', async (request: Request) => {
   const body = await request.json().catch(() => ({}));
   const { email, password, name, inviteCode } = body as {
     email?: string;
@@ -45,6 +47,10 @@ export async function POST(request: Request) {
       );
     }
   }
+
+  // v13.11:**写库之前**确认密钥可用。此前用户行先插进库、签令牌才炸 500 —— 再注册就是「该邮箱已被注册」,
+  // 密钥修好了也登不进去(注册时的密码没人知道对不对)。
+  assertJwtSecretUsable();
 
   // Beta 门禁：开启时必须提供有效邀请码
   const inviteRequired = isInviteRequired();
@@ -94,6 +100,8 @@ export async function POST(request: Request) {
         { status: 403 },
       );
     }
+    // 库文件只读(属主不对但目录可写时会「读得到、写不进」)→ 交给外层报 503,而不是笼统的「注册失败」
+    if (misconfigReason(e)) throw e;
     console.error('[register] failed:', e);
     return NextResponse.json({ message: '注册失败，请稍后重试' }, { status: 500 });
   }
@@ -109,4 +117,4 @@ export async function POST(request: Request) {
   );
   res.headers.set('Set-Cookie', sessionCookieHeader(token, request));
   return res;
-}
+});
