@@ -8,7 +8,7 @@
  * 读免鉴权(与项目其它只读端点一致)。
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { embedImage, hasImageEmbeddingKey } from '@/lib/asset-embedding';
 import { detectDriftOutliers, type ShotEmbedding } from '@/lib/drift-detect';
 import { requireProjectAccess } from '@/lib/auth-guard';
@@ -40,7 +40,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   //    这是个静默失效:看起来像「素材不够」,其实是过滤条件写错了。
   const useEmbedding = hasImageEmbeddingKey();
 
-  const rows = await listAssetsByType(id, 'storyboard');
+  // v13.10:每镜只取当前那行。原来同镜多行逐行嵌入(配了嵌入模型时每行一次调用),
+  // 已被替换的旧稿也进了离群检测 —— 报的「跑偏」可能是一张早就不用的图
+  const rows = await listLatestStoryboards(id);
   const shots = rows
     .map((r) => {
       const mediaUrls = parseJson((r as any).media_urls) || [];

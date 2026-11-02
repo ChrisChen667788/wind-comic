@@ -15,6 +15,7 @@ import { WorkspaceHotkeys } from '@/components/workspace-hotkeys';
 import { InviteProjectButton } from '@/components/project/invite-project-button';
 import { useAuth } from '@/components/auth-provider';
 import { storyboardText } from '@/lib/storyboard-text';
+import { latestStoryboardByShot } from '@/lib/storyboard-latest';
 
 interface Props {
   project: Project;
@@ -45,7 +46,7 @@ export function CreationWorkspace({ project }: Props) {
   // 时间线镜头数据
   const timelineShots = useMemo(() => {
     const videoAssets = assets.filter(a => a.type === 'video' && a.mediaUrls?.[0]);
-    const storyboardAssets = assets.filter(a => a.type === 'storyboard');
+    const storyboardAssets = latestStoryboardByShot(assets); // v13.10:每镜一行(选行口径见 lib/storyboard-latest)
     return videoAssets.map(v => {
       const sb = storyboardAssets.find(s => s.shotNumber === v.shotNumber);
       return {

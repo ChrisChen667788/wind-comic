@@ -6,6 +6,7 @@ import type { PipelineNodeData } from '@/types/agents';
 import { NodeShell } from './node-shell';
 import { storyboardText } from '@/lib/storyboard-text';
 import { FilmStrip as Film, CircleNotch as Loader2, CheckCircle as CheckCircle2, Clock, Camera, Sun, Palette, ArrowRight as MoveRight } from '@phosphor-icons/react';
+import { latestStoryboardByShot } from '@/lib/storyboard-latest';
 
 // Runway-style camera icon mapping
 const CAMERA_ICONS: Record<string, string> = {
@@ -15,7 +16,7 @@ const CAMERA_ICONS: Record<string, string> = {
 
 function StoryboardNodeComponent({ data }: NodeProps) {
   const d = data as unknown as PipelineNodeData;
-  const storyboards = d.assets?.filter(a => a.type === 'storyboard') || [];
+  const storyboards = latestStoryboardByShot(d.assets); // v13.10:每镜一张(选行口径见 lib/storyboard-latest)
   // v12.144:分镜面板 —— 同镜草图(草图锁模式产出)按 shotNumber 关联,卡内并排展示
   const sketchByShot = new Map<number, string>(
     (d.assets?.filter(a => a.type === 'storyboard-sketch') || [])

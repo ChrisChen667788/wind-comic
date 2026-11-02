@@ -18,7 +18,7 @@
  * URL 取用优先 persistent_url(外链/tmp 会过期,本地副本稳定 —— 见 asset-repo 注释)。
  * 仅服务端;轻依赖(asset-repo + db),可单测不拖 orchestrator。
  */
-import { listAssetsByType, type AssetRow } from './repos/asset-repo';
+import { listAssetsByType, listLatestStoryboards, type AssetRow } from './repos/asset-repo';
 import { db } from './db';
 import { storyboardText } from './storyboard-text';
 
@@ -80,7 +80,7 @@ export async function loadCheckpoints(projectId: string): Promise<PipelineCheckp
       listAssetsByType(projectId, 'styleBible'),
       listAssetsByType(projectId, 'character'),
       listAssetsByType(projectId, 'scene'),
-      listAssetsByType(projectId, 'storyboard'),
+      listLatestStoryboards(projectId), // v13.10:每镜一行,口径见 lib/storyboard-latest
       listAssetsByType(projectId, 'video'),
       listAssetsByType(projectId, 'final_video'),
       listAssetsByType(projectId, 'timeline'),
@@ -104,8 +104,10 @@ export async function loadCheckpoints(projectId: string): Promise<PipelineCheckp
     return { name: r.name, description: d.description || '', location: d.location || r.name, imageUrl: assetUrl(r) };
   });
 
-  const sbLatest = dedupeLatest(sbRows, (r) => String(r.shot_number ?? r.name))
-    .sort((a, b) => (a.shot_number ?? 0) - (b.shot_number ?? 0));
+  // v13.10:分镜选行口径收口到 lib/storyboard-latest(按插入先后取、镜头级的 planData / duration 从旧行沿用),
+  // sbRows 已经是每镜一行。原来这里 dedupeLatest 只比 updated_at:upsert 把一镜所有行刷成同一时刻时并列,
+  // 谁赢看库里顺序;重生行不带 planData / duration,取到它时机位规划丢了、时长退回默认 10 秒。
+  const sbLatest = sbRows;
   cp.storyboardPlans = sbLatest.map((r) => {
     const d = parseData(r);
     return {

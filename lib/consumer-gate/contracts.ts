@@ -83,6 +83,13 @@ export const RUNTIME_ONLY_GAPS: Array<{ gap: string; incident: string; guardedBy
     incident: 'v13.9 续跑断点(d.description)、全局单镜重生(JSON.parse(sbAsset.data).description)、片段重拍(parseJson(sb.data)?.description)、决策日志(d.prompt)都是这种写法',
     guardedBy: 'tests/v13-9-storyboard-text.test.ts(真库真路由,description-only 与 prompt-only 两种分镜行各跑一遍,断言引擎 / MJ / 视觉质检**收到**的文字)',
   },
+  {
+    gap: '通用「按类型取资产」函数把 \'storyboard\' 当参数传进去(firstMedia(type)、cnt(type))、listAssetsByType 跨行调用,' +
+      '或对全部资产做聚合而代码里不出现 storyboard 字样 —— storyboard-row-must-use-latest 只认单行内的具体写法',
+    incident: 'v13.10 模板预览 firstMedia(\'storyboard\')(ORDER BY shot_number LIMIT 1 取到旧图)、导演台 cnt(\'storyboard\')(SHOTS 数的是行数)、' +
+      '列表页示意图徽章(按全部资产行计数,把已被重生替换的旧 mock 分镜也算上)都是这种写法,正则扫不到',
+    guardedBy: 'tests/v13-10-storyboard-latest-row.test.ts(真库造多行镜头,真跑各路由 / 组件,断言引擎收到最新行的首帧和文字、每镜只调用一次)',
+  },
 ];
 
 export const CONTRACTS: GateContract[] = [
@@ -277,6 +284,34 @@ export const CONTRACTS: GateContract[] = [
     forbid: /\b(?:sb|sbAsset|sbRow|board|boardData)\??\.(?:data\??\.)?description\b/,
     scope: ['app/', 'lib/', 'services/', 'components/', 'hooks/', 'stores/'],
     allow: [],
+  },
+  {
+    id: 'storyboard-row-must-use-latest',
+    rule: '按镜读分镜资产行必须走 lib/storyboard-latest 的 latestStoryboardByShot(服务端 listLatestStoryboards / getLatestStoryboard),' +
+      '禁止 listAssetsByType(…, \'storyboard\')、手写 type = \'storyboard\' 的 SQL、按 type === \'storyboard\' 自己过滤',
+    incident:
+      'v13.10:重生分镜图与九宫格选定**插入新行**,一镜可以有好几行(本机库 243 镜里 53 镜多行,最新行都是重生 / 选定行)。' +
+      '读取方三种口径并存:项目级单镜重生 / 4K / 续跑取最新;全局单镜重生、批量补渲、片段重拍、EDL / AAF、片头封面、' +
+      'shot-spec / param-sync 写回取第一行(旧行),口型渲染按 version DESC 一镜都取不到新行 —— 用户重生 / 选定的图被忽略;' +
+      '整阶段重做视频、视觉质检、跑偏检测、导演审核、项目页卡片全取 —— 同一镜每行各付费出一次片 / 审一次图,最后谁赢不确定。' +
+      'v13.9 只收口了「从哪个字段取」。立项时点名 12 处,全仓扫出 40 处;下面的正则在改前代码上命中 38 行,其余是通用按类型取 / 不写 storyboard 字样的聚合(见 RUNTIME_ONLY_GAPS)。',
+    entry: 'latestStoryboardByShot(rows) / latestStoryboardForShot(rows, n) from lib/storyboard-latest;' +
+      ' listLatestStoryboards(projectId) / getLatestStoryboard(projectId, n) from lib/repos/asset-repo',
+    // 四种写法:listAssetsByType 取分镜、SQL 里写死 type = / IN ('storyboard')、.get/.all/.query 绑定 'storyboard' 参数、
+    // 按 .type === / !== 'storyboard' 自己过滤(含反写)。改前在 d90316b3 上命中 38 行、改后 0 行(登记的例外除外)。
+    // 通用按类型取的函数(firstMedia(type)、cnt(type))和跨行调用静态查不到,登记在 RUNTIME_ONLY_GAPS。
+    forbid: new RegExp([
+      String.raw`listAssetsByType\s*\([^)]*['"]storyboard['"]`,
+      String.raw`\btype\s*(?:=|IN\s*\()[^)]*'storyboard'`,
+      String.raw`\.(?:get|all|query)\s*(?:<[^>]*>)?\s*\([^)]*['"]storyboard['"]`,
+      String.raw`\.type\s*[!=]==?\s*['"]storyboard['"]`,
+      String.raw`['"]storyboard['"]\s*[!=]==?\s*\w+\??\.type\b`,
+    ].join('|')),
+    scope: ['app/', 'lib/', 'services/', 'components/', 'hooks/', 'stores/'],
+    allow: [
+      { file: 'lib/repos/asset-repo.ts', why: 'listLatestStoryboards / getLatestStoryboard 的实现本体:取出全部分镜行再交给 latestStoryboardByShot' },
+      { file: 'app/api/projects/route.ts', why: '列表页按用户一次取全部项目,不能逐个项目载入分镜行:封面候选的 SQL 把同镜次序写成与 latestStoryboardByShot 一致的 created_at → updated_at → id 倒序;示意图计数单取一次分镜选行字段交给 latestStoryboardByShot 判谁被替换。两处都由 tests/v13-10 断言' },
+    ],
   },
   {
     id: 'video-prompt-must-be-plain',

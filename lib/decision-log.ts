@@ -10,6 +10,7 @@
 
 import type { CostLogRow } from './repos/cost-log-repo';
 import { storyboardText } from './storyboard-text';
+import { latestStoryboardByShot } from './storyboard-latest';
 
 export interface ShotDecision {
   shotNumber: number;
@@ -28,7 +29,10 @@ export interface DecisionLog {
   quality?: { overall?: number; continuity?: number; lighting?: number; face?: number } | null;
 }
 
-interface AssetLite { type: string; shot_number?: number | null; shotNumber?: number | null; data?: unknown }
+interface AssetLite {
+  type: string; shot_number?: number | null; shotNumber?: number | null; data?: unknown;
+  id?: string | null; created_at?: string | null; updated_at?: string | null;
+}
 
 function parseData(d: unknown): Record<string, unknown> {
   if (!d) return {};
@@ -62,8 +66,9 @@ export function buildDecisionLog(input: {
     shotMap.set(sn, s);
   }
 
-  for (const a of input.assets || []) {
-    if (a.type !== 'storyboard') continue;
+  // v13.10:每镜只记当前那行(选行口径见 lib/storyboard-latest)。原来逐行过:提示词取的是第一行(旧稿),
+  // 「九宫格选定」只要任何一行带过就记上 —— 选定之后又重生过的镜,账上写的仍是旧稿 + 选定。
+  for (const a of latestStoryboardByShot(input.assets)) {
     const sn = numOr(a.shot_number ?? a.shotNumber);
     if (!sn || sn <= 0) continue;
     const s = shotMap.get(sn) || { shotNumber: sn, costCny: 0, engines: [] };

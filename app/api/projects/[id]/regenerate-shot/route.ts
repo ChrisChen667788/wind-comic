@@ -3,19 +3,17 @@ import { isDemoMode } from '@/services/demo-orchestrator';
 import { db } from '@/lib/db';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { storyboardText } from '@/lib/storyboard-text';
+import { getLatestStoryboard } from '@/lib/repos/asset-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /** 从资产库取指定镜头的分镜图 URL（storyboard 类型 + shot_number 匹配）
- *  v2.9: 优先拿 persistent_url —— 重生成很可能发生在几天之后,CDN 早过期了 */
-function getStoryboardImageUrl(projectId: string, shotNumber: number): string {
+ *  v2.9: 优先拿 persistent_url —— 重生成很可能发生在几天之后,CDN 早过期了
+ *  v13.10:同镜多行时取哪一行由 getLatestStoryboard 统一判定(原来各自写 ORDER BY updated_at DESC) */
+async function getStoryboardImageUrl(projectId: string, shotNumber: number): Promise<string> {
   try {
-    const row = db.prepare(
-      `SELECT media_urls, persistent_url FROM project_assets
-       WHERE project_id = ? AND type = 'storyboard' AND shot_number = ?
-       ORDER BY updated_at DESC LIMIT 1`
-    ).get(projectId, shotNumber) as { media_urls: string; persistent_url: string | null } | undefined;
+    const row = await getLatestStoryboard(projectId, shotNumber);
     if (!row) return '';
     if (row.persistent_url) return row.persistent_url;
     const urls: string[] = JSON.parse(row.media_urls || '[]');
@@ -30,13 +28,9 @@ function getStoryboardImageUrl(projectId: string, shotNumber: number): string {
  * v12.337:读这一镜**原本的描述**(最新那行分镜资产的文字,v13.9 起经 storyboardText 取)。
  * 自然语言改单镜必须在它的基础上合并 —— 见 lib/shot-edit-merge 的说明。
  */
-function getStoryboardDescription(projectId: string, shotNumber: number): string {
+async function getStoryboardDescription(projectId: string, shotNumber: number): Promise<string> {
   try {
-    const row = db.prepare(
-      `SELECT data FROM project_assets
-       WHERE project_id = ? AND type = 'storyboard' AND shot_number = ?
-       ORDER BY updated_at DESC LIMIT 1`
-    ).get(projectId, shotNumber) as { data: string } | undefined;
+    const row = await getLatestStoryboard(projectId, shotNumber);
     // v13.9:重生分镜图 / 九宫格选定插入的新行只有 data.prompt,只认 description 时这里读到空串,
     // 「改一镜」就退化成「只按你这句话重画」。两种存法由 storyboardText 统一判定。
     return storyboardText(row?.data);
@@ -114,7 +108,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           } catch {}
 
           // 构建分镜数据 —— imageUrl 从资产库取出原分镜图，用于 I2V 首帧锚定
-          const imageUrl = getStoryboardImageUrl(projectId, shotNumber);
+          const imageUrl = await getStoryboardImageUrl(projectId, shotNumber);
           if (imageUrl) {
             console.log(`[regenerate-shot] using stored storyboard frame: ${imageUrl.slice(0, 80)}...`);
           } else {
@@ -129,7 +123,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           // 直接传进来,原镜的人物/场景/动作会被整个抹掉,而且会「成功」返回、不报任何错。
           // v13.9:没传 description 时一律回库取这一镜的分镜文字。原来只有带 editNote 才回库 ——
           // 创建页「重试镜头 N」只发 { shotNumber },于是那条重试每次都给视频引擎发空提示词。
-          let baseDescription = description || getStoryboardDescription(projectId, shotNumber);
+          let baseDescription = description || await getStoryboardDescription(projectId, shotNumber);
           let mergeNote = '';
           if (typeof editNote === 'string' && editNote.trim()) {
             const { mergeShotEdit, describeMerge } = await import('@/lib/shot-edit-merge');

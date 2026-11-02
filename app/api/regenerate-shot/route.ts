@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { HybridOrchestrator } from '@/services/hybrid-orchestrator';
 import { db, now } from '@/lib/db';
-import { updateAssetBySelector } from '@/lib/repos/asset-repo';
+import { updateAssetBySelector, getLatestStoryboard, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { isPlaceholderVideo } from '@/lib/placeholder-provenance';
 import { storyboardText } from '@/lib/storyboard-text';
 
@@ -109,9 +109,9 @@ export async function POST(request: NextRequest) {
           send('regenerateStart', { shotNumber, stage: 'video' });
 
           // 从DB获取该镜头的分镜信息
-          const sbAsset = db.prepare(
-            'SELECT * FROM project_assets WHERE project_id = ? AND type = ? AND shot_number = ?'
-          ).get(projectId, 'storyboard', shotNumber) as any;
+          // v13.10:一镜可以有多行(重生分镜图、九宫格选定都插新行)。原来 .get 没有排序,取到的是最早那行 ——
+          // 用户重生 / 选定的分镜图被忽略,首帧和文字都用旧的。选行口径统一由 lib/storyboard-latest 判定。
+          const sbAsset = await getLatestStoryboard(projectId, shotNumber) as any;
 
           const sceneAsset = db.prepare(
             'SELECT * FROM project_assets WHERE project_id = ? AND type = ? LIMIT 1'
@@ -224,8 +224,8 @@ export async function POST(request: NextRequest) {
             const sn = asset.shot_number;
             send('status', { message: `补渲镜头 ${sn}(${++started}/${targets.length})...` });
             try {
-              const sbAll = await listAssetsByType(projectId, 'storyboard') as any[];
-              const sbAsset = sbAll.find((x) => x.shot_number === sn);
+              // v13.10:原来 listAssetsByType(按镜号排序)后 .find —— 同镜多行时取到的是旧行
+              const sbAsset = await getLatestStoryboard(projectId, sn) as any;
               const sceneAsset = ((await listAssetsByType(projectId, 'scene')) as any[])[0];
               // v12.154:引擎首帧 http CDN 优先(persistent 站内路径由 toEngineImage 转 base64)
               const { pickEngineImageUrl } = await import('@/lib/first-frame');
@@ -284,9 +284,9 @@ export async function POST(request: NextRequest) {
 
           if (stage === 'video') {
             // 重做所有视频
-            const storyboardAssets = db.prepare(
-              'SELECT * FROM project_assets WHERE project_id = ? AND type = ? ORDER BY shot_number'
-            ).all(projectId, 'storyboard') as any[];
+            // v13.10:原来同镜多行全部交给 runVideoProducer —— 每行各出一次付费视频,回写时谁最后写谁赢。
+            // 每镜只取当前那行(镜头级的 planData 等由入口从旧行沿用)。
+            const storyboardAssets = await listLatestStoryboards(projectId) as any[];
 
             const charAssets = db.prepare(
               'SELECT * FROM project_assets WHERE project_id = ? AND type = ?'

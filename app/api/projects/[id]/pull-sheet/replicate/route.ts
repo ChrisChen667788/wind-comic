@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { pickScriptAsset } from '@/lib/script-asset';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
-import { listAssetsByType, getAsset } from '@/lib/repos/asset-repo';
+import { listAssetsByType, getAsset, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { insertProjectFull, getOwnedProject, deleteProject } from '@/lib/repos/project-repo';
 import { getUserFromRequest } from '../../../../auth/lib';
 import { buildPullSheetFromScript, type PullSheet } from '@/lib/pull-sheet';
@@ -45,7 +45,8 @@ async function loadFactorySheet(projectId: string): Promise<PullSheet> {
     if (!script.title && r?.title) script.title = r.title;
   }
   const [storyboards, videos] = await Promise.all([
-    listAssetsByType(projectId, 'storyboard'),
+    // v13.10:每镜当前那行(原来同镜多行进 Map 后写者赢,赢的是哪行取决于库里顺序)
+    listLatestStoryboards(projectId),
     listAssetsByType(projectId, 'video'),
   ]);
   const toRefs = (rows: typeof storyboards) =>

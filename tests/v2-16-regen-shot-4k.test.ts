@@ -31,6 +31,13 @@ vi.mock('@/lib/db', () => ({
         }
         return { id: 'test-user' };
       },
+      // v13.10:路由改用 getLatestStoryboard(驱动的 query → prepare().all),假库照真实驱动给行数组
+      all: () => {
+        if (sql.includes('project_assets') && sql.includes('storyboard')) {
+          return MOCK_STORYBOARD ? [{ ...MOCK_STORYBOARD, type: 'storyboard', shot_number: 1, created_at: '2026-01-01T00:00:00.000Z' }] : [];
+        }
+        return [];
+      },
       run: () => ({ changes: 1 }),
     }),
   },

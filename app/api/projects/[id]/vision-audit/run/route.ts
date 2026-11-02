@@ -17,6 +17,7 @@ import { getUserFromRequest } from '../../../../auth/lib';
 import { db } from '@/lib/db';
 import { normalizeAssetRow } from '@/lib/asset-storage';
 import { storyboardText } from '@/lib/storyboard-text';
+import { listLatestStoryboards } from '@/lib/repos/asset-repo';
 import {
   auditShotVsScript,
   saveShotAudit,
@@ -46,9 +47,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!_paid.ok) return _paid.response;
 
   // storyboard assets — 图 + description
-  const storyboards = db
-    .prepare(`SELECT * FROM project_assets WHERE project_id = ? AND type = 'storyboard' ORDER BY shot_number ASC`)
-    .all(id) as any[];
+  // v13.10:每镜只审当前那行。原来同镜多行逐行审 —— 每行一次付费视觉调用,旧稿的分数还和新稿混在一起
+  const storyboards = await listLatestStoryboards(id) as any[];
 
   if (storyboards.length === 0) {
     return NextResponse.json({ error: '该项目还没有分镜, 无法质检' }, { status: 400 });

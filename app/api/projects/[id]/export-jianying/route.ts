@@ -48,9 +48,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   );
 
   // v12.429:剪映草稿是 JSON,能直接把人读的那句话带进去(不像二进制只能走响应头)。
-  const { listAssetsByType } = await import('@/lib/repos/asset-repo');
+  const { listAssetsByType, listLatestStoryboards } = await import('@/lib/repos/asset-repo');
   const auditRows = [
-    ...(await listAssetsByType(id, 'storyboard')),
+    // v13.10:分镜每镜只算当前那行 —— 已被重生 / 选定替换的旧行不在交付物里,算进去就是谎报示意图
+    ...(await listLatestStoryboards(id)),
     ...(await listAssetsByType(id, 'video')),
     ...(await listAssetsByType(id, 'final_video')),
   ];

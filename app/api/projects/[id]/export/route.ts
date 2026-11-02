@@ -34,9 +34,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   // v12.429:交付前审计 —— 这一版要交出去的东西里有多少不是真出图的。
   // 不拦导出(用户可能就是要导草稿),但不能一声不吭。
-  const { listAssetsByType } = await import('@/lib/repos/asset-repo');
+  const { listAssetsByType, listLatestStoryboards } = await import('@/lib/repos/asset-repo');
   const auditRows = [
-    ...(await listAssetsByType(projectId, 'storyboard')),
+    // v13.10:分镜每镜只算当前那行 —— 已被重生 / 选定替换的旧行不在交付物里,算进去就是谎报示意图
+    ...(await listLatestStoryboards(projectId)),
     ...(await listAssetsByType(projectId, 'video')),
     ...(await listAssetsByType(projectId, 'final_video')),
   ];
@@ -124,9 +125,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             const { resolveByKey } = await import('@/lib/asset-storage');
             // 封面 = 第一张分镜图(有则用,无则片头走纯黑底);?path= 走验签,?key= 走内容寻址解析
             let coverImagePath: string | undefined;
-            const cov = db.prepare(
-              `SELECT persistent_url, media_urls FROM project_assets WHERE project_id = ? AND type = 'storyboard' ORDER BY shot_number ASC LIMIT 1`
-            ).get(projectId) as { persistent_url: string | null; media_urls: string } | undefined;
+            // v13.10:原来 ORDER BY shot_number LIMIT 1 不分新旧,第 1 镜重生 / 选定过时片头用的是旧图
+            const cov = (await listLatestStoryboards(projectId))[0] as { persistent_url: string | null; media_urls: string } | undefined;
             const covUrl = cov?.persistent_url || (() => { try { return JSON.parse(cov?.media_urls || '[]')[0] || ''; } catch { return ''; } })();
             if (covUrl && covUrl.startsWith('/api/serve-file')) {
               let cp = resolveVerifiedServeFilePath(covUrl);

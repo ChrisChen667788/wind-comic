@@ -104,6 +104,26 @@ const ledger = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'v13-3-ledg
 /** 每个用例只看自己建的项目(同一个测试库里还有别的用例的行) */
 const mine = (ids: string[], changes: Array<{ id: string }>) => changes.filter((c) => ids.includes(c.id));
 
+describe('v13.10 · 一镜多行分镜:量画幅只量每镜当前那一行', () => {
+  it('旧的横屏分镜被重生成竖屏后,不再参与投票(修前三行全量,旧横屏图也算一票)', async () => {
+    const id = await project('2.35:1', [
+      { type: 'storyboard', url: 'https://x.invalid/LAND-old-1.png', shot: 1 },
+      { type: 'storyboard', url: 'https://x.invalid/VERT-new-1.png', shot: 1 },
+      { type: 'storyboard', url: 'https://x.invalid/VERT-2.png', shot: 2 },
+    ]);
+    // 定死插入先后:被替换的旧行最早(同一毫秒插入时 created_at 会并列)
+    const rows = db.prepare(`SELECT id, persistent_url FROM project_assets WHERE project_id = ? AND type = 'storyboard'`).all(id) as Array<{ id: string; persistent_url: string }>;
+    expect(rows.length, '窗口自证:三行分镜都写进库了').toBe(3);
+    for (const r of rows) {
+      db.prepare('UPDATE project_assets SET created_at = ? WHERE id = ?')
+        .run(r.persistent_url.includes('old') ? '2026-01-01T00:00:00.000Z' : '2026-02-01T00:00:00.000Z', r.id);
+    }
+    const probe = async (t: string) => (t.includes('VERT') ? { width: 72, height: 128 } : t.includes('LAND') ? { width: 128, height: 72 } : null);
+    const m = await measureProjectMedia(id, { probe });
+    expect(m.map((x) => `${x.source}:${x.width}x${x.height}`)).toEqual(['storyboard:72x128', 'storyboard:72x128']);
+  });
+});
+
 describe('v13.3 · 真库修复', { timeout: 60_000 }, () => {
   it('量真素材:竖屏镜头 → 9:16;占位片(1280x720 Ken Burns)不算票;serve-file?key= 能解析到本地文件', async () => {
     const v = await media('mp4', 72, 128);

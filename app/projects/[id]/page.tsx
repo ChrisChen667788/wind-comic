@@ -21,6 +21,7 @@ import ProjectChatSidebar, { ChatLauncherButton } from '@/components/agent-chat-
 import { CameoBadge, CameoSummary } from '@/components/cameo/CameoStoryboardWidgets';
 import { ShotInspector, type InspectShot } from '@/components/project/shot-inspector';
 import { storyboardText } from '@/lib/storyboard-text';
+import { latestStoryboardByShot } from '@/lib/storyboard-latest';
 import { Eyebrow, TimecodeChip, FilmStripDivider, EmptyState } from '@/components/cinema/primitives';
 import { ExportResolutionDropdown } from '@/components/project/export-resolution-dropdown';
 import { PlatformExportDropdown } from '@/components/project/platform-export-dropdown';
@@ -349,11 +350,14 @@ export default function ProjectDetailPage() {
   const scriptAsset = assets.find((a: any) => a.type === 'script');
   const characters = assets.filter((a: any) => a.type === 'character');
   const scenes = assets.filter((a: any) => a.type === 'scene');
-  const storyboards = assets.filter((a: any) => a.type === 'storyboard').sort((a: any, b: any) => (a.shotNumber || 0) - (b.shotNumber || 0));
+  // v13.10:每镜一张卡(当前那行,选行口径见 lib/storyboard-latest)。原来同镜多行全列成卡片 ——
+  // 重生 / 选定过的镜旧稿新稿各一张,工坊、监看、风格审计、一键成片都按行数算镜。
+  const storyboards = latestStoryboardByShot(assets as any[]) as any[];
   // v9.4.6: 一键成片闭环要用的「镜号→分镜 prompt」(防御式取, 取不到的镜面板会跳过)
+  // v13.10:原来只认 data.prompt,创建页 / 主管线写 description 的镜一律被跳过 —— 改用 v13.9 的 storyboardText
   const shotPrompts = storyboards.map((s: any) => ({
     shotNumber: s.shotNumber || 0,
-    prompt: s.prompt || (s.data && typeof s.data === 'object' ? s.data.prompt : '') || '',
+    prompt: storyboardText(s.data),
   }));
   const videos = assets.filter((a: any) => a.type === 'video').sort((a: any, b: any) => (a.shotNumber || 0) - (b.shotNumber || 0));
   // v12.466:安全区叠层 = 格式条的「安全框」。修前格式条那个开关存进库却没人读,叠层只认一个只在视频页能点的临时开关

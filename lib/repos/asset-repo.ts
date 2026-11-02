@@ -9,6 +9,7 @@
 
 import { nanoid } from 'nanoid';
 import { applyProvenance } from '@/lib/placeholder-provenance';
+import { latestStoryboardByShot } from '@/lib/storyboard-latest';
 import { getDbDriver, isUniqueViolation } from '../db-driver';
 import type { DbExecutor } from '@/lib/db-driver';
 
@@ -46,6 +47,23 @@ export async function listAssetsByType(projectId: string, type: string, exec?: D
     `SELECT ${COLS} FROM project_assets WHERE project_id = ? AND type = ? ORDER BY shot_number`,
     [projectId, type],
   );
+}
+
+/**
+ * v13.10:分镜行,每镜一行(同镜多行取最后插入的那行,镜头级字段沿用旧行 —— 口径见 lib/storyboard-latest)。
+ * 读分镜一律走这两个,不要 listAssetsByType(…, 'storyboard') 自己挑(门禁 storyboard-row-must-use-latest)。
+ */
+export async function listLatestStoryboards(projectId: string, exec?: DbExecutor): Promise<AssetRow[]> {
+  return latestStoryboardByShot(await listAssetsByType(projectId, 'storyboard', exec));
+}
+
+/** v13.10:某一镜当前的分镜行(口径同 listLatestStoryboards);没有返回 null */
+export async function getLatestStoryboard(projectId: string, shotNumber: number, exec?: DbExecutor): Promise<AssetRow | null> {
+  const rows = await (exec ?? getDbDriver()).query<AssetRow>(
+    `SELECT ${COLS} FROM project_assets WHERE project_id = ? AND type = 'storyboard' AND shot_number = ?`,
+    [projectId, shotNumber],
+  );
+  return latestStoryboardByShot(rows)[0] ?? null;
 }
 
 export async function getAsset(id: string, exec?: DbExecutor): Promise<AssetRow | null> {

@@ -140,7 +140,8 @@ describe('v12.426 调用方确实接上了(不是造好没接线)', () => {
     // 把分镜那条改坏了断言照样绿(实测变异⑨没转红)。锚到 storyboard 子查询本身。
     const sb = sql.slice(sql.indexOf("type = 'storyboard'"), sql.indexOf('AS storyboard_media'));
     expect(sb, '没截到 storyboard 子查询').toContain('ORDER BY');
-    expect(sb).toMatch(/ORDER BY shot_number ASC, updated_at DESC/);
+    // v13.10:同镜次序与 lib/storyboard-latest 一致(created_at → updated_at → id 倒序);行为由 tests/v13-10 断言首选是最新行
+    expect(sb).toMatch(/ORDER BY shot_number ASC, created_at DESC, updated_at DESC, id DESC/);
   });
 });
 

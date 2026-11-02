@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { pickScriptAsset } from '@/lib/script-asset';
-import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { listAssetsByType, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { auditAssetsForExport, exportAuditHeaders, exportAuditNote } from '@/lib/export-audit';
 import { buildEDL, buildFCPXML, pacingReportToMarkers, type EdlShot, type EdlAudio, type EdlMarker , xfadeRecordStartsSec } from '@/lib/edl-export';
 import { normalizeProjectFormat } from '@/lib/project-format';
@@ -38,7 +38,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   // 取每镜素材 URL (优先视频, 退分镜图)
   const videos = await listAssetsByType(projectId, 'video');
-  const storyboards = await listAssetsByType(projectId, 'storyboard');
+  // v13.10:每镜当前那行。原来 .find 取按镜号排序后的第一行 —— 没有视频的镜退回分镜图时用的是旧图
+  const storyboards = await listLatestStoryboards(projectId);
   const urlFor = (sn: number): string | undefined => {
     const v = videos.find((a) => a.shot_number === sn);
     if (v) return v.persistent_url || firstUrl(v.media_urls);
@@ -123,7 +124,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // 不拦导出(用户可能就是要导草稿),但不能一声不吭:实测此前四条导出路径
   // 对示意图**完全无感**,片子交到客户手里才发现里面混着占位画面。
   const auditRows = [
-    ...(await listAssetsByType(projectId, 'storyboard')),
+    // v13.10:分镜每镜只算当前那行 —— 已被重生 / 选定替换的旧行不在交付物里,算进去就是谎报示意图
+    ...(await listLatestStoryboards(projectId)),
     ...(await listAssetsByType(projectId, 'video')),
     ...(await listAssetsByType(projectId, 'final_video')),
   ];

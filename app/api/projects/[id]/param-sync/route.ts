@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listAssetsByType, createAsset, updateAsset } from '@/lib/repos/asset-repo';
+import { listAssetsByType, createAsset, updateAsset, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { buildParamDoc } from '@/lib/param-linkage';
 import { requireProjectAccess } from '@/lib/auth-guard';
 
@@ -39,7 +39,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   });
 
   // 每镜 spec → storyboard 资产 data.cameraSpec
-  const storyboards = await listAssetsByType(projectId, 'storyboard');
+  // v13.10:写进每镜当前那行(原来 .find 写进第一行 —— 重生过的镜写进旧行,项目页读当前行就看不到)
+  const storyboards = await listLatestStoryboards(projectId);
   let syncedShots = 0;
   for (const s of doc.shots) {
     const row = storyboards.find((a) => a.shot_number === s.shotNumber);

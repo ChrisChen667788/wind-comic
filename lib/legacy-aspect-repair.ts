@@ -34,7 +34,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getDbDriver } from './db-driver';
-import { listAssetsByType, type AssetRow } from './repos/asset-repo';
+import { listAssetsByType, listLatestStoryboards, type AssetRow } from './repos/asset-repo';
 import { serveFileToLocalPath } from './first-frame';
 import { isPlaceholderVideo } from './placeholder-provenance';
 import { PROJECT_ASPECTS, parseRequestedAspect, type VideoAspect } from './video-aspect';
@@ -155,7 +155,8 @@ export async function measureProjectMedia(projectId: string, opts: { perType?: n
     persistentUrl: r.persistent_url ?? null,
   }));
   await measure('video', videos);
-  await measure('storyboard', await listAssetsByType(projectId, 'storyboard'));
+  // v13.10:一镜可以有好几行分镜(重生 / 九宫格选定都是插入新行),只量每镜当前那一行 —— 被替换掉的旧图不该参与投票
+  await measure('storyboard', await listLatestStoryboards(projectId));
   const finals = (await listAssetsByType(projectId, 'final_video'))
     .sort((a, b) => (String(a.created_at) < String(b.created_at) ? 1 : -1));
   await measure('final_video', finals.slice(0, 1));

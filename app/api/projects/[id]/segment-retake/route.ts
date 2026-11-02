@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireProjectAccess } from '@/lib/auth-guard';
-import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { getLatestStoryboard } from '@/lib/repos/asset-repo';
 import { planSegmentRetake } from '@/lib/segment-retake';
 import { listSegmentTakes, adoptSegmentTake } from '@/lib/shot-segment-retake';
 import {
@@ -42,7 +42,8 @@ function orchestratorPatch(projectId: string, videoProvider?: string): GenerateP
     } catch (e) {
       console.warn('[segment-retake] 项目上下文加载失败,补丁不带画风/角色参考:', e instanceof Error ? e.message : e);
     }
-    const sb = (await listAssetsByType(projectId, 'storyboard')).find((r) => r.shot_number === shotNumber);
+    // v13.10:原来 .find 取按镜号排序后的第一行 —— 同镜多行时是旧行,补丁的文字和首帧兜底都用旧分镜
+    const sb = await getLatestStoryboard(projectId, shotNumber);
     const { pickEngineImageUrl } = await import('@/lib/first-frame');
     const description = sb ? storyboardText(sb.data) : ''; // v13.9:description / prompt 两种存法
     const storyboard = {

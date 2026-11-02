@@ -20,7 +20,7 @@
 
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { updateAssetBySelector } from '@/lib/repos/asset-repo';
+import { updateAssetBySelector, getLatestStoryboard } from '@/lib/repos/asset-repo';
 import { KlingService } from '@/services/kling.service';
 import { API_CONFIG } from '@/lib/config';
 import { checkPlan, planRejection } from '@/lib/plan-gate';
@@ -35,20 +35,13 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 900; // 15 分钟 — 4K 单镜头慢
 
-function getStoryboardForShot(
+async function getStoryboardForShot(
   projectId: string,
   shotNumber: number,
-): { imageUrl: string; prompt: string } | null {
+): Promise<{ imageUrl: string; prompt: string } | null> {
   try {
-    const row = db
-      .prepare(
-        `SELECT media_urls, persistent_url, name, data FROM project_assets
-         WHERE project_id = ? AND type = 'storyboard' AND shot_number = ?
-         ORDER BY updated_at DESC LIMIT 1`,
-      )
-      .get(projectId, shotNumber) as
-      | { media_urls: string; persistent_url: string | null; name: string; data: string | null }
-      | undefined;
+    // v13.10:同镜多行时取哪一行由 getLatestStoryboard 统一判定(原来自己写 ORDER BY updated_at DESC)
+    const row = await getLatestStoryboard(projectId, shotNumber);
     if (!row) return null;
     const urls: string[] = JSON.parse(row.media_urls || '[]');
     const imageUrl = row.persistent_url || urls[0] || '';
@@ -102,7 +95,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const customPrompt = typeof body?.prompt === 'string' ? body.prompt.trim().slice(0, 500) : '';
   const duration = body?.duration === 10 ? 10 : 5;
 
-  const storyboard = getStoryboardForShot(projectId, shotNumber);
+  const storyboard = await getStoryboardForShot(projectId, shotNumber);
   if (!storyboard) {
     return new Response(
       JSON.stringify({ error: `第 ${shotNumber} 镜的分镜图找不到, 无法 4K 重渲 (建议先跑通该镜分镜)` }),

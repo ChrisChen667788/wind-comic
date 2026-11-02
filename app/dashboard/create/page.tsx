@@ -44,6 +44,7 @@ import { CostChip } from '@/components/ui/cost-chip';
 import { previewCost, confirmSpendText } from '@/lib/action-cost';
 import { ideaReady } from '@/lib/idea-gate';
 import { PROJECT_ASPECTS, isProjectAspect } from '@/lib/video-aspect';
+import { latestStoryboardByShot } from '@/lib/storyboard-latest';
 
 // Pika-style art presets with visual indicators and color themes
 const stylePresets = [
@@ -589,7 +590,7 @@ export default function DashboardCreatePage() {
 
       case 'storyboards': {
         // 第2阶段：渲染完成的分镜图，更新已有的分镜资产
-        const existing = s.assets.filter(a => a.type === 'storyboard');
+        const existing = latestStoryboardByShot(s.assets); // v13.10:更新的是每镜当前那行(选行口径见 lib/storyboard-latest)
         (data || []).forEach((sb: any, i: number) => {
           const sn = sb.shotNumber || i + 1;
           const ex = existing.find(a => a.shotNumber === sn);

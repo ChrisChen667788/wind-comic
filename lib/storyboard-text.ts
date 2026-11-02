@@ -18,7 +18,7 @@
  * 交给视频引擎前要过 toPlainPrompt —— 编排器的单镜重生 / runVideoProducer 已经在里面转了,
  * 直调引擎的(4K 重渲)要自己转。
  *
- * 只管「从哪个字段取」,不管「取哪一行」:同一镜有多行时各读取方选行的口径并不一致,那是另一件事。
+ * 只管「从哪个字段取」,不管「取哪一行」:同一镜有多行时取哪一行由 lib/storyboard-latest 判定(v13.10)。
  */
 
 const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;

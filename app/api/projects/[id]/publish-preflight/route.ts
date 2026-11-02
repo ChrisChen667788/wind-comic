@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { resolveVerifiedServeFilePath } from '@/lib/serve-file-sign';
 import { getUserFromRequest } from '@/app/api/auth/lib';
-import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { listAssetsByType, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { preflightAll } from '@/lib/publish-preflight';
 import { probeVideoIntegrity } from '@/services/video-composer';
 import { requireProjectAccess } from '@/lib/auth-guard';
@@ -46,7 +46,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   // 这里是最后一道能拦住「把引擎没出图的占位画面当成片发出去」的关口。
   // 仍然只告知不拦截(草稿号试发是正当用法),但必须让调用方拿得到这个事实。
   const auditRows = [
-    ...(await listAssetsByType(id, 'storyboard')),
+    // v13.10:分镜每镜只算当前那行 —— 已被重生 / 选定替换的旧行不在交付物里,算进去就是谎报示意图
+    ...(await listLatestStoryboards(id)),
     ...(await listAssetsByType(id, 'video')),
     ...finals,
   ];

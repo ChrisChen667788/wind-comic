@@ -36,6 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       persistentUrl,
       shotNumber: a.shot_number,
       version: a.version,
+      createdAt: a.created_at, // v13.10:同镜多行分镜按插入先后取当前那行(lib/storyboard-latest),前端要这一列
       updatedAt: a.updated_at, // v6.4: 导演台 stale 判定用
       stale: !!a.stale, // v6.4.1: 显式失效标记 (重跑端点置位)
     };

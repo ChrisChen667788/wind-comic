@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listAssetsByType, updateAsset } from '@/lib/repos/asset-repo';
+import { updateAsset, getLatestStoryboard } from '@/lib/repos/asset-repo';
 import { normalizeShotSpec } from '@/lib/cinematography';
 import { requireProjectAccess } from '@/lib/auth-guard';
 
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   const spec = normalizeShotSpec(body?.cameraSpec);
 
-  const storyboards = await listAssetsByType(projectId, 'storyboard');
-  const row = storyboards.find((a) => a.shot_number === shotNumber);
+  // v13.10:写进这一镜当前那行(原来 .find 写进第一行 —— 重生过的镜写进旧行,项目页读当前行就看不到)
+  const row = await getLatestStoryboard(projectId, shotNumber);
   if (!row) return NextResponse.json({ error: `未找到分镜 ${shotNumber}` }, { status: 404 });
 
   let data: any = {};

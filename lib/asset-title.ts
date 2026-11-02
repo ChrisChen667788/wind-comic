@@ -15,6 +15,7 @@
  */
 
 import { storyboardText } from './storyboard-text';
+import { latestStoryboardByShot } from './storyboard-latest';
 
 const MACHINE_NAME = /^(shot\s*\d+(\s*\(re-gen\))?|镜头\s*\d+|视频\s*\d+|分镜\s*\d+|场景\s*\d+)$/i;
 
@@ -24,6 +25,9 @@ export interface AssetLike {
   projectId?: string | null;
   shotNumber?: number | null;
   data?: unknown;
+  id?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export function isMachineName(name: string | null | undefined): boolean {
@@ -76,11 +80,12 @@ export function firstClause(text: string, max = 22): string {
   return head.length > max ? `${head.slice(0, max)}…` : head;
 }
 
-/** 按 (projectId, shotNumber) 建分镜描述索引,供视频借用。 */
+/** 按 (projectId, shotNumber) 建分镜描述索引,供视频借用。
+ *  v13.10:每镜借当前那行的描述(选行口径见 lib/storyboard-latest);原来同镜多行时后写者赢,看列表顺序 */
 export function buildStoryboardIndex(assets: AssetLike[]): Map<string, string> {
   const idx = new Map<string, string>();
-  for (const a of assets) {
-    if (a.type !== 'storyboard' || !a.projectId || a.shotNumber == null) continue;
+  for (const a of latestStoryboardByShot(assets)) {
+    if (!a.projectId || a.shotNumber == null) continue;
     const d = descOf(a.data);
     if (d) idx.set(`${a.projectId}#${a.shotNumber}`, d);
   }

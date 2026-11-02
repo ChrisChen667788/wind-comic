@@ -9,7 +9,7 @@ import { pickScriptAsset } from '@/lib/script-asset';
 import { requireUser, requireProjectAccess } from '@/lib/auth-guard';
 import { getDbDriver } from '@/lib/db-driver';
 import { getUserFromRequest } from '../../../auth/lib';
-import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { listAssetsByType, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { getProjectAudits, aggregateFilmAudit } from '@/lib/vision-audit';
 import { getLatestQualityScore } from '@/lib/quality-scores';
 import { evaluateQualityGate } from '@/lib/quality-gate';
@@ -75,7 +75,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     try { const u = JSON.parse(row?.media_urls || '[]'); return Array.isArray(u) && u[0] ? u[0] : undefined; } catch { return undefined; }
   };
   // v9.7.13:落盘独立副本(内容寻址进 .storage)→ 源项目删了预览仍在;落盘失败回退原 URL
-  let previewUrl = await firstMedia('storyboard');
+  // v13.10:分镜预览取首镜当前那行 —— firstMedia 的 ORDER BY shot_number LIMIT 1 不分新旧,第 1 镜重生过就取到旧图
+  let previewUrl = await (async () => {
+    const first = (await listLatestStoryboards(id))[0];
+    try { const u = JSON.parse(first?.media_urls || '[]'); return Array.isArray(u) && u[0] ? String(u[0]) : undefined; } catch { return undefined; }
+  })();
   let previewVideoUrl = await firstMedia('video');
   if (previewUrl) { try { const p = await persistAsset(previewUrl, { ext: '.jpg', contentType: 'image/jpeg' }); if (p?.url) previewUrl = p.url; } catch { /* 保留原 URL */ } }
   if (previewVideoUrl) { try { const p = await persistAsset(previewVideoUrl, { ext: '.mp4', contentType: 'video/mp4' }); if (p?.url) previewVideoUrl = p.url; } catch { /* 保留原 URL */ } }

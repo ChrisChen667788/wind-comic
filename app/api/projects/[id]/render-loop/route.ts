@@ -11,7 +11,7 @@
 
 import { NextRequest } from 'next/server';
 import { pickScriptAsset } from '@/lib/script-asset';
-import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { listAssetsByType, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { createSSEResponse } from '@/lib/sse';
 import {
   deriveShotRenderStates, summarizeRenderLoop, isRenderLoopSettled,
@@ -30,7 +30,8 @@ async function snapshot(projectId: string) {
   const shots: ShotLike[] = Array.isArray(script.shots) ? script.shots : [];
   const [videoAssets, storyboardAssets] = await Promise.all([
     listAssetsByType(projectId, 'video') as Promise<AssetLike[]>,
-    listAssetsByType(projectId, 'storyboard') as Promise<AssetLike[]>,
+    // v13.10:每镜当前那行 —— 原来后写者赢,attempts 读的 version 可能是旧行的
+    listLatestStoryboards(projectId) as Promise<AssetLike[]>,
   ]);
   const shotsState = deriveShotRenderStates({ shots, videoAssets, storyboardAssets });
   return { summary: summarizeRenderLoop(shotsState), shots: shotsState };

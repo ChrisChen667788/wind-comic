@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
 import type { Script, ScriptShot } from '@/types/agents';
 import { computeTracks, applyTrackEdits, resetTrackEdit, type SegmentOverride } from '@/lib/timeline-tracks';
-import { updateAsset } from '@/lib/repos/asset-repo';
+import { updateAsset, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { requireProjectAccess } from '@/lib/auth-guard';
 
 export const runtime = 'nodejs';
@@ -35,22 +35,25 @@ function loadScript(projectId: string): { row: any; script: Script | null } {
   }
 }
 
-function loadShotMedia(projectId: string): Map<number, { thumbnailUrl?: string; videoUrl?: string }> {
+async function loadShotMedia(projectId: string): Promise<Map<number, { thumbnailUrl?: string; videoUrl?: string }>> {
   const out = new Map<number, { thumbnailUrl?: string; videoUrl?: string }>();
   try {
-    const rows = db.prepare(
+    // v13.10:缩略图取每镜当前那行分镜(选行口径见 lib/storyboard-latest)。原来和视频一起按 updated_at DESC
+    // 取第一张有图的 —— 当前那行没图时会退到旧稿,param-sync 刷过旧行的 updated_at 也会让旧稿排到前面。
+    const boards = await listLatestStoryboards(projectId);
+    const videos = db.prepare(
       `SELECT type, shot_number, media_urls FROM project_assets
-       WHERE project_id = ? AND shot_number IS NOT NULL AND type IN ('storyboard', 'video')
+       WHERE project_id = ? AND shot_number IS NOT NULL AND type = 'video'
        ORDER BY updated_at DESC`,
     ).all(projectId) as Array<{ type: string; shot_number: number; media_urls: string }>;
-    for (const r of rows) {
+    for (const r of [...boards, ...videos]) {
       if (!r.shot_number) continue;
       const existing = out.get(r.shot_number) || {};
       try {
         const urls = JSON.parse(r.media_urls || '[]');
         if (Array.isArray(urls) && urls[0]) {
-          if (r.type === 'storyboard' && !existing.thumbnailUrl) existing.thumbnailUrl = urls[0];
-          if (r.type === 'video' && !existing.videoUrl) existing.videoUrl = urls[0];
+          if (r.type === 'video') { if (!existing.videoUrl) existing.videoUrl = urls[0]; }
+          else if (!existing.thumbnailUrl) existing.thumbnailUrl = urls[0];
         }
       } catch { /* ignore */ }
       out.set(r.shot_number, existing);
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest,
   if (!script || !Array.isArray(script.shots)) {
     return NextResponse.json({ shots: [], tracks: { bgm: [], subtitle: [] }, totalDuration: 0 });
   }
-  const media = loadShotMedia(projectId);
+  const media = await loadShotMedia(projectId);
   const shots = script.shots.map((s) => ({
     shotNumber: s.shotNumber,
     duration: s.duration || 5,

@@ -13,7 +13,7 @@ import { persistAsset } from '@/lib/asset-storage';
 import { getUserFromRequest } from '@/app/api/auth/lib';
 import { db } from '@/lib/db';
 import { canEditProject } from '@/lib/project-share';
-import { listAssetsByType, updateAssetBySelector, createAsset } from '@/lib/repos/asset-repo';
+import { listAssetsByType, updateAssetBySelector, createAsset, getLatestStoryboard, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { identifyHealableShots } from '@/lib/heal-shots';
 
 export const runtime = 'nodejs';
@@ -24,12 +24,10 @@ function parse(raw: string | null | undefined): any {
   try { return raw ? JSON.parse(raw) : null; } catch { return null; }
 }
 
-/** 取某镜分镜图(persistent_url 优先,重生常在几天后 CDN 已过期)。 */
-function storyboardImage(projectId: string, shot: number): string {
+/** 取某镜分镜图(persistent_url 优先,重生常在几天后 CDN 已过期)。v13.10:同镜多行取哪行由 getLatestStoryboard 判定 */
+async function storyboardImage(projectId: string, shot: number): Promise<string> {
   try {
-    const row = db.prepare(
-      `SELECT media_urls, persistent_url FROM project_assets WHERE project_id = ? AND type = 'storyboard' AND shot_number = ? ORDER BY updated_at DESC LIMIT 1`,
-    ).get(projectId, shot) as any;
+    const row = await getLatestStoryboard(projectId, shot);
     if (!row) return '';
     return row.persistent_url || (parse(row.media_urls) || [])[0] || '';
   } catch { return ''; }
@@ -58,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!report) return NextResponse.json({ error: '没有质检报告(先合成成片)', healable: [] }, { status: 400 });
 
   // 有分镜图的镜号
-  const sbRows = await listAssetsByType(id, 'storyboard');
+  const sbRows = await listLatestStoryboards(id);
   const { assetShotNumber } = await import('@/lib/heal-shots');
   const storyboardShots = [...new Set(sbRows.map((r: any) => assetShotNumber(r)).filter((n: any) => Number.isInteger(n) && n > 0))]; // v12.138:蛇形行兼容
 
@@ -104,7 +102,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const healed: any[] = [];
   const failed: any[] = [];
   for (const h of targets) {
-    const imageUrl = storyboardImage(id, h.shot);
+    const imageUrl = await storyboardImage(id, h.shot);
     const meta = shotMeta(h.shot);
     try {
       const clip = await orchestrator.regenerateShot(

@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { latestStoryboardByShot, type StoryboardRowLike } from '@/lib/storyboard-latest';
 
 /** v12.356:导演评审结论(与 director-review 的 `review` 事件同形)。 */
 /** 评审条目里的环节名 → 中文(与 review-node 的 STAGE_MAP 同一套叫法)。 */
@@ -105,9 +106,11 @@ export function DirectorConsole({
 
   // v12.44: 从 assets 按类型派生 KPI 概览
   const cnt = (t: string) => (assets as Array<{ type?: string }>).filter((a) => a?.type === t).length;
+  // v13.10:SHOTS 数的是镜,不是分镜行 —— 重生 / 选定会给同一镜插新行,按行数会虚高
+  const shotCount = latestStoryboardByShot(assets as StoryboardRowLike[]).length;
   const kpis: Array<{ label: string; value: string; sub: string; color?: string; tip?: string }> = [
     { label: 'PROGRESS', value: `${prog.pct}%`, sub: `${prog.produced}/${prog.total} 环节` },
-    { label: 'SHOTS', value: String(cnt('storyboard')), sub: '分镜' },
+    { label: 'SHOTS', value: String(shotCount), sub: '分镜' },
     { label: 'CLIPS', value: String(cnt('video')), sub: '镜头视频' },
     { label: 'FILM', value: cnt('final_video') > 0 ? '✓' : '—', sub: '成片' },
   ];

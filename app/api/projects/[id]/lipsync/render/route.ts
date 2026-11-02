@@ -10,7 +10,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getDbDriver } from '@/lib/db-driver';
-import { listAssetsByType, createAsset } from '@/lib/repos/asset-repo';
+import { listAssetsByType, createAsset, getLatestStoryboard } from '@/lib/repos/asset-repo';
 import { persistAsset } from '@/lib/asset-storage';
 import { getUserFromRequest } from '../../../../auth/lib';
 import { recordCostLog, estimateLipsyncCostCny } from '@/lib/repos/cost-log-repo';
@@ -64,10 +64,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let faceUrl = (body.faceUrl || '').trim();
   let faceIsVideo = false;
   if (!faceUrl && typeof body.shotNumber === 'number') {
-    const sb = await d.get<any>(
-      `SELECT media_urls FROM project_assets WHERE project_id = ? AND type = 'storyboard' AND shot_number = ? ORDER BY version DESC LIMIT 1`,
-      [id, body.shotNumber],
-    );
+    // v13.10:原来 ORDER BY version DESC —— 重生 / 选定插入的新行 version 都是 1,旧行被 upsert 刷过的 version
+    // 更大或并列(并列时按库里顺序取到旧行),本机库 53 个多行镜头一镜都取不到新行。选行口径统一由 getLatestStoryboard 判定
+    const sb = await getLatestStoryboard(id, body.shotNumber);
     faceUrl = jsonArr(sb?.media_urls)[0] || '';
   }
   if (!faceUrl) return NextResponse.json({ configured: true, ok: false, message: '缺说话人脸:先生成该镜分镜图,或显式传 faceUrl' });

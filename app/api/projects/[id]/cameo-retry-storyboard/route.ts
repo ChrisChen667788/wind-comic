@@ -25,7 +25,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db, now } from '@/lib/db';
-import { updateAsset } from '@/lib/repos/asset-repo';
+import { updateAsset, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { withColorSpace } from '@/lib/project-format-store';
 import { parseProjectAspect } from '@/lib/orchestrator-project-context';
@@ -100,11 +100,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // 3. 取所有 storyboard 资产, 按 shot_number 索引
-  const allBoards = db.prepare(
-    `SELECT id, shot_number, media_urls, persistent_url, data FROM project_assets
-     WHERE project_id = ? AND type = 'storyboard'
-     ORDER BY shot_number ASC`
-  ).all(projectId) as StoryboardRow[];
+  // v13.10:每镜只取当前那行。原来同镜多行时 boardsByShot 后写者赢(重画、回写落在哪行看库里顺序),
+  // sref 参考链也会塞进已被替换的旧稿,甚至同一镜的两张
+  const allBoards = await listLatestStoryboards(projectId) as StoryboardRow[];
 
   const boardsByShot = new Map<number, StoryboardRow>();
   allBoards.forEach((b) => {

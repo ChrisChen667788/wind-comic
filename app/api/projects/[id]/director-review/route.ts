@@ -4,6 +4,7 @@ import { AgentRole } from '@/types/agents';
 import { db } from '@/lib/db';
 import { requireProjectAccess } from '@/lib/auth-guard';
 import { storyboardText } from '@/lib/storyboard-text';
+import { latestStoryboardByShot } from '@/lib/storyboard-latest';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,13 +26,14 @@ function loadProjectContext(projectId: string): {
     if (!project) return null;
 
     const rows = db.prepare(
-      `SELECT type, name, data, shot_number FROM project_assets WHERE project_id = ? ORDER BY type, shot_number`
-    ).all(projectId) as Array<{ type: string; name: string; data: string; shot_number: number | null }>;
+      `SELECT id, type, name, data, shot_number, created_at, updated_at FROM project_assets WHERE project_id = ? ORDER BY type, shot_number`
+    ).all(projectId) as Array<{ id: string; type: string; name: string; data: string; shot_number: number | null; created_at: string; updated_at: string }>;
 
     const script = rows.find(r => r.type === 'script');
     const characters = rows.filter(r => r.type === 'character');
     const scenes = rows.filter(r => r.type === 'scene');
-    const storyboards = rows.filter(r => r.type === 'storyboard');
+    // v13.10:原来同镜多行全列进摘要(旧稿和重生稿各一条「镜头N」),模型审的是一份重复的分镜表
+    const storyboards = latestStoryboardByShot(rows);
     const videos = rows.filter(r => r.type === 'video');
 
     const parse = (s: string) => { try { return JSON.parse(s); } catch { return {}; } };

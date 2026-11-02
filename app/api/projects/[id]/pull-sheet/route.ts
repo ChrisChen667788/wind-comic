@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pickScriptAsset } from '@/lib/script-asset';
 import { db } from '@/lib/db';
-import { listAssetsByType } from '@/lib/repos/asset-repo';
+import { listAssetsByType, listLatestStoryboards } from '@/lib/repos/asset-repo';
 import { buildPullSheetFromScript, toPullSheetCsv } from '@/lib/pull-sheet';
 import { getUserFromRequest } from '../../../auth/lib';
 import { getOwnedProject } from '@/lib/repos/project-repo';
@@ -62,7 +62,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const [storyboards, videos] = await Promise.all([
-    listAssetsByType(id, 'storyboard'),
+    // v13.10:每镜当前那行(原来同镜多行进 Map 后写者赢,赢的是哪行取决于库里顺序)
+    listLatestStoryboards(id),
     listAssetsByType(id, 'video'),
   ]);
   const toRefs = (rows: typeof storyboards) =>

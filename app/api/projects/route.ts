@@ -5,6 +5,7 @@ import { createProject } from '@/lib/repos/project-repo';
 import { safeJsonParse } from '@/lib/safe-json';
 import { resolveProjectCovers } from '@/lib/project-cover';
 import { isPlaceholderAsset, placeholderPrefilterSql } from '@/lib/placeholder-provenance';
+import { latestStoryboardByShot, type StoryboardRowLike } from '@/lib/storyboard-latest';
 
 export async function GET(request: Request) {
   // v12.218(安全止血):删「回落 DB 第一个用户」—— 匿名即得他人项目列表。无 token → 401。
@@ -29,9 +30,12 @@ export async function GET(request: Request) {
     ) AS chosen_cover_media, (
       -- 排序两件事都要:
       --  · shot_number ASC —— 封面按惯例取第 1 镜,不是随便一张;
-      --  · updated_at DESC —— 同一镜在库里常有两行,空的那行 updated_at 更早,
+      --  · 同镜新行在前 —— 同一镜在库里常有两行,空的那行更早,
       --    真画面在后来「重生」的行里(实测赤马斩龙:每镜都有 2026-06 的空行 +
-      --    2026-08 的真行)。只按 created_at 取会稳定取到死的那条。
+      --    2026-08 的真行)。按时间正序取会稳定取到死的那条。
+      --    v13.10:同镜次序与 lib/storyboard-latest 一致(created_at → updated_at → id 倒序):
+      --    列表页一次 SQL 取全部项目,不逐个载入分镜行,所以这里是 SQL 写的同一口径(门禁登记的例外)。
+      --    本机库 17 个有封面的项目上,改前(updated_at DESC)改后首选同一张。
       -- 取值优先 persistent_url:那是 /api/serve-file?key=… 的永久形态,
       -- 而 media_urls 里可能是会过期的引擎签名链(实测 6 个项目的封面就是这么死的)。
       SELECT group_concat(u, char(10)) FROM (
@@ -42,7 +46,7 @@ export async function GET(request: Request) {
             (persistent_url IS NOT NULL AND persistent_url <> '')
             OR (media_urls IS NOT NULL AND media_urls NOT IN ('', '[]'))
           )
-        ORDER BY shot_number ASC, updated_at DESC LIMIT 4
+        ORDER BY shot_number ASC, created_at DESC, updated_at DESC, id DESC LIMIT 4
       )
     ) AS storyboard_media, (
       SELECT group_concat(u, char(10)) FROM (
@@ -65,14 +69,26 @@ export async function GET(request: Request) {
   // (本机 1052 条资产收到 75 条),真正的判断仍在 isPlaceholderAsset —— 判据只能有一处。
   // 预筛必须是判据的**超集**,漏一种形态就等于漏报;两者放在同一个模块里,由测试绑住。
   const phRows = db.prepare(`
-    SELECT a.project_id, a.type, a.data, a.media_urls, a.persistent_url
+    SELECT a.id, a.project_id, a.type, a.data, a.media_urls, a.persistent_url
     FROM project_assets a
     JOIN projects p ON p.id = a.project_id
     WHERE p.user_id = ? AND ${placeholderPrefilterSql('a')}
-  `).all(userId) as Array<{ project_id: string; type?: string; data?: string; media_urls?: string; persistent_url?: string }>;
+  `).all(userId) as Array<{ id: string; project_id: string; type?: string; data?: string; media_urls?: string; persistent_url?: string }>;
+  // v13.10:已被重生 / 选定替换掉的分镜行不在片子里,不算「不是真出图的」。
+  // 要知道一行是否被替换,得看这一镜**所有**分镜行(新行多半是真图,不在上面的预筛结果里),
+  // 所以单取一次分镜行的选行字段,按 latestStoryboardByShot 的口径算出被替换的那些。
+  const sbKeys = db.prepare(`
+    SELECT a.id, a.project_id, a.type, a.shot_number, a.created_at, a.updated_at
+    FROM project_assets a
+    JOIN projects p ON p.id = a.project_id
+    WHERE p.user_id = ? AND a.type = 'storyboard'
+  `).all(userId) as Array<StoryboardRowLike & { id: string }>;
+  const currentBoards = new Set(latestStoryboardByShot(sbKeys).map((r) => r.id));
+  const supersededBoards = new Set(sbKeys.filter((r) => !currentBoards.has(r.id)).map((r) => r.id));
 
   const phByProject = new Map<string, number>();
   for (const a of phRows) {
+    if (supersededBoards.has(a.id)) continue;
     if (!isPlaceholderAsset(a)) continue;   // 预筛只是收窄,判断仍走唯一出处
     phByProject.set(a.project_id, (phByProject.get(a.project_id) ?? 0) + 1);
   }

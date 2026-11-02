@@ -43,7 +43,8 @@ describe('vision-audit/run:先问「是不是你的」,再问「有没有额度�
 
   it('归属校验排在读数据之前 —— 先查库再鉴权等于已经泄露了', () => {
     const authAt = body.indexOf('requireProjectAccess(');
-    const readAt = body.indexOf("type = 'storyboard'");
+    // v13.10:读分镜改走 listLatestStoryboards(原来是手写的 type = 'storyboard' SQL)
+    const readAt = body.indexOf('listLatestStoryboards(');
     expect(authAt).toBeGreaterThan(0);
     expect(readAt).toBeGreaterThan(0);
     expect(authAt).toBeLessThan(readAt);
