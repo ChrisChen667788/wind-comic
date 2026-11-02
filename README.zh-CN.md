@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — 一句话变完整短剧" width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v13.6</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.7</sup></sub></h1>
 
 <p align="center">
   <b>一句话进,整片短剧出 —— 剧本 · 角色 · 分镜 · 配音 · 时间线 · mp4 一条龙.</b><br/>
@@ -88,7 +88,7 @@ v13.0 汇总 **v12.461 – v12.473**(13 个版本,2026-09-30 → 10-09)。这一
 </tr>
 </table>
 
-**一直悄悄发错的引擎请求** *(v12.461、465、471、472)* —— MiniMax 的 `subject_reference[].image_file` 自 v2.20 起一直传数组,官方要求字符串:**带参考图的 MiniMax 出图每次都被拒(2013),静默退到别的引擎**,是一次真调撞出来的。Vidu 主机默认值有两份、一对一错;发给 Midjourney 的提示词参数重复、落在正文中间;视频引擎收到的提示词里带着 Midjourney 语法。
+**一直悄悄发错的引擎请求** *(v12.461、465、471、472)* —— MiniMax 的 `subject_reference[].image_file` 自 v2.20 起一直传数组,官方要求字符串:**带参考图的 MiniMax 出图每次都被拒(2013),静默退到别的引擎**,是一次真调撞出来的。Vidu 主机默认值有两份、一对一错(错的那份没有读者,请求从未用到它,在有人接上之前就收掉了);发给 Midjourney 的提示词参数重复、落在正文中间;视频引擎收到的提示词里带着 Midjourney 语法。
 
 > **还没真调验证的**:草图送 Seedream / kontext / Midjourney 按各家文档的请求格式实现,但没能真出图确认(10-01、10-06、10-08 三次分别撞上网关额度耗尽 / 没有 Midjourney 渠道 / 上游饱和);`npx tsx scripts/probe-sketch-engines.ts --yes <引擎>` 可重跑,每家扣一张图。fal 未验证(没配 key)。
 
@@ -258,7 +258,7 @@ Kling lip-sync API 做口播口型, 自动 fallback 到 Sync.so / Hailuo. 流水
 ### 9. **接你自己的 LLM** (v3.1.3)
 所有文本 LLM 调用 (导演 / 编剧 / vision / 审计) 走一个 OpenAI 兼容 `chat/completions` 端点. 想换 DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / 通义 Max / 本地 Ollama? **改 3 行 `.env` 完事, 0 改代码**. 完整矩阵见 [`docs/llm-providers.md`](docs/llm-providers.md).
 
-### 10. **6675 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
+### 10. **6679 个单测全过, TypeScript 严格模式, 没有"敬请期待"**
 上面列的每个功能都已经在 `main` 分支, 类型检查零错误, 单测覆盖, 你 `npm install && npm run dev` 就能在 `/projects/[id]` 看到.
 
 ---
@@ -503,7 +503,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 欢迎 PR. 两条规则:
 1. **不要破坏多 Agent 契约.** 每个 agent 输入输出 shape 在 `types/agents.ts`.
-2. **测试是底线.** Vitest 6675/6675 必须保持绿. 新加 lib/service 必须配测试.
+2. **测试是底线.** Vitest 6679/6679 必须保持绿. 新加 lib/service 必须配测试.
 
 详见 [`CONTRIBUTING.md`](CONTRIBUTING.md) — 仓库贡献指南.
 

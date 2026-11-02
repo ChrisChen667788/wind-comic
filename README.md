@@ -2,7 +2,7 @@
   <img src="assets/banner.jpg" alt="Wind Comic — One line of text. One finished short drama." width="100%" />
 </p>
 
-<h1 align="center">Wind Comic <sub><sup>v13.6</sup></sub></h1>
+<h1 align="center">Wind Comic <sub><sup>v13.7</sup></sub></h1>
 
 <p align="center">
   <b>One sentence in. A finished short-form drama out — script, cast, storyboards, voiceover, timeline, mp4.</b><br/>
@@ -17,7 +17,7 @@
   <a href="https://github.com/ChrisChen667788/wind-comic/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ChrisChen667788/wind-comic/ci.yml?branch=main&label=CI&logo=github" alt="CI" /></a>
   <a href="https://github.com/ChrisChen667788/wind-comic/stargazers"><img src="https://img.shields.io/github/stars/ChrisChen667788/wind-comic?style=social" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/badge/Tests-6675%2F6675-2ea44f"  alt="6675 tests passing" />
+  <img src="https://img.shields.io/badge/Tests-6679%2F6679-2ea44f"  alt="6679 tests passing" />
   <img src="https://img.shields.io/badge/Node-20%2B-339933?logo=node.js&logoColor=white" alt="Node 20+" />
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
 </p>
@@ -110,7 +110,7 @@ v13.0 consolidates **v12.461 – v12.473** (13 releases, 2026-09-30 → 10-09). 
 </tr>
 </table>
 
-**Engine requests that were silently wrong** *(v12.461, 465, 471, 472)* — MiniMax's `subject_reference[].image_file` had been sent as an array since v2.20 while the official schema is a string, so **every MiniMax generation with reference images was rejected (2013) and quietly fell back to another engine**; a live call found it. The Vidu host default existed twice, one copy wrong; Midjourney prompts carried duplicated and mid-prompt parameters; video engines were handed Midjourney syntax as prompt text.
+**Engine requests that were silently wrong** *(v12.461, 465, 471, 472)* — MiniMax's `subject_reference[].image_file` had been sent as an array since v2.20 while the official schema is a string, so **every MiniMax generation with reference images was rejected (2013) and quietly fell back to another engine**; a live call found it. The Vidu host default existed twice, one copy wrong (that copy had no reader, so no request ever used it — removed before anyone wired it up); Midjourney prompts carried duplicated and mid-prompt parameters; video engines were handed Midjourney syntax as prompt text.
 
 > **Not verified yet:** sketch delivery to Seedream / kontext / Midjourney follows their documented request formats but could not be confirmed with a live generation (gateway quota exhausted / no Midjourney channel / upstream saturated on 10-01, 10-06 and 10-08); `npx tsx scripts/probe-sketch-engines.ts --yes <engine>` re-runs the check, one paid image per engine. fal is unverified (no key configured).
 
@@ -283,7 +283,7 @@ Every finding points at the shots to change. All pure functions over existing fi
 ### 9. **Bring Your Own LLM** (v3.1.3)
 Every text-LLM call (Director / Writer / Vision / Audit) goes through one OpenAI-compatible `chat/completions` endpoint. Want to swap to DeepSeek-r1 / GPT-4o / Claude (via OpenRouter) / Qwen-Max / local Ollama? **Edit 3 lines in `.env`. Zero code change.** See [`docs/llm-providers.md`](docs/llm-providers.md) for the full matrix.
 
-### 10. **6675 tests, TypeScript strict, no fake "coming soon"s**
+### 10. **6679 tests, TypeScript strict, no fake "coming soon"s**
 Every feature listed above is in `main`, type-checked, unit-tested, and visible at `/projects/[id]` if you `npm install && npm run dev` right now.
 
 ---
@@ -656,7 +656,7 @@ npm run dev:ws             # Yjs WebSocket server on :1234
 
 We're open to PRs. Two things matter most:
 1. **Don't break the multi-agent contracts.** Each agent has explicit input/output shapes — see `types/agents.ts`.
-2. **Tests gate everything.** Vitest 6675/6675 must stay green. Add tests for new lib/service files.
+2. **Tests gate everything.** Vitest 6679/6679 must stay green. Add tests for new lib/service files.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repo's contribution guide.
 

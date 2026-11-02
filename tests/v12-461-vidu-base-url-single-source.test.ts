@@ -163,4 +163,27 @@ describe('v12.461 · Vidu 主机默认值单一真源', () => {
       expect(values).toEqual([codeDefault]);
     });
   });
+
+  /**
+   * v13.0 的 README 把 v12.461 归进「一直悄悄发错的引擎请求」,和 MiniMax 2013(真的每次都被拒)并列 ——
+   * 读者会以为 Vidu 请求也一直打错了主机。实际上错的那份默认值**从没有读者**,线上请求从未用到它。
+   * 提到「默认值有两份」的句子必须同时说清这一点;不提就不管(大版本汇总段落随版本更替,不强求存在)。
+   */
+  describe('对外文案不把它说成线上故障', () => {
+    const MENTION = /Vidu host default existed twice|Vidu 主机默认值有两份/;
+    const QUALIFIED = /no reader|没有读者/;
+    const overstated = (text: string) =>
+      text.split('\n').filter((l) => MENTION.test(l) && !QUALIFIED.test(l));
+
+    it('判定本身分得清旧说法与新说法', () => {
+      expect(overstated('The Vidu host default existed twice, one copy wrong; Midjourney …')).toHaveLength(1);
+      expect(overstated('Vidu 主机默认值有两份、一对一错;发给 Midjourney …')).toHaveLength(1);
+      expect(overstated('The Vidu host default existed twice, one copy wrong (that copy had no reader, …);')).toHaveLength(0);
+      expect(overstated('Vidu 主机默认值有两份、一对一错(错的那份没有读者,…);')).toHaveLength(0);
+    });
+
+    it.each(['README.md', 'README.zh-CN.md', 'docs/modelscope-intro.md'])('%s', (file) => {
+      expect(overstated(fs.readFileSync(file, 'utf-8'))).toEqual([]);
+    });
+  });
 });
