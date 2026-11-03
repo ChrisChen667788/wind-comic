@@ -265,9 +265,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // ── 合成 ──
   const { composeVideo, appendEndCard, prependHookCard } = await import('@/services/video-composer');
+  const { projectFilmFps } = await import('@/lib/project-format-store');
   const result = await composeVideo({
     clips,
     aspect,                                  // v12.49.0 画布跟画幅
+    fps: await projectFilmFps(id),           // v13.13 成片帧率(与 EDL / AAF 时间码同一个值)
     captionStyle,                            // v12.52.0 字幕风格预设(社媒大字等)
     platform,                                // v12.79.0 平台安全区避让
     musicUrl: musicUrl || undefined,

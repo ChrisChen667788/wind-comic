@@ -14,7 +14,7 @@
  * (是参考图,不是成片画面)、构图草图(线稿)、封面、局部重绘(只改一块,其余像素原样保留)。
  */
 import { listAssetsByType } from './repos/asset-repo';
-import { normalizeProjectFormat, withColorSpaceClause, type ProjectFormat } from './project-format';
+import { DEFAULT_PROJECT_FORMAT, normalizeProjectFormat, withColorSpaceClause, type ProjectFormat } from './project-format';
 
 /** 项目保存过的格式;没保存过 → null(调用方按默认值处理) */
 export async function getProjectFormat(projectId: string): Promise<ProjectFormat | null> {
@@ -23,6 +23,19 @@ export async function getProjectFormat(projectId: string): Promise<ProjectFormat
   let data: unknown = {};
   try { data = JSON.parse(rows[0].data || '{}'); } catch { data = {}; }
   return normalizeProjectFormat(data);
+}
+
+/**
+ * 项目的成片帧率(v13.13):合成调用方都从这里取,与 EDL / AAF 导出读同一份资产。
+ * 没有项目 id(不属于项目的合成,如 MV 工具)/ 没保存过格式 / 读库失败 → 24(修前写死的值)。
+ */
+export async function projectFilmFps(projectId: string | null | undefined): Promise<number> {
+  if (!projectId) return DEFAULT_PROJECT_FORMAT.fps;
+  try {
+    return (await getProjectFormat(projectId))?.fps ?? DEFAULT_PROJECT_FORMAT.fps;
+  } catch {
+    return DEFAULT_PROJECT_FORMAT.fps;
+  }
 }
 
 /**

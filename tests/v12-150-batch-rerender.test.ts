@@ -26,7 +26,8 @@ describe('v12.150 · 批量补渲', () => {
     // 会从补渲名单里静默消失。
     expect(src).toContain('candidates.every((x) => !x)');
     expect(src).toContain("send('batchDone'");
-    expect(src).toContain('runEditor(freshVideos, scriptData)');
+    // v13.13:重合成多传项目 id(只用来取成片帧率,见 v13-13-film-fps)
+    expect(src).toContain('runEditor(freshVideos, scriptData, { projectId })');
     expect(src).toContain("stage !== 'failed-videos'"); // 不落进旧阶段分支
     // v12.385 修订:这条原来是 `toContain('isAnimatic: !!result.isAnimatic')`,
     // 而该串在本文件出现两次(批量路径的落库 + 批量路径的 SSE)——

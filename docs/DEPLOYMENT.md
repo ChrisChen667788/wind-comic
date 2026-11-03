@@ -342,7 +342,7 @@ S3_PUBLIC_BASE_URL=https://cdn.example.com  # 可选；未设则返回 endpoint/
 - 合成、转码、抽帧、成片体检、本地口型、零 key 演示的假片……全部经这个入口;`lib/consumer-gate/contracts.ts` 的 `ffmpeg-binary-must-use-ffmpeg-bin` 门禁(CI 的 Security job 跑)拦住任何自己 import `ffmpeg-static` / `fluent-ffmpeg`、调 `setFfmpegPath`、按名字调 `ffprobe` 的新代码。**v13.8 之前这里写的「设 `FFMPEG_PATH`」并不成立**:合成器只认 ffmpeg-static 且会把 fluent-ffmpeg 自己对 `FFMPEG_PATH` 的读取盖掉,本地口型只认 `LIPSYNC_FFMPEG_PATH`,成片体检 / 画幅守门 / 角色锚抽帧按名字调 `ffprobe`(只装了 npm 依赖的机器上体检永远是「未知」)。
 - `next.config.ts` 把 `ffmpeg-static`、`ffprobe-static`、`fluent-ffmpeg` 设为 `serverExternalPackages`(不打包,保持二进制路径正确)。随包的两份二进制被删掉也能跑 —— 入口会往下找。
 - **Docker 镜像**:`apk add ffmpeg` 装系统 ffmpeg,并设 `FFMPEG_PATH=/usr/bin/ffmpeg`、`FFPROBE_PATH=/usr/bin/ffprobe`;npm 随包的 `ffmpeg-static` / `ffprobe-static` 二进制在构建阶段删掉,不进镜像(省掉约 380 MB,也不再分发它们)。构建期自证:`$FFMPEG_PATH` 必须有 `drawtext`、跑得通合成器的「变速 → xfade」滤镜链,随包二进制必须不在镜像里,任一条不满足就拒绝构建。要换成自己的 ffmpeg,在 compose 的 `environment` 里覆盖这两个变量即可。(v13.6 用的是把 `ffmpeg-static` 换成软链接的办法,那时代码不读变量。)不用随包版的原因:Linux 上随包的是 johnvansickle 静态版 7.0.2,它①不认「变速 `setpts` 之后接 `xfade`」(帧率被标成 1/0,退出码 234,任何一镜被调速整片合成就失败)、②没有 `drawtext`(封面标题 / 片尾卡 / AI 角标起不来)。macOS 上的 ffmpeg-static 是 6.0,两个问题本机都复现不了。
-- **从源码装在 Linux 上**(`npm install`)时默认用的是 ffmpeg-static 7.0.2:合成不受影响(v13.6 已给变速片段补了 `fps=24`),但没有 `drawtext`。装好系统 ffmpeg 后设 `FFMPEG_PATH=/usr/bin/ffmpeg` 和 `FFPROBE_PATH=/usr/bin/ffprobe`(写进 `.env.local` 或服务的环境变量),重启即可;不需要做软链接。
+- **从源码装在 Linux 上**(`npm install`)时默认用的是 ffmpeg-static 7.0.2:合成不受影响(v13.6 起变速片段在 `setpts` 之后补 `fps=<成片帧率>`;v13.13 起成片帧率按格式条的 24 / 25 / 30),但没有 `drawtext`。装好系统 ffmpeg 后设 `FFMPEG_PATH=/usr/bin/ffmpeg` 和 `FFPROBE_PATH=/usr/bin/ffprobe`(写进 `.env.local` 或服务的环境变量),重启即可;不需要做软链接。
 
 **ffmpeg 功能用途：**
 

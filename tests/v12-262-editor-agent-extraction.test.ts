@@ -9,12 +9,12 @@ import { runEditor } from '@/services/agents/editor-agent';
 describe('v12.262 · runEditor 抽离', () => {
   it('editor-agent 导出 runEditor(ctx, videos, script)', () => {
     expect(typeof runEditor).toBe('function');
-    expect(runEditor.length).toBe(3); // (ctx, videos, script)
+    expect(runEditor.length).toBe(4); // (ctx, videos, script, opts) —— v13.13 加了可选 opts.projectId(只用来取成片帧率)
   });
   it('orchestrator 只保留委派,不再内联实现', () => {
     const o = fs.readFileSync('services/hybrid-orchestrator.ts', 'utf-8');
     expect(o).toContain("import { runEditor as runEditorAgent, type EditorAgentCtx } from './agents/editor-agent'");
-    expect(o).toContain('return runEditorAgent(this as unknown as EditorAgentCtx, videos, script)');
+    expect(o).toContain('return runEditorAgent(this as unknown as EditorAgentCtx, videos, script, opts)'); // v13.13 透传 opts
   });
   it('抽出的模块无残留裸 this(sed 转换完整)', () => {
     const e = fs.readFileSync('services/agents/editor-agent.ts', 'utf-8');

@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
                 duration: JSON.parse(a.data || '{}').duration || 8,
                 status: 'completed' as const,
               }));
-              const editResult = await orchestrator.runEditor(freshVideos, scriptData);
+              const editResult = await orchestrator.runEditor(freshVideos, scriptData, { projectId }); // v13.13 成片帧率按项目
               send('editResult', editResult);
             } catch (e) {
               send('status', { message: `重合成失败(镜头视频已更新,可稍后手动重做剪辑):${e instanceof Error ? e.message.slice(0, 80) : ''}` });
@@ -355,7 +355,7 @@ export async function POST(request: NextRequest) {
               status: 'completed' as const,
             }));
 
-            const editResult = await orchestrator.runEditor(videos, scriptData);
+            const editResult = await orchestrator.runEditor(videos, scriptData, { projectId }); // v13.13 成片帧率按项目(不调 setProjectId,见 editor-agent)
             send('editResult', editResult);
             send('redoStageComplete', { stage: 'editor', data: editResult });
           }

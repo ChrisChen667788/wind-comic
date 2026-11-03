@@ -3989,9 +3989,9 @@ ${shots.map((s, i) => {
   // ══════════════════════════════════════
   // 剪辑师（专业节奏策略）
   // ══════════════════════════════════════
-  async runEditor(videos: VideoClip[], script: Script): Promise<EditResult> {
-    // v12.262:实现抽到 services/agents/editor-agent.ts(神类瘦身下半);行为不变,ctx 即 this。
-    return runEditorAgent(this as unknown as EditorAgentCtx, videos, script);
+  async runEditor(videos: VideoClip[], script: Script, opts?: { projectId?: string }): Promise<EditResult> {
+    // v12.262:实现抽到 editor-agent(ctx 即 this)。v13.13:opts.projectId 只用来取成片帧率,不改 this.projectId。
+    return runEditorAgent(this as unknown as EditorAgentCtx, videos, script, opts);
   }
 
   async runDirectorReview(script: Script, videos: VideoClip[], editResult?: EditResult, storyboards?: Storyboard[]): Promise<DirectorReview> {

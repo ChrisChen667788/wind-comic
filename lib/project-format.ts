@@ -1,13 +1,13 @@
 /**
  * lib/project-format (v7.4) — 项目级格式 / 色彩 / 帧率预设 (对标 CineFlow Director's Suite 顶栏)
  *
- * 纯逻辑 + 预设:色彩空间(ACES/LogC/Rec709…) · 导出帧率(EDL / AAF 时间码) · 安全框。
+ * 纯逻辑 + 预设:色彩空间(ACES/LogC/Rec709…) · 成片帧率(合成 + EDL / AAF 时间码) · 安全框。
  *   - withColorSpaceClause(): → 把色彩片段写进出图提示词(服务端注入口见 project-format-store)
  *   - describeFormat(): → 中文一行摘要
  *   - describeProjectAspect(): → 格式条上显示的画幅(取自 projects.aspect,见下)
  *
  * v12.466:三个字段各自的读者 ——
- *   - `fps`:EDL / AAF 导出的时间码帧率(v13.4 起片段重拍不再读它,见 FRAME_RATES 上方);
+ *   - `fps`:成片帧率 —— 合成(整片生成、重新合成)与 EDL / AAF 时间码都用它;片段重拍不读它(见 FRAME_RATES 上方);
  *   - `colorSpaceId`:分镜出图提示词,唯一注入口 `withColorSpace()`(lib/project-format-store)。
  *     修前它只被 `compileFormatPrompt()` 编进片段,而那个函数全仓零调用;
  *   - `safeArea`:项目页分镜 / 视频预览上的竖屏安全区叠层(修前叠层只认页面里一个临时开关)。
@@ -34,17 +34,20 @@ export const COLOR_SPACES: ColorSpacePreset[] = [
 ];
 
 /**
- * 导出帧率 = EDL / AAF 时间线的时间码帧基准(剪辑软件里那条序列的帧率)。**不改变生成,也不改变成片**:
- * 成片在 video-composer 里每镜都过 `fps=24`;48 / 60 也不会出慢动作 —— v7.4 起下拉里写着「升格」,
- * 而全仓没有任何代码按它改变拍摄或播放速度。
+ * 成片帧率。
  *
- * v13.4:
- *   - 去掉 120:EDL 的时间码帧位是 `frames % fps`,120 时会写出 `00:00:00:119` 这种三位帧号,CMX3600 不认;
- *     旧资产里存的 120 在 normalize 时回落 24(与成片一致)。
- *   - 片段重拍原先按这里的帧率切点、数帧,缝合却按原片真实帧率出片 —— 选了与原片不同的帧率,
- *     补丁先花钱生成、再以「帧数对不上」被拒。现在片段重拍全程用原片探测出的帧率,不再读这个字段。
+ * v13.4:它当时只是 EDL / AAF 的时间码帧基准(标签「导出帧率」),成片在 video-composer 里写死 `fps=24`;
+ *   去掉了「升格」(全仓没有任何代码按它改变拍摄或播放速度)和 120(EDL 会写出 `00:00:00:119` 这种三位帧号);
+ *   片段重拍改按原片真实帧率,不再读这个字段 —— 修前两者不同时补丁先花钱生成、再以「帧数对不上」被拒。
+ * v13.13:它真的决定成片 ——
+ *   - **合成**:整片生成(editor-agent 主合成与简化合成)与重新合成把每镜统一换到这个帧率
+ *     (`composeVideo({ fps })`,读口 `projectFilmFps()`);片头 / 片尾字卡、整季合集跟随所拼成片的实际帧率;
+ *   - **EDL / AAF 时间码**:同一个值,与成片一致 —— 剪辑软件里按它建序列;
+ *   - **片段重拍仍不读它**:缝合按该镜原片的真实帧率出片(该镜之后重新合成时再换到成片帧率)。
+ * 只给 24 / 25 / 30:把常见的 24–30fps 素材换到 48 / 60 只是重复帧,画面不会更流畅,也不是慢动作。
+ * 旧资产里存的 48 / 60 / 120 读时回落 24(修前的成片就是 24)。
  */
-export const FRAME_RATES = [24, 25, 30, 48, 60] as const;
+export const FRAME_RATES = [24, 25, 30] as const;
 
 export interface ProjectFormat {
   colorSpaceId: string;

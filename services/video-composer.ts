@@ -12,6 +12,7 @@
 import { ffmpeg, resolveFFmpegPath, runFfmpeg } from '@/lib/ffmpeg-bin';
 import path from 'path';
 import { audioBitrateForPlatform } from '@/lib/audio-encode';
+import { normalizeProjectFormat } from '@/lib/project-format';
 import { buildColorGradeFilter, detectGradeGenre } from '@/lib/color-grade';
 // v13.6:原先是变速分支里的 require('@/lib/speed-curve') —— vitest 解析不了别名,这条分支从没在测试里跑过
 import { speedCurveToSetpts, climaxRamp } from '@/lib/speed-curve';
@@ -34,6 +35,9 @@ const aiWatermarkFilter = (): string => {
  * 只剩全硬切的 concat 兜底(转场、字幕、配乐、响度归一全丢)。任何一镜被调速(高光慢放 / 过渡段加速)就会撞上。
  * 6.0(macOS 上的 ffmpeg-static)和 8.x 都放行,所以本机一直绿 —— 只在 Linux 的 ffmpeg-static 7.0.2
  *(CI、从源码装在 Linux 上的部署)里炸。慢放补帧、加速丢帧,时长不变。
+ *
+ * v13.13:这里只剩「缺省成片帧率」(项目没存格式时)的意思 —— 合成按 ComposeOptions.fps 走,
+ * 画布链与变速补帧用的是同一个 filmFps。
  */
 export const COMPOSE_FPS = 24;
 /** fps 必须传**这条路径画布链上用的那个帧率**:补成别的值,被调速的镜和其余镜帧率又对不上,xfade 照样拒收。 */
@@ -115,6 +119,7 @@ export interface ComposeOptions {
   musicVolume?: number;        // 配乐音量 0~1，默认 0.3
   voiceoverVolume?: number;    // 配音音量 0~1，默认 0.9
   aspect?: string;             // v12.49.0 成片画幅('16:9'|'9:16'|'1:1'...) — 决定合成画布分辨率;缺省 16:9(旧行为)
+  fps?: number;                // v13.13 成片帧率(24 / 25 / 30)— 每镜统一换到它;缺省 24(修前写死的值)。项目合成从 projectFilmFps() 取
   captionStyle?: import('@/lib/caption-style').CaptionPreset; // v12.52.0 字幕风格预设;缺省 clean(零回归)
   voiceoverDurations?: Record<number, number>; // v12.68.0 镜号→TTS 真实时长(karaoke 扫光对齐音频)
   platform?: import('@/lib/caption-style').CaptionPlatform; // v12.79.0 平台安全区(抖音/小红书字幕避让)
@@ -522,7 +527,7 @@ export async function reframeVideo(
 }
 
 /**
- * v12.25.0(整季导出):把多集成片拼成一条「整季合集」。每集归一到目标画幅(scale+pad)+ 24fps,
+ * v12.25.0(整季导出):把多集成片拼成一条「整季合集」。每集归一到目标画幅(scale+pad)+ 第一集的帧率(v13.13 前写死 24),
  * 音轨重采样到 44.1k 立体声,filter_complex `concat` 串接(重编码,容忍各集编码参数差异)。
  * 输入可为 http/serve-file/本地路径。前提:各集成片均含音轨(composer 产物恒有)。
  */
@@ -564,6 +569,8 @@ export async function concatVideos(
     meta.push({ hasAudio, dur });
   }
 
+  // v13.13:跟随第一集的实际帧率(修前写死 24 —— 成片帧率可选之后,25 / 30fps 的分集会被拼成 24)
+  const seasonFps = await probeFrameRate(locals[0]);
   const outputPath = path.join(tmpDir, 'season.mp4');
   return new Promise((resolve, reject) => {
     let cmd = ffmpeg();
@@ -571,7 +578,7 @@ export async function concatVideos(
     const filters: string[] = [];
     const labels: string[] = [];
     for (let i = 0; i < locals.length; i++) {
-      filters.push(`[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1[v${i}]`);
+      filters.push(`[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,fps=${seasonFps},setsar=1[v${i}]`);
       if (meta[i].hasAudio) {
         filters.push(`[${i}:a]aresample=44100,aformat=channel_layouts=stereo[a${i}]`);
       } else {
@@ -590,6 +597,32 @@ export async function concatVideos(
       .on('error', (err: unknown) => { cleanupOwnedTmp(tmpDir, _ownsTmp, 'season-concat'); reject(err); })
       .run();
   });
+}
+
+/**
+ * 视频的实际帧率(有理数字符串,如 '24/1'、'30000/1001',原样不取整)。v13.13:片头 / 片尾字卡与整季合集
+ * 跟随所拼成片的帧率 —— 成片帧率可选(24 / 25 / 30)之后,再写死 24 就会把成片拼完又换回 24。读不到按 '24'。
+ */
+export async function probeFrameRate(file: string): Promise<string> {
+  try {
+    const md: any = await new Promise((res, rej) => ffmpeg.ffprobe(file, (e, m) => (e ? rej(e) : res(m))));
+    const v = (Array.isArray(md?.streams) ? md.streams : []).find((x: any) => x.codec_type === 'video');
+    const rate = pickStreamFrameRate(v);
+    if (rate) return rate;
+  } catch { /* 读不到按 24 */ }
+  return '24';
+}
+
+/**
+ * ffprobe 视频流 → 帧率字符串:avg_frame_rate 优先,它是 `0/0`(拿不到,部分 VFR 片)时退到 r_frame_rate;
+ * 两个都不是正的 `分子/分母` → null。不能把 `0/0` 交出去:字卡会拿到 `-r 0/0`,整条命令失败。
+ */
+export function pickStreamFrameRate(v: { avg_frame_rate?: unknown; r_frame_rate?: unknown } | null | undefined): string | null {
+  for (const r of [v?.avg_frame_rate, v?.r_frame_rate]) {
+    const m = /^(\d+)\/(\d+)$/.exec(String(r ?? ''));
+    if (m && Number(m[1]) > 0 && Number(m[2]) > 0) return `${m[1]}/${m[2]}`;
+  }
+  return null;
 }
 
 /**
@@ -649,9 +682,10 @@ export async function attachTextCard(
     } else {
       cardInputArgs = `-f lavfi -t ${dur} -i "color=c=${opts.solidColor || '0x1A1015'}:s=${opts.w}x${opts.h}"`;
     }
-    // 2) 渲染卡片(静音轨,便于与成片 concat a=1)
+    // 2) 渲染卡片(静音轨,便于与成片 concat a=1)。v13.13:帧率跟随成片(修前写死 24,30fps 的成片加卡后被换回 24)
+    const filmRate = await probeFrameRate(mainVideoPath);
     const cardPath = path.join(tmpDir, 'card.mp4');
-    await sh(`"${ff}" -y -v error ${cardInputArgs} -f lavfi -i anullsrc=r=44100:cl=stereo -vf "${vf}" -shortest -r 24 -c:v libx264 -crf 20 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k "${cardPath}"`);
+    await sh(`"${ff}" -y -v error ${cardInputArgs} -f lavfi -i anullsrc=r=44100:cl=stereo -vf "${vf}" -shortest -r ${filmRate} -c:v libx264 -crf 20 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k "${cardPath}"`);
 
     // 3) concat(重编码归一);position 决定卡在前(hook)还是在后(CTA)
     const outputDir = opts.outputDir || path.join(process.cwd(), 'data', 'composed');
@@ -663,7 +697,7 @@ export async function attachTextCard(
     const { shouldLoudnorm, buildLoudnormFilter } = await import('@/lib/audio-ducking');
     const renorm = shouldLoudnorm();
     const fc =
-      `[0:v]fps=24,scale=${opts.w}:${opts.h},setsar=1[v0];[1:v]fps=24,scale=${opts.w}:${opts.h},setsar=1[v1];` +
+      `[0:v]fps=${filmRate},scale=${opts.w}:${opts.h},setsar=1[v0];[1:v]fps=${filmRate},scale=${opts.w}:${opts.h},setsar=1[v1];` +
       `[0:a]aresample=44100,aformat=channel_layouts=stereo[a0];[1:a]aresample=44100,aformat=channel_layouts=stereo[a1];` +
       `[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]` +
       (renorm ? `;${buildLoudnormFilter('[a]', '[anorm]')}` : '');
@@ -800,6 +834,9 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
   const { buildCanvasFit } = await import('@/lib/video-reframe');
   const { fit: canvasFit, w: canvasW, h: canvasH } = buildCanvasFit(options.aspect || '16:9');
   console.log(`[Composer] 画布 ${canvasW}x${canvasH} (aspect=${options.aspect || '16:9'})`);
+  // v13.13:成片帧率按项目格式(修前写死 fps=24,格式条的「帧率」只进 EDL / AAF 时间码,两边对不上)
+  const filmFps = normalizeProjectFormat({ fps: options.fps }).fps;
+  console.log(`[Composer] 成片帧率 ${filmFps}fps`);
 
   // ═══ 高光检测 ═══
   const highlights = detectHighlights(clips, { actionMode, impactShots: options.impactShots });
@@ -1167,7 +1204,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       const _grade1 = buildColorGradeFilter(detectGradeGenre(options.editStyle));
       const _us1 = unsharpFilter();
       const _aiwm1 = aiWatermarkFilter();
-      let videoFilter = `[0:v]trim=0:${trimTo0.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=${COMPOSE_FPS},setsar=1${_us1 ? ',' + _us1 : ''}${_grade1 ? ',' + _grade1 : ''}${_aiwm1 ? ',' + _aiwm1 : ''}`;
+      let videoFilter = `[0:v]trim=0:${trimTo0.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=${filmFps},setsar=1${_us1 ? ',' + _us1 : ''}${_grade1 ? ',' + _grade1 : ''}${_aiwm1 ? ',' + _aiwm1 : ''}`;
       if (speed !== 1.0 && speed > 0) {
         const pts = 1.0 / speed;
         {
@@ -1177,7 +1214,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         const _dur = Number(_c?.duration) || 0;
         const _curve = _c?.speedCurve || (_c?._wantClimaxRamp && _dur >= 2.4 ? climaxRamp(_dur) : null);
         const _expr = _curve ? speedCurveToSetpts(_curve, _dur) : null;
-        videoFilter += speedChangeFilter(_expr || `${pts.toFixed(3)}*PTS`, COMPOSE_FPS);
+        videoFilter += speedChangeFilter(_expr || `${pts.toFixed(3)}*PTS`, filmFps);
       }
         durations[0] = durations[0] / speed;
         console.log(`[Composer] Single clip speed=${speed}x → duration=${durations[0].toFixed(1)}s${isHL ? ' [HIGHLIGHT]' : ''}`);
@@ -1287,7 +1324,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
       const trimTo = Math.min(durations[i], sourceDurations[i]);
       const _us = unsharpFilter();
       const _aiwm = aiWatermarkFilter();
-      let videoFilter = `[${i}:v]trim=0:${trimTo.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=${COMPOSE_FPS},setsar=1${_us ? ',' + _us : ''}${_grade ? ',' + _grade : ''}${_aiwm ? ',' + _aiwm : ''}`;
+      let videoFilter = `[${i}:v]trim=0:${trimTo.toFixed(2)},setpts=PTS-STARTPTS,${canvasFit},fps=${filmFps},setsar=1${_us ? ',' + _us : ''}${_grade ? ',' + _grade : ''}${_aiwm ? ',' + _aiwm : ''}`;
 
       // 高光变速：setpts 调整视频播放速度（<1 = 加速, >1 = 减速）
       if (speed !== 1.0 && speed > 0) {
@@ -1299,7 +1336,7 @@ export async function composeVideo(options: ComposeOptions): Promise<ComposeResu
         const _dur = Number(_c?.duration) || 0;
         const _curve = _c?.speedCurve || (_c?._wantClimaxRamp && _dur >= 2.4 ? climaxRamp(_dur) : null);
         const _expr = _curve ? speedCurveToSetpts(_curve, _dur) : null;
-        videoFilter += speedChangeFilter(_expr || `${pts.toFixed(3)}*PTS`, COMPOSE_FPS);
+        videoFilter += speedChangeFilter(_expr || `${pts.toFixed(3)}*PTS`, filmFps);
       }
         // 调整该片段的有效时长
         durations[i] = durations[i] / speed;

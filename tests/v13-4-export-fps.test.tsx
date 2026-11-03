@@ -28,7 +28,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 vi.mock('@/lib/auth-guard', () => ({ requireProjectAccess: vi.fn(async () => ({ ok: true, userId: 'u-v134' })) }));
 
-import { FRAME_RATES, normalizeProjectFormat } from '@/lib/project-format';
+import { FRAME_RATES } from '@/lib/project-format';
 import { buildEDL } from '@/lib/edl-export';
 import { resolveFFmpegPath, resolveFFprobePath } from '@/lib/ffmpeg-bin';
 import { runSegmentRetake, SEG_RETAKE_MEDIA_KIND, type GeneratePatch } from '@/services/segment-retake-run';
@@ -42,37 +42,7 @@ afterEach(async () => {
   cleanup();
 });
 
-async function renderBar(initialFormat?: object) {
-  const { render } = await import('@testing-library/react');
-  const React = (await import('react')).default;
-  const { ProjectFormatBar } = await import('@/components/project/project-format-bar');
-  const { container } = render(React.createElement(ProjectFormatBar, { projectId: 'p1', aspect: '9:16', initialFormat }));
-  const fpsLabel = [...container.querySelectorAll('label')].find((l) => l.textContent?.startsWith('导出帧率'));
-  return { container, fpsLabel };
-}
-
-describe('v13.4 · 格式条:导出帧率', () => {
-  it('**标签叫「导出帧率」,选项只写帧数,哪里都没有「升格」**', async () => {
-    const { container, fpsLabel } = await renderBar();
-    expect(fpsLabel, '找得到「导出帧率」').toBeTruthy();
-    const options = [...fpsLabel!.querySelectorAll('option')].map((o) => o.textContent);
-    expect(options).toEqual(['24fps', '25fps', '30fps', '48fps', '60fps']);
-    expect(container.textContent).not.toContain('升格');
-  });
-
-  it('悬停说明写清它管什么、不管什么', async () => {
-    const { fpsLabel } = await renderBar();
-    const title = fpsLabel!.title;
-    for (const s of ['EDL', 'AAF', '不影响生成', '成片固定 24fps', '不会出慢动作']) expect(title, s).toContain(s);
-  });
-
-  it('**旧资产存的 120:回落 24**(120 写出的 EDL 时间码不合法);存的 60 原样', async () => {
-    expect(normalizeProjectFormat({ fps: 120 }).fps).toBe(24);
-    expect(normalizeProjectFormat({ fps: 60 }).fps).toBe(60);
-    const { fpsLabel } = await renderBar({ colorSpaceId: 'none', fps: 120, safeArea: false });
-    expect(fpsLabel!.querySelector('select')!.value).toBe('24');
-  });
-});
+// v13.13:格式条改叫「成片帧率」、只给 24 / 25 / 30、旧值 48 / 60 / 120 回落 24 —— 这一组移到 tests/v13-13-film-fps
 
 describe('v13.4 · 每一档导出帧率写出的 EDL 时间码都合法', () => {
   /** EDL 里所有时间码的帧位 */
@@ -96,22 +66,7 @@ describe('v13.4 · 每一档导出帧率写出的 EDL 时间码都合法', () =>
   }
 });
 
-describe('v13.4 · 「成片固定 24fps」有代码兜底', () => {
-  it('video-composer 里写死的帧率字面量只有 24(按 AST 取字符串与模板文字)', () => {
-    const file = 'services/video-composer.ts';
-    const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf-8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-    const rates: number[] = [];
-    const walk = (n: ts.Node) => {
-      const texts = ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) ? [n.text]
-        : ts.isTemplateExpression(n) ? [n.head.text, ...n.templateSpans.map((s) => s.literal.text)] : [];
-      for (const t of texts) for (const m of t.matchAll(/\bfps=(\d+)/g)) rates.push(Number(m[1]));
-      ts.forEachChild(n, walk);
-    };
-    walk(sf);
-    expect(rates.length, '扫描器自证:合成滤镜里的 fps=24 扫得到').toBeGreaterThanOrEqual(3);
-    expect([...new Set(rates)], '成片帧率变了的话,格式条的悬停说明(FPS_HINT)也要跟着改').toEqual([24]);
-  });
-});
+// v13.13:成片不再固定 24fps(合成按项目成片帧率),「合成器里只有 24」那条移到 tests/v13-13-film-fps 并改成「不写死帧率」
 
 // ── 片段重拍:真库 + 真 ffmpeg(补丁现造,不调引擎) ─────────────────────
 const FF = resolveFFmpegPath();
@@ -236,22 +191,12 @@ describe('v13.4 · 片段重拍不再读格式条', () => {
       expect(strings, file).not.toContain('project-format');
       expect(ids, file).not.toContain('normalizeProjectFormat');
       expect(ids, file).not.toContain('projectFps');
+      expect(ids, file).not.toContain('projectFilmFps');   // v13.13 新的读口:片段重拍同样不许读
     }
-    // 窗口自证:导出 EDL 仍然读它(那才是这个字段唯一的用处)
+    // 窗口自证:导出 EDL 仍然读它(v13.4 时这是它唯一的用处;v13.13 起合成也读,见 v13-13-film-fps)
     const edl = fs.readFileSync('app/api/projects/[id]/export-edl/route.ts', 'utf-8');
     expect(edl).toContain("'project-format'");
   });
 });
 
-describe('v13.4 · 对外文档不再说帧率进片段重拍', () => {
-  for (const file of ['README.md', 'README.zh-CN.md', 'docs/modelscope-intro.md', 'docs/SCREENSHOTS-v12.425.md']) {
-    it(file, () => {
-      const src = fs.readFileSync(file, 'utf-8');
-      const i = src.indexOf('13-storyboard-specs.jpg');
-      expect(i, '分镜规格那张截图的说明还在').toBeGreaterThan(0);
-      const caption = src.slice(i, i + 1200);
-      expect(caption).toContain('导出帧率只决定 EDL / AAF 的时间码帧率');
-      expect(caption).not.toMatch(/帧率进入 EDL|升格/);
-    });
-  }
-});
+// v13.13:对外文档那句改为「成片帧率按格式条设置」,断言移到 tests/v13-13-film-fps

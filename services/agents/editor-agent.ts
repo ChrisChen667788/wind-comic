@@ -106,6 +106,8 @@ function isValidVideoUrl(url: string | undefined): boolean {
  */
 export interface EditorAgentCtx {
   aspect: string;
+  /** v13.13:取项目成片帧率用(编排器实例上本来就有这个字段);没有项目的调用按 24 */
+  projectId?: string | null;
   genre: string;
   styleKeywords: string;
   editStyleInstruction: string;
@@ -122,7 +124,7 @@ export interface EditorAgentCtx {
   targetLanguage(): TargetLanguage;
   regenerateShot(shotNumber: number, storyboard: Storyboard, options?: { duration?: number; videoProvider?: string; tailFrameUrl?: string; projectId?: string }): Promise<VideoClip>;
 }
-export async function runEditor(ctx: EditorAgentCtx, videos: VideoClip[], script: Script): Promise<EditResult> {
+export async function runEditor(ctx: EditorAgentCtx, videos: VideoClip[], script: Script, opts?: { projectId?: string | null }): Promise<EditResult> {
     ctx.update(AgentRole.EDITOR, { status: 'working', currentTask: '分析镜头节奏，构建剪辑时间线', progress: 5 });
     ctx.emit('agentTalk', { role: AgentRole.EDITOR, text: '开始剪辑！先分析高光时刻，再智能编排节奏 ✂️🔥' });
 
@@ -203,13 +205,18 @@ export async function runEditor(ctx: EditorAgentCtx, videos: VideoClip[], script
       };
     });
 
+    // v13.13:成片帧率按项目格式,只读一次 —— 连续性主表与第 5 步合成用同一个值(修前主表写死 24)。
+    // 项目 id 优先用调用方显式传的:单镜重生路由不调 setProjectId(那会连带改变评分回写等行为),只把 id 传进来取帧率。
+    const { projectFilmFps } = await import('@/lib/project-format-store');
+    const filmFps = await projectFilmFps(opts?.projectId || ctx.projectId);
+
     // v12.16.0(Phase 3):CONTINUITY 主表 —— 出片前校验跨镜一致性(同场景光照漂移/画幅帧率不统一/风格包缺失)。
     const { buildContinuitySheet, validateContinuity } = await import('@/lib/continuity-sheet');
     const continuitySheet = buildContinuitySheet({
       shots: (script?.shots || []) as any,
       stylePack: ctx.styleKeywords,
       aspectRatio: ctx.aspect,
-      fps: 24,
+      fps: filmFps,
     });
     const continuityCheck = validateContinuity(continuitySheet);
     if (!continuityCheck.passed) {
@@ -878,6 +885,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
     // ═══ 第5步：FFmpeg 智能合成（高光变速 + 转场 + 配乐 + 配音）═══
     let finalVideoUrl = '';
     const validVideoClips = timeline.filter(t => isValidVideoUrl(t.videoUrl));
+    // v13.13:成片帧率(第 1 步已读,见连续性主表)—— 主合成与下面的简化合成都要带,修前两处都写死 24(在合成器里)
 
     if (validVideoClips.length >= 1) {
       try {
@@ -913,6 +921,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
         const result = await composeVideo({
           clips: composerClips,
           aspect: ctx.aspect, // v12.49.0 成片画布跟项目画幅(修竖屏 9:16 成片仍出 16:9 的 bug)
+          fps: filmFps,       // v13.13 成片帧率
           captionStyle: pickCaptionPreset(_isCommercial(ctx.originalIdea || '')), // v12.56.0 广告→karaoke 词级扫光
           voiceoverDurations: Object.keys(voiceoverDurations).length > 0 ? voiceoverDurations : undefined, // v12.68 扫光对齐 TTS
           musicUrl: musicUrl || undefined,
@@ -1016,6 +1025,7 @@ transitionDuration: 0.0-1.5 (cut 类用 0, fade 类用 0.5-1.2)`,
             const simpleResult = await composeVideoRetry({
               clips: simpleClips,
               aspect: ctx.aspect, // v12.49.0 降级路径也跟项目画幅
+              fps: filmFps,       // v13.13 降级路径也跟项目成片帧率
               musicUrl: musicUrl || undefined,
               transitionDuration: 0.1, // 极短转场
               musicVolume: 0.3,

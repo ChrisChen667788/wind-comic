@@ -14,6 +14,7 @@ import { db } from '@/lib/db';
 import { getUserFromRequest } from '../../../auth/lib';
 import { buildJianYingDraft, buildJianYingMeta, type JyClip, type JyAudio, type JySubtitle } from '@/lib/jianying-export';
 import { auditAssetsForExport, exportAuditNote } from '@/lib/export-audit';
+import { projectFilmFps } from '@/lib/project-format-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (clips.length === 0) return NextResponse.json({ error: 'clips required(至少一个含 path 的片段)' }, { status: 400 });
 
   const draftContent = buildJianYingDraft({
-    name: body.name, width: body.width, height: body.height, fps: body.fps,
+    // v13.13:没显式给 fps 时用项目成片帧率(修前缺省 30,而成片是 24 / 25 / 30 里项目选的那个)
+    name: body.name, width: body.width, height: body.height, fps: body.fps ?? (await projectFilmFps(id)),
     clips, voiceovers: body.voiceovers, bgm: body.bgm, subtitles: body.subtitles,
   });
   const draftMeta = buildJianYingMeta(
@@ -145,7 +147,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }, { status: 409 });
   }
 
-  const draftContent = buildJianYingDraft({ name: proj.title?.split('\n')[0]?.slice(0, 40) || 'Wind Comic 导出', clips, voiceovers, bgm });
+  // v13.13:序列帧率 = 项目成片帧率(与 EDL / AAF 同一读口);修前不传,草稿恒写 30fps
+  const fps = await projectFilmFps(id);
+  const draftContent = buildJianYingDraft({ name: proj.title?.split('\n')[0]?.slice(0, 40) || 'Wind Comic 导出', fps, clips, voiceovers, bgm });
   const draftMeta = buildJianYingMeta(
     String(draftContent.name || 'Wind Comic 导出'),
     String(draftContent.id || ''),
