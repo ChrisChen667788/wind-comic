@@ -5,6 +5,7 @@
  * 国内团队下载后放进剪映草稿目录即可二剪。登录 + 属主守卫。
  *
  * body: { name?, width?, height?, fps?, clips:[{name?,path,durationSec}], voiceovers?, bgm?, subtitles? }
+ *   width / height / fps 不给 → 项目成片的画布与帧率(v13.17 / v13.13)
  * 200 → { ok, draftContent, draftMeta, notes }
  *
  * 诚实:剪映 ≤5.9(6+ 加密);path 需本地可达;schema 社区逆向,导入前请在真剪映验证(见 lib/jianying-export 注释)。
@@ -15,6 +16,7 @@ import { getUserFromRequest } from '../../../auth/lib';
 import { buildJianYingDraft, buildJianYingMeta, type JyClip, type JyAudio, type JySubtitle } from '@/lib/jianying-export';
 import { auditAssetsForExport, exportAuditNote } from '@/lib/export-audit';
 import { projectFilmFps } from '@/lib/project-format-store';
+import { buildCanvasFit } from '@/lib/video-reframe';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,9 +26,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const payload = getUserFromRequest(request);
   if (!payload?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  let aspect: string | null | undefined;
   try {
-    const p = db.prepare('SELECT user_id FROM projects WHERE id = ?').get(id) as { user_id?: string } | undefined;
+    const p = db.prepare('SELECT user_id, aspect FROM projects WHERE id = ?').get(id) as { user_id?: string; aspect?: string | null } | undefined;
     if (p?.user_id && p.user_id !== payload.sub) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    aspect = p?.aspect;
   } catch { /* demo → 放行 */ }
 
   let body: {
@@ -38,9 +42,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const clips = (body.clips || []).filter((c) => c && typeof c.path === 'string' && c.path.length > 0);
   if (clips.length === 0) return NextResponse.json({ error: 'clips required(至少一个含 path 的片段)' }, { status: 400 });
 
+  // v13.17:没显式给宽高时用项目成片画布(与合成器同一个 buildCanvasFit);修前缺省 1920×1080,竖屏项目的草稿也是横的
+  const canvas = buildCanvasFit(aspect || '16:9');
   const draftContent = buildJianYingDraft({
     // v13.13:没显式给 fps 时用项目成片帧率(修前缺省 30,而成片是 24 / 25 / 30 里项目选的那个)
-    name: body.name, width: body.width, height: body.height, fps: body.fps ?? (await projectFilmFps(id)),
+    name: body.name, width: body.width || canvas.w, height: body.height || canvas.h, fps: body.fps ?? (await projectFilmFps(id)),
     clips, voiceovers: body.voiceovers, bgm: body.bgm, subtitles: body.subtitles,
   });
   const draftMeta = buildJianYingMeta(
@@ -91,8 +97,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const payload = getUserFromRequest(request);
   if (!payload?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const proj = db.prepare('SELECT user_id, title FROM projects WHERE id = ?').get(id) as
-    { user_id?: string; title?: string } | undefined;
+  const proj = db.prepare('SELECT user_id, title, aspect FROM projects WHERE id = ?').get(id) as
+    { user_id?: string; title?: string; aspect?: string | null } | undefined;
   if (!proj) return NextResponse.json({ error: 'project not found' }, { status: 404 });
   if (proj.user_id && proj.user_id !== payload.sub) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
@@ -149,7 +155,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   // v13.13:序列帧率 = 项目成片帧率(与 EDL / AAF 同一读口);修前不传,草稿恒写 30fps
   const fps = await projectFilmFps(id);
-  const draftContent = buildJianYingDraft({ name: proj.title?.split('\n')[0]?.slice(0, 40) || 'Wind Comic 导出', fps, clips, voiceovers, bgm });
+  // v13.17:画布 = 成片画布(projects.aspect → 合成器同一个 buildCanvasFit);修前不传,9:16 项目的草稿也是 1920×1080 横屏
+  const { w: width, h: height } = buildCanvasFit(proj.aspect || '16:9');
+  const draftContent = buildJianYingDraft({ name: proj.title?.split('\n')[0]?.slice(0, 40) || 'Wind Comic 导出', width, height, fps, clips, voiceovers, bgm });
   const draftMeta = buildJianYingMeta(
     String(draftContent.name || 'Wind Comic 导出'),
     String(draftContent.id || ''),
