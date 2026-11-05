@@ -26,5 +26,6 @@ npm run sponsor -- off           # 下架:清空两行注释之间,存档不动
 | 目录 | 赞助商 | 上架 | 下架 | 备注 |
 |---|---|---|---|---|
 | `metaso/` | 秘塔科技 · MiniMax H3 视频生成 API | 2026-09-07 | 2026-10-16 | logo `assets/sponsors/metaso.png`(仍在仓库里);落地页 `https://metaso.cn/minimax-h3/?s=wind-comic`,**`?s=wind-comic` 是分成追踪参数,不能丢** |
+| `metaso/` | 秘塔科技 · MiniMax H3 视频生成 API | 2026-11-05 | — | 按原存档恢复中英 README 顶部赞助位，沿用原 logo、文案、版式及带 `?s=wind-comic` 的推广链接。 |
 
 新增赞助商:建 `docs/sponsors/<id>/README.md.snippet` 与 `README.zh-CN.md.snippet`(内容以 `## ` 标题开头、以 `\n\n---\n\n` 结尾,和现有存档同一版式),logo 放 `assets/sponsors/`,再 `npm run sponsor -- on <id>`。
