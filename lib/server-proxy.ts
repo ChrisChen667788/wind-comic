@@ -16,6 +16,13 @@
  *
  * 另一条实测教训(同样来自那个脚本):把 `process.env.NODE_USE_ENV_PROXY='1'` 写在代码里
  * **无效** —— undici 启动时就读完了该开关,进程内再设已经太晚。必须显式装 dispatcher。
+ *
+ * v13.16:`undici` 必须是 package.json 的 **dependencies**。之前没声明,只靠 devDependency jsdom
+ * 间接装上。Turbopack 在 `next build` 时把 undici 内联进产物,所以构建后再裁掉开发依赖不受影响;
+ * 但**构建时**解析不到它(jsdom 哪天不再依赖它、或用 pnpm 这类不提升间接依赖的安装方式),
+ * Turbopack 只给一条 warning,把下面的 import 编译成运行时必抛 MODULE_NOT_FOUND 的桩,
+ * 这里再静默返回 '' —— 服务端照旧直连、日志一个字没有(目前只是碰巧被 TS 类型检查拦下)。
+ * 现在装不上会打 warn;依赖声明由 tests/v13-16-* 锁住。
  */
 
 let installed = false;
@@ -30,11 +37,16 @@ export function proxyFromEnv(env: NodeJS.ProcessEnv = process.env): string {
   ).trim();
 }
 
+/** 打日志用:代理地址里的账号密码换成 ***(`http://user:pass@host:port` 很常见)。 */
+export function proxyForLog(proxy: string): string {
+  return proxy.replace(/\/\/[^/]*@/, '//***@');
+}
+
 /**
  * 幂等安装。返回实际装上的代理地址;没配代理或装不上返回 ''。
  *
  * **不抛异常** —— 代理装不上不该让整个服务起不来;拿不到就退回直连,
- * 只是某些域名会不可达(与修复前一致,不会更糟)。
+ * 只是某些域名会不可达(与修复前一致,不会更糟)。但**配了却装不上要说出来**(见文件头 v13.16)。
  */
 export async function installServerProxy(): Promise<string> {
   if (installed) return proxyFromEnv();
@@ -45,7 +57,8 @@ export async function installServerProxy(): Promise<string> {
     setGlobalDispatcher(new ProxyAgent(proxy));
     installed = true;
     return proxy;
-  } catch {
+  } catch (e) {
+    console.warn(`[proxy] 配了代理 ${proxyForLog(proxy)} 但装不上,服务端 fetch 仍直连:${e instanceof Error ? e.message : String(e)}`);
     return '';
   }
 }

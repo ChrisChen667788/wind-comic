@@ -59,7 +59,8 @@ describe('v12.357 安装行为', () => {
   });
 
   it('**装不上不能让服务起不来** —— 退回直连而不是抛', () => {
-    expect(SRC).toMatch(/catch \{\s*return '';\s*\}/);
+    // v13.16:仍然不抛、退回直连,但不再静默 —— 先 warn 再返回 ''(真跑的失败/成功两侧见 tests/v13-16-*)
+    expect(SRC).toMatch(/catch \(e\) \{\s*console\.warn\([^;]*\);\s*return '';\s*\}/);
   });
 
   it('用显式 ProxyAgent,而不是设 NODE_USE_ENV_PROXY(进程内设已太晚)', () => {

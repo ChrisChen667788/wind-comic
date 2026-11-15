@@ -96,6 +96,7 @@ export function tokenProblem(raw) {
     const hint = ch === '√' ? ' —— macOS 上 ⌥V 会打出「√」,粘贴请用 ⌘V'
       : /[\u3400-\u9fff]/.test(ch) ? ' —— 看起来还是占位文字,请换成 ModelScope 个人中心「访问令牌」里的真实令牌'
       : /\s/.test(ch) ? ' —— 令牌中间不该有空白,可能粘贴时混进了换行或空格'
+      : ch === '\x1b' ? ' —— 混进了终端的控制符(多半是粘贴标记),令牌本身没错,重新粘贴一次'
       : '';
     return `MODELSCOPE_API_TOKEN 第 ${i + 1} 个字符不是可打印 ASCII(共 ${t.length} 个字符)${hint}`;
   }
@@ -106,11 +107,15 @@ export function tokenProblem(raw) {
  * 隐藏输入的按键处理(纯函数,v13.0):剥掉 bracketed paste 的 ESC[200~ / ESC[201~,
  * 回车结束、Ctrl-C / Ctrl-D 放弃、退格删一位。终端粘贴常一次送来整段,所以按「块」处理而不是按键。
  * raw 模式下 Ctrl-D 不是 EOF,而是一个 0x04 字节 —— 不单独处理就会被悄悄拼进令牌。
+ *
+ * v13.15:标记会被**拆在两块里**送来(Claude 桌面版的终端面板实测:ESC 单独一块、`[200~令牌` 下一块),
+ * 只在单块里剥就剥不掉,令牌变成 45 个字符、首字符是 ESC,被 tokenProblem 拦下。所以回车时再对
+ * 攒下的整段剥一遍。
  */
 export function applyTokenKeystrokes(buf, chunk) {
   let b = buf;
   for (const ch of String(chunk).replace(/\x1b\[20[01]~/g, '')) {
-    if (ch === '\r' || ch === '\n') return { buf: b, done: true, abort: false };
+    if (ch === '\r' || ch === '\n') return { buf: b.replace(/\x1b\[20[01]~/g, ''), done: true, abort: false };
     if (ch === '\u0003' || ch === '\u0004') return { buf: '', done: false, abort: true };
     if (ch === '\u007f' || ch === '\b') { b = b.slice(0, -1); continue; }
     b += ch;

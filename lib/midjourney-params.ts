@@ -117,7 +117,7 @@ export function buildMjParams(input: MjParamInput): string {
 //    发出前用 toPlainPrompt 转成纯文本 —— 画幅以字段为准、MJ 调参删掉,
 //    `--no X` 的内容是画面语义,改写成普通文字 `no X` 保留(它们原来收到的就是这几个词)。
 
-/** 官方 Parameter List 里要带值的参数(含别名)。表外的 `--xxx` 当开关处理:不吃后面的词,宁可少吃不多吃。 */
+/** 官方 Parameter List 里要带值的参数(含别名)。开关参数见 FLAG_PARAMS;表外的 `--xxx` 不是参数(v13.14)。 */
 const VALUE_PARAMS = new Set([
   'ar', 'aspect', 'bs', 'c', 'chaos', 'cref', 'cw', 'end', 'iw', 'motion', 'no', 'oref', 'ow',
   'q', 'quality', 'r', 'repeat', 's', 'stylize', 'seed', 'sref', 'stop', 'style', 'sv', 'sw',
@@ -134,6 +134,20 @@ const PARAM_ALIASES: Record<string, string> = {
  * 再长就是被拼在参数后面的正文了 —— 例如分镜重试的 `--no watermark, IDENTICAL face structure to reference`。
  */
 const NO_ITEM_MAX_WORDS = 3;
+/**
+ * v13.14:中文没有空格,一整句是一个「词」—— 按词数判断永远判不出来。按汉字折算:每 2 个字算 1 个词,
+ * 「文字」「不要字幕」「现代服装元素」照样是负向项,7 个字起(「她回头看向镜头」)就当正文。
+ */
+/** 汉字 + 日文假名 + 韩文(都不靠空格分词,或一个词就是一整句的一部分) */
+const CJK_CLASS = '\\u1100-\\u11ff\\u3040-\\u30ff\\u3130-\\u318f\\u3400-\\u9fff\\uac00-\\ud7af\\uf900-\\ufaff';
+const CJK_CHAR_RE = new RegExp(`[${CJK_CLASS}]`, 'g');
+const isCjk = (w: string) => new RegExp(`[${CJK_CLASS}]`).test(w);
+/** 英文(ASCII)开头、紧接着是中文的那一段英文:`watermark她回头` → `watermark` */
+const ASCII_THEN_CJK_RE = new RegExp(`^[!-~]+(?=[${CJK_CLASS}])`);
+const noWordWeight = (w: string) => {
+  const n = (w.match(CJK_CHAR_RE) || []).length;
+  return n ? Math.max(1, Math.ceil(n / 2)) : 1;
+};
 
 export interface MjParam {
   /** 规范名(别名已归一,如 aspect → ar) */
@@ -144,21 +158,75 @@ export interface MjParam {
 
 type MjSegment = { text: string } | { param: MjParam };
 
-/** `--name` 前面必须是开头或空白(URL 里的 `a--b`、正文里的破折号不算) */
-const PARAM_RE = /(^|\s)--([a-z][a-z0-9]*)(?=\s|$)/gi;
-const VALUE_RE = /[ \t]+(\S+)/y;
-const NO_WORD_RE = /[ \t]*([^\s,.;:!?()[\]{}"]+)/y;
+/**
+ * `--name` 前面是开头、空白,或**非 ASCII** 字符(中文、全角句读、emoji、右括号)才可能是参数;
+ * 紧挨着任何可打印 ASCII 字符(字母数字、URL 符号、括号、引号、反引号、`!`)都不算 —— 和修前一样;
+ * 括号与引号(含全角,按 Unicode 类别判,见 OPEN_QUOTE_RE)里的 `--参数` 是在引用它,也不算。判断在 parseSegments 里
+ * (跳过零宽字符后看前一个字符),PARAM_RE 只认参数名。正文里的破折号是 `—` 不是 `--`。
+ * v13.14:原来要求前面必须是开头或空白 —— 中文不打空格,`雨夜街头--ar 16:9` 认不出参数,
+ * MJ 收到两个 `--ar`、其它引擎收到 `--ar 16:9` 原文;emoji 紧贴 `--` 同理。放宽只为不打空格的文字:
+ * 初版写成「排除字母数字与 URL 符号」,漏了其余 ASCII 标点,`(--ar 16:9)`、`` `--ar 16:9` ``、`val'--ar`
+ * 里的参数被拿走、只剩空括号 / 空反引号(10-30 红队复查,修前这些原样保留);全角括号的清单逐个列举,
+ * 连着三轮复查都漏字符,改按 Unicode 类别。紧贴时还要值对得上类型,见 TIGHT_PARAMS。
+ */
+/**
+ * 只认官方 Parameter List 里的参数名(v13.14)。修前任何 `--单词` 都当开关参数拿走:`the --best shot` 丢了 best,
+ * 放宽「前面要有空白」之后 `雨夜--one more time` 也会丢 —— 不认识的 `--单词` 是正文,原样留着。
+ */
+const FLAG_PARAMS = new Set(['draft', 'edit', 'fast', 'hd', 'loop', 'public', 'raw', 'relax', 'sd', 'stealth', 'tile', 'turbo', 'video']);
+const KNOWN_PARAMS = [...VALUE_PARAMS, ...OPTIONAL_VALUE_PARAMS, ...FLAG_PARAMS].sort((a, b) => b.length - a.length);
+const PARAM_RE = new RegExp(`--(${KNOWN_PARAMS.join('|')})(?=\\s|$)`, 'gi');
+/**
+ * 括号与引号(Unicode Ps 开括号 / Pi 起始引号 / Pf 结束引号:「 ｢ 〝 （ 【 « „ “ ” ’ » …)。Pf 也算:`’` 在英文里当撇号用
+ * (`it’s--ar` 应与 `it's--ar` 一样不算参数),`»` 在丹麦语里是开引号。单独判:PARAM_RE 若加 u 标志,参数名会按
+ * Unicode 折叠大小写(ſ 当成 s)。
+ */
+const OPEN_QUOTE_RE = /[\p{Ps}\p{Pi}\p{Pf}]/u;
+/** 零宽空格 / 零宽连接符这类格式字符(Cf):看不见,判「前一个字符」时跳过(`「\u200B--ar 16:9」` 看上去就是 `「--ar 16:9」`) */
+const FORMAT_CHAR_RE = /\p{Cf}/u;
+/** 参数名与值之间、`--no` 各词之间的空白:含输入法打出的全角空格 U+3000(v13.14) */
+const GAP = '[ \\t\\u3000]';
+/**
+ * v13.14:全角标点也是句读。修前取值只按空白切、只剥 ASCII 标点,`--s 250。她回头看向镜头` 的值成了
+ * 「250。她回头看向镜头」—— 整句中文被吞进参数(非 MJ 引擎那边随参数一起删掉,MJ 那边落在参数后面)。
+ * 参数值(数字、比例、URL、raw 这类词)都是 ASCII,遇到第一个非 ASCII 字符即止;`--no` 的词遇全角标点即止。
+ * 范围:CJK 符号与标点、全角 ASCII 标点(不含全角字母数字)、破折号、省略号、弯引号。
+ */
+const FULLWIDTH_PUNCT = '\u3000-\u303f\uff01-\uff0f\uff1a-\uff20\uff3b-\uff40\uff5b-\uff65\u2014\u2026\u2018\u2019\u201c\u201d';
+const VALUE_RE = new RegExp(`${GAP}+([!-~]+)`, 'y');
+/** `--ar 9 : 16` —— 冒号两边带空格的比例整体认作一个值(v13.14;修前只取到 `9`,`: 16` 留在正文里) */
+const SPACED_RATIO_RE = new RegExp(`${GAP}+([0-9０-９]+(?:[.．][0-9０-９]+)?)${GAP}*[:：]${GAP}*([0-9０-９]+(?:[.．][0-9０-９]+)?)(?![!-~])`, 'y');
+/** 全角数字 / 点 / 冒号 → ASCII(`--ar ９：１６` 是输入法打出来的 9:16) */
+const toAsciiDigits = (v: string) => v.replace(/[０-９．：]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+/** URL 值(`--sref https://…/图片.jpg`):路径里可以有中文,只在空白或全角标点处结束 —— 不受「值只取 ASCII」限制 */
+const URL_VALUE_RE = new RegExp(`${GAP}+((?:https?:)?\\/\\/[^\\s${FULLWIDTH_PUNCT}]+)`, 'y');
+const NO_WORD_RE = new RegExp(`${GAP}*([^\\s,.;:!?()[\\]{}"${FULLWIDTH_PUNCT}]+)`, 'y');
+const LEADING_PUNCT_RE = new RegExp(`^[,.;:!?${FULLWIDTH_PUNCT}]`);
+const FW_PUNCT_TAIL_RE = new RegExp(`[${FULLWIDTH_PUNCT}]+$`);
+const FW_PUNCT_HEAD_RE = new RegExp(`^[${FULLWIDTH_PUNCT}]+`);
 const NO_COMMA_RE = /[ \t]*,/y;
 
-function readValue(s: string, pos: number, optional: boolean): [string, number] {
+function readValue(s: string, pos: number, optional: boolean, name = ''): [string, number] {
+  if (name === 'ar' || name === 'aspect') {
+    SPACED_RATIO_RE.lastIndex = pos;
+    const r = SPACED_RATIO_RE.exec(s);
+    if (r) return [toAsciiDigits(`${r[1]}:${r[2]}`), SPACED_RATIO_RE.lastIndex];
+  }
+  URL_VALUE_RE.lastIndex = pos;
+  const u = URL_VALUE_RE.exec(s);
   VALUE_RE.lastIndex = pos;
-  const m = VALUE_RE.exec(s);
+  const m = u || VALUE_RE.exec(s);
+  if (u) VALUE_RE.lastIndex = URL_VALUE_RE.lastIndex;
   if (!m || m[1].startsWith('--')) return ['', pos];
-  // 粘在值后面的标点还给正文:`--s 250. Multi-lens prep …` 的句号属于下一句
-  const value = m[1].replace(/[,.;:!?)\]]+$/, '');
-  if (!value) return ['', pos];
+  // 值两头的引号是包裹符号不是值(v13.14):`--ar "16:9"` 成对的一起拿掉;只有结尾的(`--ar 16:9" style`)
+  // 属于外面那对引号,连同粘着的标点还给正文 —— `--s 250. Multi-lens prep …` 的句号属于下一句
+  const lead = /^["'`]*/.exec(m[1])![0].length;
+  const value = m[1].slice(lead).replace(/[,.;:!?)\]"'`]+$/, '');
+  // `--ar ""`:引号拿掉后是空值 —— 引号也算参数的一部分一起拿走,不留在正文里(11-04 复查;修前值是 `""`,正文干净)
+  if (!value) return ['', lead > 0 ? VALUE_RE.lastIndex : pos];
   if (optional && !(/^[a-z0-9]+$/i.test(value) && /\d/.test(value))) return ['', pos];
-  return [value, VALUE_RE.lastIndex - (m[1].length - value.length)];
+  const tailQuotes = /^["'`]*/.exec(m[1].slice(lead + value.length))![0].length;
+  return [value, VALUE_RE.lastIndex - m[1].length + lead + value.length + Math.min(lead, tailQuotes)];
 }
 
 /** `--no a, b c, d`:逗号分隔的若干项,项内词间只隔空格;遇句读、换行、方括号、下一个参数即止 */
@@ -174,14 +242,27 @@ function readNoList(s: string, pos: number): [string, number] {
       NO_WORD_RE.lastIndex = q;
       const w = NO_WORD_RE.exec(s);
       if (!w || w[1].startsWith('--')) break;
-      words.push(w[1]);
-      q = NO_WORD_RE.lastIndex;
+      // `--no watermark她回头看向镜头`:英文负向词后面不打空格直接接中文 —— 负向词到英文为止,中文起是正文。
+      // 11-04 复查:不切开的话「watermark她回头…」整个算一个词,超长后整个还给正文,watermark 进了正向描述
+      // (库里 289 / 371 条提示词以 `--no watermark` 结尾,用户在重生弹窗里接着打中文就是这样)
+      // 只在后面那段中文够长时切 —— 与中文负向词同一把尺子(按 2 字 1 词折算超过 NO_ITEM_MAX_WORDS,即 7 个字起是正文):
+      // `AI感`、`3D渲染`、`CG感`、`PS痕迹` 是一个负向词,不能把「感」「渲染」切进正文
+      const head = ASCII_THEN_CJK_RE.exec(w[1])?.[0];
+      const glued = head && noWordWeight(w[1].slice(head.length)) > NO_ITEM_MAX_WORDS ? head : undefined;
+      const word = glued ?? w[1];
+      // v13.14:中文负向项不带空格(「文字」「不要字幕」),多词项只会是英文(`blurry background`)。
+      // 一项里出现中文、又要接第二个词 —— 那是用户在负向词后面空一格接着写的正文(`--no watermark 她微笑`)
+      if (words.length && (isCjk(word) || words.some(isCjk))) break;
+      words.push(word);
+      q = glued ? NO_WORD_RE.lastIndex - w[1].length + glued.length : NO_WORD_RE.lastIndex;
       wordEnds.push(q);
+      if (glued) break;
     }
     if (!words.length) break;
-    if (words.length > NO_ITEM_MAX_WORDS) {
-      // 第一项就超长 = `--no` 后面直接接了正文:只认第一个词,其余还给正文
-      if (!items.length) { items.push(words[0]); end = wordEnds[0]; }
+    if (words.reduce((n, w) => n + noWordWeight(w), 0) > NO_ITEM_MAX_WORDS) {
+      // 第一项就超长 = `--no` 后面直接接了正文:只认第一个词,其余还给正文;
+      // 第一个词本身就是一整句中文时一个都不认(v13.14),整句还给正文
+      if (!items.length && noWordWeight(words[0]) <= NO_ITEM_MAX_WORDS) { items.push(words[0]); end = wordEnds[0]; }
       break;
     }
     items.push(words.join(' '));
@@ -193,21 +274,47 @@ function readNoList(s: string, pos: number): [string, number] {
   return [items.join(', '), end];
 }
 
+/**
+ * 紧贴前文(前面不是空白)的 `--名字` 只认类型明确、值也对得上的参数:比例、数字、URL(v13.14)。
+ * `雨夜街头--ar 16:9` 是参数;`雨夜--no way out`、`等待--raw emotion` 是破折号接正文,原样留着。
+ */
+const NUM = /^\d+(\.\d+)?$/;
+const RATIO = /^\d+(\.\d+)?:\d+(\.\d+)?$/;
+const URLV = /^(https?:)?\/\//;
+const TIGHT_PARAMS: Record<string, RegExp> = {
+  ar: RATIO, aspect: RATIO,
+  s: NUM, stylize: NUM, c: NUM, chaos: NUM, q: NUM, quality: NUM, w: NUM, weird: NUM, iw: NUM, seed: NUM,
+  sw: NUM, sv: NUM, cw: NUM, ow: NUM, r: NUM, repeat: NUM, bs: NUM, stop: NUM, v: NUM, version: NUM, niji: NUM,
+  sref: URLV, cref: URLV, oref: URLV, end: URLV,
+};
+
 function parseSegments(prompt: string): MjSegment[] {
   const segs: MjSegment[] = [];
   let cursor = 0;
   PARAM_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = PARAM_RE.exec(prompt))) {
-    const start = m.index + m[1].length;
-    segs.push({ text: prompt.slice(cursor, start) });
-    const raw = m[2].toLowerCase();
-    let pos = start + 2 + m[2].length;
+    const start = m.index;
+    let pi = start - 1;
+    while (pi >= 0 && FORMAT_CHAR_RE.test(prompt[pi])) pi--;
+    const prev = pi >= 0 ? prompt[pi] : '';   // 前一个看得见的字符;'' = 前面只有格式字符,当开头
+    // 紧挨着 ASCII(`a--b`、`x.com/a--b`、`(--ar 16:9)`)或括号、引号(`「--ar 16:9」`)的不是参数
+    if (prev && (/[!-~]/.test(prev) || OPEN_QUOTE_RE.test(prev))) {
+      PARAM_RE.lastIndex = start + 2;
+      continue;
+    }
+    const raw = m[1].toLowerCase();
+    let pos = start + 2 + m[1].length;
     let value = '';
     if (raw === 'no') [value, pos] = readNoList(prompt, pos);
     else if (VALUE_PARAMS.has(raw) || OPTIONAL_VALUE_PARAMS.has(raw)) {
-      [value, pos] = readValue(prompt, pos, OPTIONAL_VALUE_PARAMS.has(raw));
+      [value, pos] = readValue(prompt, pos, OPTIONAL_VALUE_PARAMS.has(raw), raw);
     }
+    if (prev && !/\s/.test(prev) && !(TIGHT_PARAMS[raw] && TIGHT_PARAMS[raw].test(value))) {
+      PARAM_RE.lastIndex = start + 2;   // 不是参数,接着往后找
+      continue;
+    }
+    segs.push({ text: prompt.slice(cursor, start) });
     segs.push({ param: { name: PARAM_ALIASES[raw] || raw, value } });
     cursor = pos;
     PARAM_RE.lastIndex = pos;
@@ -218,27 +325,49 @@ function parseSegments(prompt: string): MjSegment[] {
 
 /** 在拿掉参数的地方把两段正文接上:空白归一,标点贴前文,不留「, .」这种残渣 */
 function joinAt(left: string, right: string): string {
-  let l = left.replace(/[ \t]+$/, '');
-  const r = right.replace(/^[ \t]+/, '');
+  let l = left.replace(/[ \t\u3000]+$/, '');
+  let r = right.replace(/^[ \t\u3000]+/, '');
   if (!l) return r;
   if (!r) return l;
-  if (/^[,.;:!?]/.test(r)) {
-    if (/[,;:]$/.test(l)) l = l.slice(0, -1);
+  if (LEADING_PUNCT_RE.test(r)) {   // v13.14:全角标点同样贴前文
+    if (/[,;:，；：]$/.test(l)) l = l.slice(0, -1);
+    else {
+      // 参数夹在全角标点之间(`雨夜。--ar 16:9。竖屏`):接缝两侧重复的那几个标点只留一份 —— 左串结尾与右串开头相同的
+      // 最长一段(`。|。！` → `。！`、`……|…` → `……`、`，。|。` → `，。`);接缝处不重复的照原样(`。！|。第二幕` 的句号是下一句的)。
+      // 11-04 复查:先按「一串是另一串的开头」判,那吃掉了下一句开头的句号,也漏了 `，。|。`
+      const tail = FW_PUNCT_TAIL_RE.exec(l)?.[0] ?? '';
+      const head = FW_PUNCT_HEAD_RE.exec(r)?.[0] ?? '';
+      let k = Math.min(tail.length, head.length);
+      while (k > 0 && tail.slice(-k) !== head.slice(0, k)) k--;
+      if (k) r = r.slice(k);
+    }
     return l + r;
   }
   if (r.startsWith('\n') || l.endsWith('\n')) return l + r;
   return `${l} ${r}`;
 }
 
-const tidy = (s: string) => s.trim().replace(/^[,.;:]+\s*/, '');
+/**
+ * 开头的标点残渣。ASCII 的 `,.;:` 照 v13.13 一律剥(英文行为不变);全角的分隔符 `，。；：、！？` 只在**参数排在最前面、
+ * 被拿掉之后**才剥(`--ar 16:9，正文`、`--ar 16:9！正文`)—— 用户正文本来就以它开头的不动(`。她回头 --ar 9:16`)。
+ * `……` `——` 一律不剥:中文里它们常常就是一句话的开头(`——雨停了`)。11-04 复查:初版对所有正文都剥,`……他终于开口` 丢了省略号。
+ */
+const tidy = (s: string, leadingParamRemoved: boolean) => {
+  const t = s.trim().replace(/^[,.;:]+\s*/, '');
+  return leadingParamRemoved ? t.replace(/^[，。；：、！？]+\s*/, '') : t;
+};
+/** 第一段正文是空的(只有空白)= 提示词一开头就是参数 */
+const startsWithParam = (firstText: string | undefined) => !(firstText ?? '').trim();
 
-const hasMjSyntax = (s: string) => /(^|\s)--[a-z]/i.test(s);
+/** 与解析器同一条判据(v13.14 前两处各写一份:`(^|\s)--[a-z]` 比解析器宽,会让纯中文提示词的空白被归一) */
+const hasMjSyntax = (s: string) => parseSegments(s).some((seg) => 'param' in seg);
 
 /** 把提示词拆成正文与参数(参数按出现顺序,别名已归一)。正文里拿掉参数的地方已接好。 */
 export function splitMjParams(prompt: string): { text: string; params: MjParam[] } {
   const segs = parseSegments(prompt);
   const params = segs.flatMap((s) => ('param' in s ? [s.param] : []));
-  const text = tidy(segs.flatMap((s) => ('text' in s ? [s.text] : [])).reduce(joinAt, ''));
+  const texts = segs.flatMap((s) => ('text' in s ? [s.text] : []));
+  const text = tidy(texts.reduce(joinAt, ''), params.length > 0 && startsWithParam(texts[0]));
   return { text, params };
 }
 
@@ -323,5 +452,5 @@ export function toPlainPrompt(prompt: string): string {
     if (s.param.name !== 'no' || !s.param.value) return '';
     return `, no ${s.param.value.split(/\s*,\s*/).join(', no ')}`;
   });
-  return tidy(pieces.reduce(joinAt, ''));
+  return tidy(pieces.reduce(joinAt, ''), startsWithParam(pieces[0]));
 }

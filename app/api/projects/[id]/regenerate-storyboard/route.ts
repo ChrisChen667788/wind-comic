@@ -186,7 +186,7 @@ export async function POST(
         send('status', { message: `调用图像引擎...` });
 
         // 用户的 customPrompt 先经 sanitize + 加 --no text 等通用负向 prompt
-        const { optimizeMidjourneyPrompt } = await import('@/lib/prompt-filter');
+        const { optimizeMidjourneyPrompt, toPlainPrompt } = await import('@/lib/prompt-filter');
         // v12.462:整张重生要带导演台站位。修前只有出视频的路径读舞台(v12.440 接了五条),
         // 分镜图重生直接拿用户那句 prompt 出图 —— 而导演台保存后说的是「该镜后续出片会带上这份站位」,
         // 草图锁的提示也是「重生该镜分镜图时开启草图锁即用它」。站位句要在 optimize 之前加:
@@ -232,7 +232,9 @@ export async function POST(
             score: Number(repair.score) || 0,
             priority: 1,
             weakestDimension: repair.weakestDimension ?? null,
-            focusHint: repair.focusHint || customPrompt,
+            // v13.18:没给 focusHint 时拿的是用户那句出图提示词(`… --ar 16:9 --no text`),局部重绘的 Kontext
+            // 不走图像注册表、不认 MJ 参数语法 —— 先转纯文本,`--no X` 改写成「no X」留在原处
+            focusHint: toPlainPrompt(repair.focusHint || customPrompt),
           } as any);
 
           send('status', { message: `Shot ${shotNumber}:${decision.mode === 'edit' ? '局部重绘' : '整张重生'} — ${decision.reason}` });

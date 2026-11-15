@@ -12,6 +12,7 @@ import { routeVideoByDuration } from '../route';
 import { createSSEResponse } from '@/lib/sse';
 import { checkAndSanitize } from '@/lib/prompt-guardrails';
 import { enhanceU2VMotionPrompt } from '@/lib/prompt-templates';
+import { toPlainPrompt } from '@/lib/midjourney-params';
 import { guardPaidEndpoint } from '@/lib/paid-endpoint-guard';
 import { NextResponse } from 'next/server';
 
@@ -40,8 +41,8 @@ export async function POST(request: NextRequest) {
   if (!verdict.ok) {
     return new Response(JSON.stringify({ error: verdict.userMessage, category: verdict.category }), { status: 400 });
   }
-  // 镜头语言增强 (与同步路由一致)
-  const prompt = enhanceU2VMotionPrompt(verdict.sanitized, cameraPreset || undefined);
+  // 镜头语言增强 (与同步路由一致);v13.18:先去掉 MJ 参数语法,同步路由同一处理
+  const prompt = enhanceU2VMotionPrompt(toPlainPrompt(verdict.sanitized), cameraPreset || undefined);
 
   return createSSEResponse(async (send, signal) => {
     // v12.239(第五轮对抗复检):客户端断开后此前仍会把 Minimax/Kling 跑完并计费 ——

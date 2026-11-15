@@ -31,6 +31,7 @@ import { MidjourneyService, hasMidjourney } from '@/services/midjourney.service'
 import { MinimaxService } from '@/services/minimax.service';
 import { API_CONFIG } from '@/lib/config';
 import { checkPlan } from '@/lib/plan-gate';
+import { toPlainPrompt } from '@/lib/midjourney-params';
 import {
   getQuotaState,
   insertPreview,
@@ -161,7 +162,10 @@ export async function POST(request: NextRequest) {
       warnings.push('MINIMAX_API_KEY 未配置, 跳过视频生成 (只返图片)');
     } else {
       try {
-        const motionPrompt = `${visualPrompt}\n\nCamera: subtle slow push-in, smooth ease-in-out. ` +
+        // v13.18:MiniMax 不认 MJ 参数语法 —— idea / style 先转纯文本再拼。拼好的 visualPrompt 再转不行:
+        // idea 里的 `--no text` 会把模板后面逗号隔开的「cinematic style, 16:9 aspect ratio」当成它的值,改写成「no …」
+        const plainVisual = buildPreviewVisualPrompt(toPlainPrompt(cleanedIdea), toPlainPrompt(style), aspect);
+        const motionPrompt = `${plainVisual}\n\nCamera: subtle slow push-in, smooth ease-in-out. ` +
           `Maintain photographic realism, preserve original lighting and color palette of the input image. ` +
           `Avoid: morphing artifacts, face distortion, hand mutation.`;
         const minimax = new MinimaxService();

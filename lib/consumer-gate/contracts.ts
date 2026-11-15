@@ -79,6 +79,14 @@ export const RUNTIME_ONLY_GAPS: Array<{ gap: string; incident: string; guardedBy
     guardedBy: 'tests/v12-472-video-plain-prompt.test.ts(真跑编排器,断言每个引擎**收到**的提示词没有 MJ 语法、正文都在)',
   },
   {
+    gap: '登记在 route-engine-call-must-be-registered 白名单里的直调路由,提示词是否真的转了纯文本(白名单按整个文件放行;' +
+      '从请求体到引擎中间隔着护栏、运镜增强、模板拼接,静态看不出转没转、在拼接前还是拼接后转)',
+    incident: 'v13.18 u2v(同步 / SSE)、首尾帧、试拍、引擎对比、分镜局部重绘把请求体里的 `--ar 9:16 --no text` 原样发给引擎;' +
+      '试拍 / 引擎对比若拼好模板再转,用户的 `--no X` 会把模板后面逗号隔开的词当成它的值,改写成「no cinematic style」',
+    guardedBy: 'tests/v13-18-route-plain-prompt.test.ts(真跑每条路由,断言引擎**收到**的提示词没有 MJ 语法、正文与 `no X` 都在,' +
+      '含中文贴着 `--` 与「先转再拼」两种用例)',
+  },
+  {
     gap: '分镜资产先解析再取字段(JSON.parse(x.data).description、parseData(r).description、d.description)—— storyboard-text-must-use-storyboardText 只认分镜变量直接取',
     incident: 'v13.9 续跑断点(d.description)、全局单镜重生(JSON.parse(sbAsset.data).description)、片段重拍(parseJson(sb.data)?.description)、决策日志(d.prompt)都是这种写法',
     guardedBy: 'tests/v13-9-storyboard-text.test.ts(真库真路由,description-only 与 prompt-only 两种分镜行各跑一遍,断言引擎 / MJ / 视觉质检**收到**的文字)',
@@ -326,6 +334,29 @@ export const CONTRACTS: GateContract[] = [
     forbid: /\.(?:generateVideo\w*|generateFirstLastFrame|regenerateShotAt4K)\s*\((?:[^,()]*,){0,2}\s*(?:board|storyboard|sb)\.prompt\s*[,)]/,
     scope: ['app/', 'lib/', 'services/'],
     allow: [],
+  },
+  {
+    id: 'route-engine-call-must-be-registered',
+    rule: 'app/api 路由禁止自己调引擎服务出视频 / 局部重绘(generateVideo* / generateFirstLastFrame / regenerateShotAt4K / editImage),' +
+      '要走编排器或视频 / 图像注册表(派发处统一转纯文本);确需直调的登记在 allow,写明提示词在哪一步转的纯文本、由哪个测试真跑守',
+    incident:
+      'v13.18:video-prompt-must-be-plain 只认 `board.prompt` 直接传参。u2v(同步 / SSE)、首尾帧、试拍、引擎对比、分镜局部重绘' +
+      '自己 new MiniMax / 可灵 / Vidu / Veo / fal 直调,提示词来自请求体、经变量中转 —— 用户贴进来的 `--ar 9:16 --no text` 原样发给引擎,' +
+      '这条门禁一条都没拦到(4K 重渲同款在 v13.9 才修)。新路由再这么写,至少要在这里停一下。',
+    entry: 'HybridOrchestrator(regenerateShot / generateImage)或 lib/video-providers/registry、lib/image-providers/registry;' +
+      '直调前过 toPlainPrompt(lib/midjourney-params)',
+    // 只认调用写法,不认是谁的方法:app/api 里这几个方法名只有引擎服务有(编排器出视频走 regenerateShot,不叫这些名字)。
+    // 白名单按文件放行 —— 文件里的提示词到底转没转,静态看不出,登记在 RUNTIME_ONLY_GAPS,由 tests/v13-18 真跑守。
+    forbid: /\.(?:generateVideo\w*|generateFirstLastFrame|regenerateShotAt4K|editImage)\s*\(/,
+    scope: ['app/api/'],
+    allow: [
+      { file: 'app/api/u2v/route.ts', why: '图生视频按时长点名 MiniMax / 可灵 / Vidu(routeVideoByDuration,SSE 版也用它);运动描述在运镜增强之前过 toPlainPrompt,tests/v13-18 三档真跑' },
+      { file: 'app/api/u2v-flf/route.ts', why: '可灵首尾帧注册表没有对应入口;运动描述在运镜增强之前过 toPlainPrompt,首选与 MiniMax 兜底都由 tests/v13-18 真跑' },
+      { file: 'app/api/preview-shot/route.ts', why: '建项目前的试拍,没有项目上下文可给编排器;视频段用转过纯文本的 idea / style 重拼模板(先转再拼),tests/v13-18 真跑' },
+      { file: 'app/api/tools/video-compare/route.ts', why: '引擎对比要每家吃同一首帧同一句,不能走注册表的降级链;idea / style 先转纯文本再拼模板,tests/v13-18 真跑' },
+      { file: 'app/api/projects/[id]/regenerate-storyboard/route.ts', why: '局部重绘是 fal Kontext 指令式编辑,图像注册表没有编辑入口;focusHint(或兜底的出图提示词)先过 toPlainPrompt,tests/v13-18 真跑' },
+      { file: 'app/api/projects/[id]/regenerate-shot-4k/route.ts', why: '4K 重渲点名可灵 Master,不能被注册表降级到别家;提示词在 withStageDirective 之前过 toPlainPrompt,库里分镜文字由 tests/v13-9、请求体 prompt 由 tests/v13-18 真跑' },
+    ],
   },
   {
     id: 'ffmpeg-binary-must-use-ffmpeg-bin',

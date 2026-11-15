@@ -28,6 +28,7 @@ import { ViduService } from '@/services/vidu.service';
 import { API_CONFIG } from '@/lib/config';
 import { persistAsset } from '@/lib/asset-storage';
 import { checkPlan, planRejection, requiredTierForVideoDuration } from '@/lib/plan-gate';
+import { toPlainPrompt } from '@/lib/midjourney-params';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -166,7 +167,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: verdict.userMessage, category: verdict.category }, { status: 400 });
   }
   const { enhanceU2VMotionPrompt } = await import('@/lib/prompt-templates');
-  const prompt = enhanceU2VMotionPrompt(verdict.sanitized, cameraPreset || undefined);
+  // v13.18:用户常把分镜出图的提示词整段贴进来(`--ar 9:16 --no text --s 250`),MiniMax / 可灵 / Vidu
+  // 画幅走独立字段、都不认 `--` 语法 —— 修前原样发出。护栏只查 PII 与注入,运镜增强只往后追加,都不动它。
+  const prompt = enhanceU2VMotionPrompt(toPlainPrompt(verdict.sanitized), cameraPreset || undefined);
 
   if (!API_CONFIG.minimax.apiKey) {
     return NextResponse.json(

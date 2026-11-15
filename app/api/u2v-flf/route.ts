@@ -24,6 +24,7 @@ import { MinimaxService } from '@/services/minimax.service';
 import { API_CONFIG } from '@/lib/config';
 import { persistAsset } from '@/lib/asset-storage';
 import { checkPlan, planRejection, requiredTierForVideoDuration } from '@/lib/plan-gate';
+import { toPlainPrompt } from '@/lib/midjourney-params';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,7 +88,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: verdict.userMessage, category: verdict.category }, { status: 400 });
   }
   const { enhanceU2VMotionPrompt } = await import('@/lib/prompt-templates');
-  const prompt = enhanceU2VMotionPrompt(verdict.sanitized, cameraPreset || undefined);
+  // v13.18:可灵首尾帧 / MiniMax 兜底都不认 MJ 参数语法(画幅走独立字段),先转纯文本 —— 与 /api/u2v 同一处理
+  const prompt = enhanceU2VMotionPrompt(toPlainPrompt(verdict.sanitized), cameraPreset || undefined);
 
   // Kling 是首选; 没配就直接降级到 Minimax 单图 I2V (用 firstFrame)
   const klingReady =

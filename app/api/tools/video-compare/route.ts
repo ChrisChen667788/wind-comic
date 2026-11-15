@@ -4,6 +4,7 @@ import { MidjourneyService, hasMidjourney } from '@/services/midjourney.service'
 import { MinimaxService } from '@/services/minimax.service';
 import { API_CONFIG } from '@/lib/config';
 import { persistAsset } from '@/lib/asset-storage';
+import { toPlainPrompt } from '@/lib/midjourney-params';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,12 +33,15 @@ export async function POST(request: NextRequest) {
   // 仿真人硬 prompt(禁 3D/CGI/octane)
   // v13.9:原来写死 `vertical ${aspect}` —— 横屏 / 方形请求的提示词写着「vertical 16:9」,与画幅字段相反
   const orientation = aspect === '16:9' ? 'horizontal' : aspect === '1:1' ? 'square' : 'vertical';
-  const visualPrompt =
-    `${idea}. ${style}, ${orientation} ${aspect}. photorealistic, shot on ARRI/RED cinema camera, ` +
+  const visualFor = (ideaText: string, styleText: string) =>
+    `${ideaText}. ${styleText}, ${orientation} ${aspect}. photorealistic, shot on ARRI/RED cinema camera, ` +
     `real human skin with visible pores and fine hair, natural film grain, true-to-life lighting, ` +
     `ultra-detailed, advertising photography. NO 3d render, NO CGI, NO cartoon, NO anime, NO octane render, NO illustration.`;
+  const visualPrompt = visualFor(idea, style);
+  // v13.18:Veo / MiniMax / 可灵都不认 MJ 参数语法,用户写的 idea / style 先转纯文本再拼模板 ——
+  // 拼好再转,style 里的 `--no blur` 会把后面的「vertical 9:16」当成它的值,改写成「no vertical 9:16」
   const motionPrompt =
-    `${visualPrompt}\n\nCamera: subtle slow push-in, smooth ease-in-out. ` +
+    `${visualFor(toPlainPrompt(idea), toPlainPrompt(style))}\n\nCamera: subtle slow push-in, smooth ease-in-out. ` +
     `Maintain photographic realism, preserve lighting/color of the input image. Avoid morphing, face distortion, hand mutation.`;
 
   // ── 出图一次(共享首帧)──
