@@ -77,7 +77,7 @@
     "@radix-ui/react-dialog": "^1.1.21",
     "@radix-ui/react-popover": "^1.2.0",
     "@radix-ui/react-progress": "^1.1.17",
-    "@radix-ui/react-select": "^2.3.8",
+    "@radix-ui/react-select": "^2.4.1",
     "@radix-ui/react-slot": "^1.4.0",
     "@radix-ui/react-tabs": "^1.1.22",
     "@radix-ui/react-tooltip": "^1.2.14",
