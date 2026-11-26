@@ -542,6 +542,12 @@ fallbackApiKey  = LLM_FALLBACK_API_KEY || MINIMAX_API_KEY
 | `HAPPYHORSE_WATERMARK` | 可选 | `false`（本项目主动关） | 上游默认 **true** 会打「Happy Horse」水印；设 `1`/`true` 才保留 |
 | `HAPPYHORSE_SEED` | 可选 | — | 固定随机种子（0~2147483647），用于复现同一镜 |
 | `HAPPYHORSE_DISABLE` | 可选 | — | `1` 彻底停用该引擎（即使 key 可用） |
+| `MODELHUB_API_KEY` | 可选 | — | ModelHub（modelhub.cc）视频网关密钥：Seedance 2.0 / 2.5。默认链序不含，需在 `VIDEO_ENGINE_ORDER` 列出 `modelhub` 或显式选择 |
+| `MODELHUB_BASE_URL` | 可选 | `https://modelhub.cc` | 末尾 `/v1` 会自动剪掉 |
+| `MODELHUB_MODEL` | 可选 | `seedance-2.0` | 模型 id，见 `GET https://modelhub.cc/v1/models` |
+| `MODELHUB_RESOLUTION` | 可选 | `720p` | `480p` / `720p` / `1080p` / `2k` / `4k`（以所选模型支持为准）。实测 1080p 15s ≈ 95MiB，超过 `ASSET_MAX_REMOTE_BYTES` 默认 64MB，用 1080p+ 需调大该上限 |
+| `MODELHUB_GENERATE_AUDIO` | 可选 | `false` | `1`/`true` 让上游生成音频 |
+| `MODELHUB_DISABLE` | 可选 | — | `1` 彻底停用该引擎（即使 key 可用） |
 
 *`MINIMAX_API_KEY` 在最小可跑集中作为 LLM 兜底也被引用。
 `MINIMAX_BASE_URL` **不要带 `/v1`**：代码里每个调用点自己拼 `/v1/xxx`，带了会变成 `/v1/v1/...` 全线 404

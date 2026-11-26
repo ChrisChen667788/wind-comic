@@ -134,6 +134,53 @@ interface VideoGenerateResult {
 
 ---
 
+## 引擎链(`VIDEO_ENGINE_ORDER`)里的网关引擎
+
+上面的插件注册表之外,主管线与单镜重生还有一条按 `lib/engine-order.ts` 排序的引擎链
+(默认 `veo → minimax → kling`)。新引擎**不进默认链序**:只有在 `VIDEO_ENGINE_ORDER`
+显式列出或用户显式选择时才参与,配了 key 也不会改变既有用户的出片结果。
+
+### ModelHub(modelhub.cc)
+
+一把 key 调 Seedance 2.0 / 2.5。实现:`services/modelhub.service.ts`(建任务 → 轮询 → 返回 URL)。
+
+```bash
+# .env.local
+MODELHUB_API_KEY=...
+MODELHUB_MODEL=seedance-2.0          # 可选,模型 id 见 GET https://modelhub.cc/v1/models(公开)
+VIDEO_ENGINE_ORDER=modelhub,kling,veo
+```
+
+| 环境变量 | 默认 | 说明 |
+|---|---|---|
+| `MODELHUB_API_KEY` | — | 必填,`Authorization: Bearer <key>` |
+| `MODELHUB_BASE_URL` | `https://modelhub.cc` | 末尾 `/v1` 自动剪掉;控制台写的 `https://api.modelhub.cc/v1` 同样可用 |
+| `MODELHUB_MODEL` | `seedance-2.0` | 时长按模型夹取:Seedance 2.0 系 4–15s,2.5 系 4–30s |
+| `MODELHUB_RESOLUTION` | `720p`(推荐) | `480p` / `720p` / `1080p` / `2k` / `4k`(以所选模型支持为准)。1080p 及以上需调大 `ASSET_MAX_REMOTE_BYTES`,见下 |
+| `MODELHUB_GENERATE_AUDIO` | 关 | `1` 让上游同时生成音频(实测设 false 也会带音轨,composer 对非原生音频镜照常丢弃) |
+| `MODELHUB_DISABLE` | — | `1` 停用 |
+
+- 首帧 + 尾帧(单镜重生显式尾帧)→ `functionMode: first_last_frames` + `image_file_1`(首)/ `image_file_2`(尾)。
+  上游要求首尾帧模式**正好 2 张图**,且此模式下输出尺寸跟随输入图而非 `ratio`。
+- 其余情况走**全能参考** `functionMode: omni_reference`:首帧(若有)作 `image_file_1`(人物/场景保持,但不是逐像素首帧,画幅按 `ratio`),
+  后面接本镜的角色 / 场景 / 风格参考图(去重);分镜参考视频(与 MiniMax H3 同一份,`refVideoOptsForShot`)作 `video_file_1`。
+  有参考视频时不走首尾帧。参考视频用没用上,经 `onRefOutcome` 报到进度流。
+- 全能参考素材上限按模型:Seedance 2.0 系(含 fast / mini)图 9 / 视频 3 / 音频 3;2.5 图 30 / 视频 10 / 音频 10;
+  2.5 Flash 图 10 / 视频 5 / 音频 5。参考图按上限截断。**参考视频的时长会并入计费**。
+  公网 https 图发 JSON;站内图(经 `toEngineImage` 转成 data:)上游**拒收 data: URI 字段**(400),
+  所以这种情况整个请求改发 `multipart/form-data`,图片 / 视频作文件分片。
+- 画幅:`21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16`;上游不传 ratio 默认 9:16,所以其他比例不登记该引擎。
+- 上游视频链接会过期(host 不固定:有时是 `media.modelhub.cc/api/proxy/video?...`,有时直接是上游 CDN) —— 返回值与其他引擎一样走既有本地持久化
+  (`persistAsset`),不把外链当持久地址。媒体 CDN 需要浏览器式 User-Agent,`persistAsset` 出站下载现在统一带
+  `PERSIST_USER_AGENT`(不按域名区分,因为结果链接的 host 不固定)。
+- **文件大小 / 耗时(实测,seedance-2.0-mini)**:480p 4s ≈ 0.9–1.1MB,生成约 3 分钟;**1080p 15s(1920×1088)≈ 95MiB,
+  生成约 20 分钟**。后者超过 `persistAsset` 默认 64MB 单文件上限(`ASSET_MAX_REMOTE_BYTES`),超限时不落盘、只剩会过期的外链。
+  默认 720p;用 1080p 及以上请设 `ASSET_MAX_REMOTE_BYTES=268435456`(服务启动时若未调大会告警)。轮询默认上限 30 分钟。
+- 建任务返回 5xx / 超时视为**结果未知**(上游可能已建任务),不自动重提,直接交给下一个引擎。
+  失败 / 审核拦截的任务上游不计费。
+
+---
+
 ## 自动发现自定义目录
 
 环境变量 `VIDEO_PROVIDERS_DIR` 指向一个目录, orchestrator 启动时扫一遍, 把每个 `.ts/.mjs/.js/.cjs` 文件 dynamic import:

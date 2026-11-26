@@ -147,7 +147,7 @@ type ProgressCallback = (type: string, data: any) => void;
 // ═══════════════════════════════════════════
 // v12.272:与 lib/engine-order.ts 的 VideoEngineName 保持同一集合 —— 两处此前各写各的,
 // 漏改任一处都会让新引擎「配置得上、永远派发不到」。
-type VideoEngine = 'veo' | 'minimax' | 'kling' | 'happyhorse';
+type VideoEngine = 'veo' | 'minimax' | 'kling' | 'happyhorse' | 'modelhub';
 
 interface EngineRouteResult {
   primary: VideoEngine;
@@ -3320,7 +3320,7 @@ ${shots.map((s, i) => {
       // ★ Veo 官方优先（vectorengine.ai 通道，实测稳定性最佳）
       if (this.veoService) availableEngines.push('veo');
       if (this.minimaxService?.isVideoAvailable()) availableEngines.push('minimax');
-      if (this.klingService) availableEngines.push('kling');
+      if (this.klingService) availableEngines.push('kling'); const modelhub = (await import('@/services/modelhub.service')).getModelHubService(); if (modelhub) availableEngines.push('modelhub'); // ModelHub:有 key 即登记,默认链序不含(同下方 HappyHorse)
       // v12.272:HappyHorse(阿里)—— 有 key 即登记;默认链序不含它,
       // 需 VIDEO_ENGINE_ORDER 显式列出或用户显式选择才会打头(不改变既有用户的出片结果)。
       // v12.294/295:**画幅过不了门禁就不登记**。v12.272 只在 README 里写了「竖屏别把它排链首」,
@@ -3360,7 +3360,7 @@ ${shots.map((s, i) => {
 
         // v12.8.1: 引擎兜底链(含软熔断)走抽出来的纯控制流 runVideoEngineChain —— 可单测坐实「跳过冷却引擎」。
         //   每个引擎的具体调用(minimax/veo/kling 各自参数)留在 attempt 回调;控制流(跳过/试/校验/熔断/下一个)在 helper。
-        const _engineLabel = (engine: string) => engine === 'veo' ? 'Veo 3.1' : engine === 'kling' ? '可灵 AI' : engine === 'happyhorse' ? 'HappyHorse 1.1(阿里)' : (hasCharRef ? 'Minimax(I2V+角色)' : hasFirstFrame ? 'Minimax I2V-01' : 'Minimax Hailuo-2.3');
+        const _engineLabel = (engine: string) => engine === 'veo' ? 'Veo 3.1' : engine === 'kling' ? '可灵 AI' : engine === 'happyhorse' ? 'HappyHorse 1.1(阿里)' : engine === 'modelhub' ? 'ModelHub(Seedance)' : (hasCharRef ? 'Minimax(I2V+角色)' : hasFirstFrame ? 'Minimax I2V-01' : 'Minimax Hailuo-2.3');
         const _chain = await runVideoEngineChain(
           engineOrder,
           async (engine) => {
@@ -3419,6 +3419,7 @@ ${shots.map((s, i) => {
                 duration: shot?.duration,
                 onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); },
               });
+            } else if (engine === 'modelhub' && modelhub) { const ref = await refVideoOptsForShot(this.projectId, Number(board.shotNumber), (e) => this.onRefVideo(e)); return await modelhub.generateVideo(enhancedPrompt, { ...ref, imageUrl: firstFrameUrl || undefined, referenceImages: flattenBundleToUrls(mrBundle, 30).map((u) => _toEng(u) || u), aspectRatio: this.videoAspect(), duration: shot?.duration, onProgress: (progress, status) => { this.emit('videoProgress', { shotNumber: board.shotNumber, progress, status }); } }); // 首帧+参考图+分镜参考视频走 omni_reference(全能参考);data: 素材由 service 改发 multipart
             } else if (engine === 'kling' && this.klingService) {
               // v12.15.0(Phase 2.1):给 Kling 喂角色(registry mount)+ 场景/风格参考图。
               // 之前 Kling 路径只有 first_frame、无任何角色/场景参考。Elements 多参实际生效需 KLING_ELEMENTS=1。
@@ -4294,8 +4295,8 @@ ${characterBibleBlock}${producerContext}
     // 两条路不对称,而不对称的那条没人看。
     const availForRegen = ([
       this.veoService && 'veo', this.minimaxService && 'minimax', this.klingService && 'kling',
-      (this.happyhorseService && happyHorseAspectSupported(this.videoAspect())) && 'happyhorse',
-    ].filter(Boolean)) as Array<'veo' | 'minimax' | 'kling' | 'happyhorse'>;
+      (this.happyhorseService && happyHorseAspectSupported(this.videoAspect())) && 'happyhorse', (await import('@/services/modelhub.service')).hasModelHub() && 'modelhub',
+    ].filter(Boolean)) as Array<'veo' | 'minimax' | 'kling' | 'happyhorse' | 'modelhub'>;
 
     // 显式指定了一个**当前不可用**的引擎时,原来只是悄悄换一个跑 —— 用户拿到的结果
     // 与他选的引擎无关,却没有任何提示。这类静默回落是最难排查的一种。
@@ -4323,6 +4324,7 @@ ${characterBibleBlock}${producerContext}
           ? this.klingService!.generateFirstLastFrame(engineFrame, tailImg, videoPrompt, { duration: Math.min(duration, 10) })
           : this.klingService!.generateVideo(engineFrame, videoPrompt, { duration: Math.min(duration, 10), aspectRatio: this.videoAspect() as any });
       },
+      modelhub: async () => (await import('@/services/modelhub.service')).getModelHubService()!.generateVideo(videoPrompt, { ...(await refVideoOptsForShot(options?.projectId || this.projectId, shotNumber, (e) => this.onRefVideo(e))), imageUrl: engineFrame || undefined, tailImageUrl: (options?.tailFrameUrl && toEngineImage(options.tailFrameUrl)) || undefined, aspectRatio: this.videoAspect(), duration }), // 首帧+显式尾帧 → first_last_frames;有分镜参考视频则走全能参考
     };
     const attempts = (await import('@/lib/regen-hermetic')).hermeticRegenAttempts(regenOrder.map((e) => ({ name: e, gen: genByEngine[e] })), { prompt: videoPrompt, durationS: duration, aspect: this.videoAspect() }); // v12.459:MOCK_ENGINES=1 时全封闭
 

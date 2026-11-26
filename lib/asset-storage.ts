@@ -28,6 +28,9 @@ const STORAGE_ROOT = LOCAL_STORAGE_ROOT;
  * 就能把整份 payload 灌进 Node 堆,几个并发即 OOM。默认 64MB(足够高清漫画/短视频封面),
  * 可用 ASSET_MAX_REMOTE_BYTES 覆盖。
  */
+/** persistAsset 出站下载用的 UA(浏览器式,附项目名便于对方识别来源) */
+export const PERSIST_USER_AGENT = 'Mozilla/5.0 (compatible; WindComic/1.0; +https://github.com/ChrisChen667788/wind-comic)';
+
 export const MAX_REMOTE_BYTES = (() => {
   const n = Number(process.env.ASSET_MAX_REMOTE_BYTES);
   return Number.isFinite(n) && n > 0 ? n : 64 * 1024 * 1024;
@@ -181,7 +184,8 @@ export async function persistAsset(
       let resp: Response;
       try {
         const { safeFetch } = await import('./ssrf-guard');
-        resp = await safeFetch(sourceUrl, { signal: controller.signal });
+        // 带浏览器式 UA:部分引擎的媒体 CDN 按 UA 拒绝脚本默认 UA 的下载(结果链接 host 不固定,故不按域名区分)
+        resp = await safeFetch(sourceUrl, { signal: controller.signal, headers: { 'User-Agent': PERSIST_USER_AGENT } });
       } catch (e) {
         clearTimeout(timer);
         console.warn(`[asset-storage] 出站被拒 ${sourceUrl.slice(0, 80)}: ${e instanceof Error ? e.message : 'unknown'}`);

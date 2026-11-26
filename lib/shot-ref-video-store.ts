@@ -87,7 +87,7 @@ export type RefVideoEvent = { shotNumber: number } & RefVideoOutcome;
 /** 给人看的一句话(进度对话流 / 重生状态行 / 服务端日志共用同一口径) */
 export function refVideoNoticeText(e: RefVideoEvent): string {
   return e.status === 'sent'
-    ? `🎬 第 ${e.shotNumber} 镜按参考视频的动作出片(MiniMax H3,参考图 ${e.imagesSent} 张${e.imagesDropped ? `,另有 ${e.imagesDropped} 张超出上限未发` : ''})`
+    ? `🎬 第 ${e.shotNumber} 镜按参考视频的动作出片(${e.engine === 'modelhub' ? 'ModelHub Seedance' : 'MiniMax H3'},参考图 ${e.imagesSent} 张${e.imagesDropped ? `,另有 ${e.imagesDropped} 张超出上限未发` : ''})`
     : `⚠️ 第 ${e.shotNumber} 镜的参考视频没用上:${e.reason}`;
 }
 

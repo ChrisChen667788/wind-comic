@@ -151,7 +151,7 @@ export function withRefVideoHint(prompt: string): string {
  * 忽略不是失败:这一镜会去掉参考视频照常出片,但**必须让用户知道**,不然他以为动作是照着参考做的。
  */
 export type RefVideoOutcome =
-  | { status: 'sent'; engine: 'minimax-h3'; imagesSent: number; imagesDropped: number }
+  | { status: 'sent'; engine: 'minimax-h3' | 'modelhub'; imagesSent: number; imagesDropped: number }
   | { status: 'ignored'; reason: string };
 
 /** 请求体预算(字符数 ≈ 字节数):官方上限 64MB,留 4MB 给 JSON 与文本 */
