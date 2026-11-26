@@ -8,7 +8,8 @@
 // v12.272:接入 HappyHorse(阿里,AA 双榜前五、单次联合生成视频+音频)。
 // 默认链序**不动** —— 新引擎只有在 VIDEO_ENGINE_ORDER 显式列出或用户显式选择时才参与,
 // 避免「装了新引擎就悄悄改变所有人出片结果」。
-export type VideoEngineName = 'veo' | 'minimax' | 'kling' | 'happyhorse';
+// ModelHub(Seedance 2.x 网关)同规则:默认链序不含,只在显式列出/选择时参与。
+export type VideoEngineName = 'veo' | 'minimax' | 'kling' | 'happyhorse' | 'modelhub';
 
 const DEFAULT_ORDER: VideoEngineName[] = ['veo', 'minimax', 'kling'];
 
@@ -16,7 +17,7 @@ export function parseEngineOrderEnv(raw: string | undefined | null): VideoEngine
   return (raw || '')
     .split(',')
     .map((s) => s.trim().toLowerCase())
-    .filter((s): s is VideoEngineName => s === 'veo' || s === 'minimax' || s === 'kling' || s === 'happyhorse');
+    .filter((s): s is VideoEngineName => s === 'veo' || s === 'minimax' || s === 'kling' || s === 'happyhorse' || s === 'modelhub');
 }
 
 /**
@@ -39,7 +40,8 @@ export function resolveEngineOrder(
   if (p === 'keling') p = 'kling';
   if (p === 'veo3.1' || p === 'veo3') p = 'veo';
   if (p === 'happy-horse' || p === 'happyhorse1.1' || p === 'hh') p = 'happyhorse'; // v12.272 别名
-  if ((p === 'minimax' || p === 'veo' || p === 'kling' || p === 'happyhorse') && has(p as VideoEngineName)) {
+  if (p === 'model-hub' || p === 'modelhub.cc') p = 'modelhub';
+  if ((p === 'minimax' || p === 'veo' || p === 'kling' || p === 'happyhorse' || p === 'modelhub') && has(p as VideoEngineName)) {
     // 显式选择打头,其余按 env 序(无 env 按默认)补位兜底
     const rest = (envOrder.length ? envOrder : DEFAULT_ORDER).filter((e) => e !== p);
     return dedupe([p as VideoEngineName, ...rest, ...DEFAULT_ORDER]);
