@@ -5,6 +5,7 @@ import { refVideoOptsForShot, refVideoNoticeText, type RefVideoEvent } from '@/l
 import { resolveVerifiedServeFilePath } from '@/lib/serve-file-sign';
 import { serveFilePathUrl } from '@/lib/serve-file-sign';
 import { API_CONFIG } from '@/lib/config';
+import { imageStageTimeout } from '@/lib/minimax-h3-image';
 import { withVerticalHints } from '@/lib/vertical-composition';
 // v2.18.1: 复用 polish 那套 4 级 JSON fallback (LLM 对中文长文本经常返回非法 JSON)
 import { robustJsonParse } from '@/lib/polish-json';
@@ -1789,8 +1790,8 @@ export class HybridOrchestrator {
       aspect: this.aspect,
     });
 
-    // 限时 90s — Style Bible 一旦超时就放弃, 不阻塞主流程 (degraded fallback OK)
-    const BIBLE_TIMEOUT = 90_000;
+    // The style bible can fall back to text when its image deadline expires.
+    const BIBLE_TIMEOUT = imageStageTimeout(90_000);
     let imageUrl = '';
     try {
       imageUrl = await Promise.race([
@@ -1996,8 +1997,8 @@ export class HybridOrchestrator {
       // v2.20 P0.1: Style Bible 图作首位 sref, 保证所有角色三视图都对齐到全片画风
       const progressiveRefs = prependStyleAnchor(this.styleAnchorImageUrl, baseRefs).slice(0, 3);
 
-      // 单角色限时 3 分钟，超时则降级为 mock
-      const CHAR_TIMEOUT = 180_000;
+      // Use a placeholder if character generation exceeds its deadline.
+      const CHAR_TIMEOUT = imageStageTimeout(180_000);
       const imageUrl = await Promise.race([
         this.generateImage(enhancedPrompt, {
           aspectRatio: this.aspect || '16:9',
@@ -2126,7 +2127,7 @@ export class HybridOrchestrator {
     //   但并发 2 路才能保证速度, 所以策略: 第 1 批 2 场景并发(无场景间 ref),
     //   后续批次可以拿到前批的产出做参考。暂保留 2 并发,通过 worker 内累积 refs。
     const CONCURRENCY = resolveConcurrency('scene'); // v12.32.0 可调:GEN_CONCURRENCY_SCENE(默认 2)
-    const SCENE_TIMEOUT = 180_000; // 单个场景 3 分钟超时
+    const SCENE_TIMEOUT = imageStageTimeout(180_000);
     const results: { sceneId: string; name: string; description: string; imageUrl: string }[] = [];
     let completed = 0;
     // ★ 已完成场景图池 - 后续场景从池中取最近的一张做风格传递
@@ -2482,7 +2483,7 @@ ${shots.map((s, i) => {
 
     // ═══ 并发渲染分镜图（可调并发 + 每张3分钟超时）═══
     const CONCURRENCY = resolveConcurrency('storyboard'); // v12.32.0 可调:GEN_CONCURRENCY_STORYBOARD(默认 2)
-    const SB_TIMEOUT = 180_000; // 3 分钟
+    const SB_TIMEOUT = imageStageTimeout(180_000);
     const orderedResults: (Storyboard | null)[] = new Array(storyboards.length).fill(null);
     let completedCount = 0;
 
@@ -2649,7 +2650,7 @@ ${shots.map((s, i) => {
         } catch (e) { console.warn(`[SketchLockAll] shot ${sb.shotNumber} 草图失败(退回常规渲染):`, e instanceof Error ? e.message.slice(0, 60) : e); }
       }
 
-      // 单张分镜限时 3 分钟; cw 由 policy 决定 (锁脸 125, 主角 100, 配角 80)
+      // Character weights come from the shot policy.
       const imageUrl = await Promise.race([
         this.generateImage(renderPrompt, {
           aspectRatio: this.aspect || '16:9',
